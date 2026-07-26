@@ -1,0 +1,52 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Distribution / packaging
+*.egg-info/
+*.egg
+dist/
+build/
+*.so
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs (keep the dir, ignore contents)
+logs/*.log
+logs/*.json
+
+# Backups
+backups/*.bak
+backups/*.tar.gz
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment variables (MUST NOT be committed)
+.env
+.env.local
+
+# SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary files
+tmp/
+*.tmp
+
+# Termux-specific
+.termux/

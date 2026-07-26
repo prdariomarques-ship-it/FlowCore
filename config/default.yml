@@ -1,0 +1,61 @@
+# FlowCore — Default Configuration
+# This file is version-controlled.  Override values by editing
+# config/local.yml (which is in .gitignore) or setting environment
+# variables.
+
+# Application
+app:
+  name: "FlowCore"
+  version: "0.1.0"
+  debug: false
+
+# API — BIND TO LOCALHOST ONLY for security
+api:
+  host: "127.0.0.1"
+  port: 8080
+  workers: 1          # Single worker for Termux (limited RAM)
+  cors_origins: []    # No CORS by default; add only if needed
+
+# Database (SQLite — no external server needed)
+database:
+  url: "sqlite+aiosqlite:///data/flowcore.db"
+
+# Logging
+logging:
+  level: "INFO"
+  file: "logs/flowcore.log"
+  max_size_mb: 10
+  backup_count: 3
+
+# Runtime
+runtime:
+  data_dir: "data"          # Relative to project root
+  cache_ttl_seconds: 300
+  max_concurrent_tasks: 2   # Conservative for mobile
+
+# Scheduler
+scheduler:
+  enabled: true
+  timezone: "America/Sao_Paulo"
+  default_interval_seconds: 300
+
+# Agents
+agents:
+  enabled: true
+  max_retries: 3
+  timeout_seconds: 30
+
+# Executor
+executor:
+  max_queue_size: 100
+  max_retries: 3
+  retry_delay_seconds: 5
+
+# Security
+security:
+  allow_remote_access: false
+  require_auth: true
+  token_ttl_hours: 24
+  # Root/sudo operations are NEVER executed automatically.
+  # They are only invoked when explicitly called by the user.
+  auto_root: false
