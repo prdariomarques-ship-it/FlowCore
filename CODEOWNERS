@@ -1,0 +1,18 @@
+# FlowCore Code Owners
+#
+# Format: path  @owner
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Root configuration and scripts
+*.sh           @prdariomarques-ship-it
+*.py           @prdariomarques-ship-it
+config/        @prdariomarques-ship-it
+requirements.txt  @prdariomarques-ship-it
+
+# Architecture and documentation
+ARCHITECTURE.md  @prdariomarques-ship-it
+CHANGELOG.md     @prdariomarques-ship-it
+ROADMAP.md       @prdariomarques-ship-it
+
+# CI/CD and workflows
+.github/         @prdariomarques-ship-it
