@@ -2,15 +2,20 @@
 """FlowCore — Main entry point.
 
 Usage:
-    python3 flowcore.py serve        Start the API server
-    python3 flowcore.py run          Start the full application (API + scheduler + agents)
-    python3 flowcore.py health       Quick health check
-    python3 flowcore.py version      Print version
-    python3 flowcore.py selftest     Validate the entire installation
-    python3 flowcore.py chat         Interactive chat session
-    python3 flowcore.py remember "<text>"    Save a memory
-    python3 flowcore.py recall "<topic>"     Recall memories by topic
-    python3 flowcore.py memories     List all memories
+    python3 flowcore.py serve            Start the API server
+    python3 flowcore.py run              Start the full application (API + scheduler + agents)
+    python3 flowcore.py health           Quick health check
+    python3 flowcore.py version          Print version
+    python3 flowcore.py selftest         Validate the entire installation
+    python3 flowcore.py chat             Interactive chat session
+    python3 flowcore.py remember "<text>"     Save a memory
+    python3 flowcore.py recall "<topic>"      Recall memories by topic
+    python3 flowcore.py memories         List all memories
+    python3 flowcore.py import "<file.md>"    Import Markdown file
+    python3 flowcore.py ask "<question>"      Ask AI (requires Ollama)
+    python3 flowcore.py note "<text>"         Add a note
+    python3 flowcore.py todo "<task>"         Add a todo item
+    python3 flowcore.py agenda "<event>"      Add to agenda
 """
 from __future__ import annotations
 
@@ -165,6 +170,18 @@ def cmd_selftest() -> None:
         result = selftest_check("SCHEDULER", _scheduler_test, "Install with: bash install_api.sh", skip=True)
         results.append(result)
         skipped += 1
+
+    # ── Storage ──────────────────────────────────────────────────────────
+    print(f"{BOLD}STORAGE{NC}")
+
+    def _storage_test():
+        from pathlib import Path
+        Path("data").mkdir(parents=True, exist_ok=True)
+
+    result = selftest_check("DOCUMENTS", _storage_test, "SQLite ready")
+    results.append(result)
+    if result == "PASS": passed += 1
+    elif result == "FAIL": failed += 1
 
     # ── Summary ──────────────────────────────────────────────────────────
     total = passed + failed + skipped
@@ -400,6 +417,209 @@ def cmd_memories() -> None:
         print()
 
 
+async def _init_sqlite_documents():
+    """Initialize SQLite documents table."""
+    try:
+        import aiosqlite
+        from config.loader import get_config
+        cfg = get_config()
+        db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
+        db_path = db_url.replace("sqlite+aiosqlite:///", "")
+
+        async with aiosqlite.connect(db_path) as db:
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS documents (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    source TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            await db.commit()
+    except Exception as e:
+        logger.error(f"Error initializing documents table: {e}")
+
+
+def cmd_import(filepath: str) -> None:
+    """Import Markdown file to SQLite."""
+    try:
+        path = Path(filepath)
+        if not path.exists():
+            print(f"{RED}Error: File not found: {filepath}{NC}")
+            return
+
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        asyncio.run(_init_sqlite_documents())
+
+        import aiosqlite
+        from config.loader import get_config
+
+        async def _import():
+            cfg = get_config()
+            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
+            db_path = db_url.replace("sqlite+aiosqlite:///", "")
+
+            async with aiosqlite.connect(db_path) as db:
+                await db.execute(
+                    "INSERT INTO documents (title, content, source) VALUES (?, ?, ?)",
+                    (path.stem, content, str(path))
+                )
+                await db.commit()
+
+        asyncio.run(_import())
+        print(f"{GREEN}✓ Document imported: {path.name}{NC}")
+        logger.info(f"Imported document: {filepath}")
+
+    except Exception as e:
+        print(f"{RED}Error importing document: {e}{NC}")
+        logger.error(f"Import error: {e}")
+
+
+def cmd_ask(question: str) -> None:
+    """Ask AI using Ollama with SQLite context."""
+    try:
+        import aiosqlite
+        from config.loader import get_config
+
+        async def _ask():
+            cfg = get_config()
+            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
+            db_path = db_url.replace("sqlite+aiosqlite:///", "")
+
+            # Get context from SQLite
+            context = ""
+            try:
+                async with aiosqlite.connect(db_path) as db:
+                    cursor = await db.execute(
+                        "SELECT title, content FROM documents ORDER BY created_at DESC LIMIT 5"
+                    )
+                    rows = await cursor.fetchall()
+                    if rows:
+                        context = "\nContext from documents:\n"
+                        for title, content in rows:
+                            context += f"\n## {title}\n{content[:500]}...\n"
+            except Exception as e:
+                logger.warning(f"Could not load context: {e}")
+
+            # Try to use Ollama
+            try:
+                import requests
+                prompt = f"{context}\n\nQuestion: {question}"
+
+                response = requests.post(
+                    "http://localhost:11434/api/generate",
+                    json={"model": "llama2", "prompt": prompt, "stream": False},
+                    timeout=30
+                )
+
+                if response.status_code == 200:
+                    result = response.json().get("response", "")
+                    print(f"\n{BOLD}{CYAN}FlowCore AI:{NC}")
+                    print(result)
+                else:
+                    print(f"{RED}Error: Ollama returned status {response.status_code}{NC}")
+
+            except requests.exceptions.ConnectionError:
+                print(f"{RED}Error: Cannot connect to Ollama (http://localhost:11434){NC}")
+                print(f"{YELLOW}Make sure Ollama is running: ollama serve{NC}")
+            except Exception as e:
+                print(f"{RED}Error: {e}{NC}")
+                logger.error(f"Ask error: {e}")
+
+        asyncio.run(_ask())
+
+    except ImportError:
+        print(f"{RED}Error: 'requests' module not installed{NC}")
+        print(f"{YELLOW}Install with: pip install requests{NC}")
+
+
+def cmd_note(text: str) -> None:
+    """Add a note."""
+    try:
+        asyncio.run(_init_sqlite_documents())
+
+        import aiosqlite
+        from config.loader import get_config
+
+        async def _add_note():
+            cfg = get_config()
+            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
+            db_path = db_url.replace("sqlite+aiosqlite:///", "")
+
+            async with aiosqlite.connect(db_path) as db:
+                await db.execute(
+                    "INSERT INTO documents (title, content, source) VALUES (?, ?, ?)",
+                    ("Note", text, "note")
+                )
+                await db.commit()
+
+        asyncio.run(_add_note())
+        print(f"{GREEN}✓ Note saved{NC}")
+        logger.info(f"Note added: {text}")
+
+    except Exception as e:
+        print(f"{RED}Error: {e}{NC}")
+
+
+def cmd_todo(task: str) -> None:
+    """Add a todo item."""
+    try:
+        asyncio.run(_init_sqlite_documents())
+
+        import aiosqlite
+        from config.loader import get_config
+
+        async def _add_todo():
+            cfg = get_config()
+            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
+            db_path = db_url.replace("sqlite+aiosqlite:///", "")
+
+            async with aiosqlite.connect(db_path) as db:
+                await db.execute(
+                    "INSERT INTO documents (title, content, source) VALUES (?, ?, ?)",
+                    ("TODO", task, "todo")
+                )
+                await db.commit()
+
+        asyncio.run(_add_todo())
+        print(f"{GREEN}✓ Todo added{NC}")
+        logger.info(f"Todo added: {task}")
+
+    except Exception as e:
+        print(f"{RED}Error: {e}{NC}")
+
+
+def cmd_agenda(event: str) -> None:
+    """Add to agenda."""
+    try:
+        asyncio.run(_init_sqlite_documents())
+
+        import aiosqlite
+        from config.loader import get_config
+
+        async def _add_agenda():
+            cfg = get_config()
+            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
+            db_path = db_url.replace("sqlite+aiosqlite:///", "")
+
+            async with aiosqlite.connect(db_path) as db:
+                await db.execute(
+                    "INSERT INTO documents (title, content, source) VALUES (?, ?, ?)",
+                    ("Agenda", event, "agenda")
+                )
+                await db.commit()
+
+        asyncio.run(_add_agenda())
+        print(f"{GREEN}✓ Event added to agenda{NC}")
+        logger.info(f"Agenda event: {event}")
+
+    except Exception as e:
+        print(f"{RED}Error: {e}{NC}")
+
+
 def main() -> None:
     """Main CLI handler."""
     parser = argparse.ArgumentParser(description="FlowCore CLI")
@@ -419,6 +639,21 @@ def main() -> None:
     recall_parser.add_argument("topic", help="Topic to search (e.g., FlowCore)")
 
     subparsers.add_parser("memories", help="List all memories")
+
+    import_parser = subparsers.add_parser("import", help="Import Markdown file")
+    import_parser.add_argument("file", help="Path to Markdown file")
+
+    ask_parser = subparsers.add_parser("ask", help="Ask AI (requires Ollama)")
+    ask_parser.add_argument("question", nargs="+", help="Question to ask")
+
+    note_parser = subparsers.add_parser("note", help="Add a note")
+    note_parser.add_argument("text", nargs="+", help="Note text")
+
+    todo_parser = subparsers.add_parser("todo", help="Add a todo item")
+    todo_parser.add_argument("task", nargs="+", help="Task description")
+
+    agenda_parser = subparsers.add_parser("agenda", help="Add to agenda")
+    agenda_parser.add_argument("event", nargs="+", help="Event description")
 
     args = parser.parse_args()
     cfg = get_config()
@@ -443,6 +678,20 @@ def main() -> None:
         cmd_recall(args.topic)
     elif args.command == "memories":
         cmd_memories()
+    elif args.command == "import":
+        cmd_import(args.file)
+    elif args.command == "ask":
+        question = " ".join(args.question)
+        cmd_ask(question)
+    elif args.command == "note":
+        text = " ".join(args.text)
+        cmd_note(text)
+    elif args.command == "todo":
+        task = " ".join(args.task)
+        cmd_todo(task)
+    elif args.command == "agenda":
+        event = " ".join(args.event)
+        cmd_agenda(event)
     else:
         parser.print_help()
         sys.exit(1)
