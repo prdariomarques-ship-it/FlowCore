@@ -114,8 +114,7 @@ def cmd_selftest() -> None:
     elif result == "FAIL": failed += 1
 
     # ── OPTIONAL ─────────────────────────────────────────────────────────
-    print(f"
-{BOLD}OPTIONAL{NC}")
+    print(f"{BOLD}OPTIONAL{NC}")
 
     # API (check if FastAPI is installed)
     def _api_test():
