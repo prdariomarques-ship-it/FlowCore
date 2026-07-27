@@ -295,6 +295,7 @@ def cmd_chat(cfg: dict) -> None:
 
 
 def main() -> None:
+    """Main CLI handler."""
     parser = argparse.ArgumentParser(description="FlowCore CLI")
     subparsers = parser.add_subparsers(dest="command")
 
@@ -306,7 +307,6 @@ def main() -> None:
     subparsers.add_parser("chat", help="Interactive chat session")
 
     args = parser.parse_args()
-
     cfg = get_config()
     platform = detect_platform()
 
