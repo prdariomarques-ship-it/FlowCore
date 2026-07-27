@@ -12,6 +12,7 @@
 #   - Detailed error handling and logging
 #   - Friendly messages for all platforms
 #   - Platform auto-detection (Termux / Linux / macOS)
+#   - Termux: uses TUR for pydantic-core pre-built wheels
 # ============================================================================
 set -euo pipefail
 
@@ -20,6 +21,7 @@ MIN_DISK_MB=100
 INSTALL_LOG="logs/install.log"
 ROLLBACK_MARKER=".install_rollback"
 PYTHON_CMD="python3"
+TUR_INDEX="https://termux-user-repository.github.io/pypi/"
 
 # ── Colours ───────────────────────────────────────────────────────────────
 RED='\033[0;31m'
@@ -36,7 +38,7 @@ exec > >(tee -a "$INSTALL_LOG") 2>&1
 log_info()  { echo -e "${GREEN}[INFO]${NC}    $(date '+%H:%M:%S') $*"; }
 log_warn()  { echo -e "${YELLOW}[WARN]${NC}    $(date '+%H:%M:%S') $*"; }
 log_error() { echo -e "${RED}[ERROR]${NC}   $(date '+%H:%M:%S') $*"; }
-log_step()  { echo -e "\n${CYAN}${BOLD}[STEP $1/7]${NC} $2"; }
+log_step()  { echo -e "\n${CYAN}${BOLD}[STEP $1/8]${NC} $2"; }
 
 # ── Banner ────────────────────────────────────────────────────────────────
 echo ""
@@ -158,8 +160,29 @@ else
     log_info "Python version meets requirements (>= 3.11)"
 fi
 
-# ── STEP 5: Install Dependencies ─────────────────────────────────────────
-log_step 5 "Installing Python dependencies"
+# ── STEP 5: Termux System Packages ───────────────────────────────────────
+log_step 5 "Installing system packages"
+
+if [ "$IS_TERMUX" = true ]; then
+    log_info "Updating Termux package repository..."
+    pkg update -y 2>/dev/null || log_warn "pkg update failed (continuing)"
+
+    log_info "Installing system dependencies..."
+    pkg install -y openssl python 2>/dev/null || log_warn "Some packages may already be installed"
+    log_info "System packages OK"
+elif [ "$IS_MACOS" = false ] && [ -f "/etc/os-release" ]; then
+    # Linux: ensure pip is available
+    if ! command -v pip3 &>/dev/null && ! command -v pip &>/dev/null; then
+        log_warn "pip not found. Attempting to install..."
+        $PYTHON_CMD -m ensurepip --default-pip 2>/dev/null || {
+            log_error "pip is required. Install it: sudo apt install python3-pip"
+            exit 1
+        }
+    fi
+fi
+
+# ── STEP 6: Install Python Dependencies ──────────────────────────────────
+log_step 6 "Installing Python dependencies"
 
 mkdir -p data backups
 
@@ -172,7 +195,26 @@ $PYTHON_CMD -m pip install --upgrade pip --quiet 2>/dev/null || {
     log_warn "Could not upgrade pip (continuing with existing version)"
 }
 
-# Install requirements
+# Termux: install pydantic-core from TUR (pre-built wheel, no Rust needed)
+if [ "$IS_TERMUX" = true ]; then
+    log_info "Termux detected — installing pydantic-core from TUR (pre-built wheel)..."
+    $PYTHON_CMD -m pip install \
+        pydantic-core \
+        --extra-index-url "$TUR_INDEX" \
+        --quiet 2>&1 || {
+        log_warn "TUR installation failed, attempting PyPI fallback..."
+        $PYTHON_CMD -m pip install pydantic-core --quiet 2>&1 || {
+            log_error "pydantic-core installation failed."
+            log_error "On Termux, this usually means no pre-built wheel for your architecture."
+            log_error "Try: pkg install python-pydantic"
+            touch "$ROLLBACK_MARKER/pip_installed"
+            rollback
+        }
+    }
+    log_info "pydantic-core installed from TUR"
+fi
+
+# Install remaining requirements
 log_info "Installing dependencies from requirements.txt..."
 $PYTHON_CMD -m pip install --user -r requirements.txt --quiet 2>&1 || {
     log_error "Failed to install Python dependencies"
@@ -182,19 +224,13 @@ $PYTHON_CMD -m pip install --user -r requirements.txt --quiet 2>&1 || {
 touch "$ROLLBACK_MARKER/pip_installed"
 log_info "All Python dependencies installed"
 
-# Termux-specific packages
-if [ "$IS_TERMUX" = true ]; then
-    log_info "Checking Termux system packages..."
-    pkg install -y openssl 2>/dev/null || true
-fi
-
-# ── STEP 6: Validation ───────────────────────────────────────────────────
-log_step 6 "Validating installation"
+# ── STEP 7: Validation ───────────────────────────────────────────────────
+log_step 7 "Validating installation"
 
 VALIDATION_ERRORS=0
 
 # Check critical modules
-CRITICAL_MODULES="yaml fastapi loguru aiosqlite"
+CRITICAL_MODULES="yaml fastapi loguru aiosqlite sqlalchemy pydantic"
 for mod in $CRITICAL_MODULES; do
     if $PYTHON_CMD -c "import $mod" 2>/dev/null; then
         log_info "Module OK: $mod"
@@ -232,8 +268,8 @@ else
     log_warn "Security: API may be network-exposed. Check config/default.yml"
 fi
 
-# ── STEP 7: Final Report ─────────────────────────────────────────────────
-log_step 7 "Installation summary"
+# ── STEP 8: Final Report ─────────────────────────────────────────────────
+log_step 8 "Installation summary"
 
 # Clean up rollback marker on success
 rm -rf "$ROLLBACK_MARKER"
