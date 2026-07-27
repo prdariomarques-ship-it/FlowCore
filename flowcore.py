@@ -7,6 +7,7 @@ Usage:
     python3 flowcore.py health       Quick health check
     python3 flowcore.py version      Print version
     python3 flowcore.py selftest     Validate the entire installation
+    python3 flowcore.py chat         Interactive chat session
 """
 from __future__ import annotations
 
@@ -263,6 +264,36 @@ def cmd_version(cfg: dict) -> None:
     print(f"  Android: {platform['android']}")
 
 
+def cmd_chat(cfg: dict) -> None:
+    """Interactive chat session."""
+    print("")
+    print(f"{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+    print(f"{BOLD}{CYAN}║         FlowCore Chat                           ║{NC}")
+    print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}")
+    print("")
+    print("Type 'quit' to exit")
+    print("")
+
+    while True:
+        try:
+            user_input = input(f"{GREEN}You:{NC} ").strip()
+            if not user_input:
+                continue
+            if user_input.lower() in ("quit", "exit", "q"):
+                print(f"{GREEN}Goodbye!{NC}")
+                break
+
+            logger.info(f"User input: {user_input}")
+            print(f"{CYAN}FlowCore:{NC} Received: {user_input}")
+
+        except (KeyboardInterrupt, EOFError):
+            print(f"\n{GREEN}Goodbye!{NC}")
+            break
+        except Exception as e:
+            logger.error(f"Chat error: {e}")
+            print(f"{RED}Error: {e}{NC}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="FlowCore CLI")
     subparsers = parser.add_subparsers(dest="command")
@@ -272,6 +303,7 @@ def main() -> None:
     subparsers.add_parser("health", help="Quick health check")
     subparsers.add_parser("version", help="Print version info")
     subparsers.add_parser("selftest", help="Validate the entire installation")
+    subparsers.add_parser("chat", help="Interactive chat session")
 
     args = parser.parse_args()
 
@@ -288,6 +320,8 @@ def main() -> None:
         cmd_version(cfg)
     elif args.command == "selftest":
         cmd_selftest()
+    elif args.command == "chat":
+        cmd_chat(cfg)
     else:
         parser.print_help()
         sys.exit(1)
