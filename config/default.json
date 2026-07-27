@@ -1,0 +1,22 @@
+{
+  "app": {
+    "name": "FlowCore",
+    "version": "1.0.0",
+    "debug": false
+  },
+  "api": {
+    "host": "127.0.0.1",
+    "port": 8080,
+    "workers": 1,
+    "cors_origins": []
+  },
+  "database": {
+    "url": "sqlite+aiosqlite:///data/flowcore.db"
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "logs/flowcore.log",
+    "max_size_mb": 10,
+    "backup_count": 3
+  }
+}

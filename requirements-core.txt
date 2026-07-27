@@ -1,0 +1,6 @@
+# FlowCore Core — Android 15 + Termux compatible
+# Pure Python, zero compilation, zero Rust needed
+
+python-dotenv>=1.0.0,<2.0.0
+loguru>=0.7.0,<1.0.0
+aiosqlite>=0.19.0,<1.0.0
