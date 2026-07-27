@@ -24,7 +24,6 @@ if str(ROOT) not in sys.path:
 
 from config.loader import get_config
 from runtime.core import FlowCoreRuntime, detect_platform
-from api.router import create_app
 from loguru import logger
 
 # Colours
@@ -281,7 +280,12 @@ async def _run_async(coro_fn) -> bool:
 
 async def cmd_serve(cfg: dict, platform: dict) -> None:
     """Start the FastAPI server."""
-    import uvicorn
+    try:
+    from api.router import create_app
+    except ImportError:
+        logger.error("FastAPI not installed. Run: bash install_api.sh")
+        sys.exit(1)
+    from api.router import create_app
 
     host = cfg["api"]["host"]
     port = cfg["api"]["port"]
@@ -302,6 +306,7 @@ async def cmd_run(cfg: dict, platform: dict) -> None:
     """Start the full application (API + scheduler + agents)."""
     import uvicorn
 
+    from api.router import create_app
     logger.info("Starting FlowCore full application...")
     rt = FlowCoreRuntime(ROOT)
     await rt.start()
