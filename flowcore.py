@@ -8,14 +8,19 @@ Usage:
     python3 flowcore.py version      Print version
     python3 flowcore.py selftest     Validate the entire installation
     python3 flowcore.py chat         Interactive chat session
+    python3 flowcore.py remember "<text>"    Save a memory
+    python3 flowcore.py recall "<topic>"     Recall memories by topic
+    python3 flowcore.py memories     List all memories
 """
 from __future__ import annotations
 
 import argparse
 import asyncio
 import importlib
+import json
 import os
 import sys
+from datetime import datetime
 from pathlib import Path
 
 # Add project root to Python path so imports work regardless of CWD.
@@ -294,6 +299,107 @@ def cmd_chat(cfg: dict) -> None:
             print(f"{RED}Error: {e}{NC}")
 
 
+def _get_memories_file() -> Path:
+    """Get path to memories.json file."""
+    home = Path.home()
+    memories_dir = home / ".flowcore"
+    memories_dir.mkdir(exist_ok=True)
+    return memories_dir / "memories.json"
+
+
+def _load_memories() -> list:
+    """Load memories from JSON file."""
+    file_path = _get_memories_file()
+    if not file_path.exists():
+        return []
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, IOError) as e:
+        logger.error(f"Error loading memories: {e}")
+        return []
+
+
+def _save_memories(memories: list) -> None:
+    """Save memories to JSON file."""
+    file_path = _get_memories_file()
+    try:
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(memories, f, indent=2, ensure_ascii=False)
+    except IOError as e:
+        logger.error(f"Error saving memories: {e}")
+
+
+def cmd_remember(text: str) -> None:
+    """Save a memory."""
+    memories = _load_memories()
+    memory = {
+        "text": text,
+        "timestamp": datetime.now().isoformat(),
+        "topics": []
+    }
+
+    # Extract topics (words starting with #)
+    for word in text.split():
+        if word.startswith("#") and len(word) > 1:
+            memory["topics"].append(word[1:].lower())
+
+    memories.append(memory)
+    _save_memories(memories)
+
+    print(f"{GREEN}✓ Memory saved{NC}")
+    if memory["topics"]:
+        print(f"  Topics: {', '.join(memory['topics'])}")
+    logger.info(f"Memory saved: {text}")
+
+
+def cmd_recall(topic: str) -> None:
+    """Recall memories by topic."""
+    memories = _load_memories()
+
+    if not memories:
+        print(f"{YELLOW}No memories found{NC}")
+        return
+
+    topic_lower = topic.lower().lstrip("#")
+    matching = [m for m in memories if topic_lower in [t.lower() for t in m.get("topics", [])]]
+
+    if not matching:
+        print(f"{YELLOW}No memories found for topic: {topic}{NC}")
+        return
+
+    print(f"\n{BOLD}{CYAN}Memories for: #{topic_lower}{NC}")
+    for i, memory in enumerate(matching, 1):
+        timestamp = memory.get("timestamp", "Unknown")
+        text = memory.get("text", "")
+        print(f"  {i}. {text}")
+        print(f"     {YELLOW}└─ {timestamp[:10]}{NC}")
+
+
+def cmd_memories() -> None:
+    """List all memories."""
+    memories = _load_memories()
+
+    if not memories:
+        print(f"{YELLOW}No memories yet. Use: python3 flowcore.py remember \"<text>\"{NC}")
+        return
+
+    print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+    print(f"{BOLD}{CYAN}║         FlowCore Memories                       ║{NC}")
+    print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
+
+    for i, memory in enumerate(memories, 1):
+        text = memory.get("text", "")
+        timestamp = memory.get("timestamp", "Unknown")
+        topics = memory.get("topics", [])
+
+        print(f"{GREEN}{i}.{NC} {text}")
+        if topics:
+            print(f"   {YELLOW}Topics:{NC} {', '.join([f'#{t}' for t in topics])}")
+        print(f"   {YELLOW}Date:{NC} {timestamp[:10]}")
+        print()
+
+
 def main() -> None:
     """Main CLI handler."""
     parser = argparse.ArgumentParser(description="FlowCore CLI")
@@ -305,6 +411,14 @@ def main() -> None:
     subparsers.add_parser("version", help="Print version info")
     subparsers.add_parser("selftest", help="Validate the entire installation")
     subparsers.add_parser("chat", help="Interactive chat session")
+
+    remember_parser = subparsers.add_parser("remember", help="Save a memory")
+    remember_parser.add_argument("text", nargs="+", help="Memory text (use #topic for tagging)")
+
+    recall_parser = subparsers.add_parser("recall", help="Recall memories by topic")
+    recall_parser.add_argument("topic", help="Topic to search (e.g., FlowCore)")
+
+    subparsers.add_parser("memories", help="List all memories")
 
     args = parser.parse_args()
     cfg = get_config()
@@ -322,6 +436,13 @@ def main() -> None:
         cmd_selftest()
     elif args.command == "chat":
         cmd_chat(cfg)
+    elif args.command == "remember":
+        text = " ".join(args.text)
+        cmd_remember(text)
+    elif args.command == "recall":
+        cmd_recall(args.topic)
+    elif args.command == "memories":
+        cmd_memories()
     else:
         parser.print_help()
         sys.exit(1)
