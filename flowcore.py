@@ -177,10 +177,13 @@ async def cmd_serve(cfg: dict, platform: dict) -> None:
     """Start the FastAPI server."""
     try:
         from api.router import create_app
+        import uvicorn
     except ImportError:
         logger.error("FastAPI not installed. Run: bash install_api.sh")
         sys.exit(1)
-    from api.router import create_app
+
+    host = cfg["api"]["host"]
+    port = cfg["api"]["port"]
 
     logger.info("Starting FlowCore API on {}:{}", host, port)
     app = create_app(version=cfg["app"]["version"], platform_info=platform)
