@@ -122,7 +122,9 @@ def cmd_selftest() -> None:
         try:
             import fastapi
             from api.router import create_app
-            app = create_app(version="1.0.1", platform_info={"os_name": "linux"})
+            from config.loader import get_config
+            cfg = get_config()
+            app = create_app(version=cfg["app"]["version"], platform_info={"os_name": "linux"})
             assert app is not None
         except ImportError:
             raise ImportError("FastAPI not installed. Run: bash install_api.sh")
