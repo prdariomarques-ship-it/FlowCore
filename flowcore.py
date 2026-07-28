@@ -20,6 +20,10 @@ Usage:
     python3 flowcore.py stats            Show FlowCore statistics
     python3 flowcore.py doctor           System health check
     python3 flowcore.py demo             Interactive demo
+    python3 flowcore.py search "<query>"      Search documents & memories
+    python3 flowcore.py daily            Show daily summary
+    python3 flowcore.py sync "<folder>"      Sync all .md from folder
+    python3 flowcore.py watch "<folder>"     Monitor folder for changes
     python3 flowcore.py note "<text>"         Add a note
     python3 flowcore.py todo "<task>"         Add a todo item
     python3 flowcore.py agenda "<event>"      Add to agenda
@@ -298,6 +302,49 @@ def cmd_selftest() -> None:
             sys.stdout = old_stdout
 
     result = selftest_check("STATS", _stats_test, "Statistics display works")
+    results.append(result)
+    if result == "PASS": passed += 1
+    elif result == "FAIL": failed += 1
+
+    # ── Daily & Search ───────────────────────────────────────────────────
+    print(f"{BOLD}DAILY/SEARCH{NC}")
+
+    def _daily_test():
+        import io
+        old_stdout = sys.stdout
+        try:
+            sys.stdout = io.StringIO()
+            cmd_daily()
+        finally:
+            sys.stdout = old_stdout
+
+    result = selftest_check("DAILY", _daily_test, "Daily summary works")
+    results.append(result)
+    if result == "PASS": passed += 1
+    elif result == "FAIL": failed += 1
+
+    def _search_test():
+        import io
+        old_stdout = sys.stdout
+        try:
+            sys.stdout = io.StringIO()
+            cmd_search("test")
+        finally:
+            sys.stdout = old_stdout
+
+    result = selftest_check("SEARCH", _search_test, "Search works")
+    results.append(result)
+    if result == "PASS": passed += 1
+    elif result == "FAIL": failed += 1
+
+    def _sync_test():
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            md_file = Path(tmpdir) / "test.md"
+            md_file.write_text("# Test\nContent")
+            cmd_sync(tmpdir)
+
+    result = selftest_check("SYNC", _sync_test, "Sync folder works")
     results.append(result)
     if result == "PASS": passed += 1
     elif result == "FAIL": failed += 1
@@ -945,6 +992,185 @@ def cmd_demo() -> None:
         logger.error(f"Demo error: {e}")
 
 
+def cmd_search(query: str) -> None:
+    """Search in documents and memories."""
+    try:
+        import aiosqlite
+        from config.loader import get_config
+
+        async def _search():
+            cfg = get_config()
+            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
+            db_path = db_url.replace("sqlite+aiosqlite:///", "")
+
+            query_lower = query.lower()
+            results = {"documents": [], "memories": []}
+
+            try:
+                async with aiosqlite.connect(db_path) as db:
+                    cursor = await db.execute(
+                        "SELECT id, title, content FROM documents WHERE title LIKE ? OR content LIKE ?",
+                        (f"%{query}%", f"%{query}%")
+                    )
+                    results["documents"] = await cursor.fetchall()
+            except Exception:
+                pass
+
+            memories = _load_memories()
+            for m in memories:
+                text_lower = m.get("text", "").lower()
+                if query_lower in text_lower:
+                    results["memories"].append(m)
+
+            print(f"\n{BOLD}{CYAN}Search: '{query}'{NC}\n")
+
+            if results["documents"]:
+                print(f"{BOLD}Documents ({len(results['documents'])}){NC}")
+                for doc_id, title, content in results["documents"][:5]:
+                    print(f"  [{doc_id}] {title}")
+                    print(f"      {content[:100]}...")
+                print()
+
+            if results["memories"]:
+                print(f"{BOLD}Memories ({len(results['memories'])}){NC}")
+                for m in results["memories"][:5]:
+                    print(f"  • {m.get('text', '')[:80]}")
+                print()
+
+            if not results["documents"] and not results["memories"]:
+                print(f"{YELLOW}No results found.{NC}\n")
+
+        asyncio.run(_search())
+
+    except Exception as e:
+        print(f"{RED}Search error: {e}{NC}")
+        logger.error(f"Search error: {e}")
+
+
+def cmd_daily() -> None:
+    """Show daily summary."""
+    try:
+        import aiosqlite
+        from config.loader import get_config
+
+        async def _daily():
+            cfg = get_config()
+            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
+            db_path = db_url.replace("sqlite+aiosqlite:///", "")
+
+            print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+            print(f"{BOLD}{CYAN}║         Daily Summary                          ║{NC}")
+            print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
+
+            try:
+                async with aiosqlite.connect(db_path) as db:
+                    cursor = await db.execute("SELECT COUNT(*) FROM documents")
+                    doc_count = (await cursor.fetchone())[0]
+
+                    cursor = await db.execute(
+                        "SELECT COUNT(*) FROM documents WHERE source IN ('note', 'todo', 'agenda')"
+                    )
+                    task_count = (await cursor.fetchone())[0]
+
+                    cursor = await db.execute(
+                        "SELECT title, content, created_at FROM documents ORDER BY created_at DESC LIMIT 5"
+                    )
+                    recent_docs = await cursor.fetchall()
+            except Exception:
+                doc_count = task_count = 0
+                recent_docs = []
+
+            mem_count = len(_load_memories())
+
+            print(f"{BOLD}Statistics{NC}")
+            print(f"  Documents: {doc_count}")
+            print(f"  Memories: {mem_count}")
+            print(f"  Tasks: {task_count}")
+            print()
+
+            if recent_docs:
+                print(f"{BOLD}Recent Documents{NC}")
+                for title, content, created_at in recent_docs:
+                    print(f"  • {title}")
+                    print(f"    {content[:80]}...")
+                print()
+
+            print(f"{GREEN}Ready for the day ahead.{NC}\n")
+
+        asyncio.run(_daily())
+
+    except Exception as e:
+        logger.error(f"Daily error: {e}")
+
+
+def cmd_sync(folder: str) -> None:
+    """Import all Markdown files from a folder."""
+    try:
+        path = Path(folder).expanduser()
+        if not path.exists():
+            print(f"{RED}Folder not found: {folder}{NC}")
+            return
+
+        md_files = list(path.glob("**/*.md"))
+        if not md_files:
+            print(f"{YELLOW}No Markdown files found in {folder}{NC}")
+            return
+
+        print(f"\n{BOLD}{CYAN}Syncing {len(md_files)} file(s)...{NC}\n")
+
+        for i, md_file in enumerate(md_files, 1):
+            try:
+                cmd_import(str(md_file))
+                print()
+            except Exception as e:
+                print(f"{RED}  Error: {md_file.name} — {str(e)[:50]}{NC}\n")
+
+        print(f"{GREEN}Sync complete: {len(md_files)} file(s) processed.{NC}\n")
+
+    except Exception as e:
+        print(f"{RED}Sync error: {e}{NC}")
+        logger.error(f"Sync error: {e}")
+
+
+def cmd_watch(folder: str, interval: int = 5) -> None:
+    """Monitor a folder for new/modified Markdown files."""
+    try:
+        import time
+        path = Path(folder).expanduser()
+        if not path.exists():
+            print(f"{RED}Folder not found: {folder}{NC}")
+            return
+
+        print(f"\n{BOLD}{CYAN}Watching {folder}...{NC}")
+        print(f"{YELLOW}Press Ctrl+C to stop.{NC}\n")
+
+        tracked = {}
+        try:
+            while True:
+                md_files = list(path.glob("**/*.md"))
+
+                for md_file in md_files:
+                    mtime = md_file.stat().st_mtime
+                    file_key = str(md_file)
+
+                    if file_key not in tracked or tracked[file_key] != mtime:
+                        print(f"{GREEN}→{NC} {md_file.name}")
+                        try:
+                            cmd_import(str(md_file))
+                        except Exception as e:
+                            print(f"  {RED}Error: {str(e)[:50]}{NC}")
+                        tracked[file_key] = mtime
+
+                time.sleep(interval)
+
+        except KeyboardInterrupt:
+            print(f"\n{YELLOW}Watch stopped.{NC}\n")
+
+    except Exception as e:
+        print(f"{RED}Watch error: {e}{NC}")
+        logger.error(f"Watch error: {e}")
+
+
 def cmd_ask(question: str) -> None:
     """RAG: Ask AI using Ollama with document context."""
     try:
@@ -1130,6 +1356,17 @@ def main() -> None:
     subparsers.add_parser("doctor", help="System health check")
     subparsers.add_parser("demo", help="Interactive demo")
 
+    search_parser = subparsers.add_parser("search", help="Search documents & memories")
+    search_parser.add_argument("query", help="Search query")
+
+    subparsers.add_parser("daily", help="Show daily summary")
+
+    sync_parser = subparsers.add_parser("sync", help="Sync all .md from folder")
+    sync_parser.add_argument("folder", help="Folder path (e.g., ~/Documents/Obsidian)")
+
+    watch_parser = subparsers.add_parser("watch", help="Monitor folder for changes")
+    watch_parser.add_argument("folder", help="Folder path to watch")
+
     ask_parser = subparsers.add_parser("ask", help="Ask AI (RAG with Ollama)")
     ask_parser.add_argument("question", nargs="+", help="Question to ask")
 
@@ -1181,6 +1418,14 @@ def main() -> None:
         cmd_doctor()
     elif args.command == "demo":
         cmd_demo()
+    elif args.command == "search":
+        cmd_search(args.query)
+    elif args.command == "daily":
+        cmd_daily()
+    elif args.command == "sync":
+        cmd_sync(args.folder)
+    elif args.command == "watch":
+        cmd_watch(args.folder)
     elif args.command == "ask":
         question = " ".join(args.question)
         cmd_ask(question)
