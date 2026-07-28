@@ -24,6 +24,9 @@ Usage:
     python3 flowcore.py daily            Show daily summary
     python3 flowcore.py sync "<folder>"      Sync all .md from folder
     python3 flowcore.py watch "<folder>"     Monitor folder for changes
+    python3 flowcore.py obsidian init        Initialize Obsidian vault
+    python3 flowcore.py obsidian sync        Sync Obsidian vault to SQLite
+    python3 flowcore.py obsidian watch       Watch Obsidian vault
     python3 flowcore.py note "<text>"         Add a note
     python3 flowcore.py todo "<task>"         Add a todo item
     python3 flowcore.py agenda "<event>"      Add to agenda
@@ -345,6 +348,26 @@ def cmd_selftest() -> None:
             cmd_sync(tmpdir)
 
     result = selftest_check("SYNC", _sync_test, "Sync folder works")
+    results.append(result)
+    if result == "PASS": passed += 1
+    elif result == "FAIL": failed += 1
+
+    # ── Obsidian ─────────────────────────────────────────────────────────
+    print(f"{BOLD}OBSIDIAN{NC}")
+
+    def _obsidian_test():
+        import tempfile
+        import io
+        with tempfile.TemporaryDirectory() as tmpdir:
+            old_stdout = sys.stdout
+            try:
+                sys.stdout = io.StringIO()
+                cmd_obsidian_init(tmpdir)
+            finally:
+                sys.stdout = old_stdout
+            assert (Path(tmpdir) / "Inbox").exists(), "Inbox not created"
+
+    result = selftest_check("OBSIDIAN", _obsidian_test, "Obsidian init works")
     results.append(result)
     if result == "PASS": passed += 1
     elif result == "FAIL": failed += 1
@@ -1171,6 +1194,102 @@ def cmd_watch(folder: str, interval: int = 5) -> None:
         logger.error(f"Watch error: {e}")
 
 
+def _get_obsidian_path() -> Path:
+    """Get Obsidian vault path from config or env."""
+    vault_path = os.getenv("FLOWCORE_OBSIDIAN")
+    if vault_path:
+        return Path(vault_path).expanduser()
+    return Path.home() / "Obsidian"
+
+
+def _save_obsidian_path(vault_path: Path) -> None:
+    """Save Obsidian vault path for future use."""
+    config_file = Path.home() / ".flowcore" / "obsidian.path"
+    config_file.parent.mkdir(parents=True, exist_ok=True)
+    config_file.write_text(str(vault_path.expanduser()))
+
+
+def cmd_obsidian_init(vault_path: str = None) -> None:
+    """Initialize Obsidian vault structure."""
+    try:
+        if vault_path:
+            vault = Path(vault_path).expanduser()
+        else:
+            vault = _get_obsidian_path()
+
+        vault.mkdir(parents=True, exist_ok=True)
+        _save_obsidian_path(vault)
+
+        folders = ["Inbox", "Projects", "Knowledge", "Meetings", "Journal"]
+        for folder in folders:
+            (vault / folder).mkdir(exist_ok=True)
+
+        print(f"\n{GREEN}✓ Obsidian vault initialized{NC}")
+        print(f"  Path: {vault}\n")
+        print(f"{BOLD}Folders created:{NC}")
+        for folder in folders:
+            print(f"  • {folder}/")
+        print()
+
+    except Exception as e:
+        print(f"{RED}Obsidian init error: {e}{NC}")
+        logger.error(f"Obsidian init error: {e}")
+
+
+def cmd_obsidian_sync(vault_path: str = None) -> None:
+    """Sync entire Obsidian vault to SQLite."""
+    try:
+        if vault_path:
+            vault = Path(vault_path).expanduser()
+        else:
+            vault = _get_obsidian_path()
+
+        if not vault.exists():
+            print(f"{RED}Vault not found: {vault}{NC}")
+            return
+
+        md_files = list(vault.glob("**/*.md"))
+        if not md_files:
+            print(f"{YELLOW}No Markdown files in vault{NC}")
+            return
+
+        print(f"\n{BOLD}{CYAN}Syncing Obsidian vault...{NC}")
+        print(f"  Files: {len(md_files)}\n")
+
+        for md_file in md_files:
+            try:
+                cmd_import(str(md_file))
+            except Exception as e:
+                print(f"  {RED}Error: {md_file.name}{NC}")
+
+        print(f"{GREEN}Sync complete: {len(md_files)} file(s) processed.{NC}\n")
+        _save_obsidian_path(vault)
+
+    except Exception as e:
+        print(f"{RED}Obsidian sync error: {e}{NC}")
+        logger.error(f"Obsidian sync error: {e}")
+
+
+def cmd_obsidian_watch(vault_path: str = None) -> None:
+    """Watch Obsidian vault for changes."""
+    try:
+        if vault_path:
+            vault = Path(vault_path).expanduser()
+        else:
+            vault = _get_obsidian_path()
+
+        if not vault.exists():
+            print(f"{RED}Vault not found: {vault}{NC}")
+            return
+
+        _save_obsidian_path(vault)
+        cmd_watch(str(vault))
+
+    except Exception as e:
+        print(f"{RED}Obsidian watch error: {e}{NC}")
+        logger.error(f"Obsidian watch error: {e}")
+
+
 def cmd_ask(question: str) -> None:
     """RAG: Ask AI using Ollama with document context."""
     try:
@@ -1367,6 +1486,12 @@ def main() -> None:
     watch_parser = subparsers.add_parser("watch", help="Monitor folder for changes")
     watch_parser.add_argument("folder", help="Folder path to watch")
 
+    obsidian_parser = subparsers.add_parser("obsidian", help="Obsidian vault integration")
+    obsidian_sub = obsidian_parser.add_subparsers(dest="obsidian_command")
+    obsidian_sub.add_parser("init", help="Initialize vault structure")
+    obsidian_sub.add_parser("sync", help="Sync vault to SQLite")
+    obsidian_sub.add_parser("watch", help="Watch vault for changes")
+
     ask_parser = subparsers.add_parser("ask", help="Ask AI (RAG with Ollama)")
     ask_parser.add_argument("question", nargs="+", help="Question to ask")
 
@@ -1438,6 +1563,15 @@ def main() -> None:
     elif args.command == "agenda":
         event = " ".join(args.event)
         cmd_agenda(event)
+    elif args.command == "obsidian":
+        if args.obsidian_command == "init":
+            cmd_obsidian_init()
+        elif args.obsidian_command == "sync":
+            cmd_obsidian_sync()
+        elif args.obsidian_command == "watch":
+            cmd_obsidian_watch()
+        else:
+            parser.print_help()
     else:
         parser.print_help()
         sys.exit(1)
