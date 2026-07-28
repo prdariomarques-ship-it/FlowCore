@@ -183,6 +183,22 @@ def cmd_selftest() -> None:
     if result == "PASS": passed += 1
     elif result == "FAIL": failed += 1
 
+    # ── Memory ──────────────────────────────────────────────────────────
+    print(f"{BOLD}MEMORY{NC}")
+
+    def _memory_recall_test():
+        test_text = "Testing recall with #FlowCore memory system"
+        cmd_remember(test_text)
+        memories = _load_memories()
+        assert len(memories) > 0, "No memories stored"
+        last = memories[-1]
+        assert "#flowcore" in [t.lower() for t in last.get("topics", [])], "Topic extraction failed"
+
+    result = selftest_check("RECALL", _memory_recall_test, "Remember & recall work")
+    results.append(result)
+    if result == "PASS": passed += 1
+    elif result == "FAIL": failed += 1
+
     # ── Summary ──────────────────────────────────────────────────────────
     total = passed + failed + skipped
     print("")
@@ -371,7 +387,7 @@ def cmd_remember(text: str) -> None:
 
 
 def cmd_recall(topic: str) -> None:
-    """Recall memories by topic."""
+    """Recall memories by keyword or topic (substring, case-insensitive)."""
     memories = _load_memories()
 
     if not memories:
@@ -379,18 +395,28 @@ def cmd_recall(topic: str) -> None:
         return
 
     topic_lower = topic.lower().lstrip("#")
-    matching = [m for m in memories if topic_lower in [t.lower() for t in m.get("topics", [])]]
+    matching = []
+
+    for m in memories:
+        text_lower = m.get("text", "").lower()
+        topics_lower = [t.lower() for t in m.get("topics", [])]
+        if topic_lower in text_lower or any(topic_lower in t for t in topics_lower):
+            matching.append(m)
 
     if not matching:
-        print(f"{YELLOW}No memories found for topic: {topic}{NC}")
+        print(f"{YELLOW}No memories found for '{topic}'{NC}")
         return
 
-    print(f"\n{BOLD}{CYAN}Memories for: #{topic_lower}{NC}")
+    print(f"\n{BOLD}{CYAN}Found {len(matching)} memory(ies) for: '{topic_lower}'{NC}\n")
     for i, memory in enumerate(matching, 1):
         timestamp = memory.get("timestamp", "Unknown")
         text = memory.get("text", "")
-        print(f"  {i}. {text}")
-        print(f"     {YELLOW}└─ {timestamp[:10]}{NC}")
+        topics = memory.get("topics", [])
+        print(f"{GREEN}{i}.{NC} {text}")
+        if topics:
+            print(f"   {YELLOW}Topics:{NC} {', '.join([f'#{t}' for t in topics])}")
+        print(f"   {YELLOW}Date:{NC} {timestamp[:10]}")
+        print()
 
 
 def cmd_memories() -> None:
