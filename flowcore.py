@@ -12,6 +12,8 @@ Usage:
     python3 flowcore.py recall "<topic>"      Recall memories by topic
     python3 flowcore.py memories         List all memories
     python3 flowcore.py import "<file.md>"    Import Markdown file
+    python3 flowcore.py docs             List all documents
+    python3 flowcore.py show <id>        Display document by ID
     python3 flowcore.py ask "<question>"      Ask AI (requires Ollama)
     python3 flowcore.py note "<text>"         Add a note
     python3 flowcore.py todo "<task>"         Add a todo item
@@ -204,6 +206,24 @@ def cmd_selftest() -> None:
         assert found_by_hashtag or found_by_substring, "Recall search failed"
 
     result = selftest_check("RECALL", _memory_recall_test, "Remember & recall work")
+    results.append(result)
+    if result == "PASS": passed += 1
+    elif result == "FAIL": failed += 1
+
+    # ── Documents ────────────────────────────────────────────────────────
+    print(f"{BOLD}DOCUMENTS{NC}")
+
+    def _import_test():
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+            f.write("# Test Document\n\nThis is a test markdown file.")
+            temp_file = f.name
+        try:
+            cmd_import(temp_file)
+        finally:
+            Path(temp_file).unlink()
+
+    result = selftest_check("IMPORT", _import_test, "Markdown import works")
     results.append(result)
     if result == "PASS": passed += 1
     elif result == "FAIL": failed += 1
@@ -477,7 +497,7 @@ async def _init_sqlite_documents():
 
 
 def cmd_import(filepath: str) -> None:
-    """Import Markdown file to SQLite."""
+    """Import Markdown file to SQLite with title extraction."""
     try:
         path = Path(filepath)
         if not path.exists():
@@ -486,6 +506,15 @@ def cmd_import(filepath: str) -> None:
 
         with open(path, "r", encoding="utf-8") as f:
             content = f.read()
+
+        title = path.stem
+        for line in content.split("\n"):
+            if line.startswith("# "):
+                title = line[2:].strip()
+                break
+
+        line_count = len(content.split("\n"))
+        char_count = len(content)
 
         asyncio.run(_init_sqlite_documents())
 
@@ -498,19 +527,109 @@ def cmd_import(filepath: str) -> None:
             db_path = db_url.replace("sqlite+aiosqlite:///", "")
 
             async with aiosqlite.connect(db_path) as db:
-                await db.execute(
+                cursor = await db.execute(
                     "INSERT INTO documents (title, content, source) VALUES (?, ?, ?)",
-                    (path.stem, content, str(path))
+                    (title, content, str(path))
                 )
                 await db.commit()
+                return cursor.lastrowid
 
-        asyncio.run(_import())
-        print(f"{GREEN}✓ Document imported: {path.name}{NC}")
-        logger.info(f"Imported document: {filepath}")
+        doc_id = asyncio.run(_import())
+
+        print(f"\n{GREEN}✓ Document imported{NC}")
+        print(f"  {CYAN}Título:{NC} {title}")
+        print(f"  {CYAN}Linhas:{NC} {line_count}")
+        print(f"  {CYAN}Caracteres:{NC} {char_count}")
+        print(f"  {CYAN}ID:{NC} {doc_id}\n")
+        logger.info(f"Imported document: {filepath} (id={doc_id})")
 
     except Exception as e:
         print(f"{RED}Error importing document: {e}{NC}")
         logger.error(f"Import error: {e}")
+
+
+def cmd_docs() -> None:
+    """List all imported documents."""
+    try:
+        asyncio.run(_init_sqlite_documents())
+
+        import aiosqlite
+        from config.loader import get_config
+
+        async def _list_docs():
+            cfg = get_config()
+            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
+            db_path = db_url.replace("sqlite+aiosqlite:///", "")
+
+            async with aiosqlite.connect(db_path) as db:
+                cursor = await db.execute(
+                    "SELECT id, title, source, created_at FROM documents ORDER BY created_at DESC"
+                )
+                rows = await cursor.fetchall()
+                return rows
+
+        docs = asyncio.run(_list_docs())
+
+        if not docs:
+            print(f"{YELLOW}No documents found.{NC}")
+            return
+
+        print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+        print(f"{BOLD}{CYAN}║         Documents                              ║{NC}")
+        print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
+
+        for doc_id, title, source, created_at in docs:
+            print(f"{GREEN}[{doc_id}]{NC} {title}")
+            print(f"     {YELLOW}Source:{NC} {source}")
+            print(f"     {YELLOW}Date:{NC} {created_at[:10]}")
+            print()
+
+    except Exception as e:
+        print(f"{RED}Error listing documents: {e}{NC}")
+        logger.error(f"Docs error: {e}")
+
+
+def cmd_show(doc_id: str) -> None:
+    """Display a document by ID."""
+    try:
+        asyncio.run(_init_sqlite_documents())
+
+        import aiosqlite
+        from config.loader import get_config
+
+        async def _get_doc():
+            cfg = get_config()
+            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
+            db_path = db_url.replace("sqlite+aiosqlite:///", "")
+
+            async with aiosqlite.connect(db_path) as db:
+                cursor = await db.execute(
+                    "SELECT id, title, content, created_at FROM documents WHERE id = ?",
+                    (int(doc_id),)
+                )
+                row = await cursor.fetchone()
+                return row
+
+        doc = asyncio.run(_get_doc())
+
+        if not doc:
+            print(f"{RED}Document not found: {doc_id}{NC}")
+            return
+
+        doc_id, title, content, created_at = doc
+
+        print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+        print(f"{BOLD}{CYAN}║  {title:<45} ║{NC}")
+        print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
+        print(content)
+        print(f"\n{YELLOW}─────────────────────────────────────────────────{NC}")
+        print(f"{YELLOW}ID:{NC} {doc_id} | {YELLOW}Date:{NC} {created_at[:10]}\n")
+
+    except ValueError:
+        print(f"{RED}Error: Invalid document ID (must be a number){NC}")
+    except Exception as e:
+        print(f"{RED}Error displaying document: {e}{NC}")
+        logger.error(f"Show error: {e}")
 
 
 def cmd_ask(question: str) -> None:
@@ -678,6 +797,11 @@ def main() -> None:
     import_parser = subparsers.add_parser("import", help="Import Markdown file")
     import_parser.add_argument("file", help="Path to Markdown file")
 
+    subparsers.add_parser("docs", help="List all documents")
+
+    show_parser = subparsers.add_parser("show", help="Display a document by ID")
+    show_parser.add_argument("id", help="Document ID")
+
     ask_parser = subparsers.add_parser("ask", help="Ask AI (requires Ollama)")
     ask_parser.add_argument("question", nargs="+", help="Question to ask")
 
@@ -715,6 +839,10 @@ def main() -> None:
         cmd_memories()
     elif args.command == "import":
         cmd_import(args.file)
+    elif args.command == "docs":
+        cmd_docs()
+    elif args.command == "show":
+        cmd_show(args.id)
     elif args.command == "ask":
         question = " ".join(args.question)
         cmd_ask(question)
