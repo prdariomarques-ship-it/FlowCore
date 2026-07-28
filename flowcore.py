@@ -14,10 +14,17 @@ Usage:
     python3 flowcore.py import "<file.md>"    Import Markdown file
     python3 flowcore.py docs             List all documents
     python3 flowcore.py show <id>        Display document by ID
-    python3 flowcore.py ask "<question>"      Ask AI (requires Ollama)
+    python3 flowcore.py ask "<question>"      Ask AI (RAG with Ollama)
+    python3 flowcore.py ping             Test Ollama connection
+    python3 flowcore.py models           List available Ollama models
+    python3 flowcore.py stats            Show FlowCore statistics
     python3 flowcore.py note "<text>"         Add a note
     python3 flowcore.py todo "<task>"         Add a todo item
     python3 flowcore.py agenda "<event>"      Add to agenda
+
+Env vars:
+    FLOWCORE_MODEL=qwen3:8b              (default: llama2)
+    FLOWCORE_OLLAMA=http://127.0.0.1:11434  (default shown)
 """
 from __future__ import annotations
 
@@ -46,6 +53,26 @@ YELLOW = "\033[1;33m"
 CYAN = "\033[0;36m"
 BOLD = "\033[1m"
 NC = "\033[0m"
+
+# Ollama config (from env or defaults)
+OLLAMA_HOST = os.getenv("FLOWCORE_OLLAMA", "http://127.0.0.1:11434")
+OLLAMA_MODEL = os.getenv("FLOWCORE_MODEL", "llama2")
+
+
+def _get_ollama_url(endpoint: str) -> str:
+    """Build Ollama API URL."""
+    return f"{OLLAMA_HOST.rstrip('/')}/api/{endpoint}"
+
+
+def _test_ollama_connection() -> bool:
+    """Test connection to Ollama."""
+    import urllib.request
+    import urllib.error
+    try:
+        urllib.request.urlopen(f"{OLLAMA_HOST}/api/tags", timeout=5)
+        return True
+    except (urllib.error.URLError, ConnectionRefusedError, TimeoutError):
+        return False
 
 
 def selftest_check(name: str, fn, detail: str = "", skip: bool = False) -> str:
@@ -233,7 +260,6 @@ def cmd_selftest() -> None:
 
     def _ask_graceful_test():
         import io
-        import sys
         old_stdout = sys.stdout
         try:
             sys.stdout = io.StringIO()
@@ -242,6 +268,34 @@ def cmd_selftest() -> None:
             sys.stdout = old_stdout
 
     result = selftest_check("ASK", _ask_graceful_test, "Ask handles missing Ollama")
+    results.append(result)
+    if result == "PASS": passed += 1
+    elif result == "FAIL": failed += 1
+
+    def _ping_test():
+        import io
+        old_stdout = sys.stdout
+        try:
+            sys.stdout = io.StringIO()
+            cmd_ping()
+        finally:
+            sys.stdout = old_stdout
+
+    result = selftest_check("PING", _ping_test, "Ollama connection check works")
+    results.append(result)
+    if result == "PASS": passed += 1
+    elif result == "FAIL": failed += 1
+
+    def _stats_test():
+        import io
+        old_stdout = sys.stdout
+        try:
+            sys.stdout = io.StringIO()
+            cmd_stats()
+        finally:
+            sys.stdout = old_stdout
+
+    result = selftest_check("STATS", _stats_test, "Statistics display works")
     results.append(result)
     if result == "PASS": passed += 1
     elif result == "FAIL": failed += 1
@@ -650,8 +704,114 @@ def cmd_show(doc_id: str) -> None:
         logger.error(f"Show error: {e}")
 
 
+def cmd_ping() -> None:
+    """Test Ollama connection."""
+    if _test_ollama_connection():
+        print(f"{GREEN}✓ Ollama is running{NC}")
+        print(f"  Host: {OLLAMA_HOST}")
+        print(f"  Model: {OLLAMA_MODEL}")
+    else:
+        print(f"{RED}✗ Ollama not found{NC}")
+        print(f"  Expected: {OLLAMA_HOST}")
+        print(f"{YELLOW}Start Ollama: ollama serve{NC}")
+
+
+def cmd_models() -> None:
+    """List available Ollama models."""
+    import json
+    import urllib.request
+    import urllib.error
+
+    try:
+        request = urllib.request.Request(
+            _get_ollama_url("tags"),
+            headers={"Content-Type": "application/json"}
+        )
+
+        with urllib.request.urlopen(request, timeout=10) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            models = data.get("models", [])
+
+            if not models:
+                print(f"{YELLOW}No models found{NC}")
+                return
+
+            print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+            print(f"{BOLD}{CYAN}║         Ollama Models                           ║{NC}")
+            print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
+
+            for model in models:
+                name = model.get("name", "unknown")
+                size = model.get("size", 0)
+                size_gb = size / (1024**3)
+                modified = model.get("modified_at", "")[:10]
+
+                active = f" {GREEN}(active){NC}" if name == OLLAMA_MODEL else ""
+                print(f"{GREEN}•{NC} {name:<30} {size_gb:>6.1f}GB  {modified}{active}")
+            print()
+
+    except (urllib.error.URLError, ConnectionRefusedError, TimeoutError):
+        print(f"{RED}Cannot connect to Ollama at {OLLAMA_HOST}{NC}")
+        logger.warning(f"Ollama models not available")
+    except Exception as e:
+        print(f"{RED}Error: {e}{NC}")
+        logger.error(f"Models error: {e}")
+
+
+def cmd_stats() -> None:
+    """Show FlowCore statistics."""
+    try:
+        import aiosqlite
+        from config.loader import get_config
+
+        async def _stats():
+            cfg = get_config()
+            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
+            db_path = db_url.replace("sqlite+aiosqlite:///", "")
+
+            doc_count = 0
+            try:
+                async with aiosqlite.connect(db_path) as db:
+                    cursor = await db.execute("SELECT COUNT(*) FROM documents")
+                    row = await cursor.fetchone()
+                    doc_count = row[0] if row else 0
+            except Exception:
+                pass
+
+            mem_count = len(_load_memories())
+            ollama_status = "✓ Connected" if _test_ollama_connection() else "✗ Offline"
+
+            print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+            print(f"{BOLD}{CYAN}║         FlowCore Statistics                     ║{NC}")
+            print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
+
+            print(f"{GREEN}Memories{NC}")
+            print(f"  Count: {mem_count}")
+            print()
+
+            print(f"{GREEN}Documents{NC}")
+            print(f"  Count: {doc_count}")
+            print()
+
+            print(f"{GREEN}AI Model{NC}")
+            print(f"  Model: {OLLAMA_MODEL}")
+            print(f"  Status: {ollama_status}")
+            print(f"  Host: {OLLAMA_HOST}")
+            print()
+
+            print(f"{GREEN}Version{NC}")
+            version = cfg.get("app", {}).get("version", "1.0.0")
+            print(f"  FlowCore: {version}")
+            print()
+
+        asyncio.run(_stats())
+
+    except Exception as e:
+        logger.error(f"Stats error: {e}")
+
+
 def cmd_ask(question: str) -> None:
-    """Ask AI using Ollama with SQLite context (uses stdlib urllib)."""
+    """RAG: Ask AI using Ollama with document context."""
     try:
         import aiosqlite
         from config.loader import get_config
@@ -665,13 +825,13 @@ def cmd_ask(question: str) -> None:
             try:
                 async with aiosqlite.connect(db_path) as db:
                     cursor = await db.execute(
-                        "SELECT title, content FROM documents ORDER BY created_at DESC LIMIT 5"
+                        "SELECT id, title, content FROM documents ORDER BY created_at DESC LIMIT 5"
                     )
                     rows = await cursor.fetchall()
                     if rows:
-                        context = "\nContext from documents:\n"
-                        for title, content in rows:
-                            context += f"\n## {title}\n{content[:500]}...\n"
+                        context = "Context from documents:\n"
+                        for doc_id, title, content in rows:
+                            context += f"\n[Doc {doc_id}] {title}\n{content[:300]}\n"
             except Exception:
                 pass
 
@@ -680,24 +840,31 @@ def cmd_ask(question: str) -> None:
             import urllib.error
 
             try:
-                prompt = f"{context}\n\nQuestion: {question}"
-                payload = json.dumps({"model": "llama2", "prompt": prompt, "stream": False})
+                system_prompt = "You are a helpful AI assistant. Use the provided context to answer questions accurately."
+                prompt = f"{system_prompt}\n\nContext:\n{context}\n\nQuestion: {question}\n\nAnswer:"
+
+                payload = json.dumps({
+                    "model": OLLAMA_MODEL,
+                    "prompt": prompt,
+                    "stream": False
+                })
+
                 request = urllib.request.Request(
-                    "http://localhost:11434/api/generate",
+                    _get_ollama_url("generate"),
                     data=payload.encode("utf-8"),
                     headers={"Content-Type": "application/json"}
                 )
 
                 with urllib.request.urlopen(request, timeout=30) as response:
                     data = json.loads(response.read().decode("utf-8"))
-                    result = data.get("response", "")
-                    print(f"\n{BOLD}{CYAN}FlowCore AI:{NC}")
+                    result = data.get("response", "").strip()
+                    print(f"\n{BOLD}{CYAN}FlowCore AI ({OLLAMA_MODEL}):{NC}")
                     print(result)
 
             except (urllib.error.URLError, ConnectionRefusedError, TimeoutError):
                 print(f"{RED}Ollama não encontrado.{NC}")
                 print(f"{YELLOW}Instale o Ollama ou inicie o servidor.{NC}")
-                logger.warning("Ollama not available at localhost:11434")
+                logger.warning(f"Ollama not available at {OLLAMA_HOST}")
             except json.JSONDecodeError:
                 print(f"{RED}Ollama não encontrado.{NC}")
                 print(f"{YELLOW}Instale o Ollama ou inicie o servidor.{NC}")
@@ -822,7 +989,11 @@ def main() -> None:
     show_parser = subparsers.add_parser("show", help="Display a document by ID")
     show_parser.add_argument("id", help="Document ID")
 
-    ask_parser = subparsers.add_parser("ask", help="Ask AI (requires Ollama)")
+    subparsers.add_parser("ping", help="Test Ollama connection")
+    subparsers.add_parser("models", help="List available Ollama models")
+    subparsers.add_parser("stats", help="Show FlowCore statistics")
+
+    ask_parser = subparsers.add_parser("ask", help="Ask AI (RAG with Ollama)")
     ask_parser.add_argument("question", nargs="+", help="Question to ask")
 
     note_parser = subparsers.add_parser("note", help="Add a note")
@@ -863,6 +1034,12 @@ def main() -> None:
         cmd_docs()
     elif args.command == "show":
         cmd_show(args.id)
+    elif args.command == "ping":
+        cmd_ping()
+    elif args.command == "models":
+        cmd_models()
+    elif args.command == "stats":
+        cmd_stats()
     elif args.command == "ask":
         question = " ".join(args.question)
         cmd_ask(question)
