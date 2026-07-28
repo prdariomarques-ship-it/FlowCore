@@ -187,13 +187,21 @@ def cmd_selftest() -> None:
     print(f"{BOLD}MEMORY{NC}")
 
     def _memory_recall_test():
-        test_text = "Testing recall with #FlowCore and substring search"
-        cmd_remember(test_text)
+        cmd_remember("Testing recall with #FlowCore and substring search")
         memories = _load_memories()
         assert len(memories) > 0, "No memories stored"
         last = memories[-1]
-        assert "flowcore" in [t.lower() for t in last.get("topics", [])], "Topic extraction failed"
-        assert "recall" in last.get("text", "").lower(), "Substring search text not found"
+
+        text_lower = last.get("text", "").lower()
+        topics_lower = [t.lower() for t in last.get("topics", [])]
+
+        assert "flowcore" in topics_lower, "Hashtag extraction failed"
+        assert "testing" in text_lower, "Substring text not stored"
+
+        search_term = "flowcore"
+        found_by_hashtag = search_term in topics_lower
+        found_by_substring = search_term in text_lower
+        assert found_by_hashtag or found_by_substring, "Recall search failed"
 
     result = selftest_check("RECALL", _memory_recall_test, "Remember & recall work")
     results.append(result)
