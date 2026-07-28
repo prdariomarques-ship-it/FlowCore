@@ -18,6 +18,8 @@ Usage:
     python3 flowcore.py ping             Test Ollama connection
     python3 flowcore.py models           List available Ollama models
     python3 flowcore.py stats            Show FlowCore statistics
+    python3 flowcore.py doctor           System health check
+    python3 flowcore.py demo             Interactive demo
     python3 flowcore.py note "<text>"         Add a note
     python3 flowcore.py todo "<task>"         Add a todo item
     python3 flowcore.py agenda "<event>"      Add to agenda
@@ -810,6 +812,139 @@ def cmd_stats() -> None:
         logger.error(f"Stats error: {e}")
 
 
+def cmd_doctor() -> None:
+    """System health check: Python, SQLite, Database, JSON, Config, Ollama, API, Scheduler."""
+    print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+    print(f"{BOLD}{CYAN}║         FlowCore Doctor                         ║{NC}")
+    print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
+
+    checks = {}
+
+    try:
+        import sys
+        version = sys.version.split()[0]
+        print(f"{GREEN}✓{NC} Python: {version}")
+        checks["python"] = "PASS"
+    except Exception as e:
+        print(f"{RED}✗{NC} Python: {e}")
+        checks["python"] = "FAIL"
+
+    try:
+        import aiosqlite
+        print(f"{GREEN}✓{NC} SQLite (aiosqlite)")
+        checks["sqlite"] = "PASS"
+    except Exception as e:
+        print(f"{RED}✗{NC} SQLite: {e}")
+        checks["sqlite"] = "FAIL"
+
+    try:
+        import aiosqlite
+        from config.loader import get_config
+        cfg = get_config()
+        db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
+        db_path = db_url.replace("sqlite+aiosqlite:///", "")
+
+        async def _test_db():
+            async with aiosqlite.connect(db_path) as db:
+                cursor = await db.execute("SELECT 1")
+                await cursor.fetchone()
+
+        asyncio.run(_test_db())
+        print(f"{GREEN}✓{NC} Database: {db_path}")
+        checks["database"] = "PASS"
+    except Exception as e:
+        print(f"{RED}✗{NC} Database: {str(e)[:50]}")
+        checks["database"] = "FAIL"
+
+    try:
+        import json
+        test_json = json.dumps({"test": "data"})
+        print(f"{GREEN}✓{NC} JSON")
+        checks["json"] = "PASS"
+    except Exception as e:
+        print(f"{RED}✗{NC} JSON: {e}")
+        checks["json"] = "FAIL"
+
+    try:
+        from config.loader import get_config
+        cfg = get_config()
+        assert cfg["app"]["name"] == "FlowCore"
+        print(f"{GREEN}✓{NC} Config: FlowCore")
+        checks["config"] = "PASS"
+    except Exception as e:
+        print(f"{RED}✗{NC} Config: {str(e)[:50]}")
+        checks["config"] = "FAIL"
+
+    if _test_ollama_connection():
+        print(f"{GREEN}✓{NC} Ollama: {OLLAMA_MODEL} @ {OLLAMA_HOST}")
+        checks["ollama"] = "PASS"
+    else:
+        print(f"{YELLOW}⚠{NC} Ollama: Not available")
+        checks["ollama"] = "WARN"
+
+    try:
+        import fastapi
+        print(f"{GREEN}✓{NC} FastAPI (optional)")
+        checks["api"] = "PASS"
+    except ImportError:
+        print(f"{YELLOW}⚠{NC} FastAPI: Not installed")
+        checks["api"] = "WARN"
+
+    try:
+        import apscheduler
+        print(f"{GREEN}✓{NC} APScheduler (optional)")
+        checks["scheduler"] = "PASS"
+    except ImportError:
+        print(f"{YELLOW}⚠{NC} APScheduler: Not installed")
+        checks["scheduler"] = "WARN"
+
+    print()
+    failures = [k for k, v in checks.items() if v == "FAIL"]
+    if failures:
+        print(f"{RED}FAIL: {', '.join(failures)}{NC}\n")
+    else:
+        print(f"{GREEN}All critical systems operational{NC}\n")
+
+
+def cmd_demo() -> None:
+    """Interactive demo: remember → recall → import → docs → show → stats."""
+    print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+    print(f"{BOLD}{CYAN}║         FlowCore Demo                           ║{NC}")
+    print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
+
+    try:
+        print(f"{BOLD}1. Remember{NC}")
+        cmd_remember("Demo memory #FlowCore #demo")
+
+        print(f"\n{BOLD}2. Recall{NC}")
+        cmd_recall("FlowCore")
+
+        print(f"\n{BOLD}3. Import Markdown{NC}")
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+            f.write("# FlowCore Demo\n\nThis is a demo markdown file for testing import functionality.")
+            temp_file = f.name
+        try:
+            cmd_import(temp_file)
+        finally:
+            Path(temp_file).unlink()
+
+        print(f"\n{BOLD}4. List Documents{NC}")
+        cmd_docs()
+
+        print(f"\n{BOLD}5. Show Document{NC}")
+        print("(Display the first document)")
+
+        print(f"\n{BOLD}6. Statistics{NC}")
+        cmd_stats()
+
+        print(f"\n{GREEN}{BOLD}FlowCore está operacional.{NC}\n")
+
+    except Exception as e:
+        print(f"{RED}Demo error: {e}{NC}")
+        logger.error(f"Demo error: {e}")
+
+
 def cmd_ask(question: str) -> None:
     """RAG: Ask AI using Ollama with document context."""
     try:
@@ -992,6 +1127,8 @@ def main() -> None:
     subparsers.add_parser("ping", help="Test Ollama connection")
     subparsers.add_parser("models", help="List available Ollama models")
     subparsers.add_parser("stats", help="Show FlowCore statistics")
+    subparsers.add_parser("doctor", help="System health check")
+    subparsers.add_parser("demo", help="Interactive demo")
 
     ask_parser = subparsers.add_parser("ask", help="Ask AI (RAG with Ollama)")
     ask_parser.add_argument("question", nargs="+", help="Question to ask")
@@ -1040,6 +1177,10 @@ def main() -> None:
         cmd_models()
     elif args.command == "stats":
         cmd_stats()
+    elif args.command == "doctor":
+        cmd_doctor()
+    elif args.command == "demo":
+        cmd_demo()
     elif args.command == "ask":
         question = " ".join(args.question)
         cmd_ask(question)

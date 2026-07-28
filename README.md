@@ -139,20 +139,131 @@ export FLOWCORE__LOGGING__LEVEL=DEBUG
 
 ## CLI Commands
 
+### Core Commands
+
 | Command | Description |
 |---------|-------------|
-| `python3 flowcore.py serve` | Start API server |
+| `python3 flowcore.py serve` | Start API server (localhost:8080) |
 | `python3 flowcore.py run` | Start full app (API + scheduler + agents) |
 | `python3 flowcore.py health` | Health check |
 | `python3 flowcore.py version` | Print version info |
+| `python3 flowcore.py selftest` | Validate installation |
+| `python3 flowcore.py chat` | Interactive chat session |
+
+### Memory & Knowledge
+
+| Command | Description |
+|---------|-------------|
+| `python3 flowcore.py remember "text"` | Save memory with #hashtags |
+| `python3 flowcore.py recall "keyword"` | Search memories (substring) |
+| `python3 flowcore.py memories` | List all memories |
+
+### Document Management
+
+| Command | Description |
+|---------|-------------|
+| `python3 flowcore.py import file.md` | Import Markdown (title from first `# `) |
+| `python3 flowcore.py docs` | List documents |
+| `python3 flowcore.py show 1` | Display document by ID |
+
+### Task Management
+
+| Command | Description |
+|---------|-------------|
+| `python3 flowcore.py note "text"` | Add a note |
+| `python3 flowcore.py todo "task"` | Add a todo item |
+| `python3 flowcore.py agenda "event"` | Add to agenda |
+
+### AI & Ollama
+
+| Command | Description |
+|---------|-------------|
+| `python3 flowcore.py ask "question"` | RAG query with Ollama |
+| `python3 flowcore.py ping` | Test Ollama connection |
+| `python3 flowcore.py models` | List available Ollama models |
+
+### System
+
+| Command | Description |
+|---------|-------------|
+| `python3 flowcore.py stats` | Show statistics (memories, docs, model, version) |
+| `python3 flowcore.py doctor` | System health check (Python, SQLite, Config, Ollama, API, Scheduler) |
+| `python3 flowcore.py demo` | Interactive demo walkthrough |
+
+### Legacy Shell Scripts
+
+| Command | Description |
+|---------|-------------|
 | `bash validate_android.sh` | Validate Android compatibility |
-| `bash doctor.sh` | Run diagnostics |
 | `bash optimize.sh` | Optimize performance |
 | `bash benchmark.sh` | Run benchmarks |
 | `bash update.sh` | Update FlowCore |
 | `bash repair.sh` | Self-repair |
 | `bash uninstall.sh` | Remove FlowCore |
 | `bash uninstall.sh --purge` | Remove everything (data included) |
+
+---
+
+## Usage Examples
+
+### Memory System
+
+```bash
+# Save memories with automatic #hashtag extraction
+python3 flowcore.py remember "Working on FlowCore #project #android"
+
+# Recall by keyword (substring search, case-insensitive)
+python3 flowcore.py recall android
+python3 flowcore.py recall FlowCore
+
+# List all memories
+python3 flowcore.py memories
+```
+
+### Document Management (RAG)
+
+```bash
+# Import Markdown files (auto-extracts title from first #)
+python3 flowcore.py import my_notes.md
+python3 flowcore.py import documentation.md
+
+# List all documents
+python3 flowcore.py docs
+
+# Show specific document
+python3 flowcore.py show 1
+```
+
+### AI with Ollama
+
+```bash
+# Ask questions with document context
+python3 flowcore.py ask "How do I install FlowCore?"
+
+# Test Ollama connection
+python3 flowcore.py ping
+
+# List available models
+python3 flowcore.py models
+
+# Set model and host via environment
+export FLOWCORE_MODEL=qwen3:8b
+export FLOWCORE_OLLAMA=http://127.0.0.1:11434
+python3 flowcore.py ask "What is FlowCore?"
+```
+
+### System Status
+
+```bash
+# Show statistics
+python3 flowcore.py stats
+
+# Full system health check
+python3 flowcore.py doctor
+
+# Interactive demo
+python3 flowcore.py demo
+```
 
 ---
 

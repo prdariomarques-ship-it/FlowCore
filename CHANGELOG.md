@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.0] — 2026-07-27
+
+### Added
+
+- Memory system: `remember`, `recall` (substring search), `memories` with JSON persistence
+- Document management: `import` Markdown with title extraction, `docs`, `show`
+- Task management: `note`, `todo`, `agenda` (SQLite persistence)
+- AI integration: `ask` command with RAG (stdlib urllib, no requests)
+- Ollama integration: `ping` (connection test), `models` (list), configurable via env vars
+- System diagnostics: `doctor` (health check), `stats` (statistics), `demo` (interactive demo)
+- Environment variables: `FLOWCORE_MODEL`, `FLOWCORE_OLLAMA` for customization
+- Graceful error handling: no tracebacks, user-friendly messages (português)
+
+### Fixed
+
+- `recall` now searches by substring in memory text, not just hashtags
+- `ask` uses stdlib `urllib.request` (zero external dependencies)
+- All commands handle missing Ollama gracefully
+- Selftest covers all commands with proper isolation
+
+### Changed
+
+- Unified single branch: `develop` merged into `main`, only `main` used
+- `import` extracts first `# ` as title, shows metadata (linhas/caracteres/ID)
+- RAG context limited to top 5 documents, 300 chars each
+
+---
+
 ## [1.0.0] — 2026-07-27
 
 ### Added
