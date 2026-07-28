@@ -228,6 +228,24 @@ def cmd_selftest() -> None:
     if result == "PASS": passed += 1
     elif result == "FAIL": failed += 1
 
+    # ── AI ───────────────────────────────────────────────────────────────
+    print(f"{BOLD}AI{NC}")
+
+    def _ask_graceful_test():
+        import io
+        import sys
+        old_stdout = sys.stdout
+        try:
+            sys.stdout = io.StringIO()
+            cmd_ask("test question")
+        finally:
+            sys.stdout = old_stdout
+
+    result = selftest_check("ASK", _ask_graceful_test, "Ask handles missing Ollama")
+    results.append(result)
+    if result == "PASS": passed += 1
+    elif result == "FAIL": failed += 1
+
     # ── Summary ──────────────────────────────────────────────────────────
     total = passed + failed + skipped
     print("")
@@ -633,7 +651,7 @@ def cmd_show(doc_id: str) -> None:
 
 
 def cmd_ask(question: str) -> None:
-    """Ask AI using Ollama with SQLite context."""
+    """Ask AI using Ollama with SQLite context (uses stdlib urllib)."""
     try:
         import aiosqlite
         from config.loader import get_config
@@ -643,7 +661,6 @@ def cmd_ask(question: str) -> None:
             db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
             db_path = db_url.replace("sqlite+aiosqlite:///", "")
 
-            # Get context from SQLite
             context = ""
             try:
                 async with aiosqlite.connect(db_path) as db:
@@ -655,39 +672,42 @@ def cmd_ask(question: str) -> None:
                         context = "\nContext from documents:\n"
                         for title, content in rows:
                             context += f"\n## {title}\n{content[:500]}...\n"
-            except Exception as e:
-                logger.warning(f"Could not load context: {e}")
+            except Exception:
+                pass
 
-            # Try to use Ollama
+            import json
+            import urllib.request
+            import urllib.error
+
             try:
-                import requests
                 prompt = f"{context}\n\nQuestion: {question}"
-
-                response = requests.post(
+                payload = json.dumps({"model": "llama2", "prompt": prompt, "stream": False})
+                request = urllib.request.Request(
                     "http://localhost:11434/api/generate",
-                    json={"model": "llama2", "prompt": prompt, "stream": False},
-                    timeout=30
+                    data=payload.encode("utf-8"),
+                    headers={"Content-Type": "application/json"}
                 )
 
-                if response.status_code == 200:
-                    result = response.json().get("response", "")
+                with urllib.request.urlopen(request, timeout=30) as response:
+                    data = json.loads(response.read().decode("utf-8"))
+                    result = data.get("response", "")
                     print(f"\n{BOLD}{CYAN}FlowCore AI:{NC}")
                     print(result)
-                else:
-                    print(f"{RED}Error: Ollama returned status {response.status_code}{NC}")
 
-            except requests.exceptions.ConnectionError:
-                print(f"{RED}Error: Cannot connect to Ollama (http://localhost:11434){NC}")
-                print(f"{YELLOW}Make sure Ollama is running: ollama serve{NC}")
+            except (urllib.error.URLError, ConnectionRefusedError, TimeoutError):
+                print(f"{RED}Ollama não encontrado.{NC}")
+                print(f"{YELLOW}Instale o Ollama ou inicie o servidor.{NC}")
+                logger.warning("Ollama not available at localhost:11434")
+            except json.JSONDecodeError:
+                print(f"{RED}Ollama não encontrado.{NC}")
+                print(f"{YELLOW}Instale o Ollama ou inicie o servidor.{NC}")
             except Exception as e:
-                print(f"{RED}Error: {e}{NC}")
                 logger.error(f"Ask error: {e}")
 
         asyncio.run(_ask())
 
-    except ImportError:
-        print(f"{RED}Error: 'requests' module not installed{NC}")
-        print(f"{YELLOW}Install with: pip install requests{NC}")
+    except Exception as e:
+        logger.error(f"Ask command error: {e}")
 
 
 def cmd_note(text: str) -> None:
