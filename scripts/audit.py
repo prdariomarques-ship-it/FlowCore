@@ -84,10 +84,13 @@ def audit_root_commands() -> None:
 def audit_api_localhost() -> None:
     """Check API binds to localhost."""
     print("\n[Audit 3] API localhost binding")
-    config_path = ROOT / "config" / "default.yml"
+    config_path = ROOT / "config" / "default.json"
+    if not config_path.exists():
+        warn("config/default.json not found")
+        return
     content = config_path.read_text()
     if "0.0.0.0" in content:
-        bad("config/default.yml binds to 0.0.0.0 (network-exposed)")
+        bad("config/default.json binds to 0.0.0.0 (network-exposed)")
     elif "127.0.0.1" in content:
         ok("API binds to 127.0.0.1 (localhost only)")
     else:

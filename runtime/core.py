@@ -101,7 +101,7 @@ class FlowCoreRuntime:
 
     def __init__(self, root: Path | None = None) -> None:
         self.root = root or _detect_root()
-        self.cfg = load_config(self.root)
+        self.cfg = load_config()
         self._running = False
         self._shutdown_event = asyncio.Event()
         self.platform_info = detect_platform()
