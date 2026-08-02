@@ -1,0 +1,22 @@
+{
+  "$schema": "https://flowcore.io/schemas/context.v1.json",
+  "schema_version": "1.0.0",
+  "validated": true,
+  "project": "app",
+  "language": "Python",
+  "runtime": "Python 3.12",
+  "type": [
+    "Backend",
+    "CLI",
+    "Service"
+  ],
+  "capabilities": [],
+  "workspace": "/app",
+  "status": "READY",
+  "timestamp": "2026-08-02T05:08:51.085555Z",
+  "artifacts": [
+    "requirements-api.txt",
+    "requirements-core.txt",
+    "requirements.txt"
+  ]
+}
