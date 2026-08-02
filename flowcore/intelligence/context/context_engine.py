@@ -65,7 +65,7 @@ class ContextEngine:
     def __init__(self, workspace_path: Path):
         self.workspace_path = Path(workspace_path).resolve()
         self.frame = ContextFrame()
-        self.frame.current_dir = Path.cwd().resolve()
+        self.frame.current_dir = self.workspace_path
 
         # Lazy imports to avoid circular dependencies
         from .workspace_scanner import WorkspaceScanner
