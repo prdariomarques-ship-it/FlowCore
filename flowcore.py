@@ -804,6 +804,48 @@ def cmd_doctor() -> None:
         print(f"{GREEN}All critical systems operational{NC}\n")
 
 
+def cmd_boot(verbose: bool = False) -> None:
+    """Boot the Runtime Kernel and emit the Runtime Passport."""
+    print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+    print(f"{BOLD}{CYAN}║         FlowCore Runtime Kernel — Boot          ║{NC}")
+    print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
+    try:
+        from runtime.kernel import RuntimeKernel
+        kernel = RuntimeKernel()
+        passport = kernel.boot(verbose=verbose)
+        print(f"{GREEN}✓{NC} Platform  : {passport.platform}")
+        print(f"{GREEN}✓{NC} Android   : {passport.is_android}")
+        print(f"{GREEN}✓{NC} Termux    : {passport.is_termux}")
+        print(f"{GREEN}✓{NC} Internet  : {passport.has_internet}")
+        caps = passport.capabilities
+        print(f"{GREEN}✓{NC} Capabilities ({len(caps)}): {', '.join(caps) or 'none'}")
+        print(f"\n{GREEN}Runtime Passport issued.{NC}  Saved to ~/.flowcore/flowcore.runtime.json\n")
+    except Exception as e:
+        print(f"{RED}✗{NC} Kernel boot failed: {e}\n")
+        sys.exit(1)
+
+
+def cmd_install() -> None:
+    """Set up the full FlowCore runtime environment."""
+    print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+    print(f"{BOLD}{CYAN}║         FlowCore Installer                      ║{NC}")
+    print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
+    try:
+        from installer.setup import FlowCoreInstaller
+        installer = FlowCoreInstaller()
+        report = installer.install(verbose=True)
+        print()
+        if report.ok:
+            print(f"{GREEN}Installation complete — all steps passed.{NC}\n")
+        else:
+            failed = [s.name for s in report.failed_steps]
+            print(f"{YELLOW}Installation finished with issues: {', '.join(failed)}{NC}\n")
+            sys.exit(1)
+    except Exception as e:
+        print(f"{RED}✗{NC} Installer failed: {e}\n")
+        sys.exit(1)
+
+
 def cmd_demo() -> None:
     """Interactive demo: remember → recall → import → docs → show → stats."""
     print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
@@ -1156,6 +1198,9 @@ def main() -> None:
     subparsers.add_parser("models", help="List available Ollama models")
     subparsers.add_parser("stats", help="Show FlowCore statistics")
     subparsers.add_parser("doctor", help="System health check")
+    boot_parser = subparsers.add_parser("boot", help="Boot Runtime Kernel and emit Runtime Passport")
+    boot_parser.add_argument("--verbose", "-v", action="store_true", help="Verbose boot output")
+    subparsers.add_parser("install", help="Set up the full FlowCore runtime environment")
     subparsers.add_parser("demo", help="Interactive demo")
 
     search_parser = subparsers.add_parser("search", help="Search documents & memories")
@@ -1223,6 +1268,10 @@ def main() -> None:
         cmd_stats()
     elif args.command == "doctor":
         cmd_doctor()
+    elif args.command == "boot":
+        cmd_boot(verbose=getattr(args, "verbose", False))
+    elif args.command == "install":
+        cmd_install()
     elif args.command == "demo":
         cmd_demo()
     elif args.command == "search":
