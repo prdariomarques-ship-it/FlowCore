@@ -5,11 +5,19 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from flowcore.intelligence.context.context_engine import (
+from flowcore.intelligence.context import (
     ContextEngine,
     ContextFrame,
     InvalidWorkspaceError,
     PermissionDeniedError,
+    Status,
+    ContextVersion,
+    SchemaValidator,
+    CapabilityRegistry,
+    CapabilityNotFoundError,
+    RuntimeSerializer,
+    PassportBuilder,
+    TripleContractManager,
 )
 from flowcore.intelligence.context.workspace_scanner import WorkspaceScanner
 from flowcore.intelligence.context.project_classifier import ProjectClassifier
@@ -136,6 +144,103 @@ class TestContextEngine(unittest.TestCase):
         # Verify flowcore.context.json was written to the temp workspace
         json_file = self.temp_path / "flowcore.context.json"
         self.assertTrue(json_file.exists())
+
+    # =========================================================================
+    # SPRINT 2 EVOLUTION TESTS
+    # =========================================================================
+
+    def test_status_enum_values(self):
+        self.assertEqual(Status.NOT_READY.value, "NOT_READY")
+        self.assertEqual(Status.SCANNING.value, "SCANNING")
+        self.assertEqual(Status.READY.value, "READY")
+        self.assertEqual(Status.FAILED.value, "FAILED")
+
+    def test_context_version_constants(self):
+        self.assertEqual(ContextVersion.SCHEMA_VERSION, "1.0")
+        self.assertEqual(ContextVersion.ARCHITECTURE_VERSION, "3.0")
+
+    def test_capability_registry_resolution(self):
+        registry = CapabilityRegistry(self.temp_path)
+
+        # Test valid resolution
+        battery_cap = registry.resolve("battery")
+        self.assertTrue(battery_cap["android_api"])
+        self.assertTrue(battery_cap["termux_api"])
+        self.assertTrue(battery_cap["shell"])
+
+        # Test invalid resolution
+        with self.assertRaises(CapabilityNotFoundError):
+            registry.resolve("non_existent_capability_123")
+
+    def test_runtime_serializer(self):
+        serializer = RuntimeSerializer()
+        telemetry = serializer.serialize(self.temp_path)
+
+        self.assertTrue(telemetry["boot_status"])
+        self.assertEqual(telemetry["doctor_status"], "OK")
+        self.assertEqual(telemetry["runtime_status"], "READY")
+        self.assertIn("disk", telemetry)
+        self.assertIn("memory", telemetry)
+
+        # Verify physical file creation
+        runtime_file = self.temp_path / "flowcore.runtime.json"
+        self.assertTrue(runtime_file.exists())
+
+    def test_passport_builder_integrity_hashes(self):
+        frame = ContextFrame()
+        frame.workspace_root = self.temp_path
+        frame.project = "CoreProject"
+        frame.language = "Python"
+        frame.type = ["CLI", "Service"]
+        frame.status = "READY"
+        frame.validated = True
+
+        builder = PassportBuilder()
+        passport = builder.build_passport(frame)
+        passport_dict = passport.to_dict()
+
+        # Schema and Arch versions
+        self.assertEqual(passport_dict["schema_version"], "1.0")
+        self.assertEqual(passport_dict["architecture_version"], "3.0")
+
+        # Verify hashes exist and are valid SHA-256 (64 characters hex)
+        self.assertEqual(len(passport_dict["workspace_hash"]), 64)
+        self.assertEqual(len(passport_dict["context_hash"]), 64)
+        self.assertEqual(len(passport_dict["runtime_hash"]), 64)
+
+        # Verifying JSON output serialization
+        passport_json = passport.to_json()
+        self.assertIn("CoreProject", passport_json)
+
+    def test_triple_contract_manager_generation(self):
+        frame = ContextFrame()
+        frame.workspace_root = self.temp_path
+        frame.project = "TripleThreat"
+        frame.language = "Python"
+        frame.type = ["CLI"]
+        frame.status = "READY"
+        frame.validated = True
+
+        manager = TripleContractManager(self.temp_path)
+        paths = manager.generate_all_contracts(frame)
+
+        self.assertTrue(paths["context"].exists())
+        self.assertTrue(paths["runtime"].exists())
+        self.assertTrue(paths["capabilities"].exists())
+
+        # Validate schemas of generated contracts
+        with open(paths["context"], "r", encoding="utf-8") as f:
+            context_data = json.load(f)
+            self.assertTrue(SchemaValidator.validate_context(context_data))
+            self.assertEqual(context_data["project"]["name"], "TripleThreat")
+
+        with open(paths["runtime"], "r", encoding="utf-8") as f:
+            runtime_data = json.load(f)
+            self.assertTrue(SchemaValidator.validate_runtime(runtime_data))
+
+        with open(paths["capabilities"], "r", encoding="utf-8") as f:
+            capabilities_data = json.load(f)
+            self.assertTrue(SchemaValidator.validate_capabilities(capabilities_data))
 
 
 if __name__ == "__main__":
