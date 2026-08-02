@@ -1,0 +1,29 @@
+{
+  "$schema": "https://flowcore.io/schemas/runtime-passport.v1.json",
+  "runtime_id": "termux_runtime_01",
+  "runtime_version": "4.0",
+  "platform": "Android/Termux",
+  "providers": [
+    "battery",
+    "wifi",
+    "clipboard",
+    "python"
+  ],
+  "health": {
+    "status": "HEALTHY",
+    "disk": "OK",
+    "memory": "OK"
+  },
+  "permissions": {
+    "storage": "GRANTED",
+    "termux_api": "GRANTED"
+  },
+  "capabilities": [
+    "getBattery",
+    "getWifi",
+    "installPythonPackage"
+  ],
+  "boot_time": "2026-08-02T22:18:27.990483Z",
+  "last_health_check": "2026-08-02T22:18:27.990483Z",
+  "status": "READY"
+}
