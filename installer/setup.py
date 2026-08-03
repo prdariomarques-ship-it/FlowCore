@@ -260,3 +260,180 @@ class FlowCoreInstaller:
             )
         except Exception as e:
             return InstallStep("kernel_boot", False, f"Kernel boot failed: {e}")
+
+    # ── Bootstrap mode (fresh Termux from zero) ───────────────────────────────
+
+    def bootstrap(self, *, verbose: bool = True) -> InstallReport:
+        """Bootstrap a fresh Termux environment from zero.
+
+        Intended for first-run on a new Android device where only Termux is
+        installed.  Installs core packages, sets up storage, and then calls
+        install() to complete the full setup.
+        """
+        report = InstallReport()
+
+        steps = [
+            self._bootstrap_check_termux,
+            self._bootstrap_pkg_update,
+            self._bootstrap_termux_api,
+            self._bootstrap_storage,
+            self._bootstrap_core_packages,
+        ]
+
+        for step_fn in steps:
+            step = step_fn()
+            report.steps.append(step)
+            icon = "✓" if step.success else ("─" if step.skipped else "✗")
+            if verbose:
+                logger.info("  [bootstrap] {} {} — {}", icon, step.name, step.message)
+            if not step.success and not step.skipped:
+                logger.error("Bootstrap aborted at step '{}'", step.name)
+                return report
+
+        logger.info("Bootstrap complete — running full install...")
+        full = self.install(verbose=verbose)
+        report.steps.extend(full.steps)
+        return report
+
+    def _bootstrap_check_termux(self) -> InstallStep:
+        prefix = os.environ.get("PREFIX", "")
+        if prefix and os.path.exists(prefix + "/bin/bash"):
+            return InstallStep("bootstrap_termux_env", True, f"Termux detected: PREFIX={prefix}")
+        return InstallStep(
+            "bootstrap_termux_env", False,
+            "Not running inside Termux — bootstrap requires Termux on Android",
+        )
+
+    def _bootstrap_pkg_update(self) -> InstallStep:
+        if not is_available("pkg"):
+            return InstallStep("bootstrap_pkg_update", False, "pkg not available")
+        result = run(["pkg", "update", "-y"], timeout=180)
+        if result.success:
+            return InstallStep("bootstrap_pkg_update", True, "pkg updated")
+        return InstallStep(
+            "bootstrap_pkg_update", False,
+            f"pkg update failed: {result.stderr.strip()[:100]}",
+        )
+
+    def _bootstrap_termux_api(self) -> InstallStep:
+        if is_available("termux-battery-status"):
+            return InstallStep("bootstrap_termux_api", True, "Termux:API already installed", skipped=True)
+        if not is_available("pkg"):
+            return InstallStep("bootstrap_termux_api", False, "pkg not available")
+        result = run(["pkg", "install", "-y", "termux-api"], timeout=120)
+        if result.success:
+            return InstallStep(
+                "bootstrap_termux_api", True,
+                "Termux:API installed (also install Termux:API app from F-Droid)",
+            )
+        return InstallStep("bootstrap_termux_api", False, result.stderr.strip()[:100])
+
+    def _bootstrap_storage(self) -> InstallStep:
+        storage = Path.home() / "storage"
+        if storage.exists():
+            return InstallStep("bootstrap_storage", True, "Termux storage already configured", skipped=True)
+        return InstallStep(
+            "bootstrap_storage", False,
+            "Storage not set up — run 'termux-setup-storage' manually in Termux, then re-run bootstrap",
+        )
+
+    def _bootstrap_core_packages(self) -> InstallStep:
+        packages = ["python", "git", "openssh", "curl", "sqlite"]
+        installed = []
+        failed = []
+        for pkg in packages:
+            result = run(["pkg", "install", "-y", pkg], timeout=180)
+            if result.success:
+                installed.append(pkg)
+            else:
+                failed.append(pkg)
+        if failed:
+            return InstallStep(
+                "bootstrap_core_packages", False,
+                f"Some packages failed to install: {failed}. Installed: {installed}",
+            )
+        return InstallStep(
+            "bootstrap_core_packages", True,
+            f"Core packages installed: {installed}",
+        )
+
+    # ── Repair mode (corrupted environment) ──────────────────────────────────
+
+    def repair(self, *, verbose: bool = True) -> InstallReport:
+        """Detect and repair a corrupted FlowCore environment.
+
+        Runs Doctor to identify failures, then attempts to fix each one.
+        """
+        report = InstallReport()
+
+        if verbose:
+            logger.info("FlowCore Repair — running Doctor to detect issues...")
+
+        try:
+            from doctor.service import DoctorService
+            doctor = DoctorService()
+            doctor_report = doctor.run(verbose=False)
+        except Exception as e:
+            step = InstallStep("repair_doctor", False, f"Doctor could not run: {e}")
+            report.steps.append(step)
+            return report
+
+        report.steps.append(InstallStep(
+            "repair_doctor", True,
+            f"Doctor: {doctor_report.passed}/{len(doctor_report.checks)} passed, "
+            f"{doctor_report.failed} failures",
+        ))
+
+        failed_checks = [c for c in doctor_report.checks if c.failed]
+        if not failed_checks:
+            report.steps.append(InstallStep("repair_result", True, "No failures detected — nothing to repair"))
+            return report
+
+        for check in failed_checks:
+            step = self._repair_check(check, verbose=verbose)
+            report.steps.append(step)
+
+        re_report = doctor.run(verbose=False)
+        remaining = re_report.failed
+        status = remaining == 0
+        report.steps.append(InstallStep(
+            "repair_final_check", status,
+            f"Post-repair: {re_report.passed}/{len(re_report.checks)} passed, {remaining} still failing",
+        ))
+
+        return report
+
+    def _repair_check(self, check, *, verbose: bool) -> InstallStep:
+        """Attempt to fix a single failed check using its fix suggestion."""
+        name = check.name
+        fix = check.fix
+
+        if verbose:
+            logger.info("  Repairing '{}': {}", name, check.message)
+
+        if not fix:
+            return InstallStep(
+                f"repair_{name}", False,
+                f"No automatic fix available for '{name}': {check.message}",
+                skipped=True,
+            )
+
+        # Parse the fix as a command if it looks like one
+        fix_parts = fix.split()
+        if not fix_parts:
+            return InstallStep(f"repair_{name}", False, "Fix string is empty", skipped=True)
+
+        if not is_available(fix_parts[0]):
+            return InstallStep(
+                f"repair_{name}", False,
+                f"Fix command '{fix_parts[0]}' not available — manual action required: {fix}",
+                skipped=True,
+            )
+
+        result = run(fix_parts, timeout=180)
+        if result.success:
+            return InstallStep(f"repair_{name}", True, f"Fixed via: {fix}")
+        return InstallStep(
+            f"repair_{name}", False,
+            f"Auto-fix failed: {result.stderr.strip()[:100]} — manual action: {fix}",
+        )

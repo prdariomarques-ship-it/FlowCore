@@ -139,8 +139,28 @@ class RuntimeDiscovery:
         "curl", "wget",
         "sqlite3", "jq",
         "pkg",          # Termux package manager
-        "termux-info",  # Termux API
+        "getprop",      # Android system properties
+        # Termux:API tools
+        "termux-info",
         "termux-battery-status",
+        "termux-clipboard-get",
+        "termux-notification",
+        "termux-camera-photo",
+        "termux-microphone-record",
+        "termux-location",
+        "termux-bluetooth-get-adapters",
+        "termux-wifi-connectioninfo",
+        "termux-wifi-scaninfo",
+        "termux-open-url",
+        "termux-vibrate",
+        "termux-torch",
+        "termux-share",
+        "termux-wake-lock",
+        "termux-wake-unlock",
+        "termux-job-scheduler",
+        # Scheduling
+        "crontab",
+        # Other tools
         "node", "npm",
         "docker",
         "adb",
@@ -283,25 +303,59 @@ class RuntimeDiscovery:
         """Derive which named capabilities are available from discovered tools."""
         caps: list[str] = []
 
-        if snap.tools.get("python3", ToolInfo("python3", False)).available:
-            caps.append("runPython")
-        if snap.tools.get("git", ToolInfo("git", False)).available:
-            caps.append("runGit")
-        if snap.tools.get("ssh", ToolInfo("ssh", False)).available:
-            caps.append("runSSH")
-        if snap.tools.get("sqlite3", ToolInfo("sqlite3", False)).available:
-            caps.append("querySQLite")
-        if snap.tools.get("curl", ToolInfo("curl", False)).available:
-            caps.append("httpRequest")
-        if snap.termux.api_available:
+        def _has(tool: str) -> bool:
+            return snap.tools.get(tool, ToolInfo(tool, False)).available
+
+        # Termux:API capabilities — require termux-api package
+        if _has("termux-battery-status"):
             caps.append("getBattery")
-            caps.append("getClipboard")
+        if _has("termux-clipboard-get"):
+            caps.extend(["getClipboard", "setClipboard"])
+        if _has("termux-notification"):
             caps.append("sendNotification")
-        if snap.android.detected:
+        if _has("termux-wifi-connectioninfo"):
+            caps.append("getNetworkInfo")
+        if _has("termux-wifi-scaninfo"):
+            caps.append("getWifiScan")
+        if _has("termux-bluetooth-get-adapters"):
+            caps.append("getBluetoothState")
+        if _has("termux-location"):
+            caps.append("getLocation")
+        if _has("termux-camera-photo"):
+            caps.append("takePhoto")
+        if _has("termux-microphone-record"):
+            caps.append("recordAudio")
+        if _has("termux-vibrate"):
+            caps.append("vibrate")
+        if _has("termux-torch"):
+            caps.append("torch")
+        if _has("termux-open-url"):
+            caps.append("openUrl")
+        if _has("termux-share"):
+            caps.append("shareFile")
+        if _has("termux-wake-lock"):
+            caps.extend(["acquireWakeLock", "releaseWakeLock"])
+        if _has("termux-info"):
+            caps.extend(["checkPermission", "listPermissions"])
+        if _has("getprop"):
             caps.append("getAndroidInfo")
-        if snap.network.internet:
-            caps.append("internetAccess")
-        if snap.tools.get("docker", ToolInfo("docker", False)).available:
-            caps.append("runDocker")
+
+        # Core Termux/Linux capabilities
+        if _has("python3") or _has("python"):
+            caps.append("runPython")
+        if _has("git"):
+            caps.append("runGit")
+        if _has("ssh"):
+            caps.append("runSSH")
+        if _has("sqlite3"):
+            caps.append("runSQLite")
+        if snap.platform_type not in ("windows",):
+            caps.extend(["runShell", "readFile", "writeFile", "listDirectory"])
+        if snap.platform_type not in ("windows",):
+            caps.append("installPackage")
+        if _has("curl") or True:  # urllib always available
+            caps.append("httpRequest")
+        if snap.platform_type not in ("windows",):
+            caps.extend(["startService", "stopService", "listServices", "scheduleJob"])
 
         return caps

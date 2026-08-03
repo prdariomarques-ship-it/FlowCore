@@ -20,6 +20,8 @@ from __future__ import annotations
 import os
 import socket
 import sys
+import time
+import threading
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -106,6 +108,15 @@ class DoctorService:
             self._check_termux_api,
             self._check_termux_storage,
             self._check_termux_pkg,
+            # ── Android capability probes ─────────────────────────────────────
+            self._check_wakelock,
+            self._check_camera,
+            self._check_microphone,
+            self._check_location,
+            self._check_bluetooth,
+            self._check_vibrate,
+            self._check_torch,
+            self._check_share,
             # ── Core tools ───────────────────────────────────────────────────
             self._check_python3,
             self._check_pip,
@@ -133,6 +144,49 @@ class DoctorService:
             self._check_runtime_json,
             self._check_flowcore_config,
         ]
+        self._running = False
+        self._thread: threading.Thread | None = None
+
+    def start_service(self, interval: int = 300) -> None:
+        """Run Doctor continuously in a background thread.
+
+        Checks are repeated every *interval* seconds (default: 5 minutes).
+        Call stop_service() to terminate the loop.
+        """
+        if self._running:
+            logger.warning("DoctorService already running")
+            return
+        self._running = True
+
+        def _loop() -> None:
+            logger.info("DoctorService started (interval={}s)", interval)
+            while self._running:
+                try:
+                    report = self.run(verbose=False)
+                    if not report.healthy:
+                        failures = [c.name for c in report.checks if c.failed]
+                        logger.warning("DoctorService: unhealthy — failed checks: {}", failures)
+                except Exception as exc:
+                    logger.error("DoctorService loop error: {}", exc)
+                for _ in range(interval * 10):
+                    if not self._running:
+                        break
+                    time.sleep(0.1)
+            logger.info("DoctorService stopped")
+
+        self._thread = threading.Thread(target=_loop, daemon=True, name="flowcore-doctor")
+        self._thread.start()
+
+    def stop_service(self) -> None:
+        """Stop the background Doctor loop."""
+        self._running = False
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=2)
+        self._thread = None
+
+    @property
+    def is_running(self) -> bool:
+        return self._running and (self._thread is not None) and self._thread.is_alive()
 
     def run(self, *, verbose: bool = False) -> DoctorReport:
         """Execute all checks and return the consolidated report."""
@@ -211,6 +265,96 @@ class DoctorService:
         if is_available("pkg"):
             return CheckResult("termux_pkg", CheckStatus.OK, "pkg package manager available")
         return CheckResult("termux_pkg", CheckStatus.FAIL, "pkg not found in Termux")
+
+    # ── Android capability probes ─────────────────────────────────────────────
+
+    def _check_wakelock(self) -> CheckResult:
+        if not os.environ.get("PREFIX"):
+            return CheckResult("wakelock", CheckStatus.SKIP, "Not in Termux")
+        if is_available("termux-wake-lock"):
+            return CheckResult("wakelock", CheckStatus.OK, "termux-wake-lock available")
+        return CheckResult(
+            "wakelock", CheckStatus.WARN,
+            "termux-wake-lock not found — background tasks may be killed",
+            fix="pkg install termux-api",
+        )
+
+    def _check_camera(self) -> CheckResult:
+        if not os.environ.get("PREFIX"):
+            return CheckResult("camera", CheckStatus.SKIP, "Not in Termux")
+        if is_available("termux-camera-photo"):
+            return CheckResult("camera", CheckStatus.OK, "termux-camera-photo available")
+        return CheckResult(
+            "camera", CheckStatus.WARN,
+            "termux-camera-photo not found",
+            fix="pkg install termux-api",
+        )
+
+    def _check_microphone(self) -> CheckResult:
+        if not os.environ.get("PREFIX"):
+            return CheckResult("microphone", CheckStatus.SKIP, "Not in Termux")
+        if is_available("termux-microphone-record"):
+            return CheckResult("microphone", CheckStatus.OK, "termux-microphone-record available")
+        return CheckResult(
+            "microphone", CheckStatus.WARN,
+            "termux-microphone-record not found",
+            fix="pkg install termux-api",
+        )
+
+    def _check_location(self) -> CheckResult:
+        if not os.environ.get("PREFIX"):
+            return CheckResult("location", CheckStatus.SKIP, "Not in Termux")
+        if is_available("termux-location"):
+            return CheckResult("location", CheckStatus.OK, "termux-location available")
+        return CheckResult(
+            "location", CheckStatus.WARN,
+            "termux-location not found",
+            fix="pkg install termux-api",
+        )
+
+    def _check_bluetooth(self) -> CheckResult:
+        if not os.environ.get("PREFIX"):
+            return CheckResult("bluetooth", CheckStatus.SKIP, "Not in Termux")
+        if is_available("termux-bluetooth-get-adapters"):
+            return CheckResult("bluetooth", CheckStatus.OK, "termux-bluetooth-get-adapters available")
+        return CheckResult(
+            "bluetooth", CheckStatus.WARN,
+            "termux-bluetooth-get-adapters not found",
+            fix="pkg install termux-api",
+        )
+
+    def _check_vibrate(self) -> CheckResult:
+        if not os.environ.get("PREFIX"):
+            return CheckResult("vibrate", CheckStatus.SKIP, "Not in Termux")
+        if is_available("termux-vibrate"):
+            return CheckResult("vibrate", CheckStatus.OK, "termux-vibrate available")
+        return CheckResult(
+            "vibrate", CheckStatus.WARN,
+            "termux-vibrate not found",
+            fix="pkg install termux-api",
+        )
+
+    def _check_torch(self) -> CheckResult:
+        if not os.environ.get("PREFIX"):
+            return CheckResult("torch", CheckStatus.SKIP, "Not in Termux")
+        if is_available("termux-torch"):
+            return CheckResult("torch", CheckStatus.OK, "termux-torch available")
+        return CheckResult(
+            "torch", CheckStatus.WARN,
+            "termux-torch not found",
+            fix="pkg install termux-api",
+        )
+
+    def _check_share(self) -> CheckResult:
+        if not os.environ.get("PREFIX"):
+            return CheckResult("share", CheckStatus.SKIP, "Not in Termux")
+        if is_available("termux-share"):
+            return CheckResult("share", CheckStatus.OK, "termux-share available")
+        return CheckResult(
+            "share", CheckStatus.WARN,
+            "termux-share not found",
+            fix="pkg install termux-api",
+        )
 
     # ── Core tools ────────────────────────────────────────────────────────────
 

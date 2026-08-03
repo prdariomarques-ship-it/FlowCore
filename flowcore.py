@@ -825,6 +825,114 @@ def cmd_boot(verbose: bool = False) -> None:
         sys.exit(1)
 
 
+def cmd_status() -> None:
+    """Show comprehensive FlowCore runtime status."""
+    print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+    print(f"{BOLD}{CYAN}║         FlowCore Runtime Status                 ║{NC}")
+    print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
+
+    # ── Kernel / Runtime Passport ─────────────────────────────────────────────
+    print(f"{BOLD}Kernel{NC}")
+    runtime_json = Path.home() / ".flowcore" / "flowcore.runtime.json"
+    if runtime_json.exists():
+        import json as _json
+        try:
+            data = _json.loads(runtime_json.read_text())
+            android = data.get("android", {})
+            termux = data.get("termux", {})
+            network = data.get("network", {})
+            print(f"  {GREEN}✓{NC} Runtime Passport  : {data.get('generated_at', 'unknown')}")
+            print(f"  {GREEN}✓{NC} Platform          : {data.get('platform_type', 'unknown')}")
+            print(f"  {GREEN}✓{NC} Android           : {android.get('detected', False)}")
+            print(f"  {GREEN}✓{NC} Termux            : {termux.get('detected', False)}")
+            print(f"  {GREEN}✓{NC} Internet          : {network.get('internet', False)}")
+        except Exception:
+            print(f"  {YELLOW}⚠{NC} Runtime Passport  : corrupt (run: python3 flowcore.py boot)")
+    else:
+        print(f"  {YELLOW}⚠{NC} Runtime Passport  : not found (run: python3 flowcore.py boot)")
+    print()
+
+    # ── Capabilities ──────────────────────────────────────────────────────────
+    print(f"{BOLD}Capabilities{NC}")
+    try:
+        from capability.registry import CapabilityRegistry
+        reg = CapabilityRegistry()
+        cap_map = reg.list_capabilities()
+        available = [(c, a) for c, a in cap_map.items() if a]
+        missing = [c for c, a in cap_map.items() if not a]
+        for cap, adapter in sorted(available):
+            print(f"  {GREEN}✓{NC} {cap:<25} {CYAN}({adapter}){NC}")
+        for cap in sorted(missing):
+            print(f"  {YELLOW}○{NC} {cap:<25} (no adapter)")
+        print(f"\n  Total: {len(available)}/{len(cap_map)} capabilities available")
+    except Exception as e:
+        print(f"  {RED}✗{NC} Could not load capability registry: {e}")
+    print()
+
+    # ── Doctor (quick run) ────────────────────────────────────────────────────
+    print(f"{BOLD}Health (Doctor){NC}")
+    try:
+        from doctor.service import DoctorService
+        doctor = DoctorService()
+        report = doctor.run(verbose=False)
+        icons = {"ok": f"{GREEN}✓{NC}", "warn": f"{YELLOW}⚠{NC}",
+                 "fail": f"{RED}✗{NC}", "skip": "─"}
+        for check in report.checks:
+            icon = icons.get(check.status.value, "?")
+            suffix = f"  → {check.fix}" if check.fix and check.status.value != "ok" else ""
+            print(f"  {icon} {check.name:<30} {check.message}{suffix}")
+        print()
+        if report.healthy:
+            print(f"  {GREEN}All checks passed ({report.passed}/{len(report.checks)}){NC}")
+        else:
+            print(f"  {RED}{report.failed} failure(s) | {report.warned} warning(s){NC}")
+    except Exception as e:
+        print(f"  {RED}✗{NC} Doctor failed: {e}")
+    print()
+
+
+def cmd_bootstrap() -> None:
+    """Bootstrap a fresh Termux environment from zero."""
+    print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+    print(f"{BOLD}{CYAN}║         FlowCore Bootstrap (Fresh Termux)       ║{NC}")
+    print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
+    try:
+        from installer.setup import FlowCoreInstaller
+        installer = FlowCoreInstaller()
+        report = installer.bootstrap(verbose=True)
+        print()
+        if report.ok:
+            print(f"{GREEN}Bootstrap complete — FlowCore ready.{NC}\n")
+        else:
+            failed = [s.name for s in report.failed_steps]
+            print(f"{YELLOW}Bootstrap finished with issues: {', '.join(failed)}{NC}\n")
+            sys.exit(1)
+    except Exception as e:
+        print(f"{RED}✗{NC} Bootstrap failed: {e}\n")
+        sys.exit(1)
+
+
+def cmd_repair() -> None:
+    """Detect and repair a corrupted FlowCore environment."""
+    print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+    print(f"{BOLD}{CYAN}║         FlowCore Repair                         ║{NC}")
+    print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
+    try:
+        from installer.setup import FlowCoreInstaller
+        installer = FlowCoreInstaller()
+        report = installer.repair(verbose=True)
+        print()
+        if report.ok:
+            print(f"{GREEN}Repair complete — all issues resolved.{NC}\n")
+        else:
+            failed = [s.name for s in report.failed_steps]
+            print(f"{YELLOW}Repair finished — some issues remain: {', '.join(failed)}{NC}\n")
+            print(f"{YELLOW}Run 'python3 flowcore.py status' to see current state.{NC}\n")
+    except Exception as e:
+        print(f"{RED}✗{NC} Repair failed: {e}\n")
+        sys.exit(1)
+
+
 def cmd_install() -> None:
     """Set up the full FlowCore runtime environment."""
     print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
@@ -1198,9 +1306,12 @@ def main() -> None:
     subparsers.add_parser("models", help="List available Ollama models")
     subparsers.add_parser("stats", help="Show FlowCore statistics")
     subparsers.add_parser("doctor", help="System health check")
+    subparsers.add_parser("status", help="Comprehensive runtime status (capabilities, health, passport)")
     boot_parser = subparsers.add_parser("boot", help="Boot Runtime Kernel and emit Runtime Passport")
     boot_parser.add_argument("--verbose", "-v", action="store_true", help="Verbose boot output")
     subparsers.add_parser("install", help="Set up the full FlowCore runtime environment")
+    subparsers.add_parser("bootstrap", help="Bootstrap a fresh Termux environment from zero")
+    subparsers.add_parser("repair", help="Detect and repair a corrupted FlowCore environment")
     subparsers.add_parser("demo", help="Interactive demo")
 
     search_parser = subparsers.add_parser("search", help="Search documents & memories")
@@ -1268,10 +1379,16 @@ def main() -> None:
         cmd_stats()
     elif args.command == "doctor":
         cmd_doctor()
+    elif args.command == "status":
+        cmd_status()
     elif args.command == "boot":
         cmd_boot(verbose=getattr(args, "verbose", False))
     elif args.command == "install":
         cmd_install()
+    elif args.command == "bootstrap":
+        cmd_bootstrap()
+    elif args.command == "repair":
+        cmd_repair()
     elif args.command == "demo":
         cmd_demo()
     elif args.command == "search":
