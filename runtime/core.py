@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from agents import AgentRegistry, HealthAgent
 from config.loader import get_config, load_config
 from loguru import logger
 
@@ -102,6 +103,8 @@ class FlowCoreRuntime:
     def __init__(self, root: Path | None = None) -> None:
         self.root = root or _detect_root()
         self.cfg = load_config(self.root)
+        self.agent_registry = AgentRegistry()
+        self.scheduler = None
         self._running = False
         self._shutdown_event = asyncio.Event()
         self.platform_info = detect_platform()
@@ -115,6 +118,17 @@ class FlowCoreRuntime:
             self.platform_info["python_version"],
         )
         self.db_engine = await init_database(self.cfg)
+        try:
+            from scheduler.service import SchedulerService
+            self.scheduler = SchedulerService()
+            await self.scheduler.start()
+        except ImportError as exc:
+            logger.warning("Scheduler unavailable: {}", exc)
+        self.agent_registry.register(HealthAgent())
+        logger.info(
+            "Registered agents: {}",
+            [agent["name"] for agent in self.agent_registry.list()],
+        )
         self._running = True
         logger.info("FlowCore started successfully")
 
@@ -124,6 +138,8 @@ class FlowCoreRuntime:
             return
         self._running = False
         self._shutdown_event.set()
+        if self.scheduler is not None:
+            await self.scheduler.stop()
         if hasattr(self, "db_engine"):
             await self.db_engine.dispose()
         logger.info("FlowCore stopped")
