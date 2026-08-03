@@ -27,7 +27,7 @@ FlowCore is a lightweight, Python-based workflow automation engine designed for 
 │                                                     │
 │  ┌──────────────────────────────────────────────┐   │
 │  │              API (FastAPI)                   │   │
-│  │        bound to 127.0.0.1:8080               │   │
+│  │        bound to 127.0.0.1:8000               │   │
 │  │  /api/health  /api/flows  /api/executions    │   │
 │  └──────────────────────────────────────────────┘   │
 │                                                     │

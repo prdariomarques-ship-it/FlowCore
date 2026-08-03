@@ -69,7 +69,7 @@ import asyncio, time, httpx
 async def test():
     start = time.time()
     async with httpx.AsyncClient() as client:
-        resp = await client.get('http://127.0.0.1:8080/api/health')
+        resp = await client.get('http://127.0.0.1:8000/api/health')
         elapsed = time.time() - start
         print(f'{elapsed:.4f}')
 
