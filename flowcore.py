@@ -1441,8 +1441,148 @@ def cmd_agenda(event: str) -> None:
         print(f"{RED}Error: {e}{NC}")
 
 
+def cmd_interactive_shell(cfg: dict, platform: dict) -> None:
+    """Launch the FlowCore Platform interactive shell (Bootloader + Console)."""
+    print(f"\n{BOLD}{CYAN}╔════════════════════════════════════════════════════════════╗{NC}")
+    print(f"{BOLD}{CYAN}║         FLOWCORE PLATFORM OPERATING ENVIRONMENT v4.0        ║{NC}")
+    print(f"{BOLD}{CYAN}╚════════════════════════════════════════════════════════════╝{NC}")
+    print(f"[*] Initializing Microkernel Services & Bootloader sychronously...")
+
+    # 1. Initialize Context Engine & Runtime Bootloader
+    from flowcore.intelligence.context import ContextEngine, TripleContractManager
+    from flowcore.runtime import RuntimeBootloader
+
+    workspace_path = Path(".").resolve()
+
+    # Run context engine pipeline
+    engine = ContextEngine(workspace_path)
+    frame = engine.validate()
+
+    # Run runtime bootloader sequence
+    bootloader = RuntimeBootloader(workspace_path)
+    runtime_context = bootloader.boot()
+
+    # Generate triple contract files
+    triple_manager = TripleContractManager(workspace_path)
+    triple_manager.generate_all_contracts(frame)
+
+    print(f"{GREEN}[+] Boot Sequence Complete. Platform STATUS = READY.{NC}")
+    print(f"[*] Active Runtime Switched to: {BOLD}{bootloader.manager.get_active_runtime().platform}{NC}")
+    print(f"Type '{YELLOW}help{NC}' to list capabilities or '{YELLOW}quit{NC}' to exit.\n")
+
+    active_runtime = bootloader.manager.get_active_runtime()
+
+    while True:
+        try:
+            user_input = input(f"{GREEN}You:{NC}\n> ").strip()
+            if not user_input:
+                continue
+
+            cmd = user_input.lower()
+
+            if cmd in ("exit", "quit", "q"):
+                print(f"{GREEN}Goodbye!{NC}")
+                break
+
+            elif cmd == "help":
+                print(f"\n{BOLD}Available Commands & Capabilities:{NC}")
+                print(f"  {CYAN}status{NC}               Show platform state")
+                print(f"  {CYAN}doctor{NC}               Execute system health diagnostics")
+                print(f"  {CYAN}battery{NC} / {CYAN}qual minha bateria?{NC}  Query device battery metrics")
+                print(f"  {CYAN}wifi{NC}                 Query device Wi-Fi connection metrics")
+                print(f"  {CYAN}storage{NC}              Query host storage information")
+                print(f"  {CYAN}listar arquivos{NC}      List all files in current workspace")
+                print(f"  {CYAN}context{NC} / {CYAN}mostrar contexto{NC}  Display the raw flowcore.context.json")
+                print(f"  {CYAN}runtime{NC}              Display the raw flowcore.runtime.json")
+                print(f"  {CYAN}passport{NC}             Display the raw flowcore.runtime.passport.json")
+                print(f"  {CYAN}help{NC}                 Display this help menu")
+                print()
+
+            elif cmd == "status":
+                print(f"\n{GREEN}STATUS: READY{NC}")
+                print(f"Platform: {platform['os_name']}")
+                print(f"Bootloader State: {bootloader.state.value}\n")
+
+            elif cmd == "doctor":
+                cmd_doctor()
+
+            elif cmd in ("battery", "qual minha bateria?"):
+                res = active_runtime.execute_capability("getBattery")
+                print(f"\n{GREEN}[+] Battery Status:{NC}")
+                print(f"  Percentage: {res.get('percentage')}%")
+                print(f"  Status:     {res.get('status')}")
+                print(f"  Provider:   {res.get('source')}\n")
+
+            elif cmd == "wifi":
+                res = active_runtime.execute_capability("getWifi")
+                print(f"\n{GREEN}[+] Wi-Fi Status:{NC}")
+                if "ssid" in res:
+                    print(f"  Connected:  {res.get('connected')}")
+                    print(f"  SSID:       {res.get('ssid')}")
+                else:
+                    print(f"  Connected:  {res.get('connected')}")
+                print(f"  Provider:   {res.get('source')}\n")
+
+            elif cmd == "storage":
+                from flowcore.runtime.runtime_health import RuntimeHealthChecker
+                health = RuntimeHealthChecker().check_health()
+                print(f"\n{GREEN}[+] Storage Status:{NC}")
+                print(f"  Disk Space: {health.get('disk')}")
+                print(f"  Memory:     {health.get('memory')}\n")
+
+            elif cmd == "listar arquivos":
+                print(f"\n{GREEN}[+] Files in workspace '{workspace_path.name}':{NC}")
+                for file_path in sorted(workspace_path.glob("*")):
+                    if file_path.is_file():
+                        print(f"  - {file_path.name}")
+                print()
+
+            elif cmd in ("context", "mostrar contexto"):
+                context_file = workspace_path / "flowcore.context.json"
+                if context_file.exists():
+                    print(f"\n{GREEN}--- flowcore.context.json ---{NC}")
+                    print(context_file.read_text(encoding="utf-8"))
+                else:
+                    print(f"{RED}Error: flowcore.context.json not found in workspace.{NC}")
+
+            elif cmd == "runtime":
+                runtime_file = workspace_path / "flowcore.runtime.json"
+                if runtime_file.exists():
+                    print(f"\n{GREEN}--- flowcore.runtime.json ---{NC}")
+                    print(runtime_file.read_text(encoding="utf-8"))
+                else:
+                    print(f"{RED}Error: flowcore.runtime.json not found in workspace.{NC}")
+
+            elif cmd == "passport":
+                passport_file = workspace_path / "flowcore.runtime.passport.json"
+                if passport_file.exists():
+                    print(f"\n{GREEN}--- flowcore.runtime.passport.json ---{NC}")
+                    print(passport_file.read_text(encoding="utf-8"))
+                else:
+                    print(f"{RED}Error: flowcore.runtime.passport.json not found in workspace.{NC}")
+
+            else:
+                # Custom graceful response
+                print(f"\n{YELLOW}Capability or command not recognized: '{user_input}'{NC}")
+                print(f"Type '{YELLOW}help{NC}' to view list of available capabilities.\n")
+
+        except (KeyboardInterrupt, EOFError):
+            print(f"\n{GREEN}Goodbye!{NC}")
+            break
+        except Exception as e:
+            logger.error(f"Console error: {e}")
+            print(f"\n{RED}Error: {e}{NC}\n")
+
+
 def main() -> None:
     """Main CLI handler."""
+    cfg = get_config()
+    platform = detect_platform()
+
+    if len(sys.argv) == 1:
+        cmd_interactive_shell(cfg, platform)
+        sys.exit(0)
+
     parser = argparse.ArgumentParser(description="FlowCore CLI")
     subparsers = parser.add_subparsers(dest="command")
 
