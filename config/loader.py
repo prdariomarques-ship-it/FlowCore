@@ -54,6 +54,7 @@ def _env_overrides(cfg: dict, prefix: str = "FLOWCORE") -> dict:
 
 
 _CONFIG = None
+_LOADED_CONFIG_PATH: Path | None = None
 
 
 def get_config() -> dict[str, Any]:
@@ -65,18 +66,21 @@ def get_config() -> dict[str, Any]:
     return _CONFIG
 
 
-def load_config() -> dict[str, Any]:
+def load_config(root: Path | None = None) -> dict[str, Any]:
     """Load configuration from JSON files and environment."""
-    root = _project_root()
+    global _LOADED_CONFIG_PATH
+    config_root = root or _project_root()
     
-    default_file = root / "config" / "default.json"
+    default_file = config_root / "config" / "default.json"
     if not default_file.exists():
         raise FileNotFoundError(f"Config not found: {default_file}")
     
     with open(default_file) as f:
         cfg = json.load(f)
+    if root is None:
+        _LOADED_CONFIG_PATH = default_file
     
-    local_file = root / "config" / "local.json"
+    local_file = config_root / "config" / "local.json"
     if local_file.exists():
         with open(local_file) as f:
             local = json.load(f) or {}
@@ -84,6 +88,16 @@ def load_config() -> dict[str, Any]:
     
     cfg = _env_overrides(cfg)
     return cfg
+
+
+def get_config_path() -> Path:
+    """Return the configuration file loaded from disk."""
+    global _LOADED_CONFIG_PATH
+    if _LOADED_CONFIG_PATH is None:
+        load_config()
+    if _LOADED_CONFIG_PATH is None:
+        raise RuntimeError("Configuration path is unavailable")
+    return _LOADED_CONFIG_PATH
 
 
 def reload_config() -> dict[str, Any]:

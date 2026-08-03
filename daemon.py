@@ -62,7 +62,7 @@ def cmd_start() -> None:
     # Verify it started
     if proc.poll() is None:
         print(f"Daemon started (PID {proc.pid})")
-        print(f"API: http://127.0.0.1:8080")
+        print(f"API: http://127.0.0.1:8000")
         print(f"Logs: {LOG_FILE}")
     else:
         print("Failed to start daemon. Check logs:", LOG_FILE)

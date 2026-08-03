@@ -54,7 +54,7 @@ python3 daemon.py start
 python3 flowcore.py health
 
 # Or with curl
-curl http://127.0.0.1:8080/api/health
+curl http://127.0.0.1:8000/api/health
 ```
 
 ---

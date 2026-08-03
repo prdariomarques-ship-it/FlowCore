@@ -54,6 +54,7 @@ if str(ROOT) not in sys.path:
 from config.loader import get_config
 from runtime.core import FlowCoreRuntime, detect_platform
 from loguru import logger
+from capabilities.registry import capability
 
 # Colours
 RED = "\033[0;31m"
@@ -883,93 +884,20 @@ def cmd_stats() -> None:
 
 
 def cmd_doctor() -> None:
-    """System health check: Python, SQLite, Database, JSON, Config, Ollama, API, Scheduler."""
+    """System health check using the doctor capability."""
+    result = capability("doctor")
     print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
     print(f"{BOLD}{CYAN}║         FlowCore Doctor                         ║{NC}")
     print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
-
-    checks = {}
-
-    try:
-        import sys
-        version = sys.version.split()[0]
-        print(f"{GREEN}✓{NC} Python: {version}")
-        checks["python"] = "PASS"
-    except Exception as e:
-        print(f"{RED}✗{NC} Python: {e}")
-        checks["python"] = "FAIL"
-
-    try:
-        import aiosqlite
-        print(f"{GREEN}✓{NC} SQLite (aiosqlite)")
-        checks["sqlite"] = "PASS"
-    except Exception as e:
-        print(f"{RED}✗{NC} SQLite: {e}")
-        checks["sqlite"] = "FAIL"
-
-    try:
-        import aiosqlite
-        from config.loader import get_config
-        cfg = get_config()
-        db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
-        db_path = db_url.replace("sqlite+aiosqlite:///", "")
-
-        async def _test_db():
-            async with aiosqlite.connect(db_path) as db:
-                cursor = await db.execute("SELECT 1")
-                await cursor.fetchone()
-
-        asyncio.run(_test_db())
-        print(f"{GREEN}✓{NC} Database: {db_path}")
-        checks["database"] = "PASS"
-    except Exception as e:
-        print(f"{RED}✗{NC} Database: {str(e)[:50]}")
-        checks["database"] = "FAIL"
-
-    try:
-        import json
-        test_json = json.dumps({"test": "data"})
-        print(f"{GREEN}✓{NC} JSON")
-        checks["json"] = "PASS"
-    except Exception as e:
-        print(f"{RED}✗{NC} JSON: {e}")
-        checks["json"] = "FAIL"
-
-    try:
-        from config.loader import get_config
-        cfg = get_config()
-        assert cfg["app"]["name"] == "FlowCore"
-        print(f"{GREEN}✓{NC} Config: FlowCore")
-        checks["config"] = "PASS"
-    except Exception as e:
-        print(f"{RED}✗{NC} Config: {str(e)[:50]}")
-        checks["config"] = "FAIL"
-
-    if _test_ollama_connection():
-        print(f"{GREEN}✓{NC} Ollama: {OLLAMA_MODEL} @ {OLLAMA_HOST}")
-        checks["ollama"] = "PASS"
-    else:
-        print(f"{YELLOW}⚠{NC} Ollama: Not available")
-        checks["ollama"] = "WARN"
-
-    try:
-        import fastapi
-        print(f"{GREEN}✓{NC} FastAPI (optional)")
-        checks["api"] = "PASS"
-    except ImportError:
-        print(f"{YELLOW}⚠{NC} FastAPI: Not installed")
-        checks["api"] = "WARN"
-
-    try:
-        import apscheduler
-        print(f"{GREEN}✓{NC} APScheduler (optional)")
-        checks["scheduler"] = "PASS"
-    except ImportError:
-        print(f"{YELLOW}⚠{NC} APScheduler: Not installed")
-        checks["scheduler"] = "WARN"
-
+    checks = result.data["checks"]
+    for name, check in checks.items():
+        status = check["status"]
+        colour = GREEN if status == "PASS" else YELLOW if status == "WARN" else RED
+        symbol = "✓" if status == "PASS" else "⚠" if status == "WARN" else "✗"
+        detail = check.get("version") or check.get("error") or check.get("path") or ""
+        print(f"{colour}{symbol}{NC} {name}: {status}" + (f" ({detail})" if detail else ""))
     print()
-    failures = [k for k, v in checks.items() if v == "FAIL"]
+    failures = [name for name, check in checks.items() if check["status"] == "FAIL"]
     if failures:
         print(f"{RED}FAIL: {', '.join(failures)}{NC}\n")
     else:
@@ -1505,6 +1433,10 @@ def main() -> None:
     agenda_parser.add_argument("event", nargs="+", help="Event description")
 
     args = parser.parse_args()
+    if args.command is None:
+        from cli.repl import run
+        run()
+        return
     cfg = get_config()
     platform = detect_platform()
 

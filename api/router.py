@@ -22,6 +22,7 @@ import uuid
 from fastapi import FastAPI, HTTPException, Query
 from loguru import logger
 from pydantic import BaseModel
+from capabilities.registry import CAPABILITIES, capability
 
 # ---------------------------------------------------------------------------
 # Schemas
@@ -77,6 +78,19 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     """Create the FastAPI application."""
     app = FastAPI(title="FlowCore API", version=version)
     _platform = platform_info or {}
+
+    for capability_name in CAPABILITIES:
+        async def _capability_endpoint(name: str = capability_name):
+            return capability(name).to_dict()
+
+        app.add_api_route(
+            f"/{capability_name}",
+            _capability_endpoint,
+            methods=["GET"],
+            response_model=None,
+            name=f"get_{capability_name}",
+            operation_id=f"get_{capability_name}",
+        )
 
     # ── Health ──────────────────────────────────────────────────────────
     @app.get("/api/health", response_model=HealthResponse)

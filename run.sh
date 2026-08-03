@@ -16,4 +16,4 @@ echo ""
 echo "Starting FlowCore..."
 echo ""
 
-python3 flowcore.py chat
+python3 flowcore.py run

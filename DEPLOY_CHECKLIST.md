@@ -106,7 +106,7 @@ python3 flowcore.py selftest
 ```bash
 python3 flowcore.py serve &
 sleep 3
-curl http://127.0.0.1:8080/api/health
+curl http://127.0.0.1:8000/api/health
 kill %1
 ```
 
@@ -117,7 +117,7 @@ kill %1
 
 **Verificação de segurança:**
 ```bash
-curl http://0.0.0.0:8080/api/health    # Deve FALHAR (localhost only)
+curl http://0.0.0.0:8000/api/health    # Deve FALHAR (localhost only)
 ```
 
 ---
@@ -209,7 +209,7 @@ termux-battery-status
 | 2. Clonar | `git clone ...` | 32+ arquivos |
 | 3. Instalar | `bash install.sh` | Installation Complete |
 | 4. Self-test | `python3 flowcore.py selftest` | 35/35 PASSED |
-| 5. API | `curl 127.0.0.1:8080/api/health` | `{"status": "ok"}` |
+| 5. API | `curl 127.0.0.1:8000/api/health` | `{"status": "ok"}` |
 | 6. Daemon | `python3 daemon.py start/stop` | Status OK |
 | 7. Segurança | `python3 scripts/audit.py` | 30/30 PASS |
 | 8. Diretórios | `find . -maxdepth 2` | Todos presentes |
