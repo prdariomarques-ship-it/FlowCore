@@ -128,6 +128,52 @@ FLOWCORE_TOOLS: list[Tool] = [
         description="Get the current status of the FlowCore background daemon.",
         inputSchema={"type": "object", "properties": {}, "required": []},
     ),
+    Tool(
+        name="agent_list",
+        description="List all agents registered in this FlowCore instance.",
+        inputSchema={"type": "object", "properties": {}, "required": []},
+    ),
+    Tool(
+        name="agent_run",
+        description=(
+            "Run a FlowCore agent by name and return the result. "
+            "Available agents include 'health'. "
+            "The run is passport-gated and the result is persisted to history."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "agent_name": {
+                    "type": "string",
+                    "description": "Name of the agent to run (e.g. 'health').",
+                },
+                "context": {
+                    "type": "object",
+                    "description": "Optional context dict passed to the agent.",
+                },
+            },
+            "required": ["agent_name"],
+        },
+    ),
+    Tool(
+        name="agent_history",
+        description="List recent agent task history from FlowCore.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "description": "Max records to return (default 20).",
+                    "default": 20,
+                },
+                "agent": {
+                    "type": "string",
+                    "description": "Filter by agent name (omit for all).",
+                },
+            },
+            "required": [],
+        },
+    ),
 ]
 
 _TOOL_MAP: dict[str, Tool] = {t.name: t for t in FLOWCORE_TOOLS}
@@ -284,6 +330,41 @@ def handle_daemon_status(_args: dict) -> CallToolResult:
         return _err(f"daemon_status failed: {exc}")
 
 
+def handle_agent_list(_args: dict) -> CallToolResult:
+    try:
+        from agents.runner import AgentRunner
+        runner = AgentRunner(require_passport=False)
+        return _ok({"agents": runner.list_agents()})
+    except Exception as exc:
+        return _err(f"agent_list failed: {exc}")
+
+
+def handle_agent_run(args: dict) -> CallToolResult:
+    try:
+        from agents.runner import AgentRunner
+        agent_name = args.get("agent_name", "")
+        context = args.get("context") or {}
+        if not agent_name:
+            return _err("agent_name is required")
+        runner = AgentRunner(require_passport=False)
+        record = runner.run_sync(agent_name, context, passport_agent_name="mcp-agent")
+        return _ok(record.to_dict())
+    except Exception as exc:
+        return _err(f"agent_run failed: {exc}")
+
+
+def handle_agent_history(args: dict) -> CallToolResult:
+    try:
+        from agents.task_store import AgentTaskStore
+        limit = min(int(args.get("limit", 20)), 200)
+        agent = args.get("agent") or None
+        store = AgentTaskStore()
+        records = store.list_all(limit=limit, agent=agent)
+        return _ok({"tasks": [r.to_dict() for r in records]})
+    except Exception as exc:
+        return _err(f"agent_history failed: {exc}")
+
+
 # ── Dispatch ──────────────────────────────────────────────────────────────────
 
 _HANDLERS = {
@@ -296,6 +377,9 @@ _HANDLERS = {
     "note_create": handle_note_create,
     "search": handle_search,
     "daemon_status": handle_daemon_status,
+    "agent_list": handle_agent_list,
+    "agent_run": handle_agent_run,
+    "agent_history": handle_agent_history,
 }
 
 

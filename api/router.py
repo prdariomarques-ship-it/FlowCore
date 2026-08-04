@@ -29,6 +29,12 @@ Endpoints (Sprint 12 — Passport + expanded UI):
   GET  /api/notes           — list notes/todos/agenda items
   POST /api/notes           — create a note/todo/agenda item
   GET  /api/passport        — generate and return current system passport
+
+Endpoints (Sprint 14 — Agent Runner):
+  GET  /api/agent/agents    — list registered agents
+  POST /api/agent/run       — run an agent by name (?agent_name=health)
+  GET  /api/agent/tasks     — list persisted task history
+  GET  /api/agent/tasks/{id}— get a specific task record
 """
 from __future__ import annotations
 
@@ -359,6 +365,49 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             agent = AgentIdentity(name=agent_name, version=version)
             p = gen.issue(agent)
             return p.to_dict()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # ── Agent runner (Sprint 14) ─────────────────────────────────────────
+    @app.get("/api/agent/agents")
+    async def list_agents():
+        try:
+            from agents.runner import AgentRunner
+            runner = AgentRunner(require_passport=False)
+            return {"agents": runner.list_agents()}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/api/agent/run", status_code=202)
+    async def run_agent(agent_name: str = Query(...), context: dict | None = None):
+        try:
+            from agents.runner import AgentRunner
+            runner = AgentRunner(require_passport=False)
+            record = runner.run_sync(agent_name, context or {}, passport_agent_name="api-agent")
+            return record.to_dict()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.get("/api/agent/tasks")
+    async def list_agent_tasks(limit: int = Query(50, le=200), agent: str | None = Query(None)):
+        try:
+            from agents.task_store import AgentTaskStore
+            store = AgentTaskStore()
+            records = store.list_all(limit=limit, agent=agent)
+            return {"tasks": [r.to_dict() for r in records]}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.get("/api/agent/tasks/{task_id}")
+    async def get_agent_task(task_id: str):
+        try:
+            from agents.task_store import AgentTaskStore
+            record = AgentTaskStore().get(task_id)
+            if record is None:
+                raise HTTPException(status_code=404, detail="Task not found")
+            return record.to_dict()
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 

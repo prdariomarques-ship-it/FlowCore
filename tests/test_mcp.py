@@ -252,7 +252,5 @@ class TestFlowCoreMCPServer:
         import asyncio
         from flowcore_mcp.server import FlowCoreMCPServer
         srv = FlowCoreMCPServer()
-        result = asyncio.get_event_loop().run_until_complete(
-            srv._list_tools(None, None)
-        )
+        result = asyncio.run(srv._list_tools(None, None))
         assert len(result.tools) >= 9

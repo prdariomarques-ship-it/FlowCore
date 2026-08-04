@@ -1392,6 +1392,62 @@ def cmd_jobs(action: str, name: str = "", script: str = "",
         print("  Usage: python3 flowcore.py jobs <list|add|remove|run>")
 
 
+def cmd_agent(action: str, agent_name: str = "", task_id: str = "") -> None:
+    """Manage and run FlowCore agents."""
+    from agents.runner import AgentRunner
+    from agents.task_store import AgentTaskStore
+    runner = AgentRunner(require_passport=False)
+
+    if action == "list":
+        agents = runner.list_agents()
+        if not agents:
+            print(f"{YELLOW}No agents registered{NC}")
+        else:
+            print(f"{BOLD}Registered agents:{NC}")
+            for a in agents:
+                print(f"  {GREEN}{a['name']:<20}{NC} {a['description']}")
+
+    elif action == "run":
+        if not agent_name:
+            print(f"{RED}Specify agent name: flowcore agent run <name>{NC}")
+            return
+        print(f"{CYAN}Running agent '{agent_name}'...{NC}")
+        record = runner.run_sync(agent_name, passport_agent_name="cli-agent")
+        if record.status == "completed":
+            import json as _json
+            print(f"{GREEN}✓ Completed{NC}  ({record.duration_seconds}s)")
+            print(_json.dumps(record.result, indent=2))
+        else:
+            print(f"{RED}✗ {record.status.upper()}{NC}  {record.error}")
+
+    elif action == "history":
+        store = AgentTaskStore()
+        records = store.list_all(limit=20, agent=agent_name or None)
+        if not records:
+            print(f"{YELLOW}No task history{NC}")
+        else:
+            print(f"{BOLD}{'ID':<18} {'AGENT':<14} {'STATUS':<12} {'DURATION'}{NC}")
+            for r in reversed(records):
+                dur = f"{r.duration_seconds}s" if r.duration_seconds is not None else "-"
+                color = GREEN if r.status == "completed" else RED if r.status == "failed" else YELLOW
+                print(f"  {r.id:<16}  {r.agent:<14} {color}{r.status:<12}{NC} {dur}")
+
+    elif action == "show":
+        if not task_id:
+            print(f"{RED}Specify task ID: flowcore agent show <id>{NC}")
+            return
+        import json as _json
+        record = AgentTaskStore().get(task_id)
+        if record is None:
+            print(f"{RED}Task not found: {task_id}{NC}")
+        else:
+            print(_json.dumps(record.to_dict(), indent=2))
+
+    else:
+        print(f"{RED}Unknown agent action: {action!r}{NC}")
+        print("  Usage: flowcore agent <list|run|history|show>")
+
+
 def main() -> None:
     """Main CLI handler."""
     parser = argparse.ArgumentParser(description="FlowCore CLI")
@@ -1470,6 +1526,15 @@ def main() -> None:
                               help="Heartbeat interval in seconds (default: 60)")
     daemon_sub.add_parser("stop", help="Stop the daemon")
     daemon_sub.add_parser("status", help="Show daemon status")
+
+    agent_parser = subparsers.add_parser("agent", help="Run and manage FlowCore agents")
+    agent_sub = agent_parser.add_subparsers(dest="agent_action")
+    agent_sub.add_parser("list", help="List all registered agents")
+    agent_run_p = agent_sub.add_parser("run", help="Run an agent by name")
+    agent_run_p.add_argument("agent_name", help="Agent name (e.g. health)")
+    agent_sub.add_parser("history", help="Show recent task history")
+    agent_show_p = agent_sub.add_parser("show", help="Show a specific task record")
+    agent_show_p.add_argument("task_id", help="Task ID")
 
     subparsers.add_parser(
         "mcp",
@@ -1561,6 +1626,14 @@ def main() -> None:
             cmd_obsidian_watch()
         else:
             parser.print_help()
+    elif args.command == "agent":
+        action = getattr(args, "agent_action", None)
+        if not action:
+            print("Usage: python3 flowcore.py agent <list|run|history|show>")
+            sys.exit(1)
+        agent_name = getattr(args, "agent_name", "")
+        task_id = getattr(args, "task_id", "")
+        cmd_agent(action, agent_name=agent_name, task_id=task_id)
     elif args.command == "mcp":
         from flowcore_mcp.server import run_stdio
         run_stdio(version=cfg.version if hasattr(cfg, "version") else "0.1.0")
