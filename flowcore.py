@@ -1274,6 +1274,23 @@ def cmd_agenda(event: str) -> None:
         print(f"{RED}Error: {e}{NC}")
 
 
+def cmd_ui() -> None:
+    """Open the FlowCore web dashboard in the Android browser."""
+    url = "http://localhost:8080"
+    try:
+        from runtime.shell import is_available, run
+        if is_available("termux-open-url"):
+            result = run(["termux-open-url", url], timeout=5)
+            if result.success:
+                print(f"{GREEN}✓ A abrir {url} no browser{NC}")
+                return
+    except Exception:
+        pass
+    # Fallback — just print the URL
+    print(f"{CYAN}Dashboard:{NC} {url}")
+    print(f"  Arranca o servidor com: {BOLD}python3 flowcore.py serve{NC}")
+
+
 def cmd_daemon(action: str, interval: int = 60) -> None:
     """Manage the FlowCore background daemon."""
     from runtime.daemon import FlowCoreDaemon
@@ -1443,6 +1460,8 @@ def main() -> None:
     agenda_parser = subparsers.add_parser("agenda", help="Add to agenda")
     agenda_parser.add_argument("event", nargs="+", help="Event description")
 
+    subparsers.add_parser("ui", help="Open web dashboard in Android browser (http://localhost:8080)")
+
     daemon_parser = subparsers.add_parser("daemon", help="Manage background daemon")
     daemon_sub = daemon_parser.add_subparsers(dest="daemon_action")
     daemon_start = daemon_sub.add_parser("start", help="Start the daemon")
@@ -1536,6 +1555,8 @@ def main() -> None:
             cmd_obsidian_watch()
         else:
             parser.print_help()
+    elif args.command == "ui":
+        cmd_ui()
     elif args.command == "daemon":
         action = getattr(args, "daemon_action", None)
         if not action:

@@ -8,478 +8,290 @@
 <meta name="theme-color" content="#0a0f1e">
 <title>FlowCore</title>
 <style>
-  :root {
-    --bg: #0a0f1e;
-    --bg2: #111827;
-    --bg3: #1a2235;
-    --border: #1e3a5f;
-    --accent: #00d4ff;
-    --accent2: #7c3aed;
-    --green: #10b981;
-    --yellow: #f59e0b;
-    --red: #ef4444;
-    --text: #e2e8f0;
-    --text2: #94a3b8;
-    --radius: 12px;
-    --shadow: 0 4px 24px rgba(0,0,0,0.4);
-  }
+:root{
+  --bg:#0a0f1e;--bg2:#111827;--bg3:#1a2235;--border:#1e3a5f;
+  --accent:#00d4ff;--accent2:#7c3aed;
+  --green:#10b981;--yellow:#f59e0b;--red:#ef4444;--purple:#a78bfa;
+  --text:#e2e8f0;--text2:#94a3b8;--radius:12px;
+  --shadow:0 4px 24px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;min-height:100vh;padding-bottom:84px}
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+/* Header */
+.header{background:linear-gradient(135deg,#0a0f1e,#111827);border-bottom:1px solid var(--border);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}
+.hb{display:flex;align-items:center;gap:10px}
+.logo{width:34px;height:34px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:900;color:#fff}
+.bn{font-size:17px;font-weight:700;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.bs{font-size:10px;color:var(--text2);margin-top:1px}
+.hr{display:flex;align-items:center;gap:8px}
+.sdot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite}
+.sdot.off{background:var(--red);box-shadow:0 0 6px var(--red);animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.btn-sm{background:var(--bg3);border:1px solid var(--border);color:var(--accent);padding:5px 11px;border-radius:8px;font-size:12px;cursor:pointer}
+.btn-sm:hover{background:var(--border)}
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    font-size: 14px;
-    min-height: 100vh;
-    padding-bottom: 80px;
-  }
+/* Layout */
+.wrap{max-width:600px;margin:0 auto;padding:14px}
+.gap{display:flex;flex-direction:column;gap:12px}
 
-  /* ── Header ── */
-  .header {
-    background: linear-gradient(135deg, #0a0f1e 0%, #111827 100%);
-    border-bottom: 1px solid var(--border);
-    padding: 16px 20px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    backdrop-filter: blur(10px);
-  }
-  .header-brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .logo {
-    width: 36px;
-    height: 36px;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    font-weight: 900;
-    color: #fff;
-    letter-spacing: -1px;
-  }
-  .brand-name {
-    font-size: 18px;
-    font-weight: 700;
-    background: linear-gradient(90deg, var(--accent), var(--accent2));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  .brand-sub { font-size: 11px; color: var(--text2); margin-top: 1px; }
-  .header-right { display: flex; align-items: center; gap: 10px; }
-  .status-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--green);
-    box-shadow: 0 0 6px var(--green);
-    animation: pulse 2s infinite;
-  }
-  .status-dot.offline { background: var(--red); box-shadow: 0 0 6px var(--red); animation: none; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
-  .btn-refresh {
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    color: var(--accent);
-    padding: 6px 12px;
-    border-radius: 8px;
-    font-size: 12px;
-    cursor: pointer;
-    transition: all .2s;
-  }
-  .btn-refresh:hover { background: var(--border); }
+/* Cards */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:15px;box-shadow:var(--shadow)}
+.ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}
+.ct{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text2)}
+.ci{font-size:15px}
 
-  /* ── Layout ── */
-  .container { max-width: 600px; margin: 0 auto; padding: 16px; }
-  .grid { display: grid; gap: 12px; }
+/* Stats */
+.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.st{background:var(--bg3);border-radius:10px;padding:10px 6px;text-align:center}
+.sv{font-size:20px;font-weight:700;color:var(--accent)}
+.sl{font-size:9px;color:var(--text2);margin-top:2px;text-transform:uppercase;letter-spacing:.4px}
 
-  /* ── Cards ── */
-  .card {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 16px;
-    box-shadow: var(--shadow);
-  }
-  .card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 14px;
-  }
-  .card-title {
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .8px;
-    color: var(--text2);
-  }
-  .card-icon { font-size: 16px; }
+/* Rows */
+.row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border)}
+.row:last-child{border-bottom:none}
+.rl{color:var(--text2);font-size:12px}
+.rv{font-weight:600;font-size:13px}
 
-  /* ── Stat grid ── */
-  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .stat {
-    background: var(--bg3);
-    border-radius: 10px;
-    padding: 12px;
-    text-align: center;
-  }
-  .stat-value { font-size: 22px; font-weight: 700; color: var(--accent); }
-  .stat-label { font-size: 10px; color: var(--text2); margin-top: 2px; text-transform: uppercase; letter-spacing: .5px; }
+/* Tags */
+.tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.tg{background:rgba(16,185,129,.15);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.tr{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.ty{background:rgba(245,158,11,.15);color:var(--yellow);border:1px solid rgba(245,158,11,.3)}
+.tp{background:rgba(167,139,250,.15);color:var(--purple);border:1px solid rgba(167,139,250,.3)}
 
-  /* ── Daemon card ── */
-  .daemon-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--border);
-  }
-  .daemon-row:last-child { border-bottom: none; }
-  .daemon-label { color: var(--text2); font-size: 12px; }
-  .daemon-value { font-weight: 600; }
-  .tag {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 600;
-  }
-  .tag-green { background: rgba(16,185,129,.15); color: var(--green); border: 1px solid rgba(16,185,129,.3); }
-  .tag-red   { background: rgba(239,68,68,.15);  color: var(--red);   border: 1px solid rgba(239,68,68,.3); }
-  .tag-yellow{ background: rgba(245,158,11,.15); color: var(--yellow); border: 1px solid rgba(245,158,11,.3); }
+/* Buttons */
+.btns{display:flex;gap:8px;margin-top:13px}
+.btn{flex:1;padding:9px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
+.bg{background:rgba(16,185,129,.2);color:var(--green);border:1px solid rgba(16,185,129,.4)}
+.bg:hover{background:rgba(16,185,129,.35)}
+.br{background:rgba(239,68,68,.2);color:var(--red);border:1px solid rgba(239,68,68,.4)}
+.br:hover{background:rgba(239,68,68,.35)}
 
-  /* ── Daemon controls ── */
-  .daemon-controls { display: flex; gap: 8px; margin-top: 14px; }
-  .btn {
-    flex: 1;
-    padding: 10px;
-    border: none;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all .2s;
-  }
-  .btn-start { background: rgba(16,185,129,.2); color: var(--green); border: 1px solid rgba(16,185,129,.4); }
-  .btn-start:hover { background: rgba(16,185,129,.35); }
-  .btn-stop  { background: rgba(239,68,68,.2);  color: var(--red);   border: 1px solid rgba(239,68,68,.4); }
-  .btn-stop:hover  { background: rgba(239,68,68,.35); }
+/* Input row */
+.ir{display:flex;gap:8px;margin-bottom:12px}
+.if{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 12px;font-size:13px;outline:none;transition:border-color .2s}
+.if:focus{border-color:var(--accent)}
+.if::placeholder{color:var(--text2)}
+.bs2{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:8px;color:#fff;font-size:15px;width:40px;cursor:pointer;flex-shrink:0}
+.bs2:hover{opacity:.85}
 
-  /* ── Capabilities ── */
-  .caps-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-    gap: 8px;
-  }
-  .cap-item {
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 8px 10px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    transition: border-color .2s;
-  }
-  .cap-item.ok   { border-color: rgba(16,185,129,.3); }
-  .cap-item.miss { opacity: .45; }
-  .cap-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-  .cap-dot.ok   { background: var(--green); }
-  .cap-dot.miss { background: var(--text2); }
+/* Caps grid */
+.cg{display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:7px}
+.ci2{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:7px 9px;display:flex;align-items:center;gap:6px;font-size:12px}
+.ci2.ok{border-color:rgba(16,185,129,.3)}
+.ci2.miss{opacity:.4}
+.cd{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.cd.ok{background:var(--green)}
+.cd.miss{background:var(--text2)}
 
-  /* ── Doctor checks ── */
-  .check-list { display: flex; flex-direction: column; gap: 6px; }
-  .check-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 10px;
-    background: var(--bg3);
-    border-radius: 8px;
-    font-size: 12px;
-  }
-  .check-icon { font-size: 14px; flex-shrink: 0; }
-  .check-name { flex: 1; font-weight: 500; }
-  .check-msg  { color: var(--text2); font-size: 11px; text-align: right; max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Check list */
+.cl{display:flex;flex-direction:column;gap:5px}
+.ck{display:flex;align-items:center;gap:9px;padding:7px 9px;background:var(--bg3);border-radius:8px;font-size:12px}
+.ck-name{flex:1;font-weight:500}
+.ck-msg{color:var(--text2);font-size:11px;text-align:right;max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-  /* ── Memory / Note input ── */
-  .input-row {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 14px;
-  }
-  .input-field {
-    flex: 1;
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text);
-    padding: 10px 12px;
-    font-size: 13px;
-    outline: none;
-    transition: border-color .2s;
-  }
-  .input-field:focus { border-color: var(--accent); }
-  .input-field::placeholder { color: var(--text2); }
-  .btn-send {
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    border: none;
-    border-radius: 8px;
-    color: #fff;
-    font-size: 16px;
-    width: 42px;
-    cursor: pointer;
-    transition: opacity .2s;
-  }
-  .btn-send:hover { opacity: .85; }
+/* Memories / notes */
+.ml{display:flex;flex-direction:column;gap:6px}
+.mi{background:var(--bg3);border-radius:8px;padding:10px 12px;border-left:2px solid var(--accent2)}
+.mi.todo{border-left-color:var(--yellow)}
+.mi.agenda{border-left-color:var(--green)}
+.mi-text{color:var(--text);margin-bottom:3px;font-size:13px}
+.mi-meta{color:var(--text2);font-size:11px;display:flex;align-items:center;gap:6px}
+.topics{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.tb{background:rgba(124,58,237,.2);color:#a78bfa;border-radius:20px;padding:1px 7px;font-size:10px;border:1px solid rgba(124,58,237,.3)}
 
-  /* ── Memory list ── */
-  .memory-list { display: flex; flex-direction: column; gap: 6px; }
-  .memory-item {
-    background: var(--bg3);
-    border-radius: 8px;
-    padding: 10px 12px;
-    font-size: 13px;
-    border-left: 2px solid var(--accent2);
-  }
-  .memory-text { color: var(--text); margin-bottom: 4px; }
-  .memory-meta { color: var(--text2); font-size: 11px; }
-  .memory-topics { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
-  .topic-badge {
-    background: rgba(124,58,237,.2);
-    color: #a78bfa;
-    border-radius: 20px;
-    padding: 1px 7px;
-    font-size: 10px;
-    border: 1px solid rgba(124,58,237,.3);
-  }
+/* System info */
+.sys-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sys-card{background:var(--bg3);border-radius:10px;padding:12px;text-align:center}
+.sys-val{font-size:26px;font-weight:700;color:var(--accent)}
+.sys-lbl{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+.battery-bar{width:100%;height:6px;background:var(--border);border-radius:3px;margin-top:8px;overflow:hidden}
+.battery-fill{height:100%;border-radius:3px;transition:width .5s}
 
-  /* ── Notify button ── */
-  .btn-notify {
-    width: 100%;
-    background: linear-gradient(135deg, rgba(245,158,11,.2), rgba(239,68,68,.1));
-    border: 1px solid rgba(245,158,11,.4);
-    color: var(--yellow);
-    padding: 12px;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all .2s;
-  }
-  .btn-notify:hover { background: rgba(245,158,11,.25); }
+/* Search results */
+.sr-section{margin-bottom:14px}
+.sr-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--text2);margin-bottom:8px}
+.sr-item{background:var(--bg3);border-radius:8px;padding:9px 11px;margin-bottom:5px;font-size:13px}
+.sr-item .sr-text{color:var(--text);margin-bottom:2px}
+.sr-item .sr-sub{color:var(--text2);font-size:11px}
+.no-results{text-align:center;color:var(--text2);padding:24px;font-size:13px}
 
-  /* ── Toast ── */
-  .toast {
-    position: fixed;
-    bottom: 90px;
-    left: 50%;
-    transform: translateX(-50%) translateY(20px);
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 10px 20px;
-    border-radius: 8px;
-    font-size: 13px;
-    opacity: 0;
-    transition: all .3s;
-    pointer-events: none;
-    white-space: nowrap;
-    z-index: 200;
-  }
-  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+/* Passport card */
+.passport-field{background:var(--bg3);border-radius:8px;padding:10px 12px;margin-bottom:6px}
+.pf-label{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--text2);margin-bottom:4px}
+.pf-value{font-size:13px;word-break:break-all}
+.hash-val{font-family:monospace;font-size:10px;color:var(--text2);word-break:break-all}
 
-  /* ── Bottom nav ── */
-  .bottom-nav {
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
-    background: rgba(17,24,39,.95);
-    border-top: 1px solid var(--border);
-    display: flex;
-    backdrop-filter: blur(10px);
-    z-index: 100;
-  }
-  .nav-item {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 10px 0 14px;
-    gap: 4px;
-    cursor: pointer;
-    color: var(--text2);
-    font-size: 10px;
-    font-weight: 500;
-    transition: color .2s;
-    border: none;
-    background: none;
-  }
-  .nav-item.active { color: var(--accent); }
-  .nav-item:hover  { color: var(--text); }
-  .nav-icon { font-size: 20px; }
+/* Skeleton */
+.sk{background:linear-gradient(90deg,var(--bg3) 25%,var(--border) 50%,var(--bg3) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;height:13px;margin-bottom:7px}
+@keyframes shimmer{0%{background-position:200%}100%{background-position:-200%}}
+.empty{text-align:center;color:var(--text2);padding:22px;font-size:13px}
 
-  /* ── Pages ── */
-  .page { display: none; }
-  .page.active { display: block; }
+/* Notify */
+.notify-btn{width:100%;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:var(--yellow);padding:10px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
+.notify-btn:hover{background:rgba(245,158,11,.2)}
 
-  /* ── Loading skeleton ── */
-  .skeleton {
-    background: linear-gradient(90deg, var(--bg3) 25%, var(--border) 50%, var(--bg3) 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
-    border-radius: 6px;
-    height: 14px;
-    margin-bottom: 8px;
-  }
-  @keyframes shimmer { 0%{background-position:200%} 100%{background-position:-200%} }
+/* Toast */
+.toast{position:fixed;bottom:92px;left:50%;transform:translateX(-50%) translateY(14px);background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:9px 18px;border-radius:8px;font-size:13px;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;z-index:200}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
-  .empty-state { text-align: center; color: var(--text2); padding: 24px; font-size: 13px; }
+/* Bottom nav */
+.nav{position:fixed;bottom:0;left:0;right:0;background:rgba(17,24,39,.96);border-top:1px solid var(--border);display:flex;backdrop-filter:blur(10px);z-index:100}
+.ni{flex:1;display:flex;flex-direction:column;align-items:center;padding:9px 0 13px;gap:3px;cursor:pointer;color:var(--text2);font-size:9px;font-weight:500;border:none;background:none;transition:color .2s}
+.ni.active{color:var(--accent)}
+.ni:hover{color:var(--text)}
+.ni-icon{font-size:19px}
+
+/* Pages */
+.page{display:none}
+.page.active{display:block}
+
+/* Kind selector */
+.kind-sel{display:flex;gap:6px;margin-bottom:12px}
+.ks{flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:7px;border-radius:8px;font-size:12px;text-align:center;cursor:pointer;transition:all .2s}
+.ks.active{color:var(--accent);border-color:var(--accent);background:rgba(0,212,255,.08)}
 </style>
 </head>
 <body>
 
-<!-- Header -->
 <div class="header">
-  <div class="header-brand">
+  <div class="hb">
     <div class="logo">F</div>
     <div>
-      <div class="brand-name">FlowCore</div>
-      <div class="brand-sub" id="last-update">A carregar...</div>
+      <div class="bn">FlowCore</div>
+      <div class="bs" id="last-upd">A carregar...</div>
     </div>
   </div>
-  <div class="header-right">
-    <div class="status-dot offline" id="conn-dot"></div>
-    <button class="btn-refresh" onclick="refresh()">↻ Atualizar</button>
+  <div class="hr">
+    <div class="sdot off" id="dot"></div>
+    <button class="btn-sm" onclick="refresh()">↻</button>
   </div>
 </div>
 
-<!-- Pages -->
-<div class="container">
+<div class="wrap">
 
-  <!-- ══ PAGE: Dashboard ══ -->
+  <!-- ══ HOME ══ -->
   <div class="page active" id="page-home">
+    <div class="gap">
+      <!-- Stats -->
+      <div class="card">
+        <div class="sg">
+          <div class="st"><div class="sv" id="s-caps">─</div><div class="sl">Caps</div></div>
+          <div class="st"><div class="sv" id="s-doc">─</div><div class="sl">Doctor</div></div>
+          <div class="st"><div class="sv" id="s-mem">─</div><div class="sl">Memórias</div></div>
+          <div class="st"><div class="sv" id="s-notes">─</div><div class="sl">Notas</div></div>
+        </div>
+      </div>
 
-    <!-- Stats row -->
-    <div class="card" style="margin-bottom:12px">
-      <div class="stats-grid">
-        <div class="stat">
-          <div class="stat-value" id="stat-caps">─</div>
-          <div class="stat-label">Capacidades</div>
+      <!-- Daemon -->
+      <div class="card">
+        <div class="ch"><span class="ct">Daemon</span><span class="ci">⚙️</span></div>
+        <div class="row"><span class="rl">Estado</span><span class="rv" id="d-state"><span class="tag ty">─</span></span></div>
+        <div class="row"><span class="rl">PID</span><span class="rv" id="d-pid" style="color:var(--text2)">─</span></div>
+        <div class="row"><span class="rl">Uptime</span><span class="rv" id="d-up" style="color:var(--text2)">─</span></div>
+        <div class="row"><span class="rl">Ciclo heartbeat</span><span class="rv" id="d-cyc" style="color:var(--text2)">─</span></div>
+        <div class="btns">
+          <button class="btn bg" onclick="da('start')">▶ Iniciar</button>
+          <button class="btn br" onclick="da('stop')">■ Parar</button>
         </div>
-        <div class="stat">
-          <div class="stat-value" id="stat-checks">─</div>
-          <div class="stat-label">Doctor</div>
+      </div>
+
+      <!-- Notificação -->
+      <div class="card">
+        <div class="ch"><span class="ct">Notificação Android</span><span class="ci">🔔</span></div>
+        <div class="ir">
+          <input class="if" id="n-text" placeholder="Mensagem para o Android...">
+          <button class="bs2" onclick="sendNotify()">🔔</button>
         </div>
-        <div class="stat">
-          <div class="stat-value" id="stat-mems">─</div>
-          <div class="stat-label">Memórias</div>
+        <div class="row" style="padding-top:0;border:none">
+          <span class="rl">via termux-notification</span>
+          <span class="tag ty" id="n-status">nativo Android</span>
         </div>
       </div>
     </div>
-
-    <!-- Daemon card -->
-    <div class="card" style="margin-bottom:12px">
-      <div class="card-header">
-        <span class="card-title">Daemon</span>
-        <span class="card-icon">⚙️</span>
-      </div>
-      <div class="daemon-row">
-        <span class="daemon-label">Estado</span>
-        <span class="daemon-value" id="daemon-state"><span class="tag tag-yellow">─</span></span>
-      </div>
-      <div class="daemon-row">
-        <span class="daemon-label">PID</span>
-        <span class="daemon-value" id="daemon-pid" style="color:var(--text2)">─</span>
-      </div>
-      <div class="daemon-row">
-        <span class="daemon-label">Uptime</span>
-        <span class="daemon-value" id="daemon-uptime" style="color:var(--text2)">─</span>
-      </div>
-      <div class="daemon-row">
-        <span class="daemon-label">Ciclo</span>
-        <span class="daemon-value" id="daemon-cycle" style="color:var(--text2)">─</span>
-      </div>
-      <div class="daemon-controls">
-        <button class="btn btn-start" onclick="daemonAction('start')">▶ Iniciar</button>
-        <button class="btn btn-stop"  onclick="daemonAction('stop')">■ Parar</button>
-      </div>
-    </div>
-
-    <!-- Quick notify -->
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Notificação Android</span>
-        <span class="card-icon">🔔</span>
-      </div>
-      <div class="input-row">
-        <input class="input-field" id="notify-text" placeholder="Mensagem para o Android..." />
-        <button class="btn-send" onclick="sendNotify()">🔔</button>
-      </div>
-      <div class="daemon-row" style="padding-top:0;border:none">
-        <span class="daemon-label">Usa termux-notification</span>
-        <span class="tag tag-yellow" id="notify-status">nativo Android</span>
-      </div>
-    </div>
-
   </div>
 
-  <!-- ══ PAGE: Capacidades ══ -->
+  <!-- ══ SISTEMA ══ -->
+  <div class="page" id="page-sys">
+    <div class="gap">
+      <div class="card" id="sys-battery-card">
+        <div class="ch"><span class="ct">Bateria</span><span class="ci">🔋</span></div>
+        <div class="sk"></div><div class="sk"></div>
+      </div>
+      <div class="card" id="sys-storage-card">
+        <div class="ch"><span class="ct">Armazenamento</span><span class="ci">💾</span></div>
+        <div class="sk"></div>
+      </div>
+      <div class="card" id="sys-passport-card">
+        <div class="ch"><span class="ct">Passport do sistema</span><span class="ci">🛂</span></div>
+        <div class="sk"></div><div class="sk"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ CAPS + DOCTOR ══ -->
   <div class="page" id="page-caps">
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Capabilities</span>
-        <span class="card-icon">⚡</span>
+    <div class="gap">
+      <div class="card">
+        <div class="ch"><span class="ct">Capabilities</span><span class="ci">⚡</span></div>
+        <div class="cg" id="caps-grid"><div class="sk" style="height:36px"></div><div class="sk" style="height:36px"></div></div>
       </div>
-      <div class="caps-grid" id="caps-grid">
-        <div class="skeleton" style="height:38px"></div>
-        <div class="skeleton" style="height:38px"></div>
-        <div class="skeleton" style="height:38px"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══ PAGE: Doctor ══ -->
-  <div class="page" id="page-doctor">
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Doctor</span>
-        <span class="card-icon">🩺</span>
-      </div>
-      <div class="check-list" id="check-list">
-        <div class="skeleton"></div>
-        <div class="skeleton"></div>
-        <div class="skeleton"></div>
+      <div class="card">
+        <div class="ch"><span class="ct">Doctor</span><span class="ci">🩺</span></div>
+        <div class="cl" id="chk-list"><div class="sk"></div><div class="sk"></div></div>
       </div>
     </div>
   </div>
 
-  <!-- ══ PAGE: Memórias ══ -->
+  <!-- ══ MEMÓRIAS ══ -->
   <div class="page" id="page-mem">
-    <div class="card" style="margin-bottom:12px">
-      <div class="card-header">
-        <span class="card-title">Nova Memória</span>
-        <span class="card-icon">🧠</span>
+    <div class="gap">
+      <div class="card">
+        <div class="ch"><span class="ct">Nova Memória</span><span class="ci">🧠</span></div>
+        <div class="ir">
+          <input class="if" id="m-inp" placeholder="Guarda algo... usa #tag">
+          <button class="bs2" onclick="addMem()">✓</button>
+        </div>
       </div>
-      <div class="input-row">
-        <input class="input-field" id="mem-input" placeholder="Guarda algo... usa #tag" />
-        <button class="btn-send" onclick="addMemory()">✓</button>
+      <div class="card">
+        <div class="ch"><span class="ct">Memórias recentes</span></div>
+        <div class="ml" id="mem-list"><div class="sk"></div><div class="sk"></div></div>
       </div>
     </div>
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Memórias recentes</span>
+  </div>
+
+  <!-- ══ NOTAS ══ -->
+  <div class="page" id="page-notes">
+    <div class="gap">
+      <!-- Pesquisa global -->
+      <div class="card">
+        <div class="ch"><span class="ct">Pesquisar</span><span class="ci">🔍</span></div>
+        <div class="ir">
+          <input class="if" id="s-inp" placeholder="Pesquisar em tudo...">
+          <button class="bs2" onclick="doSearch()">🔍</button>
+        </div>
+        <div id="search-results" style="display:none"></div>
       </div>
-      <div class="memory-list" id="mem-list">
-        <div class="skeleton"></div>
-        <div class="skeleton"></div>
+
+      <!-- Nova nota -->
+      <div class="card">
+        <div class="ch"><span class="ct">Nova Nota</span><span class="ci">📝</span></div>
+        <div class="kind-sel">
+          <div class="ks active" data-kind="note" onclick="selKind(this)">📝 Nota</div>
+          <div class="ks" data-kind="todo"   onclick="selKind(this)">☑️ Todo</div>
+          <div class="ks" data-kind="agenda" onclick="selKind(this)">📅 Agenda</div>
+        </div>
+        <div class="ir">
+          <input class="if" id="note-inp" placeholder="Escreve aqui...">
+          <button class="bs2" onclick="addNote()">✓</button>
+        </div>
+      </div>
+
+      <!-- Lista -->
+      <div class="card">
+        <div class="ch"><span class="ct">Recentes</span></div>
+        <div class="ml" id="notes-list"><div class="sk"></div><div class="sk"></div></div>
       </div>
     </div>
   </div>
@@ -487,226 +299,303 @@
 </div>
 
 <!-- Bottom nav -->
-<div class="bottom-nav">
-  <button class="nav-item active" onclick="showPage('home', this)">
-    <span class="nav-icon">🏠</span>
-    <span>Início</span>
-  </button>
-  <button class="nav-item" onclick="showPage('caps', this)">
-    <span class="nav-icon">⚡</span>
-    <span>Caps</span>
-  </button>
-  <button class="nav-item" onclick="showPage('doctor', this)">
-    <span class="nav-icon">🩺</span>
-    <span>Doctor</span>
-  </button>
-  <button class="nav-item" onclick="showPage('mem', this)">
-    <span class="nav-icon">🧠</span>
-    <span>Memórias</span>
-  </button>
+<div class="nav">
+  <button class="ni active" onclick="pg('home',this)"><span class="ni-icon">🏠</span><span>Início</span></button>
+  <button class="ni" onclick="pg('sys',this)"><span class="ni-icon">📊</span><span>Sistema</span></button>
+  <button class="ni" onclick="pg('caps',this)"><span class="ni-icon">⚡</span><span>Caps</span></button>
+  <button class="ni" onclick="pg('mem',this)"><span class="ni-icon">🧠</span><span>Memórias</span></button>
+  <button class="ni" onclick="pg('notes',this)"><span class="ni-icon">📝</span><span>Notas</span></button>
 </div>
 
-<!-- Toast -->
 <div class="toast" id="toast"></div>
 
 <script>
-const API = '';  // same origin
+const API='';
+let _noteKind='note';
 
-// ── Navigation ────────────────────────────────────────────────────────────────
-function showPage(name, btn) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-  document.getElementById('page-' + name).classList.add('active');
+/* ── Nav ── */
+function pg(name,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.ni').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
   btn.classList.add('active');
+  if(name==='sys') loadSys();
+  if(name==='notes') loadNotes();
 }
 
-// ── Toast ─────────────────────────────────────────────────────────────────────
-let _toastTimer;
-function toast(msg, ms=2500) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => el.classList.remove('show'), ms);
+/* ── Toast ── */
+let _tt;
+function toast(m,ms=2500){
+  const e=document.getElementById('toast');
+  e.textContent=m; e.classList.add('show');
+  clearTimeout(_tt); _tt=setTimeout(()=>e.classList.remove('show'),ms);
 }
 
-// ── API helpers ───────────────────────────────────────────────────────────────
-async function api(path, opts={}) {
-  const r = await fetch(API + path, {
-    headers: {'Content-Type': 'application/json'},
-    ...opts
-  });
-  if (!r.ok) throw new Error(r.status);
+/* ── API ── */
+async function api(path,opts={}){
+  const r=await fetch(API+path,{headers:{'Content-Type':'application/json'},...opts});
+  if(!r.ok) throw new Error(r.status);
   return r.json();
 }
 
-// ── Refresh all ───────────────────────────────────────────────────────────────
-async function refresh() {
-  const dot = document.getElementById('conn-dot');
-  try {
-    const [status, mems] = await Promise.all([
+/* ── Refresh ── */
+async function refresh(){
+  const dot=document.getElementById('dot');
+  try{
+    const [s,mems,notes]=await Promise.all([
       api('/api/status'),
-      api('/api/memories')
+      api('/api/memories'),
+      api('/api/notes')
     ]);
-    dot.classList.remove('offline');
-    document.getElementById('last-update').textContent =
-      'Atualizado às ' + new Date().toLocaleTimeString('pt-PT');
-    renderStatus(status);
-    renderMemories(mems.memories || []);
-  } catch(e) {
-    dot.classList.add('offline');
-    document.getElementById('last-update').textContent = 'Sem ligação';
+    dot.classList.remove('off');
+    document.getElementById('last-upd').textContent='Atualizado '+new Date().toLocaleTimeString('pt-PT');
+    renderStatus(s);
+    renderMems(mems.memories||[]);
+    renderNotesList(notes.notes||[]);
+    document.getElementById('s-notes').textContent=(notes.notes||[]).length;
+    document.getElementById('s-mem').textContent=s.memory_count??'─';
+  }catch(e){
+    dot.classList.add('off');
+    document.getElementById('last-upd').textContent='Sem ligação';
   }
 }
 
-// ── Render status ─────────────────────────────────────────────────────────────
-function renderStatus(s) {
-  // Stats bar
-  const caps = s.capabilities || {};
-  const avail = Object.values(caps).filter(v => v).length;
-  const total = Object.keys(caps).length;
-  document.getElementById('stat-caps').textContent = avail + '/' + total;
+/* ── Status ── */
+function renderStatus(s){
+  const caps=s.capabilities||{};
+  const avail=Object.values(caps).filter(v=>v).length;
+  const total=Object.keys(caps).length;
+  document.getElementById('s-caps').textContent=avail+'/'+total;
 
-  const checks = s.doctor || [];
-  const ok = checks.filter(c => c.status === 'ok').length;
-  document.getElementById('stat-checks').textContent = ok + '/' + checks.length;
-  document.getElementById('stat-mems').textContent = s.memory_count ?? '─';
+  const chks=s.doctor||[];
+  const ok=chks.filter(c=>c.status==='ok').length;
+  document.getElementById('s-doc').textContent=ok+'/'+chks.length;
 
   // Daemon
-  const d = s.daemon || {};
-  const stateEl = document.getElementById('daemon-state');
-  if (d.running) {
-    stateEl.innerHTML = '<span class="tag tag-green">● Ativo</span>';
-    document.getElementById('daemon-pid').textContent = d.pid;
-    document.getElementById('daemon-uptime').textContent = fmt_uptime(d.uptime || 0);
-    document.getElementById('daemon-cycle').textContent = '#' + (d.cycle || 0);
-  } else {
-    stateEl.innerHTML = '<span class="tag tag-red">○ Parado</span>';
-    document.getElementById('daemon-pid').textContent = '─';
-    document.getElementById('daemon-uptime').textContent = '─';
-    document.getElementById('daemon-cycle').textContent = '─';
+  const d=s.daemon||{};
+  if(d.running){
+    document.getElementById('d-state').innerHTML='<span class="tag tg">● Ativo</span>';
+    document.getElementById('d-pid').textContent=d.pid;
+    document.getElementById('d-up').textContent=fup(d.uptime||0);
+    document.getElementById('d-cyc').textContent='#'+(d.cycle||0);
+  }else{
+    document.getElementById('d-state').innerHTML='<span class="tag tr">○ Parado</span>';
+    ['d-pid','d-up','d-cyc'].forEach(id=>document.getElementById(id).textContent='─');
   }
 
-  // Capabilities
-  const grid = document.getElementById('caps-grid');
-  grid.innerHTML = '';
-  for (const [name, ok] of Object.entries(caps).sort()) {
-    const item = document.createElement('div');
-    item.className = 'cap-item ' + (ok ? 'ok' : 'miss');
-    item.innerHTML =
-      `<div class="cap-dot ${ok ? 'ok' : 'miss'}"></div>` +
-      `<span>${name}</span>`;
-    grid.appendChild(item);
+  // Caps grid
+  const cg=document.getElementById('caps-grid');
+  cg.innerHTML='';
+  for(const[n,a] of Object.entries(caps).sort()){
+    const el=document.createElement('div');
+    el.className='ci2 '+(a?'ok':'miss');
+    el.innerHTML=`<div class="cd ${a?'ok':'miss'}"></div><span>${n}</span>`;
+    cg.appendChild(el);
   }
 
   // Doctor
-  const icons = {ok: '✅', warn: '⚠️', fail: '❌', skip: '─'};
-  const list = document.getElementById('check-list');
-  list.innerHTML = '';
-  for (const c of checks) {
-    const item = document.createElement('div');
-    item.className = 'check-item';
-    item.innerHTML =
-      `<span class="check-icon">${icons[c.status] || '?'}</span>` +
-      `<span class="check-name">${c.name}</span>` +
-      `<span class="check-msg">${c.message || ''}</span>`;
-    list.appendChild(item);
+  const icons={ok:'✅',warn:'⚠️',fail:'❌',skip:'─'};
+  const cl=document.getElementById('chk-list');
+  cl.innerHTML='';
+  for(const c of chks){
+    const el=document.createElement('div');
+    el.className='ck';
+    el.innerHTML=`<span>${icons[c.status]||'?'}</span><span class="ck-name">${c.name}</span><span class="ck-msg">${c.message||''}</span>`;
+    cl.appendChild(el);
   }
-  if (!checks.length) {
-    list.innerHTML = '<div class="empty-state">Doctor não disponível</div>';
+  if(!chks.length) cl.innerHTML='<div class="empty">Doctor não disponível</div>';
+}
+
+/* ── System page ── */
+async function loadSys(){
+  try{
+    const [sys,pp]=await Promise.all([api('/api/system'),api('/api/passport')]);
+    renderSys(sys);
+    renderPassport(pp);
+  }catch(e){
+    document.getElementById('sys-battery-card').querySelector('.ch').insertAdjacentHTML('afterend','<div class="empty">Sem dados</div>');
   }
 }
 
-// ── Render memories ───────────────────────────────────────────────────────────
-function renderMemories(mems) {
-  const list = document.getElementById('mem-list');
-  if (!mems.length) {
-    list.innerHTML = '<div class="empty-state">Sem memórias ainda.<br>Adiciona a primeira acima ↑</div>';
-    return;
+function renderSys(s){
+  // Battery
+  const bc=document.getElementById('sys-battery-card');
+  const bat=s.battery||{};
+  const pct=bat.percentage??null;
+  const status=bat.status||'';
+  const health=bat.health||'';
+  bc.innerHTML=`<div class="ch"><span class="ct">Bateria</span><span class="ci">🔋</span></div>`;
+  if(pct!==null){
+    const color=pct>50?'var(--green)':pct>20?'var(--yellow)':'var(--red)';
+    bc.innerHTML+=`
+      <div class="sys-grid">
+        <div class="sys-card"><div class="sys-val" style="color:${color}">${pct}%</div><div class="sys-lbl">Nível</div></div>
+        <div class="sys-card"><div class="sys-val" style="font-size:16px">${status}</div><div class="sys-lbl">Estado</div></div>
+      </div>
+      <div class="battery-bar" style="margin-top:12px"><div class="battery-fill" style="width:${pct}%;background:${color}"></div></div>
+      ${health?`<div style="margin-top:8px;font-size:12px;color:var(--text2)">Saúde: ${health}</div>`:''}`;
+  }else{
+    bc.innerHTML+=`<div class="empty">termux-battery-status não disponível</div>`;
   }
-  list.innerHTML = '';
-  for (const m of mems.slice(-20).reverse()) {
-    const item = document.createElement('div');
-    item.className = 'memory-item';
-    const topics = (m.topics || []).map(t =>
-      `<span class="topic-badge">#${t}</span>`).join('');
-    const date = m.timestamp ? m.timestamp.slice(0,10) : '';
-    item.innerHTML =
-      `<div class="memory-text">${m.text || ''}</div>` +
-      (topics ? `<div class="memory-topics">${topics}</div>` : '') +
-      `<div class="memory-meta">${date}</div>`;
-    list.appendChild(item);
+
+  // Storage
+  const sc=document.getElementById('sys-storage-card');
+  const st=s.storage||{};
+  sc.innerHTML=`<div class="ch"><span class="ct">Armazenamento /data</span><span class="ci">💾</span></div>`;
+  if(st.total){
+    sc.innerHTML+=`<div class="sys-grid">
+      <div class="sys-card"><div class="sys-val">${st.avail}</div><div class="sys-lbl">Livre</div></div>
+      <div class="sys-card"><div class="sys-val">${st.used}</div><div class="sys-lbl">Usado</div></div>
+    </div>
+    ${s.android_version?`<div style="margin-top:10px;font-size:12px;color:var(--text2)">Android ${s.android_version}</div>`:''}`;
+  }else{
+    sc.innerHTML+=`<div class="empty">Dados de armazenamento não disponíveis</div>`;
   }
 }
 
-// ── Daemon actions ────────────────────────────────────────────────────────────
-async function daemonAction(action) {
-  try {
-    const r = await api('/api/daemon/' + action, {method: 'POST'});
-    toast(r.message || action + ' OK');
-    setTimeout(refresh, 800);
-  } catch(e) {
-    toast('Erro: ' + e.message);
+function renderPassport(pp){
+  const pc=document.getElementById('sys-passport-card');
+  pc.innerHTML=`<div class="ch"><span class="ct">Passport do sistema</span><span class="ci">🛂</span></div>`;
+  if(!pp||!pp.agent){pc.innerHTML+='<div class="empty">Passport não disponível</div>';return;}
+  const h=pp.health_status==='ok'?'tg':pp.health_status==='degraded'?'ty':'tr';
+  pc.innerHTML+=`
+    <div class="passport-field"><div class="pf-label">Agente</div><div class="pf-value">${pp.agent.name} v${pp.agent.version}</div></div>
+    <div class="passport-field"><div class="pf-label">Plataforma</div><div class="pf-value">${pp.runtime?.platform||'─'}</div></div>
+    <div class="passport-field"><div class="pf-label">Saúde</div><div class="pf-value"><span class="tag ${h}">${pp.health_status}</span></div></div>
+    <div class="passport-field"><div class="pf-label">Capacidades</div><div class="pf-value">${(pp.capabilities||[]).length} disponíveis</div></div>
+    <div class="passport-field"><div class="pf-label">Expira</div><div class="pf-value">${(pp.expires_at||'').replace('T',' ').slice(0,19)} UTC</div></div>
+    <div class="passport-field"><div class="pf-label">Hash SHA-256</div><div class="hash-val">${pp.hash||''}</div></div>`;
+}
+
+/* ── Memories ── */
+function renderMems(mems){
+  const l=document.getElementById('mem-list');
+  if(!mems.length){l.innerHTML='<div class="empty">Sem memórias.<br>Adiciona a primeira acima ↑</div>';return;}
+  l.innerHTML='';
+  for(const m of mems.slice(-30).reverse()){
+    const el=document.createElement('div');
+    el.className='mi';
+    const topics=(m.topics||[]).map(t=>`<span class="tb">#${t}</span>`).join('');
+    el.innerHTML=`<div class="mi-text">${m.text||''}</div>
+      ${topics?`<div class="topics">${topics}</div>`:''}
+      <div class="mi-meta">${(m.timestamp||'').slice(0,10)}</div>`;
+    l.appendChild(el);
   }
 }
 
-// ── Add memory ────────────────────────────────────────────────────────────────
-async function addMemory() {
-  const inp = document.getElementById('mem-input');
-  const text = inp.value.trim();
-  if (!text) return;
-  try {
-    await api('/api/memories', {
-      method: 'POST',
-      body: JSON.stringify({text})
-    });
-    inp.value = '';
-    toast('✓ Memória guardada');
-    refresh();
-  } catch(e) {
-    toast('Erro ao guardar: ' + e.message);
+async function addMem(){
+  const inp=document.getElementById('m-inp');
+  const t=inp.value.trim(); if(!t)return;
+  try{
+    await api('/api/memories',{method:'POST',body:JSON.stringify({text:t})});
+    inp.value=''; toast('✓ Memória guardada'); refresh();
+  }catch(e){toast('Erro: '+e.message);}
+}
+document.getElementById('m-inp').addEventListener('keydown',e=>{if(e.key==='Enter')addMem();});
+
+/* ── Notes ── */
+function selKind(el){
+  document.querySelectorAll('.ks').forEach(k=>k.classList.remove('active'));
+  el.classList.add('active');
+  _noteKind=el.dataset.kind;
+}
+
+async function loadNotes(){
+  try{
+    const r=await api('/api/notes');
+    renderNotesList(r.notes||[]);
+  }catch(e){}
+}
+
+function renderNotesList(notes){
+  const l=document.getElementById('notes-list');
+  if(!notes.length){l.innerHTML='<div class="empty">Sem notas ainda.</div>';return;}
+  l.innerHTML='';
+  const icons={note:'📝',todo:'☑️',agenda:'📅'};
+  for(const n of notes.slice(-30).reverse()){
+    const el=document.createElement('div');
+    el.className='mi '+(n.source||'note');
+    el.innerHTML=`<div class="mi-text">${icons[n.source]||'📝'} ${n.content||n.title||''}</div>
+      <div class="mi-meta">${(n.created_at||'').slice(0,10)}</div>`;
+    l.appendChild(el);
   }
 }
-document.getElementById('mem-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') addMemory();
-});
 
-// ── Notify ────────────────────────────────────────────────────────────────────
-async function sendNotify() {
-  const inp = document.getElementById('notify-text');
-  const text = inp.value.trim();
-  if (!text) { toast('Escreve uma mensagem'); return; }
-  try {
-    const r = await api('/api/notify', {
-      method: 'POST',
-      body: JSON.stringify({title: 'FlowCore', body: text})
-    });
-    inp.value = '';
-    const ok = r.sent !== false;
-    document.getElementById('notify-status').textContent =
-      ok ? 'enviada ✓' : 'termux-api ausente';
-    document.getElementById('notify-status').className =
-      'tag ' + (ok ? 'tag-green' : 'tag-yellow');
-    toast(ok ? '🔔 Notificação enviada' : 'termux-notification não disponível');
-  } catch(e) {
-    toast('Erro: ' + e.message);
-  }
+async function addNote(){
+  const inp=document.getElementById('note-inp');
+  const t=inp.value.trim(); if(!t)return;
+  try{
+    await api('/api/notes',{method:'POST',body:JSON.stringify({text:t,kind:_noteKind})});
+    inp.value=''; toast('✓ Guardado'); loadNotes(); refresh();
+  }catch(e){toast('Erro: '+e.message);}
 }
-document.getElementById('notify-text').addEventListener('keydown', e => {
-  if (e.key === 'Enter') sendNotify();
-});
+document.getElementById('note-inp').addEventListener('keydown',e=>{if(e.key==='Enter')addNote();});
 
-// ── Format uptime ─────────────────────────────────────────────────────────────
-function fmt_uptime(s) {
-  s = Math.floor(s);
-  if (s < 60) return s + 's';
-  if (s < 3600) return Math.floor(s/60) + 'm ' + (s%60) + 's';
-  return Math.floor(s/3600) + 'h ' + Math.floor((s%3600)/60) + 'm';
+/* ── Search ── */
+async function doSearch(){
+  const q=document.getElementById('s-inp').value.trim();
+  if(!q)return;
+  const sr=document.getElementById('search-results');
+  sr.style.display='block';
+  sr.innerHTML='<div class="sk"></div><div class="sk"></div>';
+  try{
+    const r=await api('/api/search?q='+encodeURIComponent(q));
+    const mems=r.memories||[];
+    const docs=r.documents||[];
+    if(!mems.length&&!docs.length){sr.innerHTML='<div class="empty">Sem resultados para "'+q+'"</div>';return;}
+    let html='';
+    if(mems.length){
+      html+=`<div class="sr-section"><div class="sr-title">Memórias (${mems.length})</div>`;
+      for(const m of mems.slice(0,5))
+        html+=`<div class="sr-item"><div class="sr-text">${m.text||''}</div><div class="sr-sub">${(m.timestamp||'').slice(0,10)}</div></div>`;
+      html+='</div>';
+    }
+    if(docs.length){
+      html+=`<div class="sr-section"><div class="sr-title">Documentos (${docs.length})</div>`;
+      for(const d of docs.slice(0,5))
+        html+=`<div class="sr-item"><div class="sr-text">${d.title||''}</div><div class="sr-sub">${(d.content||'').slice(0,60)}...</div></div>`;
+      html+='</div>';
+    }
+    sr.innerHTML=html;
+  }catch(e){sr.innerHTML='<div class="empty">Erro na pesquisa</div>';}
+}
+document.getElementById('s-inp').addEventListener('keydown',e=>{if(e.key==='Enter')doSearch();});
+
+/* ── Daemon ── */
+async function da(action){
+  try{
+    const r=await api('/api/daemon/'+action,{method:'POST'});
+    toast(r.message||action+' OK');
+    setTimeout(refresh,600);
+  }catch(e){toast('Erro: '+e.message);}
 }
 
-// ── Init ──────────────────────────────────────────────────────────────────────
+/* ── Notify ── */
+async function sendNotify(){
+  const inp=document.getElementById('n-text');
+  const t=inp.value.trim(); if(!t){toast('Escreve uma mensagem');return;}
+  try{
+    const r=await api('/api/notify',{method:'POST',body:JSON.stringify({title:'FlowCore',body:t})});
+    inp.value='';
+    const ok=r.sent!==false;
+    document.getElementById('n-status').textContent=ok?'enviada ✓':'termux-api ausente';
+    document.getElementById('n-status').className='tag '+(ok?'tg':'ty');
+    toast(ok?'🔔 Notificação enviada':'termux-notification não disponível');
+  }catch(e){toast('Erro: '+e.message);}
+}
+document.getElementById('n-text').addEventListener('keydown',e=>{if(e.key==='Enter')sendNotify();});
+
+/* ── Helpers ── */
+function fup(s){
+  s=Math.floor(s);
+  if(s<60) return s+'s';
+  if(s<3600) return Math.floor(s/60)+'m '+s%60+'s';
+  return Math.floor(s/3600)+'h '+Math.floor(s%3600/60)+'m';
+}
+
+/* ── Init ── */
 refresh();
-setInterval(refresh, 30000);
+setInterval(refresh,30000);
 </script>
 </body>
 </html>

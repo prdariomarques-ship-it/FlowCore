@@ -22,6 +22,13 @@ Endpoints (Sprint 11 — Android UX):
   POST /api/daemon/stop     — stop background daemon
   GET  /api/daemon/status   — daemon state
   GET  /                    — serve web UI (index.html)
+
+Endpoints (Sprint 12 — Passport + expanded UI):
+  GET  /api/system          — battery, storage, uptime (Android system info)
+  GET  /api/search          — search memories + docs (?q=)
+  GET  /api/notes           — list notes/todos/agenda items
+  POST /api/notes           — create a note/todo/agenda item
+  GET  /api/passport        — generate and return current system passport
 """
 from __future__ import annotations
 
@@ -83,6 +90,11 @@ class NotifyRequest(BaseModel):
     title: str = "FlowCore"
     body: str
     id: int = 1
+
+
+class NoteCreate(BaseModel):
+    text: str
+    kind: str = "note"   # "note" | "todo" | "agenda"
 
 
 # ---------------------------------------------------------------------------
@@ -245,6 +257,108 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         try:
             from runtime.daemon import FlowCoreDaemon
             return FlowCoreDaemon().status()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # ── System info (Sprint 12) ──────────────────────────────────────────
+    @app.get("/api/system")
+    async def system_info():
+        info: dict = {"uptime_api": round(time.time() - _start_time, 1)}
+
+        # Battery via termux-battery-status
+        try:
+            from runtime.shell import is_available, run
+            if is_available("termux-battery-status"):
+                r = run(["termux-battery-status"], timeout=5)
+                if r.success and r.stdout:
+                    import json as _json
+                    info["battery"] = _json.loads(r.stdout)
+        except Exception:
+            pass
+
+        # Storage via df
+        try:
+            from runtime.shell import run as _run
+            r = _run(["df", "-h", "/data"], timeout=5)
+            if r.success and r.stdout:
+                lines = r.stdout.strip().splitlines()
+                if len(lines) >= 2:
+                    parts = lines[1].split()
+                    if len(parts) >= 4:
+                        info["storage"] = {
+                            "total": parts[1], "used": parts[2],
+                            "avail": parts[3],
+                        }
+        except Exception:
+            pass
+
+        # Android version
+        try:
+            from runtime.shell import run as _run
+            r = _run(["getprop", "ro.build.version.release"], timeout=3)
+            if r.success and r.stdout.strip():
+                info["android_version"] = r.stdout.strip()
+        except Exception:
+            pass
+
+        return info
+
+    # ── Search (Sprint 12) ───────────────────────────────────────────────
+    @app.get("/api/search")
+    async def search(q: str = Query(..., min_length=1)):
+        results: dict = {"query": q, "memories": [], "documents": []}
+        try:
+            from storage import MemoryRepository
+            results["memories"] = MemoryRepository().search(q)
+        except Exception:
+            pass
+        try:
+            from storage import DocumentRepository
+            results["documents"] = DocumentRepository().search_sync(q)
+        except Exception:
+            pass
+        return results
+
+    # ── Notes / todos / agenda (Sprint 12) ───────────────────────────────
+    @app.get("/api/notes")
+    async def list_notes(kind: str | None = Query(None)):
+        try:
+            from storage import DocumentRepository
+            docs = DocumentRepository().list_all_sync()
+            kinds = {"note", "todo", "agenda"}
+            filtered = [
+                d for d in docs
+                if d.get("source") in kinds
+                and (kind is None or d.get("source") == kind)
+            ]
+            return {"notes": filtered}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/api/notes", status_code=201)
+    async def create_note(data: NoteCreate):
+        if data.kind not in ("note", "todo", "agenda"):
+            raise HTTPException(status_code=422, detail="kind must be note, todo or agenda")
+        try:
+            from storage import DocumentRepository
+            label = {"note": "Nota", "todo": "TODO", "agenda": "Agenda"}[data.kind]
+            doc_id = DocumentRepository().insert_sync(label, data.text, data.kind)
+            logger.info("Note created via API: kind={} text={}", data.kind, data.text[:40])
+            return {"id": doc_id, "kind": data.kind, "text": data.text}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # ── Passport (Sprint 12) ─────────────────────────────────────────────
+    @app.get("/api/passport")
+    async def get_passport(agent_name: str = Query("flowcore-ui"),
+                           ttl: int = Query(3600)):
+        try:
+            from passport.generator import PassportGenerator
+            from passport.schema import AgentIdentity
+            gen = PassportGenerator(ttl=ttl)
+            agent = AgentIdentity(name=agent_name, version=version)
+            p = gen.issue(agent)
+            return p.to_dict()
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
