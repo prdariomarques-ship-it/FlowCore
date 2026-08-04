@@ -2,112 +2,171 @@
 
 ## Overview
 
-FlowCore is a lightweight, Python-based workflow automation engine designed for Android via Termux. It runs entirely in user space with no root access, no external databases, and no network exposure by default.
+FlowCore is a Cognitive Platform — not a chatbot. It is composed of independent
+layers that allow AI agents to request capabilities without ever knowing the
+underlying system commands.
 
-## System Design
+**Core rule:** The LLM never executes Linux commands. The LLM requests only capabilities.
+`getBattery()` resolves through the Capability Registry → Provider Resolver →
+Bridge Layer → OS. The agent never knows about `termux-battery-status` or `ip addr`.
+
+## Target Platforms
+
+| Platform     | Status      |
+|--------------|-------------|
+| Android      | Supported   |
+| Termux       | Supported   |
+| Ubuntu/Linux | Supported   |
+| macOS        | Supported   |
+| Docker       | Planned     |
+| Oracle Cloud | Planned     |
+| Windows      | Planned     |
+
+## Architecture Layers
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    flowcore.py                       │
-│              (CLI Entry Point)                       │
-├─────────────┬───────────────┬───────────────────────┤
-│  serve      │  run          │  health / version     │
-│  (API)      │  (full)       │  / selftest           │
-├─────────────┴───────────────┴───────────────────────┤
-│                                                     │
-│  ┌──────────────┐  ┌────────────┐  ┌────────────┐  │
-│  │   Runtime    │  │  Executor  │  │ Scheduler  │  │
-│  │   (lifecycle)│  │  (tasks)   │  │ (cron)     │  │
-│  └──────┬───────┘  └─────┬──────┘  └─────┬──────┘  │
-│         │                │               │          │
-│  ┌──────┴────────────────┴───────────────┴──────┐   │
-│  │                  Agents                      │   │
-│  │  (base.py + health_agent.py + future agents) │   │
-│  └──────────────────────────────────────────────┘   │
-│                                                     │
-│  ┌──────────────────────────────────────────────┐   │
-│  │              API (FastAPI)                   │   │
-│  │        bound to 127.0.0.1:8080               │   │
-│  │  /api/health  /api/flows  /api/executions    │   │
-│  └──────────────────────────────────────────────┘   │
-│                                                     │
-│  ┌──────────────┐  ┌────────────────────────────┐   │
-│  │    Config    │  │      Persistence           │   │
-│  │  (YAML +     │  │  (SQLite via aiosqlite)   │   │
-│  │   env vars)  │  │                            │   │
-│  └──────────────┘  └────────────────────────────┘   │
-└─────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│              Presentation Layer                          │
+│          (CLI / REST API / MCP Tools)                    │
+├─────────────────────────────────────────────────────────┤
+│              Intent Layer                                │
+│       (parse user input → structured intent)             │
+├─────────────────────────────────────────────────────────┤
+│              Reasoning Layer                             │
+│         (Agents with Passport — cannot run               │
+│          without valid Passport issued by Registry)       │
+├─────────────────────────────────────────────────────────┤
+│              Context Engine                              │
+│   WorkspaceScanner | ProjectClassifier | ArtifactDetector│
+│   ContextSerializer → flowcore.context.json              │
+├─────────────────────────────────────────────────────────┤
+│              Execution Engine                            │
+│      Task Queue | Retry | Timeout | Semaphore            │
+├─────────────────────────────────────────────────────────┤
+│              Runtime Manager                             │
+│   Lifecycle | Health | Passport Issuer | Boot Sequence   │
+├─────────────────────────────────────────────────────────┤
+│         Capability Registry + Provider Resolver          │
+│   getBattery → [AndroidBridge, TermuxBridge, ShellBridge]│
+├─────────────────────────────────────────────────────────┤
+│              Bridge Layer                                │
+│  AndroidBridge | TermuxBridge | LinuxBridge | ...        │
+├─────────────────────────────────────────────────────────┤
+│              Storage Layer                               │
+│     DocumentRepository | MemoryRepository                │
+├─────────────────────────────────────────────────────────┤
+│              Operating System                            │
+│           Android | Linux | macOS | Docker               │
+└─────────────────────────────────────────────────────────┘
 ```
 
-## Modules
+## Android & Termux Model
+
+```
+Android (SO Principal)
+    └── FlowCore Mobile
+            └── FlowCore Runtime
+                    └── Android Bridge  ← BatteryManager, WiFi, Camera, Notifications
+                    └── Termux Bridge   ← Python, Git, SSH, SQLite, Filesystem, Shell
+                            └── Linux
+```
+
+**Android is NOT a provider. Android is the primary OS.**
+**Termux is NOT an OS. Termux is a Linux runtime inside Android.**
+
+## Implemented Modules (Sprint 7)
 
 ### config/
+JSON-based configuration with environment variable overrides (`FLOWCORE__SECTION__KEY`).
+Deep-merges `default.json` with `local.json` (if present).
 
-YAML-based configuration with environment variable overrides. The loader merges `default.yml` with `local.yml` (if present), then applies environment variable overrides using the pattern `FLOWCORE__SECTION__KEY`.
+### storage/ ← NEW in Sprint 7
+Repository pattern replacing 8+ duplicated inline DB patterns.
+
+- `database.py` — single source of truth for DB path resolution
+- `document_repo.py` — document CRUD with sync wrappers
+- `memory_repo.py` — memory CRUD wrapping `~/.flowcore/memories.json`
 
 ### runtime/
-
-Manages the application lifecycle: startup, graceful shutdown, signal handling. It initializes the database, starts the scheduler, and registers agents.
+Application lifecycle: start, stop, signal handling. Initialises the database
+(SQLAlchemy) and detects platform (Termux/Android/Linux).
 
 ### executor/
-
-Async task execution engine. Each task has a unique ID, status tracking, retry logic with configurable delay, and timeout enforcement. Results are persisted to SQLite.
+Async task execution with queue, retry logic, timeout enforcement, semaphore-based
+concurrency. Fully standalone.
 
 ### scheduler/
-
-Periodic task scheduling using APScheduler. Tasks can be scheduled by interval, cron expression, or one-shot execution. Timezone-aware (defaults to America/Sao_Paulo).
-
-### api/
-
-FastAPI REST API bound to `127.0.0.1` by default. Provides endpoints for health checks, flow management, and execution monitoring. No authentication middleware in v1.0 (trusted local access only).
+APScheduler wrapper for periodic task execution.
 
 ### agents/
+`BaseAgent` (ABC) + `AgentRegistry`. Every agent implements `run()` and
+`health_check()`. Passport validation will be added in Sprint 10.
 
-Pluggable agent framework. Each agent extends `BaseAgent` and implements `run()` and `health_check()`. Agents are registered at startup and can be triggered on-demand or on schedule.
+### api/
+FastAPI REST API bound to `127.0.0.1:8080`. Currently uses in-memory store;
+will be connected to the Execution Engine in Sprint 8.
 
 ### scripts/
+`audit.py` — security and compatibility checker.
+`helpers.py` — platform utilities.
 
-Helper utilities used by CLI tools: `helpers.py` (platform detection, directory management) and `audit.py` (security and compatibility auditing).
+## Planned Modules (Sprints 8-11)
 
-## Data Flow
+| Module            | Sprint | Purpose                              |
+|-------------------|--------|--------------------------------------|
+| `context/`        | 8      | Context Engine + flowcore.context.json|
+| `bridges/`        | 9      | AndroidBridge, TermuxBridge, Linux    |
+| `capability/`     | 9      | CapabilityRegistry + Provider Resolver|
+| `passport/`       | 10     | PassportGenerator + Validator         |
+| `bridges/docker`  | 11     | Docker runtime support                |
+| `mcp/`            | 11     | FlowCore as MCP Server                |
 
-```
-User/CLI ──> flowcore.py serve ──> FastAPI ──> Executor
-                                          │
-                                          v
-                                    Scheduler ──> Agent ──> Result
-                                          │
-                                          v
-                                    SQLite (data/flowcore.db)
-```
+## Contracts
+
+Three JSON contracts define the FlowCore protocol:
+
+| Contract                     | Produced by      | Sprint |
+|------------------------------|------------------|--------|
+| `flowcore.context.json`      | Context Engine   | 8      |
+| `flowcore.runtime.json`      | Runtime Manager  | 9      |
+| `flowcore.capabilities.json` | Capability Reg.  | 10     |
 
 ## Security Model
 
-| Layer | Control |
-|-------|---------|
-| Network | API binds to `127.0.0.1` — not accessible from network |
-| Privilege | No root/sudo — runs in user space only |
-| Secrets | All credentials via environment variables |
-| Code | No `os.system()`, no `subprocess` with user input |
-| Dependencies | Pure-Python only — no C extensions |
+| Layer   | Control                                          |
+|---------|--------------------------------------------------|
+| Network | API binds to `127.0.0.1` — not network-exposed   |
+| Privilege | No root/sudo — user space only                 |
+| Secrets | All credentials via environment variables        |
+| Code    | No `os.system()`, no shell injection             |
+| Agents  | No agent executes without valid Passport (Sprint 10) |
+| Bridges | Shell commands encapsulated — never seen by LLM  |
 
-## Compatibility
+## Data Flow (Current)
 
-FlowCore is tested on:
+```
+User/CLI ──> flowcore.py ──> StorageLayer ──> SQLite / JSON
+                        └──> Ollama HTTP  ──> AI Response
+                        └──> cmd_serve    ──> FastAPI ──> in-memory
+```
 
-| Platform | Python | Status |
-|----------|--------|--------|
-| Termux (Android 12–15) | 3.11–3.13 | Supported |
-| Ubuntu 22.04+ | 3.11–3.13 | Supported |
-| macOS 13+ | 3.11–3.13 | Supported |
+## Data Flow (Target — Sprint 11)
+
+```
+User/MCP/CLI
+    ──> Intent Layer
+    ──> Agent (with Passport)
+    ──> Execution Engine
+    ──> Capability Registry ──> Bridge ──> OS
+    ──> Storage Layer       ──> SQLite
+    ──> Context Engine      ──> flowcore.context.json
+```
 
 ## Resource Usage
 
-FlowCore is designed for resource-constrained environments:
-
-| Resource | Usage |
-|----------|-------|
-| RAM | ~50–100 MB idle |
-| Disk | ~10 MB (without dependencies) |
-| CPU | Minimal (single-threaded by default) |
-| Battery | Low impact (batch scheduling) |
+| Resource | Target  |
+|----------|---------|
+| RAM      | ~50–100 MB idle |
+| Disk     | ~10 MB (core only) |
+| CPU      | Minimal (event-driven) |
+| Battery  | Low (batch scheduling, no polling) |

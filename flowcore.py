@@ -39,20 +39,18 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import importlib
 import json
 import os
 import sys
-from datetime import datetime
 from pathlib import Path
 
-# Add project root to Python path so imports work regardless of CWD.
 ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from config.loader import get_config
 from runtime.core import FlowCoreRuntime, detect_platform
+from storage import DocumentRepository, MemoryRepository
 from loguru import logger
 
 # Colours
@@ -63,18 +61,19 @@ CYAN = "\033[0;36m"
 BOLD = "\033[1m"
 NC = "\033[0m"
 
-# Ollama config (from env or defaults)
 OLLAMA_HOST = os.getenv("FLOWCORE_OLLAMA", "http://127.0.0.1:11434")
 OLLAMA_MODEL = os.getenv("FLOWCORE_MODEL", "llama2")
 
+# Shared repositories (initialised on first use via their lazy path resolution)
+_doc_repo = DocumentRepository()
+_mem_repo = MemoryRepository()
+
 
 def _get_ollama_url(endpoint: str) -> str:
-    """Build Ollama API URL."""
     return f"{OLLAMA_HOST.rstrip('/')}/api/{endpoint}"
 
 
 def _test_ollama_connection() -> bool:
-    """Test connection to Ollama."""
     import urllib.request
     import urllib.error
     try:
@@ -115,57 +114,60 @@ def cmd_selftest() -> None:
     print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}")
     print("")
 
-    # ── CORE ONLY ────────────────────────────────────────────────────────
     print(f"{BOLD}CORE{NC}")
 
-    # Config
     def _load_config():
         from config.loader import get_config
         cfg = get_config()
         assert cfg["app"]["name"] == "FlowCore"
         assert "api" in cfg
         assert cfg["api"]["host"] == "127.0.0.1"
-    
+
     result = selftest_check("CONFIG", _load_config, "JSON loaded")
     results.append(result)
     if result == "PASS": passed += 1
     elif result == "FAIL": failed += 1
 
-    # Executor
     def _executor_test():
         from executor.engine import ExecutorEngine
         executor = ExecutorEngine()
         assert executor is not None
-    
+
     result = selftest_check("EXECUTOR", _executor_test, "Engine ready")
     results.append(result)
     if result == "PASS": passed += 1
     elif result == "FAIL": failed += 1
 
-    # SQLite
     def _sqlite_test():
         import aiosqlite
         assert aiosqlite is not None
-    
+
     result = selftest_check("SQLITE", _sqlite_test, "aiosqlite available")
     results.append(result)
     if result == "PASS": passed += 1
     elif result == "FAIL": failed += 1
 
-    # Logging
     def _logging_test():
         from loguru import logger
         assert logger is not None
-    
+
     result = selftest_check("LOGGING", _logging_test, "loguru available")
     results.append(result)
     if result == "PASS": passed += 1
     elif result == "FAIL": failed += 1
 
-    # ── OPTIONAL ─────────────────────────────────────────────────────────
+    def _storage_test():
+        from storage import DocumentRepository, MemoryRepository
+        assert DocumentRepository is not None
+        assert MemoryRepository is not None
+
+    result = selftest_check("STORAGE", _storage_test, "Repository layer ready")
+    results.append(result)
+    if result == "PASS": passed += 1
+    elif result == "FAIL": failed += 1
+
     print(f"{BOLD}OPTIONAL{NC}")
 
-    # API (check if FastAPI is installed)
     def _api_test():
         try:
             import fastapi
@@ -176,7 +178,7 @@ def cmd_selftest() -> None:
             assert app is not None
         except ImportError:
             raise ImportError("FastAPI not installed. Run: bash install_api.sh")
-    
+
     try:
         import fastapi
         result = selftest_check("API", _api_test, "FastAPI available")
@@ -188,7 +190,6 @@ def cmd_selftest() -> None:
         results.append(result)
         skipped += 1
 
-    # Scheduler (check if apscheduler is installed)
     def _scheduler_test():
         try:
             from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -197,7 +198,7 @@ def cmd_selftest() -> None:
             assert scheduler is not None
         except ImportError:
             raise ImportError("apscheduler not installed. Run: bash install_api.sh")
-    
+
     try:
         import apscheduler
         result = selftest_check("SCHEDULER", _scheduler_test, "apscheduler available")
@@ -209,24 +210,21 @@ def cmd_selftest() -> None:
         results.append(result)
         skipped += 1
 
-    # ── Storage ──────────────────────────────────────────────────────────
     print(f"{BOLD}STORAGE{NC}")
 
-    def _storage_test():
-        from pathlib import Path
+    def _storage_dir_test():
         Path("data").mkdir(parents=True, exist_ok=True)
 
-    result = selftest_check("DOCUMENTS", _storage_test, "SQLite ready")
+    result = selftest_check("DOCUMENTS", _storage_dir_test, "SQLite ready")
     results.append(result)
     if result == "PASS": passed += 1
     elif result == "FAIL": failed += 1
 
-    # ── Memory ──────────────────────────────────────────────────────────
     print(f"{BOLD}MEMORY{NC}")
 
     def _memory_recall_test():
         cmd_remember("Testing recall with #FlowCore and substring search")
-        memories = _load_memories()
+        memories = _mem_repo.list_all()
         assert len(memories) > 0, "No memories stored"
         last = memories[-1]
 
@@ -246,7 +244,6 @@ def cmd_selftest() -> None:
     if result == "PASS": passed += 1
     elif result == "FAIL": failed += 1
 
-    # ── Documents ────────────────────────────────────────────────────────
     print(f"{BOLD}DOCUMENTS{NC}")
 
     def _import_test():
@@ -264,7 +261,6 @@ def cmd_selftest() -> None:
     if result == "PASS": passed += 1
     elif result == "FAIL": failed += 1
 
-    # ── AI ───────────────────────────────────────────────────────────────
     print(f"{BOLD}AI{NC}")
 
     def _ask_graceful_test():
@@ -309,7 +305,6 @@ def cmd_selftest() -> None:
     if result == "PASS": passed += 1
     elif result == "FAIL": failed += 1
 
-    # ── Daily & Search ───────────────────────────────────────────────────
     print(f"{BOLD}DAILY/SEARCH{NC}")
 
     def _daily_test():
@@ -352,7 +347,6 @@ def cmd_selftest() -> None:
     if result == "PASS": passed += 1
     elif result == "FAIL": failed += 1
 
-    # ── Obsidian ─────────────────────────────────────────────────────────
     print(f"{BOLD}OBSIDIAN{NC}")
 
     def _obsidian_test():
@@ -372,7 +366,6 @@ def cmd_selftest() -> None:
     if result == "PASS": passed += 1
     elif result == "FAIL": failed += 1
 
-    # ── Summary ──────────────────────────────────────────────────────────
     total = passed + failed + skipped
     print("")
     if failed == 0:
@@ -447,6 +440,7 @@ def cmd_health(cfg: dict) -> None:
     print(f"  {GREEN}✓{NC} Core")
     print(f"  {GREEN}✓{NC} Config")
     print(f"  {GREEN}✓{NC} Runtime")
+    print(f"  {GREEN}✓{NC} Storage")
 
     try:
         import fastapi
@@ -505,54 +499,9 @@ def cmd_chat(cfg: dict) -> None:
             print(f"{RED}Error: {e}{NC}")
 
 
-def _get_memories_file() -> Path:
-    """Get path to memories.json file."""
-    home = Path.home()
-    memories_dir = home / ".flowcore"
-    memories_dir.mkdir(exist_ok=True)
-    return memories_dir / "memories.json"
-
-
-def _load_memories() -> list:
-    """Load memories from JSON file."""
-    file_path = _get_memories_file()
-    if not file_path.exists():
-        return []
-    try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (json.JSONDecodeError, IOError) as e:
-        logger.error(f"Error loading memories: {e}")
-        return []
-
-
-def _save_memories(memories: list) -> None:
-    """Save memories to JSON file."""
-    file_path = _get_memories_file()
-    try:
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(memories, f, indent=2, ensure_ascii=False)
-    except IOError as e:
-        logger.error(f"Error saving memories: {e}")
-
-
 def cmd_remember(text: str) -> None:
     """Save a memory."""
-    memories = _load_memories()
-    memory = {
-        "text": text,
-        "timestamp": datetime.now().isoformat(),
-        "topics": []
-    }
-
-    # Extract topics (words starting with #)
-    for word in text.split():
-        if word.startswith("#") and len(word) > 1:
-            memory["topics"].append(word[1:].lower())
-
-    memories.append(memory)
-    _save_memories(memories)
-
+    memory = _mem_repo.add(text)
     print(f"{GREEN}✓ Memory saved{NC}")
     if memory["topics"]:
         print(f"  Topics: {', '.join(memory['topics'])}")
@@ -561,25 +510,12 @@ def cmd_remember(text: str) -> None:
 
 def cmd_recall(topic: str) -> None:
     """Recall memories by keyword or topic (substring, case-insensitive)."""
-    memories = _load_memories()
-
-    if not memories:
-        print(f"{YELLOW}No memories found{NC}")
-        return
-
-    topic_lower = topic.lower().lstrip("#")
-    matching = []
-
-    for m in memories:
-        text_lower = m.get("text", "").lower()
-        topics_lower = [t.lower() for t in m.get("topics", [])]
-        if topic_lower in text_lower or any(topic_lower in t for t in topics_lower):
-            matching.append(m)
-
+    matching = _mem_repo.search(topic)
     if not matching:
         print(f"{YELLOW}No memories found for '{topic}'{NC}")
         return
 
+    topic_lower = topic.lower().lstrip("#")
     print(f"\n{BOLD}{CYAN}Found {len(matching)} memory(ies) for: '{topic_lower}'{NC}\n")
     for i, memory in enumerate(matching, 1):
         timestamp = memory.get("timestamp", "Unknown")
@@ -594,8 +530,7 @@ def cmd_recall(topic: str) -> None:
 
 def cmd_memories() -> None:
     """List all memories."""
-    memories = _load_memories()
-
+    memories = _mem_repo.list_all()
     if not memories:
         print(f"{YELLOW}No memories yet. Use: python3 flowcore.py remember \"<text>\"{NC}")
         return
@@ -608,36 +543,11 @@ def cmd_memories() -> None:
         text = memory.get("text", "")
         timestamp = memory.get("timestamp", "Unknown")
         topics = memory.get("topics", [])
-
         print(f"{GREEN}{i}.{NC} {text}")
         if topics:
             print(f"   {YELLOW}Topics:{NC} {', '.join([f'#{t}' for t in topics])}")
         print(f"   {YELLOW}Date:{NC} {timestamp[:10]}")
         print()
-
-
-async def _init_sqlite_documents():
-    """Initialize SQLite documents table."""
-    try:
-        import aiosqlite
-        from config.loader import get_config
-        cfg = get_config()
-        db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
-        db_path = db_url.replace("sqlite+aiosqlite:///", "")
-
-        async with aiosqlite.connect(db_path) as db:
-            await db.execute("""
-                CREATE TABLE IF NOT EXISTS documents (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    title TEXT NOT NULL,
-                    content TEXT NOT NULL,
-                    source TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-            await db.commit()
-    except Exception as e:
-        logger.error(f"Error initializing documents table: {e}")
 
 
 def cmd_import(filepath: str) -> None:
@@ -660,25 +570,7 @@ def cmd_import(filepath: str) -> None:
         line_count = len(content.split("\n"))
         char_count = len(content)
 
-        asyncio.run(_init_sqlite_documents())
-
-        import aiosqlite
-        from config.loader import get_config
-
-        async def _import():
-            cfg = get_config()
-            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
-            db_path = db_url.replace("sqlite+aiosqlite:///", "")
-
-            async with aiosqlite.connect(db_path) as db:
-                cursor = await db.execute(
-                    "INSERT INTO documents (title, content, source) VALUES (?, ?, ?)",
-                    (title, content, str(path))
-                )
-                await db.commit()
-                return cursor.lastrowid
-
-        doc_id = asyncio.run(_import())
+        doc_id = _doc_repo.insert_sync(title, content, str(path))
 
         print(f"\n{GREEN}✓ Document imported{NC}")
         print(f"  {CYAN}Título:{NC} {title}")
@@ -695,25 +587,7 @@ def cmd_import(filepath: str) -> None:
 def cmd_docs() -> None:
     """List all imported documents."""
     try:
-        asyncio.run(_init_sqlite_documents())
-
-        import aiosqlite
-        from config.loader import get_config
-
-        async def _list_docs():
-            cfg = get_config()
-            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
-            db_path = db_url.replace("sqlite+aiosqlite:///", "")
-
-            async with aiosqlite.connect(db_path) as db:
-                cursor = await db.execute(
-                    "SELECT id, title, source, created_at FROM documents ORDER BY created_at DESC"
-                )
-                rows = await cursor.fetchall()
-                return rows
-
-        docs = asyncio.run(_list_docs())
-
+        docs = _doc_repo.list_all_sync()
         if not docs:
             print(f"{YELLOW}No documents found.{NC}")
             return
@@ -722,10 +596,10 @@ def cmd_docs() -> None:
         print(f"{BOLD}{CYAN}║         Documents                              ║{NC}")
         print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
 
-        for doc_id, title, source, created_at in docs:
-            print(f"{GREEN}[{doc_id}]{NC} {title}")
-            print(f"     {YELLOW}Source:{NC} {source}")
-            print(f"     {YELLOW}Date:{NC} {created_at[:10]}")
+        for doc in docs:
+            print(f"{GREEN}[{doc['id']}]{NC} {doc['title']}")
+            print(f"     {YELLOW}Source:{NC} {doc['source']}")
+            print(f"     {YELLOW}Date:{NC} {doc['created_at'][:10]}")
             print()
 
     except Exception as e:
@@ -736,38 +610,17 @@ def cmd_docs() -> None:
 def cmd_show(doc_id: str) -> None:
     """Display a document by ID."""
     try:
-        asyncio.run(_init_sqlite_documents())
-
-        import aiosqlite
-        from config.loader import get_config
-
-        async def _get_doc():
-            cfg = get_config()
-            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
-            db_path = db_url.replace("sqlite+aiosqlite:///", "")
-
-            async with aiosqlite.connect(db_path) as db:
-                cursor = await db.execute(
-                    "SELECT id, title, content, created_at FROM documents WHERE id = ?",
-                    (int(doc_id),)
-                )
-                row = await cursor.fetchone()
-                return row
-
-        doc = asyncio.run(_get_doc())
-
+        doc = _doc_repo.get_by_id_sync(int(doc_id))
         if not doc:
             print(f"{RED}Document not found: {doc_id}{NC}")
             return
 
-        doc_id, title, content, created_at = doc
-
         print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
-        print(f"{BOLD}{CYAN}║  {title:<45} ║{NC}")
+        print(f"{BOLD}{CYAN}║  {doc['title']:<45} ║{NC}")
         print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
-        print(content)
+        print(doc["content"])
         print(f"\n{YELLOW}─────────────────────────────────────────────────{NC}")
-        print(f"{YELLOW}ID:{NC} {doc_id} | {YELLOW}Date:{NC} {created_at[:10]}\n")
+        print(f"{YELLOW}ID:{NC} {doc['id']} | {YELLOW}Date:{NC} {doc['created_at'][:10]}\n")
 
     except ValueError:
         print(f"{RED}Error: Invalid document ID (must be a number){NC}")
@@ -790,7 +643,6 @@ def cmd_ping() -> None:
 
 def cmd_models() -> None:
     """List available Ollama models."""
-    import json
     import urllib.request
     import urllib.error
 
@@ -817,14 +669,12 @@ def cmd_models() -> None:
                 size = model.get("size", 0)
                 size_gb = size / (1024**3)
                 modified = model.get("modified_at", "")[:10]
-
                 active = f" {GREEN}(active){NC}" if name == OLLAMA_MODEL else ""
                 print(f"{GREEN}•{NC} {name:<30} {size_gb:>6.1f}GB  {modified}{active}")
             print()
 
     except (urllib.error.URLError, ConnectionRefusedError, TimeoutError):
         print(f"{RED}Cannot connect to Ollama at {OLLAMA_HOST}{NC}")
-        logger.warning(f"Ollama models not available")
     except Exception as e:
         print(f"{RED}Error: {e}{NC}")
         logger.error(f"Models error: {e}")
@@ -833,50 +683,33 @@ def cmd_models() -> None:
 def cmd_stats() -> None:
     """Show FlowCore statistics."""
     try:
-        import aiosqlite
-        from config.loader import get_config
+        doc_count = _doc_repo.count_sync()
+        mem_count = _mem_repo.count()
+        ollama_status = "✓ Connected" if _test_ollama_connection() else "✗ Offline"
+        cfg = get_config()
 
-        async def _stats():
-            cfg = get_config()
-            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
-            db_path = db_url.replace("sqlite+aiosqlite:///", "")
+        print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+        print(f"{BOLD}{CYAN}║         FlowCore Statistics                     ║{NC}")
+        print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
 
-            doc_count = 0
-            try:
-                async with aiosqlite.connect(db_path) as db:
-                    cursor = await db.execute("SELECT COUNT(*) FROM documents")
-                    row = await cursor.fetchone()
-                    doc_count = row[0] if row else 0
-            except Exception:
-                pass
+        print(f"{GREEN}Memories{NC}")
+        print(f"  Count: {mem_count}")
+        print()
 
-            mem_count = len(_load_memories())
-            ollama_status = "✓ Connected" if _test_ollama_connection() else "✗ Offline"
+        print(f"{GREEN}Documents{NC}")
+        print(f"  Count: {doc_count}")
+        print()
 
-            print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
-            print(f"{BOLD}{CYAN}║         FlowCore Statistics                     ║{NC}")
-            print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
+        print(f"{GREEN}AI Model{NC}")
+        print(f"  Model: {OLLAMA_MODEL}")
+        print(f"  Status: {ollama_status}")
+        print(f"  Host: {OLLAMA_HOST}")
+        print()
 
-            print(f"{GREEN}Memories{NC}")
-            print(f"  Count: {mem_count}")
-            print()
-
-            print(f"{GREEN}Documents{NC}")
-            print(f"  Count: {doc_count}")
-            print()
-
-            print(f"{GREEN}AI Model{NC}")
-            print(f"  Model: {OLLAMA_MODEL}")
-            print(f"  Status: {ollama_status}")
-            print(f"  Host: {OLLAMA_HOST}")
-            print()
-
-            print(f"{GREEN}Version{NC}")
-            version = cfg.get("app", {}).get("version", "1.0.0")
-            print(f"  FlowCore: {version}")
-            print()
-
-        asyncio.run(_stats())
+        print(f"{GREEN}Version{NC}")
+        version = cfg.get("app", {}).get("version", "1.0.0")
+        print(f"  FlowCore: {version}")
+        print()
 
     except Exception as e:
         logger.error(f"Stats error: {e}")
@@ -891,7 +724,6 @@ def cmd_doctor() -> None:
     checks = {}
 
     try:
-        import sys
         version = sys.version.split()[0]
         print(f"{GREEN}✓{NC} Python: {version}")
         checks["python"] = "PASS"
@@ -908,13 +740,11 @@ def cmd_doctor() -> None:
         checks["sqlite"] = "FAIL"
 
     try:
-        import aiosqlite
-        from config.loader import get_config
-        cfg = get_config()
-        db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
-        db_path = db_url.replace("sqlite+aiosqlite:///", "")
+        from storage.database import get_db_path
+        db_path = get_db_path()
 
         async def _test_db():
+            import aiosqlite
             async with aiosqlite.connect(db_path) as db:
                 cursor = await db.execute("SELECT 1")
                 await cursor.fetchone()
@@ -927,7 +757,6 @@ def cmd_doctor() -> None:
         checks["database"] = "FAIL"
 
     try:
-        import json
         test_json = json.dumps({"test": "data"})
         print(f"{GREEN}✓{NC} JSON")
         checks["json"] = "PASS"
@@ -936,7 +765,6 @@ def cmd_doctor() -> None:
         checks["json"] = "FAIL"
 
     try:
-        from config.loader import get_config
         cfg = get_config()
         assert cfg["app"]["name"] == "FlowCore"
         print(f"{GREEN}✓{NC} Config: FlowCore")
@@ -974,6 +802,156 @@ def cmd_doctor() -> None:
         print(f"{RED}FAIL: {', '.join(failures)}{NC}\n")
     else:
         print(f"{GREEN}All critical systems operational{NC}\n")
+
+
+def cmd_boot(verbose: bool = False) -> None:
+    """Boot the Runtime Kernel and emit the Runtime Passport."""
+    print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+    print(f"{BOLD}{CYAN}║         FlowCore Runtime Kernel — Boot          ║{NC}")
+    print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
+    try:
+        from runtime.kernel import RuntimeKernel
+        kernel = RuntimeKernel()
+        passport = kernel.boot(verbose=verbose)
+        print(f"{GREEN}✓{NC} Platform  : {passport.platform}")
+        print(f"{GREEN}✓{NC} Android   : {passport.is_android}")
+        print(f"{GREEN}✓{NC} Termux    : {passport.is_termux}")
+        print(f"{GREEN}✓{NC} Internet  : {passport.has_internet}")
+        caps = passport.capabilities
+        print(f"{GREEN}✓{NC} Capabilities ({len(caps)}): {', '.join(caps) or 'none'}")
+        print(f"\n{GREEN}Runtime Passport issued.{NC}  Saved to ~/.flowcore/flowcore.runtime.json\n")
+    except Exception as e:
+        print(f"{RED}✗{NC} Kernel boot failed: {e}\n")
+        sys.exit(1)
+
+
+def cmd_status() -> None:
+    """Show comprehensive FlowCore runtime status."""
+    print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+    print(f"{BOLD}{CYAN}║         FlowCore Runtime Status                 ║{NC}")
+    print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
+
+    # ── Kernel / Runtime Passport ─────────────────────────────────────────────
+    print(f"{BOLD}Kernel{NC}")
+    runtime_json = Path.home() / ".flowcore" / "flowcore.runtime.json"
+    if runtime_json.exists():
+        import json as _json
+        try:
+            data = _json.loads(runtime_json.read_text())
+            android = data.get("android", {})
+            termux = data.get("termux", {})
+            network = data.get("network", {})
+            print(f"  {GREEN}✓{NC} Runtime Passport  : {data.get('generated_at', 'unknown')}")
+            print(f"  {GREEN}✓{NC} Platform          : {data.get('platform_type', 'unknown')}")
+            print(f"  {GREEN}✓{NC} Android           : {android.get('detected', False)}")
+            print(f"  {GREEN}✓{NC} Termux            : {termux.get('detected', False)}")
+            print(f"  {GREEN}✓{NC} Internet          : {network.get('internet', False)}")
+        except Exception:
+            print(f"  {YELLOW}⚠{NC} Runtime Passport  : corrupt (run: python3 flowcore.py boot)")
+    else:
+        print(f"  {YELLOW}⚠{NC} Runtime Passport  : not found (run: python3 flowcore.py boot)")
+    print()
+
+    # ── Capabilities ──────────────────────────────────────────────────────────
+    print(f"{BOLD}Capabilities{NC}")
+    try:
+        from capability.registry import CapabilityRegistry
+        reg = CapabilityRegistry()
+        cap_map = reg.list_capabilities()
+        available = [(c, a) for c, a in cap_map.items() if a]
+        missing = [c for c, a in cap_map.items() if not a]
+        for cap, adapter in sorted(available):
+            print(f"  {GREEN}✓{NC} {cap:<25} {CYAN}({adapter}){NC}")
+        for cap in sorted(missing):
+            print(f"  {YELLOW}○{NC} {cap:<25} (no adapter)")
+        print(f"\n  Total: {len(available)}/{len(cap_map)} capabilities available")
+    except Exception as e:
+        print(f"  {RED}✗{NC} Could not load capability registry: {e}")
+    print()
+
+    # ── Doctor (quick run) ────────────────────────────────────────────────────
+    print(f"{BOLD}Health (Doctor){NC}")
+    try:
+        from doctor.service import DoctorService
+        doctor = DoctorService()
+        report = doctor.run(verbose=False)
+        icons = {"ok": f"{GREEN}✓{NC}", "warn": f"{YELLOW}⚠{NC}",
+                 "fail": f"{RED}✗{NC}", "skip": "─"}
+        for check in report.checks:
+            icon = icons.get(check.status.value, "?")
+            suffix = f"  → {check.fix}" if check.fix and check.status.value != "ok" else ""
+            print(f"  {icon} {check.name:<30} {check.message}{suffix}")
+        print()
+        if report.healthy:
+            print(f"  {GREEN}All checks passed ({report.passed}/{len(report.checks)}){NC}")
+        else:
+            print(f"  {RED}{report.failed} failure(s) | {report.warned} warning(s){NC}")
+    except Exception as e:
+        print(f"  {RED}✗{NC} Doctor failed: {e}")
+    print()
+
+
+def cmd_bootstrap() -> None:
+    """Bootstrap a fresh Termux environment from zero."""
+    print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+    print(f"{BOLD}{CYAN}║         FlowCore Bootstrap (Fresh Termux)       ║{NC}")
+    print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
+    try:
+        from installer.setup import FlowCoreInstaller
+        installer = FlowCoreInstaller()
+        report = installer.bootstrap(verbose=True)
+        print()
+        if report.ok:
+            print(f"{GREEN}Bootstrap complete — FlowCore ready.{NC}\n")
+        else:
+            failed = [s.name for s in report.failed_steps]
+            print(f"{YELLOW}Bootstrap finished with issues: {', '.join(failed)}{NC}\n")
+            sys.exit(1)
+    except Exception as e:
+        print(f"{RED}✗{NC} Bootstrap failed: {e}\n")
+        sys.exit(1)
+
+
+def cmd_repair() -> None:
+    """Detect and repair a corrupted FlowCore environment."""
+    print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+    print(f"{BOLD}{CYAN}║         FlowCore Repair                         ║{NC}")
+    print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
+    try:
+        from installer.setup import FlowCoreInstaller
+        installer = FlowCoreInstaller()
+        report = installer.repair(verbose=True)
+        print()
+        if report.ok:
+            print(f"{GREEN}Repair complete — all issues resolved.{NC}\n")
+        else:
+            failed = [s.name for s in report.failed_steps]
+            print(f"{YELLOW}Repair finished — some issues remain: {', '.join(failed)}{NC}\n")
+            print(f"{YELLOW}Run 'python3 flowcore.py status' to see current state.{NC}\n")
+    except Exception as e:
+        print(f"{RED}✗{NC} Repair failed: {e}\n")
+        sys.exit(1)
+
+
+def cmd_install() -> None:
+    """Set up the full FlowCore runtime environment."""
+    print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+    print(f"{BOLD}{CYAN}║         FlowCore Installer                      ║{NC}")
+    print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
+    try:
+        from installer.setup import FlowCoreInstaller
+        installer = FlowCoreInstaller()
+        report = installer.install(verbose=True)
+        print()
+        if report.ok:
+            print(f"{GREEN}Installation complete — all steps passed.{NC}\n")
+        else:
+            failed = [s.name for s in report.failed_steps]
+            print(f"{YELLOW}Installation finished with issues: {', '.join(failed)}{NC}\n")
+            sys.exit(1)
+    except Exception as e:
+        print(f"{RED}✗{NC} Installer failed: {e}\n")
+        sys.exit(1)
 
 
 def cmd_demo() -> None:
@@ -1018,52 +996,26 @@ def cmd_demo() -> None:
 def cmd_search(query: str) -> None:
     """Search in documents and memories."""
     try:
-        import aiosqlite
-        from config.loader import get_config
+        docs = _doc_repo.search_sync(query)
+        memories = _mem_repo.search(query)
 
-        async def _search():
-            cfg = get_config()
-            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
-            db_path = db_url.replace("sqlite+aiosqlite:///", "")
+        print(f"\n{BOLD}{CYAN}Search: '{query}'{NC}\n")
 
-            query_lower = query.lower()
-            results = {"documents": [], "memories": []}
+        if docs:
+            print(f"{BOLD}Documents ({len(docs)}){NC}")
+            for doc in docs[:5]:
+                print(f"  [{doc['id']}] {doc['title']}")
+                print(f"      {doc['content'][:100]}...")
+            print()
 
-            try:
-                async with aiosqlite.connect(db_path) as db:
-                    cursor = await db.execute(
-                        "SELECT id, title, content FROM documents WHERE title LIKE ? OR content LIKE ?",
-                        (f"%{query}%", f"%{query}%")
-                    )
-                    results["documents"] = await cursor.fetchall()
-            except Exception:
-                pass
+        if memories:
+            print(f"{BOLD}Memories ({len(memories)}){NC}")
+            for m in memories[:5]:
+                print(f"  • {m.get('text', '')[:80]}")
+            print()
 
-            memories = _load_memories()
-            for m in memories:
-                text_lower = m.get("text", "").lower()
-                if query_lower in text_lower:
-                    results["memories"].append(m)
-
-            print(f"\n{BOLD}{CYAN}Search: '{query}'{NC}\n")
-
-            if results["documents"]:
-                print(f"{BOLD}Documents ({len(results['documents'])}){NC}")
-                for doc_id, title, content in results["documents"][:5]:
-                    print(f"  [{doc_id}] {title}")
-                    print(f"      {content[:100]}...")
-                print()
-
-            if results["memories"]:
-                print(f"{BOLD}Memories ({len(results['memories'])}){NC}")
-                for m in results["memories"][:5]:
-                    print(f"  • {m.get('text', '')[:80]}")
-                print()
-
-            if not results["documents"] and not results["memories"]:
-                print(f"{YELLOW}No results found.{NC}\n")
-
-        asyncio.run(_search())
+        if not docs and not memories:
+            print(f"{YELLOW}No results found.{NC}\n")
 
     except Exception as e:
         print(f"{RED}Search error: {e}{NC}")
@@ -1073,54 +1025,29 @@ def cmd_search(query: str) -> None:
 def cmd_daily() -> None:
     """Show daily summary."""
     try:
-        import aiosqlite
-        from config.loader import get_config
+        doc_count = _doc_repo.count_sync()
+        task_count = _doc_repo.count_by_source_sync("note", "todo", "agenda")
+        recent_docs = _doc_repo.list_recent_sync(5)
+        mem_count = _mem_repo.count()
 
-        async def _daily():
-            cfg = get_config()
-            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
-            db_path = db_url.replace("sqlite+aiosqlite:///", "")
+        print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+        print(f"{BOLD}{CYAN}║         Daily Summary                          ║{NC}")
+        print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
 
-            print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
-            print(f"{BOLD}{CYAN}║         Daily Summary                          ║{NC}")
-            print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
+        print(f"{BOLD}Statistics{NC}")
+        print(f"  Documents: {doc_count}")
+        print(f"  Memories: {mem_count}")
+        print(f"  Tasks: {task_count}")
+        print()
 
-            try:
-                async with aiosqlite.connect(db_path) as db:
-                    cursor = await db.execute("SELECT COUNT(*) FROM documents")
-                    doc_count = (await cursor.fetchone())[0]
-
-                    cursor = await db.execute(
-                        "SELECT COUNT(*) FROM documents WHERE source IN ('note', 'todo', 'agenda')"
-                    )
-                    task_count = (await cursor.fetchone())[0]
-
-                    cursor = await db.execute(
-                        "SELECT title, content, created_at FROM documents ORDER BY created_at DESC LIMIT 5"
-                    )
-                    recent_docs = await cursor.fetchall()
-            except Exception:
-                doc_count = task_count = 0
-                recent_docs = []
-
-            mem_count = len(_load_memories())
-
-            print(f"{BOLD}Statistics{NC}")
-            print(f"  Documents: {doc_count}")
-            print(f"  Memories: {mem_count}")
-            print(f"  Tasks: {task_count}")
+        if recent_docs:
+            print(f"{BOLD}Recent Documents{NC}")
+            for doc in recent_docs:
+                print(f"  • {doc['title']}")
+                print(f"    {doc['content'][:80]}...")
             print()
 
-            if recent_docs:
-                print(f"{BOLD}Recent Documents{NC}")
-                for title, content, created_at in recent_docs:
-                    print(f"  • {title}")
-                    print(f"    {content[:80]}...")
-                print()
-
-            print(f"{GREEN}Ready for the day ahead.{NC}\n")
-
-        asyncio.run(_daily())
+        print(f"{GREEN}Ready for the day ahead.{NC}\n")
 
     except Exception as e:
         logger.error(f"Daily error: {e}")
@@ -1141,7 +1068,7 @@ def cmd_sync(folder: str) -> None:
 
         print(f"\n{BOLD}{CYAN}Syncing {len(md_files)} file(s)...{NC}\n")
 
-        for i, md_file in enumerate(md_files, 1):
+        for md_file in md_files:
             try:
                 cmd_import(str(md_file))
                 print()
@@ -1171,11 +1098,9 @@ def cmd_watch(folder: str, interval: int = 5) -> None:
         try:
             while True:
                 md_files = list(path.glob("**/*.md"))
-
                 for md_file in md_files:
                     mtime = md_file.stat().st_mtime
                     file_key = str(md_file)
-
                     if file_key not in tracked or tracked[file_key] != mtime:
                         print(f"{GREEN}→{NC} {md_file.name}")
                         try:
@@ -1183,9 +1108,7 @@ def cmd_watch(folder: str, interval: int = 5) -> None:
                         except Exception as e:
                             print(f"  {RED}Error: {str(e)[:50]}{NC}")
                         tracked[file_key] = mtime
-
                 time.sleep(interval)
-
         except KeyboardInterrupt:
             print(f"\n{YELLOW}Watch stopped.{NC}\n")
 
@@ -1195,7 +1118,6 @@ def cmd_watch(folder: str, interval: int = 5) -> None:
 
 
 def _get_obsidian_path() -> Path:
-    """Get Obsidian vault path from config or env."""
     vault_path = os.getenv("FLOWCORE_OBSIDIAN")
     if vault_path:
         return Path(vault_path).expanduser()
@@ -1203,7 +1125,6 @@ def _get_obsidian_path() -> Path:
 
 
 def _save_obsidian_path(vault_path: Path) -> None:
-    """Save Obsidian vault path for future use."""
     config_file = Path.home() / ".flowcore" / "obsidian.path"
     config_file.parent.mkdir(parents=True, exist_ok=True)
     config_file.write_text(str(vault_path.expanduser()))
@@ -1212,11 +1133,7 @@ def _save_obsidian_path(vault_path: Path) -> None:
 def cmd_obsidian_init(vault_path: str = None) -> None:
     """Initialize Obsidian vault structure."""
     try:
-        if vault_path:
-            vault = Path(vault_path).expanduser()
-        else:
-            vault = _get_obsidian_path()
-
+        vault = Path(vault_path).expanduser() if vault_path else _get_obsidian_path()
         vault.mkdir(parents=True, exist_ok=True)
         _save_obsidian_path(vault)
 
@@ -1239,11 +1156,7 @@ def cmd_obsidian_init(vault_path: str = None) -> None:
 def cmd_obsidian_sync(vault_path: str = None) -> None:
     """Sync entire Obsidian vault to SQLite."""
     try:
-        if vault_path:
-            vault = Path(vault_path).expanduser()
-        else:
-            vault = _get_obsidian_path()
-
+        vault = Path(vault_path).expanduser() if vault_path else _get_obsidian_path()
         if not vault.exists():
             print(f"{RED}Vault not found: {vault}{NC}")
             return
@@ -1273,18 +1186,12 @@ def cmd_obsidian_sync(vault_path: str = None) -> None:
 def cmd_obsidian_watch(vault_path: str = None) -> None:
     """Watch Obsidian vault for changes."""
     try:
-        if vault_path:
-            vault = Path(vault_path).expanduser()
-        else:
-            vault = _get_obsidian_path()
-
+        vault = Path(vault_path).expanduser() if vault_path else _get_obsidian_path()
         if not vault.exists():
             print(f"{RED}Vault not found: {vault}{NC}")
             return
-
         _save_obsidian_path(vault)
         cmd_watch(str(vault))
-
     except Exception as e:
         print(f"{RED}Obsidian watch error: {e}{NC}")
         logger.error(f"Obsidian watch error: {e}")
@@ -1293,65 +1200,45 @@ def cmd_obsidian_watch(vault_path: str = None) -> None:
 def cmd_ask(question: str) -> None:
     """RAG: Ask AI using Ollama with document context."""
     try:
-        import aiosqlite
-        from config.loader import get_config
+        recent_docs = _doc_repo.list_recent_sync(5)
+        context = ""
+        if recent_docs:
+            context = "Context from documents:\n"
+            for doc in recent_docs:
+                context += f"\n[{doc['title']}]\n{doc['content'][:300]}\n"
 
-        async def _ask():
-            cfg = get_config()
-            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
-            db_path = db_url.replace("sqlite+aiosqlite:///", "")
+        import urllib.request
+        import urllib.error
 
-            context = ""
-            try:
-                async with aiosqlite.connect(db_path) as db:
-                    cursor = await db.execute(
-                        "SELECT id, title, content FROM documents ORDER BY created_at DESC LIMIT 5"
-                    )
-                    rows = await cursor.fetchall()
-                    if rows:
-                        context = "Context from documents:\n"
-                        for doc_id, title, content in rows:
-                            context += f"\n[Doc {doc_id}] {title}\n{content[:300]}\n"
-            except Exception:
-                pass
+        try:
+            system_prompt = "You are a helpful AI assistant. Use the provided context to answer questions accurately."
+            prompt = f"{system_prompt}\n\nContext:\n{context}\n\nQuestion: {question}\n\nAnswer:"
 
-            import json
-            import urllib.request
-            import urllib.error
+            payload = json.dumps({
+                "model": OLLAMA_MODEL,
+                "prompt": prompt,
+                "stream": False
+            })
 
-            try:
-                system_prompt = "You are a helpful AI assistant. Use the provided context to answer questions accurately."
-                prompt = f"{system_prompt}\n\nContext:\n{context}\n\nQuestion: {question}\n\nAnswer:"
+            request = urllib.request.Request(
+                _get_ollama_url("generate"),
+                data=payload.encode("utf-8"),
+                headers={"Content-Type": "application/json"}
+            )
 
-                payload = json.dumps({
-                    "model": OLLAMA_MODEL,
-                    "prompt": prompt,
-                    "stream": False
-                })
+            with urllib.request.urlopen(request, timeout=30) as response:
+                data = json.loads(response.read().decode("utf-8"))
+                result = data.get("response", "").strip()
+                print(f"\n{BOLD}{CYAN}FlowCore AI ({OLLAMA_MODEL}):{NC}")
+                print(result)
 
-                request = urllib.request.Request(
-                    _get_ollama_url("generate"),
-                    data=payload.encode("utf-8"),
-                    headers={"Content-Type": "application/json"}
-                )
-
-                with urllib.request.urlopen(request, timeout=30) as response:
-                    data = json.loads(response.read().decode("utf-8"))
-                    result = data.get("response", "").strip()
-                    print(f"\n{BOLD}{CYAN}FlowCore AI ({OLLAMA_MODEL}):{NC}")
-                    print(result)
-
-            except (urllib.error.URLError, ConnectionRefusedError, TimeoutError):
-                print(f"{RED}Ollama não encontrado.{NC}")
-                print(f"{YELLOW}Instale o Ollama ou inicie o servidor.{NC}")
-                logger.warning(f"Ollama not available at {OLLAMA_HOST}")
-            except json.JSONDecodeError:
-                print(f"{RED}Ollama não encontrado.{NC}")
-                print(f"{YELLOW}Instale o Ollama ou inicie o servidor.{NC}")
-            except Exception as e:
-                logger.error(f"Ask error: {e}")
-
-        asyncio.run(_ask())
+        except (urllib.error.URLError, ConnectionRefusedError, TimeoutError):
+            print(f"{RED}Ollama não encontrado.{NC}")
+            print(f"{YELLOW}Instale o Ollama ou inicie o servidor.{NC}")
+            logger.warning(f"Ollama not available at {OLLAMA_HOST}")
+        except json.JSONDecodeError:
+            print(f"{RED}Ollama não encontrado.{NC}")
+            print(f"{YELLOW}Instale o Ollama ou inicie o servidor.{NC}")
 
     except Exception as e:
         logger.error(f"Ask command error: {e}")
@@ -1360,27 +1247,9 @@ def cmd_ask(question: str) -> None:
 def cmd_note(text: str) -> None:
     """Add a note."""
     try:
-        asyncio.run(_init_sqlite_documents())
-
-        import aiosqlite
-        from config.loader import get_config
-
-        async def _add_note():
-            cfg = get_config()
-            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
-            db_path = db_url.replace("sqlite+aiosqlite:///", "")
-
-            async with aiosqlite.connect(db_path) as db:
-                await db.execute(
-                    "INSERT INTO documents (title, content, source) VALUES (?, ?, ?)",
-                    ("Note", text, "note")
-                )
-                await db.commit()
-
-        asyncio.run(_add_note())
+        _doc_repo.insert_sync("Note", text, "note")
         print(f"{GREEN}✓ Note saved{NC}")
         logger.info(f"Note added: {text}")
-
     except Exception as e:
         print(f"{RED}Error: {e}{NC}")
 
@@ -1388,27 +1257,9 @@ def cmd_note(text: str) -> None:
 def cmd_todo(task: str) -> None:
     """Add a todo item."""
     try:
-        asyncio.run(_init_sqlite_documents())
-
-        import aiosqlite
-        from config.loader import get_config
-
-        async def _add_todo():
-            cfg = get_config()
-            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
-            db_path = db_url.replace("sqlite+aiosqlite:///", "")
-
-            async with aiosqlite.connect(db_path) as db:
-                await db.execute(
-                    "INSERT INTO documents (title, content, source) VALUES (?, ?, ?)",
-                    ("TODO", task, "todo")
-                )
-                await db.commit()
-
-        asyncio.run(_add_todo())
+        _doc_repo.insert_sync("TODO", task, "todo")
         print(f"{GREEN}✓ Todo added{NC}")
         logger.info(f"Todo added: {task}")
-
     except Exception as e:
         print(f"{RED}Error: {e}{NC}")
 
@@ -1416,27 +1267,9 @@ def cmd_todo(task: str) -> None:
 def cmd_agenda(event: str) -> None:
     """Add to agenda."""
     try:
-        asyncio.run(_init_sqlite_documents())
-
-        import aiosqlite
-        from config.loader import get_config
-
-        async def _add_agenda():
-            cfg = get_config()
-            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
-            db_path = db_url.replace("sqlite+aiosqlite:///", "")
-
-            async with aiosqlite.connect(db_path) as db:
-                await db.execute(
-                    "INSERT INTO documents (title, content, source) VALUES (?, ?, ?)",
-                    ("Agenda", event, "agenda")
-                )
-                await db.commit()
-
-        asyncio.run(_add_agenda())
+        _doc_repo.insert_sync("Agenda", event, "agenda")
         print(f"{GREEN}✓ Event added to agenda{NC}")
         logger.info(f"Agenda event: {event}")
-
     except Exception as e:
         print(f"{RED}Error: {e}{NC}")
 
@@ -1473,6 +1306,12 @@ def main() -> None:
     subparsers.add_parser("models", help="List available Ollama models")
     subparsers.add_parser("stats", help="Show FlowCore statistics")
     subparsers.add_parser("doctor", help="System health check")
+    subparsers.add_parser("status", help="Comprehensive runtime status (capabilities, health, passport)")
+    boot_parser = subparsers.add_parser("boot", help="Boot Runtime Kernel and emit Runtime Passport")
+    boot_parser.add_argument("--verbose", "-v", action="store_true", help="Verbose boot output")
+    subparsers.add_parser("install", help="Set up the full FlowCore runtime environment")
+    subparsers.add_parser("bootstrap", help="Bootstrap a fresh Termux environment from zero")
+    subparsers.add_parser("repair", help="Detect and repair a corrupted FlowCore environment")
     subparsers.add_parser("demo", help="Interactive demo")
 
     search_parser = subparsers.add_parser("search", help="Search documents & memories")
@@ -1481,7 +1320,7 @@ def main() -> None:
     subparsers.add_parser("daily", help="Show daily summary")
 
     sync_parser = subparsers.add_parser("sync", help="Sync all .md from folder")
-    sync_parser.add_argument("folder", help="Folder path (e.g., ~/Documents/Obsidian)")
+    sync_parser.add_argument("folder", help="Folder path")
 
     watch_parser = subparsers.add_parser("watch", help="Monitor folder for changes")
     watch_parser.add_argument("folder", help="Folder path to watch")
@@ -1521,8 +1360,7 @@ def main() -> None:
     elif args.command == "chat":
         cmd_chat(cfg)
     elif args.command == "remember":
-        text = " ".join(args.text)
-        cmd_remember(text)
+        cmd_remember(" ".join(args.text))
     elif args.command == "recall":
         cmd_recall(args.topic)
     elif args.command == "memories":
@@ -1541,6 +1379,16 @@ def main() -> None:
         cmd_stats()
     elif args.command == "doctor":
         cmd_doctor()
+    elif args.command == "status":
+        cmd_status()
+    elif args.command == "boot":
+        cmd_boot(verbose=getattr(args, "verbose", False))
+    elif args.command == "install":
+        cmd_install()
+    elif args.command == "bootstrap":
+        cmd_bootstrap()
+    elif args.command == "repair":
+        cmd_repair()
     elif args.command == "demo":
         cmd_demo()
     elif args.command == "search":
@@ -1552,17 +1400,13 @@ def main() -> None:
     elif args.command == "watch":
         cmd_watch(args.folder)
     elif args.command == "ask":
-        question = " ".join(args.question)
-        cmd_ask(question)
+        cmd_ask(" ".join(args.question))
     elif args.command == "note":
-        text = " ".join(args.text)
-        cmd_note(text)
+        cmd_note(" ".join(args.text))
     elif args.command == "todo":
-        task = " ".join(args.task)
-        cmd_todo(task)
+        cmd_todo(" ".join(args.task))
     elif args.command == "agenda":
-        event = " ".join(args.event)
-        cmd_agenda(event)
+        cmd_agenda(" ".join(args.event))
     elif args.command == "obsidian":
         if args.obsidian_command == "init":
             cmd_obsidian_init()
