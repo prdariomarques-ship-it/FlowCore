@@ -30,6 +30,7 @@ Usage:
     python3 flowcore.py note "<text>"         Add a note
     python3 flowcore.py todo "<task>"         Add a todo item
     python3 flowcore.py agenda "<event>"      Add to agenda
+    python3 flowcore.py mcp                  Start MCP server (stdio) for Claude/agent integration
 
 Env vars:
     FLOWCORE_MODEL=qwen3:8b              (default: llama2)
@@ -1470,6 +1471,11 @@ def main() -> None:
     daemon_sub.add_parser("stop", help="Stop the daemon")
     daemon_sub.add_parser("status", help="Show daemon status")
 
+    subparsers.add_parser(
+        "mcp",
+        help="Start FlowCore MCP server over stdio (for Claude Desktop / Claude Code integration)",
+    )
+
     jobs_parser = subparsers.add_parser("jobs", help="Manage scheduled jobs")
     jobs_sub = jobs_parser.add_subparsers(dest="jobs_action")
     jobs_sub.add_parser("list", help="List all scheduled jobs")
@@ -1555,6 +1561,9 @@ def main() -> None:
             cmd_obsidian_watch()
         else:
             parser.print_help()
+    elif args.command == "mcp":
+        from flowcore_mcp.server import run_stdio
+        run_stdio(version=cfg.version if hasattr(cfg, "version") else "0.1.0")
     elif args.command == "ui":
         cmd_ui()
     elif args.command == "daemon":
