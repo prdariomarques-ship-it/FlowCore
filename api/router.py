@@ -3,8 +3,9 @@
 SECURITY: This API binds to 127.0.0.1 only.  It is NOT accessible from
 the network.  This is intentional — the API is for local Termux use only.
 
-Endpoints:
+Endpoints (core):
   GET  /api/health         — health check
+  GET  /api/status         — comprehensive runtime status (for web UI)
   GET  /api/flows          — list flows
   POST /api/flows          — create a flow
   GET  /api/flows/{id}     — get a flow
@@ -12,16 +13,30 @@ Endpoints:
   GET  /api/executions     — list executions
   POST /api/executions     — submit a task
   GET  /api/executions/{id}— get execution status
+
+Endpoints (Sprint 11 — Android UX):
+  GET  /api/memories        — list memories
+  POST /api/memories        — save a memory
+  POST /api/notify          — send Android notification via termux-notification
+  POST /api/daemon/start    — start background daemon
+  POST /api/daemon/stop     — stop background daemon
+  GET  /api/daemon/status   — daemon state
+  GET  /                    — serve web UI (index.html)
 """
 from __future__ import annotations
 
 import json
 import time
 import uuid
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import HTMLResponse
 from loguru import logger
 from pydantic import BaseModel
+
+_WEB_DIR = Path(__file__).resolve().parent.parent / "web"
+
 
 # ---------------------------------------------------------------------------
 # Schemas
@@ -60,8 +75,18 @@ class HealthResponse(BaseModel):
     platform: dict
 
 
+class MemoryCreate(BaseModel):
+    text: str
+
+
+class NotifyRequest(BaseModel):
+    title: str = "FlowCore"
+    body: str
+    id: int = 1
+
+
 # ---------------------------------------------------------------------------
-# In-memory store (replaces DB for the lightweight version)
+# In-memory store (lightweight version)
 # ---------------------------------------------------------------------------
 
 _flows: dict[str, dict] = {}
@@ -78,6 +103,14 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     app = FastAPI(title="FlowCore API", version=version)
     _platform = platform_info or {}
 
+    # ── Web UI ──────────────────────────────────────────────────────────
+    @app.get("/", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_ui():
+        index = _WEB_DIR / "index.html"
+        if not index.exists():
+            return HTMLResponse("<h2>FlowCore UI not found — run from project root</h2>", 404)
+        return HTMLResponse(index.read_text(encoding="utf-8"))
+
     # ── Health ──────────────────────────────────────────────────────────
     @app.get("/api/health", response_model=HealthResponse)
     async def health():
@@ -87,6 +120,133 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             uptime_seconds=time.time() - _start_time,
             platform=_platform,
         )
+
+    # ── Comprehensive status (for web UI) ───────────────────────────────
+    @app.get("/api/status")
+    async def status():
+        result: dict = {
+            "version": version,
+            "uptime_seconds": round(time.time() - _start_time, 1),
+            "platform": _platform,
+            "daemon": {},
+            "capabilities": {},
+            "doctor": [],
+            "memory_count": 0,
+        }
+
+        # Daemon state
+        try:
+            from runtime.daemon import FlowCoreDaemon
+            d = FlowCoreDaemon()
+            result["daemon"] = d.status()
+        except Exception as e:
+            result["daemon"] = {"running": False, "error": str(e)}
+
+        # Capabilities
+        try:
+            from capability.registry import CapabilityRegistry
+            reg = CapabilityRegistry()
+            result["capabilities"] = {
+                cap: (adapter is not None)
+                for cap, adapter in reg.list_capabilities().items()
+            }
+        except Exception as e:
+            result["capabilities"] = {}
+
+        # Doctor (quick run)
+        try:
+            from doctor.service import DoctorService
+            report = DoctorService().run(verbose=False)
+            result["doctor"] = [
+                {"name": c.name, "status": c.status.value, "message": c.message,
+                 "fix": c.fix}
+                for c in report.checks
+            ]
+        except Exception as e:
+            result["doctor"] = []
+
+        # Memory count
+        try:
+            from storage import MemoryRepository
+            result["memory_count"] = MemoryRepository().count()
+        except Exception:
+            pass
+
+        return result
+
+    # ── Memories ────────────────────────────────────────────────────────
+    @app.get("/api/memories")
+    async def list_memories(limit: int = Query(50, le=200)):
+        try:
+            from storage import MemoryRepository
+            mems = MemoryRepository().list_all()
+            return {"memories": mems[-limit:]}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/api/memories", status_code=201)
+    async def create_memory(data: MemoryCreate):
+        try:
+            from storage import MemoryRepository
+            mem = MemoryRepository().add(data.text)
+            logger.info("Memory saved via API: {}", data.text[:40])
+            return {"memory": mem}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # ── Notify ──────────────────────────────────────────────────────────
+    @app.post("/api/notify")
+    async def notify(data: NotifyRequest):
+        try:
+            from runtime.shell import is_available, run
+            if not is_available("termux-notification"):
+                logger.warning("termux-notification not available")
+                return {"sent": False, "reason": "termux-notification not installed"}
+            result = run(
+                ["termux-notification",
+                 "--id", str(data.id),
+                 "--title", data.title,
+                 "--content", data.body],
+                timeout=8,
+            )
+            if result.success:
+                logger.info("Notification sent: {}", data.body[:40])
+                return {"sent": True}
+            return {"sent": False, "reason": result.stderr}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # ── Daemon control ───────────────────────────────────────────────────
+    @app.post("/api/daemon/start")
+    async def daemon_start(interval: int = Query(60)):
+        try:
+            from runtime.daemon import FlowCoreDaemon
+            result = FlowCoreDaemon().start(interval=interval)
+            if result.get("started"):
+                msg = f"Daemon iniciado (pid={result['pid']})"
+            else:
+                msg = f"Daemon já está ativo (pid={result['pid']})"
+            return {"message": msg, **result}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/api/daemon/stop")
+    async def daemon_stop():
+        try:
+            from runtime.daemon import FlowCoreDaemon
+            result = FlowCoreDaemon().stop()
+            msg = "Daemon parado" if result.get("stopped") else result.get("note", "Não estava ativo")
+            return {"message": msg, **result}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.get("/api/daemon/status")
+    async def daemon_status():
+        try:
+            from runtime.daemon import FlowCoreDaemon
+            return FlowCoreDaemon().status()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
     # ── Flows ───────────────────────────────────────────────────────────
     @app.get("/api/flows")

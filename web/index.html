@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0f1e">
+<title>FlowCore</title>
+<style>
+  :root {
+    --bg: #0a0f1e;
+    --bg2: #111827;
+    --bg3: #1a2235;
+    --border: #1e3a5f;
+    --accent: #00d4ff;
+    --accent2: #7c3aed;
+    --green: #10b981;
+    --yellow: #f59e0b;
+    --red: #ef4444;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --radius: 12px;
+    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+    padding-bottom: 80px;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: linear-gradient(135deg, #0a0f1e 0%, #111827 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(10px);
+  }
+  .header-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 900;
+    color: #fff;
+    letter-spacing: -1px;
+  }
+  .brand-name {
+    font-size: 18px;
+    font-weight: 700;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .brand-sub { font-size: 11px; color: var(--text2); margin-top: 1px; }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+    animation: pulse 2s infinite;
+  }
+  .status-dot.offline { background: var(--red); box-shadow: 0 0 6px var(--red); animation: none; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+  .btn-refresh {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--accent);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .btn-refresh:hover { background: var(--border); }
+
+  /* ── Layout ── */
+  .container { max-width: 600px; margin: 0 auto; padding: 16px; }
+  .grid { display: grid; gap: 12px; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    box-shadow: var(--shadow);
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .card-title {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: var(--text2);
+  }
+  .card-icon { font-size: 16px; }
+
+  /* ── Stat grid ── */
+  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .stat {
+    background: var(--bg3);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+  }
+  .stat-value { font-size: 22px; font-weight: 700; color: var(--accent); }
+  .stat-label { font-size: 10px; color: var(--text2); margin-top: 2px; text-transform: uppercase; letter-spacing: .5px; }
+
+  /* ── Daemon card ── */
+  .daemon-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .daemon-row:last-child { border-bottom: none; }
+  .daemon-label { color: var(--text2); font-size: 12px; }
+  .daemon-value { font-weight: 600; }
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .tag-green { background: rgba(16,185,129,.15); color: var(--green); border: 1px solid rgba(16,185,129,.3); }
+  .tag-red   { background: rgba(239,68,68,.15);  color: var(--red);   border: 1px solid rgba(239,68,68,.3); }
+  .tag-yellow{ background: rgba(245,158,11,.15); color: var(--yellow); border: 1px solid rgba(245,158,11,.3); }
+
+  /* ── Daemon controls ── */
+  .daemon-controls { display: flex; gap: 8px; margin-top: 14px; }
+  .btn {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .btn-start { background: rgba(16,185,129,.2); color: var(--green); border: 1px solid rgba(16,185,129,.4); }
+  .btn-start:hover { background: rgba(16,185,129,.35); }
+  .btn-stop  { background: rgba(239,68,68,.2);  color: var(--red);   border: 1px solid rgba(239,68,68,.4); }
+  .btn-stop:hover  { background: rgba(239,68,68,.35); }
+
+  /* ── Capabilities ── */
+  .caps-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 8px;
+  }
+  .cap-item {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    transition: border-color .2s;
+  }
+  .cap-item.ok   { border-color: rgba(16,185,129,.3); }
+  .cap-item.miss { opacity: .45; }
+  .cap-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .cap-dot.ok   { background: var(--green); }
+  .cap-dot.miss { background: var(--text2); }
+
+  /* ── Doctor checks ── */
+  .check-list { display: flex; flex-direction: column; gap: 6px; }
+  .check-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: var(--bg3);
+    border-radius: 8px;
+    font-size: 12px;
+  }
+  .check-icon { font-size: 14px; flex-shrink: 0; }
+  .check-name { flex: 1; font-weight: 500; }
+  .check-msg  { color: var(--text2); font-size: 11px; text-align: right; max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* ── Memory / Note input ── */
+  .input-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .input-field {
+    flex: 1;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 10px 12px;
+    font-size: 13px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  .input-field:focus { border-color: var(--accent); }
+  .input-field::placeholder { color: var(--text2); }
+  .btn-send {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 16px;
+    width: 42px;
+    cursor: pointer;
+    transition: opacity .2s;
+  }
+  .btn-send:hover { opacity: .85; }
+
+  /* ── Memory list ── */
+  .memory-list { display: flex; flex-direction: column; gap: 6px; }
+  .memory-item {
+    background: var(--bg3);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+    border-left: 2px solid var(--accent2);
+  }
+  .memory-text { color: var(--text); margin-bottom: 4px; }
+  .memory-meta { color: var(--text2); font-size: 11px; }
+  .memory-topics { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+  .topic-badge {
+    background: rgba(124,58,237,.2);
+    color: #a78bfa;
+    border-radius: 20px;
+    padding: 1px 7px;
+    font-size: 10px;
+    border: 1px solid rgba(124,58,237,.3);
+  }
+
+  /* ── Notify button ── */
+  .btn-notify {
+    width: 100%;
+    background: linear-gradient(135deg, rgba(245,158,11,.2), rgba(239,68,68,.1));
+    border: 1px solid rgba(245,158,11,.4);
+    color: var(--yellow);
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .btn-notify:hover { background: rgba(245,158,11,.25); }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    opacity: 0;
+    transition: all .3s;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 200;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── Bottom nav ── */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(17,24,39,.95);
+    border-top: 1px solid var(--border);
+    display: flex;
+    backdrop-filter: blur(10px);
+    z-index: 100;
+  }
+  .nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 0 14px;
+    gap: 4px;
+    cursor: pointer;
+    color: var(--text2);
+    font-size: 10px;
+    font-weight: 500;
+    transition: color .2s;
+    border: none;
+    background: none;
+  }
+  .nav-item.active { color: var(--accent); }
+  .nav-item:hover  { color: var(--text); }
+  .nav-icon { font-size: 20px; }
+
+  /* ── Pages ── */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── Loading skeleton ── */
+  .skeleton {
+    background: linear-gradient(90deg, var(--bg3) 25%, var(--border) 50%, var(--bg3) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 6px;
+    height: 14px;
+    margin-bottom: 8px;
+  }
+  @keyframes shimmer { 0%{background-position:200%} 100%{background-position:-200%} }
+
+  .empty-state { text-align: center; color: var(--text2); padding: 24px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-brand">
+    <div class="logo">F</div>
+    <div>
+      <div class="brand-name">FlowCore</div>
+      <div class="brand-sub" id="last-update">A carregar...</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="status-dot offline" id="conn-dot"></div>
+    <button class="btn-refresh" onclick="refresh()">↻ Atualizar</button>
+  </div>
+</div>
+
+<!-- Pages -->
+<div class="container">
+
+  <!-- ══ PAGE: Dashboard ══ -->
+  <div class="page active" id="page-home">
+
+    <!-- Stats row -->
+    <div class="card" style="margin-bottom:12px">
+      <div class="stats-grid">
+        <div class="stat">
+          <div class="stat-value" id="stat-caps">─</div>
+          <div class="stat-label">Capacidades</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="stat-checks">─</div>
+          <div class="stat-label">Doctor</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="stat-mems">─</div>
+          <div class="stat-label">Memórias</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Daemon card -->
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-header">
+        <span class="card-title">Daemon</span>
+        <span class="card-icon">⚙️</span>
+      </div>
+      <div class="daemon-row">
+        <span class="daemon-label">Estado</span>
+        <span class="daemon-value" id="daemon-state"><span class="tag tag-yellow">─</span></span>
+      </div>
+      <div class="daemon-row">
+        <span class="daemon-label">PID</span>
+        <span class="daemon-value" id="daemon-pid" style="color:var(--text2)">─</span>
+      </div>
+      <div class="daemon-row">
+        <span class="daemon-label">Uptime</span>
+        <span class="daemon-value" id="daemon-uptime" style="color:var(--text2)">─</span>
+      </div>
+      <div class="daemon-row">
+        <span class="daemon-label">Ciclo</span>
+        <span class="daemon-value" id="daemon-cycle" style="color:var(--text2)">─</span>
+      </div>
+      <div class="daemon-controls">
+        <button class="btn btn-start" onclick="daemonAction('start')">▶ Iniciar</button>
+        <button class="btn btn-stop"  onclick="daemonAction('stop')">■ Parar</button>
+      </div>
+    </div>
+
+    <!-- Quick notify -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Notificação Android</span>
+        <span class="card-icon">🔔</span>
+      </div>
+      <div class="input-row">
+        <input class="input-field" id="notify-text" placeholder="Mensagem para o Android..." />
+        <button class="btn-send" onclick="sendNotify()">🔔</button>
+      </div>
+      <div class="daemon-row" style="padding-top:0;border:none">
+        <span class="daemon-label">Usa termux-notification</span>
+        <span class="tag tag-yellow" id="notify-status">nativo Android</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══ PAGE: Capacidades ══ -->
+  <div class="page" id="page-caps">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Capabilities</span>
+        <span class="card-icon">⚡</span>
+      </div>
+      <div class="caps-grid" id="caps-grid">
+        <div class="skeleton" style="height:38px"></div>
+        <div class="skeleton" style="height:38px"></div>
+        <div class="skeleton" style="height:38px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ PAGE: Doctor ══ -->
+  <div class="page" id="page-doctor">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Doctor</span>
+        <span class="card-icon">🩺</span>
+      </div>
+      <div class="check-list" id="check-list">
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ PAGE: Memórias ══ -->
+  <div class="page" id="page-mem">
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-header">
+        <span class="card-title">Nova Memória</span>
+        <span class="card-icon">🧠</span>
+      </div>
+      <div class="input-row">
+        <input class="input-field" id="mem-input" placeholder="Guarda algo... usa #tag" />
+        <button class="btn-send" onclick="addMemory()">✓</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Memórias recentes</span>
+      </div>
+      <div class="memory-list" id="mem-list">
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Bottom nav -->
+<div class="bottom-nav">
+  <button class="nav-item active" onclick="showPage('home', this)">
+    <span class="nav-icon">🏠</span>
+    <span>Início</span>
+  </button>
+  <button class="nav-item" onclick="showPage('caps', this)">
+    <span class="nav-icon">⚡</span>
+    <span>Caps</span>
+  </button>
+  <button class="nav-item" onclick="showPage('doctor', this)">
+    <span class="nav-icon">🩺</span>
+    <span>Doctor</span>
+  </button>
+  <button class="nav-item" onclick="showPage('mem', this)">
+    <span class="nav-icon">🧠</span>
+    <span>Memórias</span>
+  </button>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+const API = '';  // same origin
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+function showPage(name, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+let _toastTimer;
+function toast(msg, ms=2500) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), ms);
+}
+
+// ── API helpers ───────────────────────────────────────────────────────────────
+async function api(path, opts={}) {
+  const r = await fetch(API + path, {
+    headers: {'Content-Type': 'application/json'},
+    ...opts
+  });
+  if (!r.ok) throw new Error(r.status);
+  return r.json();
+}
+
+// ── Refresh all ───────────────────────────────────────────────────────────────
+async function refresh() {
+  const dot = document.getElementById('conn-dot');
+  try {
+    const [status, mems] = await Promise.all([
+      api('/api/status'),
+      api('/api/memories')
+    ]);
+    dot.classList.remove('offline');
+    document.getElementById('last-update').textContent =
+      'Atualizado às ' + new Date().toLocaleTimeString('pt-PT');
+    renderStatus(status);
+    renderMemories(mems.memories || []);
+  } catch(e) {
+    dot.classList.add('offline');
+    document.getElementById('last-update').textContent = 'Sem ligação';
+  }
+}
+
+// ── Render status ─────────────────────────────────────────────────────────────
+function renderStatus(s) {
+  // Stats bar
+  const caps = s.capabilities || {};
+  const avail = Object.values(caps).filter(v => v).length;
+  const total = Object.keys(caps).length;
+  document.getElementById('stat-caps').textContent = avail + '/' + total;
+
+  const checks = s.doctor || [];
+  const ok = checks.filter(c => c.status === 'ok').length;
+  document.getElementById('stat-checks').textContent = ok + '/' + checks.length;
+  document.getElementById('stat-mems').textContent = s.memory_count ?? '─';
+
+  // Daemon
+  const d = s.daemon || {};
+  const stateEl = document.getElementById('daemon-state');
+  if (d.running) {
+    stateEl.innerHTML = '<span class="tag tag-green">● Ativo</span>';
+    document.getElementById('daemon-pid').textContent = d.pid;
+    document.getElementById('daemon-uptime').textContent = fmt_uptime(d.uptime || 0);
+    document.getElementById('daemon-cycle').textContent = '#' + (d.cycle || 0);
+  } else {
+    stateEl.innerHTML = '<span class="tag tag-red">○ Parado</span>';
+    document.getElementById('daemon-pid').textContent = '─';
+    document.getElementById('daemon-uptime').textContent = '─';
+    document.getElementById('daemon-cycle').textContent = '─';
+  }
+
+  // Capabilities
+  const grid = document.getElementById('caps-grid');
+  grid.innerHTML = '';
+  for (const [name, ok] of Object.entries(caps).sort()) {
+    const item = document.createElement('div');
+    item.className = 'cap-item ' + (ok ? 'ok' : 'miss');
+    item.innerHTML =
+      `<div class="cap-dot ${ok ? 'ok' : 'miss'}"></div>` +
+      `<span>${name}</span>`;
+    grid.appendChild(item);
+  }
+
+  // Doctor
+  const icons = {ok: '✅', warn: '⚠️', fail: '❌', skip: '─'};
+  const list = document.getElementById('check-list');
+  list.innerHTML = '';
+  for (const c of checks) {
+    const item = document.createElement('div');
+    item.className = 'check-item';
+    item.innerHTML =
+      `<span class="check-icon">${icons[c.status] || '?'}</span>` +
+      `<span class="check-name">${c.name}</span>` +
+      `<span class="check-msg">${c.message || ''}</span>`;
+    list.appendChild(item);
+  }
+  if (!checks.length) {
+    list.innerHTML = '<div class="empty-state">Doctor não disponível</div>';
+  }
+}
+
+// ── Render memories ───────────────────────────────────────────────────────────
+function renderMemories(mems) {
+  const list = document.getElementById('mem-list');
+  if (!mems.length) {
+    list.innerHTML = '<div class="empty-state">Sem memórias ainda.<br>Adiciona a primeira acima ↑</div>';
+    return;
+  }
+  list.innerHTML = '';
+  for (const m of mems.slice(-20).reverse()) {
+    const item = document.createElement('div');
+    item.className = 'memory-item';
+    const topics = (m.topics || []).map(t =>
+      `<span class="topic-badge">#${t}</span>`).join('');
+    const date = m.timestamp ? m.timestamp.slice(0,10) : '';
+    item.innerHTML =
+      `<div class="memory-text">${m.text || ''}</div>` +
+      (topics ? `<div class="memory-topics">${topics}</div>` : '') +
+      `<div class="memory-meta">${date}</div>`;
+    list.appendChild(item);
+  }
+}
+
+// ── Daemon actions ────────────────────────────────────────────────────────────
+async function daemonAction(action) {
+  try {
+    const r = await api('/api/daemon/' + action, {method: 'POST'});
+    toast(r.message || action + ' OK');
+    setTimeout(refresh, 800);
+  } catch(e) {
+    toast('Erro: ' + e.message);
+  }
+}
+
+// ── Add memory ────────────────────────────────────────────────────────────────
+async function addMemory() {
+  const inp = document.getElementById('mem-input');
+  const text = inp.value.trim();
+  if (!text) return;
+  try {
+    await api('/api/memories', {
+      method: 'POST',
+      body: JSON.stringify({text})
+    });
+    inp.value = '';
+    toast('✓ Memória guardada');
+    refresh();
+  } catch(e) {
+    toast('Erro ao guardar: ' + e.message);
+  }
+}
+document.getElementById('mem-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addMemory();
+});
+
+// ── Notify ────────────────────────────────────────────────────────────────────
+async function sendNotify() {
+  const inp = document.getElementById('notify-text');
+  const text = inp.value.trim();
+  if (!text) { toast('Escreve uma mensagem'); return; }
+  try {
+    const r = await api('/api/notify', {
+      method: 'POST',
+      body: JSON.stringify({title: 'FlowCore', body: text})
+    });
+    inp.value = '';
+    const ok = r.sent !== false;
+    document.getElementById('notify-status').textContent =
+      ok ? 'enviada ✓' : 'termux-api ausente';
+    document.getElementById('notify-status').className =
+      'tag ' + (ok ? 'tag-green' : 'tag-yellow');
+    toast(ok ? '🔔 Notificação enviada' : 'termux-notification não disponível');
+  } catch(e) {
+    toast('Erro: ' + e.message);
+  }
+}
+document.getElementById('notify-text').addEventListener('keydown', e => {
+  if (e.key === 'Enter') sendNotify();
+});
+
+// ── Format uptime ─────────────────────────────────────────────────────────────
+function fmt_uptime(s) {
+  s = Math.floor(s);
+  if (s < 60) return s + 's';
+  if (s < 3600) return Math.floor(s/60) + 'm ' + (s%60) + 's';
+  return Math.floor(s/3600) + 'h ' + Math.floor((s%3600)/60) + 'm';
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+refresh();
+setInterval(refresh, 30000);
+</script>
+</body>
+</html>
