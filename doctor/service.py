@@ -317,10 +317,16 @@ class DoctorService:
             return CheckResult("bluetooth", CheckStatus.SKIP, "Not in Termux")
         if is_available("termux-bluetooth-get-adapters"):
             return CheckResult("bluetooth", CheckStatus.OK, "termux-bluetooth-get-adapters available")
+        # Distinguish: termux-api not installed vs. tool absent on this Android version
+        if not is_available("termux-battery-status"):
+            return CheckResult(
+                "bluetooth", CheckStatus.WARN,
+                "Termux:API not installed — Bluetooth unavailable",
+                fix="pkg install termux-api",
+            )
         return CheckResult(
-            "bluetooth", CheckStatus.WARN,
-            "termux-bluetooth-get-adapters not found",
-            fix="pkg install termux-api",
+            "bluetooth", CheckStatus.SKIP,
+            "Bluetooth API not available on this Android version (termux-bluetooth-get-adapters absent)",
         )
 
     def _check_vibrate(self) -> CheckResult:
