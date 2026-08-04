@@ -3,6 +3,7 @@
 
 Usage:
     python3 flowcore.py serve            Start the API server
+    python3 flowcore.py mcp              Start the MCP stdio server
     python3 flowcore.py run              Start the full application (API + scheduler + agents)
     python3 flowcore.py health           Quick health check
     python3 flowcore.py version          Print version
@@ -50,6 +51,7 @@ if str(ROOT) not in sys.path:
 
 from config.loader import get_config
 from runtime.core import FlowCoreRuntime, detect_platform
+from runtime.ollama import discover_default_model, discover_ollama_endpoint, OllamaDiscoveryError
 from storage import DocumentRepository, MemoryRepository
 from loguru import logger
 
@@ -61,25 +63,21 @@ CYAN = "\033[0;36m"
 BOLD = "\033[1m"
 NC = "\033[0m"
 
-OLLAMA_HOST = os.getenv("FLOWCORE_OLLAMA", "http://127.0.0.1:11434")
-OLLAMA_MODEL = os.getenv("FLOWCORE_MODEL", "llama2")
-
 # Shared repositories (initialised on first use via their lazy path resolution)
 _doc_repo = DocumentRepository()
 _mem_repo = MemoryRepository()
 
 
 def _get_ollama_url(endpoint: str) -> str:
-    return f"{OLLAMA_HOST.rstrip('/')}/api/{endpoint}"
+    """Build a full Ollama API URL, auto-discovering the host (see runtime/ollama.py)."""
+    return f"{discover_ollama_endpoint()}/api/{endpoint}"
 
 
 def _test_ollama_connection() -> bool:
-    import urllib.request
-    import urllib.error
     try:
-        urllib.request.urlopen(f"{OLLAMA_HOST}/api/tags", timeout=5)
+        discover_ollama_endpoint()
         return True
-    except (urllib.error.URLError, ConnectionRefusedError, TimeoutError):
+    except OllamaDiscoveryError:
         return False
 
 
@@ -631,20 +629,28 @@ def cmd_show(doc_id: str) -> None:
 
 def cmd_ping() -> None:
     """Test Ollama connection."""
-    if _test_ollama_connection():
+    try:
+        host = discover_ollama_endpoint()
         print(f"{GREEN}✓ Ollama is running{NC}")
-        print(f"  Host: {OLLAMA_HOST}")
-        print(f"  Model: {OLLAMA_MODEL}")
-    else:
+        print(f"  Host: {host}")
+        try:
+            print(f"  Model: {discover_default_model()}")
+        except OllamaDiscoveryError as e:
+            print(f"  {YELLOW}Model: {e}{NC}")
+    except OllamaDiscoveryError as e:
         print(f"{RED}✗ Ollama not found{NC}")
-        print(f"  Expected: {OLLAMA_HOST}")
-        print(f"{YELLOW}Start Ollama: ollama serve{NC}")
+        print(f"  {e}")
 
 
 def cmd_models() -> None:
     """List available Ollama models."""
     import urllib.request
     import urllib.error
+
+    try:
+        active_model = discover_default_model()
+    except OllamaDiscoveryError:
+        active_model = None
 
     try:
         request = urllib.request.Request(
@@ -669,12 +675,14 @@ def cmd_models() -> None:
                 size = model.get("size", 0)
                 size_gb = size / (1024**3)
                 modified = model.get("modified_at", "")[:10]
-                active = f" {GREEN}(active){NC}" if name == OLLAMA_MODEL else ""
+                active = f" {GREEN}(active){NC}" if name == active_model else ""
                 print(f"{GREEN}•{NC} {name:<30} {size_gb:>6.1f}GB  {modified}{active}")
             print()
 
-    except (urllib.error.URLError, ConnectionRefusedError, TimeoutError):
-        print(f"{RED}Cannot connect to Ollama at {OLLAMA_HOST}{NC}")
+    except OllamaDiscoveryError as e:
+        print(f"{RED}{e}{NC}")
+    except (urllib.error.URLError, ConnectionRefusedError, TimeoutError) as e:
+        print(f"{RED}Cannot connect to Ollama: {e}{NC}")
     except Exception as e:
         print(f"{RED}Error: {e}{NC}")
         logger.error(f"Models error: {e}")
@@ -685,7 +693,16 @@ def cmd_stats() -> None:
     try:
         doc_count = _doc_repo.count_sync()
         mem_count = _mem_repo.count()
-        ollama_status = "✓ Connected" if _test_ollama_connection() else "✗ Offline"
+        try:
+            ollama_host = discover_ollama_endpoint()
+            ollama_status = "✓ Connected"
+        except OllamaDiscoveryError as e:
+            ollama_host = str(e)
+            ollama_status = "✗ Offline"
+        try:
+            ollama_model = discover_default_model()
+        except OllamaDiscoveryError:
+            ollama_model = "?"
         cfg = get_config()
 
         print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
@@ -701,9 +718,9 @@ def cmd_stats() -> None:
         print()
 
         print(f"{GREEN}AI Model{NC}")
-        print(f"  Model: {OLLAMA_MODEL}")
+        print(f"  Model: {ollama_model}")
         print(f"  Status: {ollama_status}")
-        print(f"  Host: {OLLAMA_HOST}")
+        print(f"  Host: {ollama_host}")
         print()
 
         print(f"{GREEN}Version{NC}")
@@ -773,10 +790,15 @@ def cmd_doctor() -> None:
         print(f"{RED}✗{NC} Config: {str(e)[:50]}")
         checks["config"] = "FAIL"
 
-    if _test_ollama_connection():
-        print(f"{GREEN}✓{NC} Ollama: {OLLAMA_MODEL} @ {OLLAMA_HOST}")
+    try:
+        ollama_host = discover_ollama_endpoint()
+        try:
+            ollama_model = discover_default_model()
+        except OllamaDiscoveryError:
+            ollama_model = "?"
+        print(f"{GREEN}✓{NC} Ollama: {ollama_model} @ {ollama_host}")
         checks["ollama"] = "PASS"
-    else:
+    except OllamaDiscoveryError:
         print(f"{YELLOW}⚠{NC} Ollama: Not available")
         checks["ollama"] = "WARN"
 
@@ -1199,49 +1221,53 @@ def cmd_obsidian_watch(vault_path: str = None) -> None:
 
 def cmd_ask(question: str) -> None:
     """RAG: Ask AI using Ollama with document context."""
+    from runtime.ollama import (
+        generate as ollama_generate,
+        OllamaModelLoadTimeoutError,
+        OllamaModelNotInstalledError,
+        OllamaSubscriptionRequiredError,
+        OllamaUnreachableError,
+    )
+
     try:
-        recent_docs = _doc_repo.list_recent_sync(5)
-        context = ""
-        if recent_docs:
-            context = "Context from documents:\n"
-            for doc in recent_docs:
-                context += f"\n[{doc['title']}]\n{doc['content'][:300]}\n"
+        base_url = discover_ollama_endpoint()
+        model = discover_default_model()
+    except OllamaDiscoveryError as e:
+        print(f"{RED}Ollama não encontrado.{NC}")
+        print(f"{YELLOW}{e}{NC}")
+        logger.warning(f"Ollama discovery failed: {e}")
+        return
 
-        import urllib.request
-        import urllib.error
+    recent_docs = _doc_repo.list_recent_sync(5)
+    context = ""
+    if recent_docs:
+        context = "Context from documents:\n"
+        for doc in recent_docs:
+            context += f"\n[{doc['title']}]\n{doc['content'][:300]}\n"
 
-        try:
-            system_prompt = "You are a helpful AI assistant. Use the provided context to answer questions accurately."
-            prompt = f"{system_prompt}\n\nContext:\n{context}\n\nQuestion: {question}\n\nAnswer:"
+    system_prompt = "You are a helpful AI assistant. Use the provided context to answer questions accurately."
+    prompt = f"{system_prompt}\n\nContext:\n{context}\n\nQuestion: {question}\n\nAnswer:"
 
-            payload = json.dumps({
-                "model": OLLAMA_MODEL,
-                "prompt": prompt,
-                "stream": False
-            })
-
-            request = urllib.request.Request(
-                _get_ollama_url("generate"),
-                data=payload.encode("utf-8"),
-                headers={"Content-Type": "application/json"}
-            )
-
-            with urllib.request.urlopen(request, timeout=30) as response:
-                data = json.loads(response.read().decode("utf-8"))
-                result = data.get("response", "").strip()
-                print(f"\n{BOLD}{CYAN}FlowCore AI ({OLLAMA_MODEL}):{NC}")
-                print(result)
-
-        except (urllib.error.URLError, ConnectionRefusedError, TimeoutError):
-            print(f"{RED}Ollama não encontrado.{NC}")
-            print(f"{YELLOW}Instale o Ollama ou inicie o servidor.{NC}")
-            logger.warning(f"Ollama not available at {OLLAMA_HOST}")
-        except json.JSONDecodeError:
-            print(f"{RED}Ollama não encontrado.{NC}")
-            print(f"{YELLOW}Instale o Ollama ou inicie o servidor.{NC}")
-
+    try:
+        result = ollama_generate(base_url, model, prompt)
+        print(f"\n{BOLD}{CYAN}FlowCore AI ({model}):{NC}")
+        print(result)
+    except OllamaSubscriptionRequiredError as e:
+        print(f"{RED}Modelo requer assinatura Ollama Cloud.{NC}")
+        print(f"{YELLOW}{e}{NC}")
+    except OllamaModelNotInstalledError as e:
+        print(f"{RED}Modelo não instalado.{NC}")
+        print(f"{YELLOW}{e}{NC}")
+    except OllamaModelLoadTimeoutError as e:
+        print(f"{RED}Tempo esgotado carregando o modelo.{NC}")
+        print(f"{YELLOW}{e}{NC}")
+    except OllamaUnreachableError as e:
+        print(f"{RED}Ollama não encontrado.{NC}")
+        print(f"{YELLOW}{e}{NC}")
+        logger.warning(f"Ollama not available at {base_url}")
     except Exception as e:
         logger.error(f"Ask command error: {e}")
+        print(f"{RED}Erro: {e}{NC}")
 
 
 def cmd_note(text: str) -> None:
@@ -1397,6 +1423,7 @@ def main() -> None:
     subparsers = parser.add_subparsers(dest="command")
 
     subparsers.add_parser("serve", help="Start the API server")
+    subparsers.add_parser("mcp", help="Start the MCP stdio server (for Claude Code / MCP clients)")
     subparsers.add_parser("run", help="Start full application (API + scheduler + agents)")
     subparsers.add_parser("health", help="Quick health check")
     subparsers.add_parser("version", help="Print version info")
@@ -1488,6 +1515,9 @@ def main() -> None:
 
     if args.command == "serve":
         asyncio.run(cmd_serve(cfg, platform))
+    elif args.command == "mcp":
+        from mcp_server import run as run_mcp_server
+        run_mcp_server()
     elif args.command == "run":
         asyncio.run(cmd_run(cfg, platform))
     elif args.command == "health":
