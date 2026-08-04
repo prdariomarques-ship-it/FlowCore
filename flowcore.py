@@ -1509,19 +1509,35 @@ def cmd_interactive_shell(cfg: dict, platform: dict) -> None:
             elif cmd in ("battery", "qual minha bateria?"):
                 res = active_runtime.execute_capability("getBattery")
                 print(f"\n{GREEN}[+] Battery Status:{NC}")
-                print(f"  Percentage: {res.get('percentage')}%")
-                print(f"  Status:     {res.get('status')}")
-                print(f"  Provider:   {res.get('source')}\n")
+                if res.get("status") == "NOT_IMPLEMENTED":
+                    print(f"  {RED}STATUS: NOT_IMPLEMENTED{NC}")
+                    print(f"  {YELLOW}Causa:{NC} Termux API não instalada no dispositivo ou não rodando no Android.")
+                    print(f"  {YELLOW}Instalação Obrigatória:{NC}")
+                    print(f"    pkg install termux-api")
+                    print(f"  {YELLOW}Permissão necessária:{NC} Conceder permissões para o aplicativo Termux:API nas configurações do Android.")
+                    print()
+                else:
+                    print(f"  Percentage: {res.get('percentage')}%")
+                    print(f"  Status:     {res.get('status')}")
+                    print(f"  Provider:   {res.get('source')}\n")
 
             elif cmd == "wifi":
                 res = active_runtime.execute_capability("getWifi")
                 print(f"\n{GREEN}[+] Wi-Fi Status:{NC}")
-                if "ssid" in res:
-                    print(f"  Connected:  {res.get('connected')}")
-                    print(f"  SSID:       {res.get('ssid')}")
+                if res.get("status") == "NOT_IMPLEMENTED":
+                    print(f"  {RED}STATUS: NOT_IMPLEMENTED{NC}")
+                    print(f"  {YELLOW}Causa:{NC} Termux API não instalada no dispositivo ou não rodando no Android.")
+                    print(f"  {YELLOW}Instalação Obrigatória:{NC}")
+                    print(f"    pkg install termux-api")
+                    print(f"  {YELLOW}Permissão necessária:{NC} Conceder permissões de Localização/Rede nas configurações do Android.")
+                    print()
                 else:
-                    print(f"  Connected:  {res.get('connected')}")
-                print(f"  Provider:   {res.get('source')}\n")
+                    if "ssid" in res:
+                        print(f"  Connected:  {res.get('connected')}")
+                        print(f"  SSID:       {res.get('ssid')}")
+                    else:
+                        print(f"  Connected:  {res.get('connected')}")
+                    print(f"  Provider:   {res.get('source')}\n")
 
             elif cmd == "storage":
                 from flowcore.runtime.runtime_health import RuntimeHealthChecker

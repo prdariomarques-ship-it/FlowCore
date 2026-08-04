@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 
@@ -57,11 +58,25 @@ class AndroidRuntime:
         self.status = "READY"
         return self.status
 
-    def execute_capability(self, capability: str) -> Any:
+    def execute_capability(self, capability: str, **kwargs) -> Any:
+        # For Android host execution validation
         if capability == "getBattery":
-            return {"percentage": 88, "status": "Discharging", "source": "Android BatteryManager"}
+            # If termux-api exists on Android PATH, call it. Otherwise, return NOT_IMPLEMENTED for real hardware checks
+            if shutil.which("termux-battery-status"):
+                from .termux.termux_api import TermuxApiProvider
+                return TermuxApiProvider().get_battery()
+            return {
+                "status": "NOT_IMPLEMENTED",
+                "error": "Android BatteryManager requires Termux:API companion binary to run."
+            }
         elif capability == "getWifi":
-            return {"connected": True, "ssid": "FlowCore_WiFi", "source": "Android WifiManager"}
+            if shutil.which("termux-wifi-connectioninfo"):
+                from .termux.termux_api import TermuxApiProvider
+                return TermuxApiProvider().get_wifi()
+            return {
+                "status": "NOT_IMPLEMENTED",
+                "error": "Android WifiManager requires Termux:API companion binary to run."
+            }
         raise NotImplementedError(f"AndroidRuntime does not implement capability: {capability}")
 
 
@@ -71,14 +86,38 @@ class TermuxRuntime:
     def __init__(self):
         self.platform = "Termux"
         self.status = "NOT_READY"
+        from .termux.termux_api import TermuxApiProvider
+        self.provider = TermuxApiProvider()
 
     def boot(self) -> str:
         self.status = "READY"
         return self.status
 
-    def execute_capability(self, capability: str) -> Any:
+    def execute_capability(self, capability: str, **kwargs) -> Any:
         if capability == "getBattery":
-            return {"percentage": 85, "status": "Charging", "source": "termux-battery-status"}
+            return self.provider.get_battery()
+        elif capability == "getWifi":
+            return self.provider.get_wifi()
+        elif capability == "getLocation":
+            return self.provider.get_location()
+        elif capability == "getCameraInfo":
+            return self.provider.get_camera_info()
+        elif capability == "getClipboard":
+            return self.provider.get_clipboard()
+        elif capability == "getStorage":
+            return self.provider.get_storage()
+        elif capability == "getTelephonyDeviceInfo":
+            return self.provider.get_telephony_deviceinfo()
+        elif capability == "getSensor":
+            return self.provider.get_sensor()
+        elif capability == "getNotification":
+            title = kwargs.get("title", "FlowCore")
+            content = kwargs.get("content", "Active")
+            return self.provider.get_notification(title, content)
         elif capability == "installPythonPackage":
-            return {"success": True, "package": "numpy", "source": "pip"}
+            # Delegate to python provider
+            from .termux.python import TermuxPythonProvider
+            package = kwargs.get("package", "numpy")
+            return TermuxPythonProvider().install_package(package)
+
         raise NotImplementedError(f"TermuxRuntime does not implement capability: {capability}")
