@@ -140,6 +140,11 @@ class DoctorService:
             self._check_glm_bridge,
             self._check_gemini_bridge,
             self._check_claude_bridge,
+            # ── Termux Runtime (Sprint 10) ───────────────────────────────────
+            self._check_rsync,
+            self._check_cron,
+            self._check_termux_boot,
+            self._check_daemon_state,
             # ── Runtime state ────────────────────────────────────────────────
             self._check_runtime_json,
             self._check_flowcore_config,
@@ -551,6 +556,71 @@ class DoctorService:
         if not key:
             return CheckResult("claude_bridge", CheckStatus.SKIP, "ANTHROPIC_API_KEY not set")
         return CheckResult("claude_bridge", CheckStatus.OK, "ANTHROPIC_API_KEY configured")
+
+    # ── Termux Runtime checks (Sprint 10) ────────────────────────────────────
+
+    def _check_rsync(self) -> CheckResult:
+        if is_available("rsync"):
+            result = run(["rsync", "--version"], timeout=5)
+            ver = result.stdout.splitlines()[0] if result.stdout else "rsync available"
+            return CheckResult("rsync", CheckStatus.OK, ver)
+        return CheckResult(
+            "rsync", CheckStatus.WARN,
+            "rsync not found — file sync/backup unavailable",
+            fix="pkg install rsync",
+        )
+
+    def _check_cron(self) -> CheckResult:
+        if is_available("crontab"):
+            return CheckResult("cron", CheckStatus.OK, "crontab available")
+        if is_available("termux-job-scheduler"):
+            return CheckResult("cron", CheckStatus.OK, "termux-job-scheduler available")
+        return CheckResult(
+            "cron", CheckStatus.WARN,
+            "No scheduler found (crontab / termux-job-scheduler)",
+            fix="pkg install cronie  # or: pkg install termux-api",
+        )
+
+    def _check_termux_boot(self) -> CheckResult:
+        if not os.environ.get("PREFIX"):
+            return CheckResult("termux_boot", CheckStatus.SKIP, "Not in Termux")
+        boot_dir = Path.home() / ".termux" / "boot"
+        if boot_dir.exists():
+            scripts = list(boot_dir.iterdir())
+            if scripts:
+                return CheckResult(
+                    "termux_boot", CheckStatus.OK,
+                    f"Termux:Boot configured ({len(scripts)} script(s))",
+                )
+        if is_available("termux-wake-lock"):
+            return CheckResult(
+                "termux_boot", CheckStatus.WARN,
+                "~/.termux/boot/ empty — FlowCore won't auto-start on reboot",
+                fix="mkdir -p ~/.termux/boot && echo 'cd ~/FlowCore && sshd' > ~/.termux/boot/start.sh && chmod +x ~/.termux/boot/start.sh",
+            )
+        return CheckResult(
+            "termux_boot", CheckStatus.SKIP,
+            "Termux:Boot not installed (optional)",
+        )
+
+    def _check_daemon_state(self) -> CheckResult:
+        try:
+            from runtime.daemon import FlowCoreDaemon
+            d = FlowCoreDaemon()
+            if d.is_running():
+                info = d.status()
+                uptime = info.get("uptime", 0)
+                return CheckResult(
+                    "daemon_state", CheckStatus.OK,
+                    f"FlowCore daemon running (pid={info['pid']} uptime={uptime:.0f}s)",
+                )
+            return CheckResult(
+                "daemon_state", CheckStatus.WARN,
+                "FlowCore daemon not running",
+                fix="python3 flowcore.py daemon start",
+            )
+        except Exception as e:
+            return CheckResult("daemon_state", CheckStatus.SKIP, f"Daemon check skipped: {e}")
 
     # ── Runtime state ─────────────────────────────────────────────────────────
 

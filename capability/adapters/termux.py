@@ -384,6 +384,49 @@ class TermuxAPIAdapter(CapabilityAdapter):
         return CapabilityResult.fail(result.stderr, self.name)
 
 
+# ── Rsync ─────────────────────────────────────────────────────────────────────
+
+class TermuxRsyncAdapter(CapabilityAdapter):
+    """File sync / backup via rsync."""
+
+    name = "termux.rsync"
+    priority = 75
+
+    def is_available(self) -> bool:
+        return is_available("rsync")
+
+    def rsync(self, src: str, dst: str, *,
+              delete: bool = False,
+              dry_run: bool = False,
+              exclude: list[str] | None = None) -> CapabilityResult:
+        cmd = ["rsync", "-av", "--stats"]
+        if delete:
+            cmd.append("--delete")
+        if dry_run:
+            cmd.append("--dry-run")
+        for pat in (exclude or []):
+            cmd += ["--exclude", pat]
+        cmd += [src, dst]
+        result = run(cmd, timeout=300)
+        if result.success:
+            lines = result.stdout.strip().splitlines()
+            transferred = sum(
+                1 for l in lines
+                if l and not l.startswith(("sending", "sent", "total", "Number", "File", "Delta"))
+            )
+            return CapabilityResult.ok(
+                {"src": src, "dst": dst, "dry_run": dry_run,
+                 "files_transferred": transferred, "output": result.stdout},
+                self.name,
+            )
+        return CapabilityResult.fail(
+            result.stderr, self.name,
+            reason=f"rsync {src} → {dst} failed",
+            diagnosis=result.stderr[:500],
+            corrective_action="pkg install rsync",
+        )
+
+
 # ── All Termux adapters (for registry auto-registration) ──────────────────────
 
 TERMUX_ADAPTERS: list[type[CapabilityAdapter]] = [
@@ -398,6 +441,7 @@ TERMUX_ADAPTERS: list[type[CapabilityAdapter]] = [
     TermuxServiceAdapter,
     TermuxBatteryAdapter,
     TermuxAPIAdapter,
+    TermuxRsyncAdapter,
 ]
 
 # Backward-compatible alias

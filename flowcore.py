@@ -1274,6 +1274,106 @@ def cmd_agenda(event: str) -> None:
         print(f"{RED}Error: {e}{NC}")
 
 
+def cmd_daemon(action: str, interval: int = 60) -> None:
+    """Manage the FlowCore background daemon."""
+    from runtime.daemon import FlowCoreDaemon
+    d = FlowCoreDaemon()
+
+    if action == "start":
+        result = d.start(interval=interval)
+        if result.get("started"):
+            print(f"{GREEN}✓ Daemon started{NC}  pid={result['pid']}")
+            print(f"  Log: {result.get('log', '')}")
+        else:
+            print(f"{YELLOW}⚠ Daemon already running{NC}  pid={result['pid']}")
+
+    elif action == "stop":
+        result = d.stop()
+        if result.get("stopped"):
+            print(f"{GREEN}✓ Daemon stopped{NC}  pid={result['pid']}")
+        else:
+            note = result.get("note") or result.get("error", "")
+            print(f"{YELLOW}⚠ {note}{NC}")
+
+    elif action == "status":
+        result = d.status()
+        if result["running"]:
+            print(f"{GREEN}✓ Daemon running{NC}")
+            print(f"  PID   : {result['pid']}")
+            print(f"  Uptime: {result.get('uptime', 0):.0f}s")
+            print(f"  Cycle : {result.get('cycle', 0)}")
+            print(f"  Log   : {result.get('log', '')}")
+        else:
+            print(f"{YELLOW}○ Daemon not running{NC}")
+            print(f"  Start with: python3 flowcore.py daemon start")
+
+    else:
+        print(f"{RED}Unknown daemon action: {action!r}{NC}")
+        print("  Usage: python3 flowcore.py daemon <start|stop|status>")
+
+
+def cmd_jobs(action: str, name: str = "", script: str = "",
+             schedule: str = "") -> None:
+    """Manage scheduled jobs."""
+    from runtime.job_scheduler import JobScheduler
+    sched = JobScheduler()
+
+    if action == "list":
+        jobs = sched.list_jobs()
+        if not jobs:
+            print(f"{YELLOW}No jobs scheduled.{NC}")
+            print("  Add one: python3 flowcore.py jobs add <name> <script> <schedule>")
+            return
+        print(f"\n{BOLD}{CYAN}Scheduled Jobs ({len(jobs)}){NC}\n")
+        for j in jobs:
+            status_mark = f"{GREEN}✓{NC}" if j["enabled"] else f"{YELLOW}○{NC}"
+            print(f"  {status_mark} {j['name']:<20} {j['schedule']:<15} {j['script']}")
+        print()
+
+    elif action == "add":
+        if not name or not script or not schedule:
+            print(f"{RED}Usage: python3 flowcore.py jobs add <name> <script> <schedule>{NC}")
+            return
+        try:
+            ok = sched.add_job(name, script, schedule)
+            mark = f"{GREEN}✓{NC}" if ok else f"{YELLOW}⚠{NC}"
+            label = "registered with system scheduler" if ok else "saved (no system scheduler)"
+            print(f"{mark} Job '{name}' added — {label}")
+        except (ValueError, FileNotFoundError) as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    elif action == "remove":
+        if not name:
+            print(f"{RED}Usage: python3 flowcore.py jobs remove <name>{NC}")
+            return
+        if sched.remove_job(name):
+            print(f"{GREEN}✓ Job '{name}' removed{NC}")
+        else:
+            print(f"{YELLOW}Job '{name}' not found{NC}")
+
+    elif action == "run":
+        if not name:
+            print(f"{RED}Usage: python3 flowcore.py jobs run <name>{NC}")
+            return
+        try:
+            print(f"Running '{name}'...")
+            result = sched.run_now(name)
+            if result["success"]:
+                print(f"{GREEN}✓ Job '{name}' completed (rc={result['returncode']}){NC}")
+            else:
+                print(f"{RED}✗ Job '{name}' failed (rc={result['returncode']}){NC}")
+            if result.get("output"):
+                print(result["output"])
+            if result.get("error"):
+                print(f"{YELLOW}{result['error']}{NC}")
+        except KeyError as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    else:
+        print(f"{RED}Unknown jobs action: {action!r}{NC}")
+        print("  Usage: python3 flowcore.py jobs <list|add|remove|run>")
+
+
 def main() -> None:
     """Main CLI handler."""
     parser = argparse.ArgumentParser(description="FlowCore CLI")
@@ -1342,6 +1442,26 @@ def main() -> None:
 
     agenda_parser = subparsers.add_parser("agenda", help="Add to agenda")
     agenda_parser.add_argument("event", nargs="+", help="Event description")
+
+    daemon_parser = subparsers.add_parser("daemon", help="Manage background daemon")
+    daemon_sub = daemon_parser.add_subparsers(dest="daemon_action")
+    daemon_start = daemon_sub.add_parser("start", help="Start the daemon")
+    daemon_start.add_argument("--interval", type=int, default=60,
+                              help="Heartbeat interval in seconds (default: 60)")
+    daemon_sub.add_parser("stop", help="Stop the daemon")
+    daemon_sub.add_parser("status", help="Show daemon status")
+
+    jobs_parser = subparsers.add_parser("jobs", help="Manage scheduled jobs")
+    jobs_sub = jobs_parser.add_subparsers(dest="jobs_action")
+    jobs_sub.add_parser("list", help="List all scheduled jobs")
+    jobs_add = jobs_sub.add_parser("add", help="Add a new job")
+    jobs_add.add_argument("name", help="Job name (letters, digits, _ and - only)")
+    jobs_add.add_argument("script", help="Path to Python script")
+    jobs_add.add_argument("schedule", help="Cron expression (e.g. '0 2 * * *')")
+    jobs_remove = jobs_sub.add_parser("remove", help="Remove a job")
+    jobs_remove.add_argument("name", help="Job name to remove")
+    jobs_run = jobs_sub.add_parser("run", help="Run a job immediately")
+    jobs_run.add_argument("name", help="Job name to run")
 
     args = parser.parse_args()
     cfg = get_config()
@@ -1416,6 +1536,22 @@ def main() -> None:
             cmd_obsidian_watch()
         else:
             parser.print_help()
+    elif args.command == "daemon":
+        action = getattr(args, "daemon_action", None)
+        if not action:
+            print("Usage: python3 flowcore.py daemon <start|stop|status>")
+            sys.exit(1)
+        interval = getattr(args, "interval", 60)
+        cmd_daemon(action, interval=interval)
+    elif args.command == "jobs":
+        action = getattr(args, "jobs_action", None)
+        if not action:
+            print("Usage: python3 flowcore.py jobs <list|add|remove|run>")
+            sys.exit(1)
+        name     = getattr(args, "name", "")
+        script   = getattr(args, "script", "")
+        schedule = getattr(args, "schedule", "")
+        cmd_jobs(action, name=name, script=script, schedule=schedule)
     else:
         parser.print_help()
         sys.exit(1)
