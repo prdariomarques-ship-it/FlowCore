@@ -1,0 +1,40 @@
+{
+  "$schema": "https://flowcore.io/schemas/runtime.v1.json",
+  "schema_version": "1.0",
+  "boot_status": true,
+  "doctor_status": "OK",
+  "runtime_status": "READY",
+  "python_version": "3.12.13",
+  "git_version": "2.43.0",
+  "termux_version": "0.118",
+  "android_version": "14",
+  "prefix": "/data/data/com.termux/files/usr",
+  "home": "/home/jules",
+  "disk": {
+    "total": "100220 MB",
+    "used": "32 MB",
+    "free": "95052 MB"
+  },
+  "memory": {
+    "total": "4096 MB",
+    "free": "2048 MB"
+  },
+  "cpu": {
+    "cores": 4,
+    "architecture": "x86_64"
+  },
+  "battery": {
+    "percentage": 85,
+    "plugged": "USB",
+    "status": "Charging"
+  },
+  "network": {
+    "connected": true,
+    "type": "Wifi"
+  },
+  "permissions": "OK",
+  "health": {
+    "status": "HEALTHY",
+    "last_check": "2026-08-04T03:40:55.186867Z"
+  }
+}
