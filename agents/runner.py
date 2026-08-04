@@ -156,8 +156,12 @@ class AgentRunner:
             pass
 
     def _auto_register_builtins(self) -> None:
-        try:
-            from agents.health_agent import HealthAgent
-            self._registry.register(HealthAgent())
-        except Exception:
-            pass
+        for cls_path in (
+            ("agents.health_agent", "HealthAgent"),
+            ("agents.doctor_agent", "DoctorAgent"),
+        ):
+            try:
+                mod = __import__(cls_path[0], fromlist=[cls_path[1]])
+                self._registry.register(getattr(mod, cls_path[1])())
+            except Exception:
+                pass

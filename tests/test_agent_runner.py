@@ -210,6 +210,49 @@ class TestAgentRunner:
         record = asyncio.run(runner.run("health"))
         assert record.status == "completed"
 
+    def test_doctor_agent_registered(self, tmp_path):
+        runner = self._runner(tmp_path)
+        names = [a["name"] for a in runner.list_agents()]
+        assert "doctor" in names
+
+    def test_run_doctor_agent(self, tmp_path):
+        runner = self._runner(tmp_path)
+        record = runner.run_sync("doctor")
+        assert record.status == "completed"
+        assert "summary" in record.result["data"]
+        assert "checks" in record.result["data"]
+
+    def test_doctor_agent_summary_keys(self, tmp_path):
+        runner = self._runner(tmp_path)
+        record = runner.run_sync("doctor")
+        summary = record.result["data"]["summary"]
+        for key in ("total", "passed", "failed", "warnings"):
+            assert key in summary
+
+
+# ── DoctorAgent unit tests ─────────────────────────────────────────────────────
+
+class TestDoctorAgent:
+    def test_name_and_description(self):
+        from agents.doctor_agent import DoctorAgent
+        a = DoctorAgent()
+        assert a.name == "doctor"
+        assert len(a.description) > 5
+
+    def test_run_returns_status(self):
+        from agents.doctor_agent import DoctorAgent
+        import asyncio
+        result = asyncio.run(DoctorAgent().run())
+        assert result["status"] in ("ok", "degraded", "error")
+        assert "data" in result
+
+    def test_run_has_checks(self):
+        from agents.doctor_agent import DoctorAgent
+        import asyncio
+        result = asyncio.run(DoctorAgent().run())
+        checks = result["data"].get("checks", [])
+        assert isinstance(checks, list)
+
 
 # ── MCP tool tests (agent_run, agent_list, agent_history) ─────────────────────
 

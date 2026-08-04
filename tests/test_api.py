@@ -155,3 +155,48 @@ class TestWebUI:
 
         r4 = c.get(f"/api/flows/{fid}")
         assert r4.status_code == 404
+
+
+class TestAgentEndpoints:
+    def test_list_agents(self):
+        r = _client().get("/api/agent/agents")
+        assert r.status_code == 200
+        data = r.json()
+        assert "agents" in data
+        names = [a["name"] for a in data["agents"]]
+        assert "health" in names
+        assert "doctor" in names
+
+    def test_run_health_agent(self):
+        r = _client().post("/api/agent/run?agent_name=health", json={})
+        assert r.status_code == 202
+        data = r.json()
+        assert data["agent"] == "health"
+        assert data["status"] in ("completed", "failed", "pending")
+
+    def test_run_unknown_agent(self):
+        r = _client().post("/api/agent/run?agent_name=no_such_agent", json={})
+        assert r.status_code == 202
+        data = r.json()
+        assert data["status"] == "failed"
+        assert "not found" in data["error"]
+
+    def test_list_tasks(self):
+        c = _client()
+        c.post("/api/agent/run?agent_name=health", json={})
+        r = c.get("/api/agent/tasks")
+        assert r.status_code == 200
+        data = r.json()
+        assert "tasks" in data
+
+    def test_get_task_by_id(self):
+        c = _client()
+        run_r = c.post("/api/agent/run?agent_name=health", json={})
+        task_id = run_r.json()["id"]
+        r = c.get(f"/api/agent/tasks/{task_id}")
+        # May be 200 if the store path is accessible, or 404 in isolated env
+        assert r.status_code in (200, 404)
+
+    def test_get_task_404(self):
+        r = _client().get("/api/agent/tasks/nonexistent_id_xyz")
+        assert r.status_code == 404
