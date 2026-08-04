@@ -382,8 +382,8 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     async def run_agent(agent_name: str = Query(...), context: dict | None = None):
         try:
             from agents.runner import AgentRunner
-            runner = AgentRunner(require_passport=False)
-            record = runner.run_sync(agent_name, context or {}, passport_agent_name="api-agent")
+            runner = AgentRunner()
+            record = await runner.run(agent_name, context or {}, passport_agent_name="api-agent")
             return record.to_dict()
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
