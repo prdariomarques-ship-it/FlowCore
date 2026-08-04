@@ -340,6 +340,23 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
         <div id="task-history"><div class="sk"></div><div class="sk"></div></div>
       </div>
 
+      <!-- Flows list -->
+      <div class="card">
+        <div class="ch">
+          <span class="ct">Flows</span>
+          <button class="btn-sm" onclick="loadFlows()">↻</button>
+        </div>
+        <div id="flow-cards" style="display:flex;flex-direction:column;gap:8px">
+          <div class="sk" style="height:42px"></div>
+        </div>
+      </div>
+
+      <!-- Flow run result -->
+      <div class="card" id="flow-result-card" style="display:none">
+        <div class="ch"><span class="ct" id="flow-result-title">Flow resultado</span><span class="ci" id="flow-result-icon">⏳</span></div>
+        <pre id="flow-result" style="font-size:11px;color:var(--text2);white-space:pre-wrap;word-break:break-all;max-height:260px;overflow-y:auto;background:var(--bg3);border-radius:8px;padding:10px"></pre>
+      </div>
+
     </div>
   </div>
 
@@ -369,7 +386,7 @@ function pg(name,btn){
   btn.classList.add('active');
   if(name==='sys') loadSys();
   if(name==='notes') loadNotes();
-  if(name==='agents') loadAgents();
+  if(name==='agents'){loadAgents();loadFlows();}
 }
 
 /* ── Toast ── */
@@ -723,6 +740,58 @@ function renderTaskHistory(tasks){
       <span class="task-dur">${dur}</span>
       <span class="task-id">${t.id}</span>`;
     h.appendChild(el);
+  }
+}
+
+/* ── Flows ── */
+async function loadFlows(){
+  try{
+    const res=await api('/api/flows');
+    renderFlowCards(Array.isArray(res)?res:[]);
+  }catch(e){
+    document.getElementById('flow-cards').innerHTML='<div class="empty">─</div>';
+  }
+}
+
+function renderFlowCards(flows){
+  const c=document.getElementById('flow-cards');
+  if(!flows.length){c.innerHTML='<div class="empty">Nenhum flow criado ainda.<br><small>flowcore flow create --name "Nome" --steps health,doctor</small></div>';return;}
+  c.innerHTML='';
+  for(const f of flows){
+    const el=document.createElement('div');
+    el.className='agent-card';
+    el.innerHTML=`
+      <div class="agent-info">
+        <div class="agent-name">▶ ${f.name}</div>
+        <div class="agent-desc">${f.steps.length} passo(s)${f.description?' — '+f.description:''}</div>
+      </div>
+      <button class="btn-run" id="btn-flow-${f.id}" onclick="runFlow('${f.id}','${f.name}')">▶ Run</button>`;
+    c.appendChild(el);
+  }
+}
+
+async function runFlow(id,name){
+  const btn=document.getElementById('btn-flow-'+id);
+  if(btn){btn.disabled=true;btn.innerHTML='<span class="spin">⟳</span>';}
+  const rc=document.getElementById('flow-result-card');
+  const rt=document.getElementById('flow-result-title');
+  const ri=document.getElementById('flow-result-icon');
+  const rp=document.getElementById('flow-result');
+  rc.style.display='block';
+  rt.textContent='A correr flow '+name+'...';
+  ri.textContent='⏳';rp.textContent='...';
+  try{
+    const r=await api('/api/flows/'+encodeURIComponent(id)+'/run',{method:'POST',body:'null'});
+    const ok=r.status==='completed';
+    rt.textContent=name+' — '+(ok?'concluído':'falhou');
+    ri.textContent=ok?'✅':'❌';
+    rp.textContent=JSON.stringify(r,null,2);
+    toast(ok?'✅ Flow concluído':'❌ Flow falhou');
+  }catch(e){
+    rt.textContent='Erro';ri.textContent='❌';rp.textContent=String(e);
+    toast('Erro: '+e.message);
+  }finally{
+    if(btn){btn.disabled=false;btn.innerHTML='▶ Run';}
   }
 }
 

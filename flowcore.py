@@ -1448,6 +1448,78 @@ def cmd_agent(action: str, agent_name: str = "", task_id: str = "") -> None:
         print("  Usage: flowcore agent <list|run|history|show>")
 
 
+def cmd_flow(
+    action: str,
+    flow_id: str = "",
+    name: str = "",
+    steps_raw: str = "",
+    description: str = "",
+) -> None:
+    """Manage and execute FlowCore flows."""
+    import json as _json
+    from flows.schema import Flow
+    from flows.store import FlowStore
+    store = FlowStore()
+
+    if action == "list":
+        flows = store.list_flows()
+        if not flows:
+            print(f"{YELLOW}No flows defined{NC}")
+        else:
+            print(f"{BOLD}{'ID':<14} {'NAME':<24} {'STEPS'}{NC}")
+            for f in flows:
+                print(f"  {f.id:<12}  {f.name:<24} {len(f.steps)} step(s)")
+
+    elif action == "create":
+        if not name:
+            print(f"{RED}Specify a name: flowcore flow create --name <name>{NC}")
+            return
+        steps: list[dict] = []
+        if steps_raw:
+            for s in steps_raw.split(","):
+                steps.append({"agent": s.strip()})
+        flow = Flow.new(name=name, steps=steps, description=description)
+        store.save_flow(flow)
+        print(f"{GREEN}✓ Flow created:{NC} {flow.id}  ({len(steps)} step(s))")
+
+    elif action == "run":
+        if not flow_id:
+            print(f"{RED}Specify flow ID: flowcore flow run <id>{NC}")
+            return
+        flow = store.get_flow(flow_id)
+        if flow is None:
+            print(f"{RED}Flow not found: {flow_id}{NC}")
+            return
+        from flows.runner import FlowRunner
+        print(f"{CYAN}Running flow '{flow.name}'...{NC}")
+        run = FlowRunner(store=store).run_sync(flow)
+        if run.status == "completed":
+            print(f"{GREEN}✓ Completed{NC}  ({run.duration_seconds}s)  {len(run.step_results)} step(s)")
+            for sr in run.step_results:
+                status_color = GREEN if sr["status"] == "completed" else RED
+                print(f"  {status_color}[{sr['status']}]{NC} {sr['agent']}")
+        else:
+            print(f"{RED}✗ {run.status.upper()}{NC}  {run.error}")
+
+    elif action == "runs":
+        if not flow_id:
+            print(f"{RED}Specify flow ID: flowcore flow runs <id>{NC}")
+            return
+        runs = store.list_runs(flow_id=flow_id, limit=20)
+        if not runs:
+            print(f"{YELLOW}No runs for flow {flow_id}{NC}")
+        else:
+            print(f"{BOLD}{'RUN ID':<18} {'STATUS':<12} {'DURATION'}{NC}")
+            for r in reversed(runs):
+                dur = f"{r.duration_seconds}s" if r.duration_seconds is not None else "-"
+                color = GREEN if r.status == "completed" else RED if r.status == "failed" else YELLOW
+                print(f"  {r.id:<16}  {color}{r.status:<12}{NC} {dur}")
+
+    else:
+        print(f"{RED}Unknown flow action: {action!r}{NC}")
+        print("  Usage: flowcore flow <list|create|run|runs>")
+
+
 def main() -> None:
     """Main CLI handler."""
     parser = argparse.ArgumentParser(description="FlowCore CLI")
@@ -1535,6 +1607,20 @@ def main() -> None:
     agent_sub.add_parser("history", help="Show recent task history")
     agent_show_p = agent_sub.add_parser("show", help="Show a specific task record")
     agent_show_p.add_argument("task_id", help="Task ID")
+
+    flow_parser = subparsers.add_parser("flow", help="Manage and run FlowCore flows")
+    flow_sub = flow_parser.add_subparsers(dest="flow_action")
+    flow_sub.add_parser("list", help="List all flows")
+    flow_create_p = flow_sub.add_parser("create", help="Create a new flow")
+    flow_create_p.add_argument("--name", required=True, help="Flow name")
+    flow_create_p.add_argument(
+        "--steps", default="", help="Comma-separated agent names (e.g. health,doctor)"
+    )
+    flow_create_p.add_argument("--description", default="", help="Short description")
+    flow_run_p = flow_sub.add_parser("run", help="Execute a flow by ID")
+    flow_run_p.add_argument("flow_id", help="Flow ID")
+    flow_runs_p = flow_sub.add_parser("runs", help="Show run history for a flow")
+    flow_runs_p.add_argument("flow_id", help="Flow ID")
 
     subparsers.add_parser(
         "mcp",
@@ -1634,6 +1720,18 @@ def main() -> None:
         agent_name = getattr(args, "agent_name", "")
         task_id = getattr(args, "task_id", "")
         cmd_agent(action, agent_name=agent_name, task_id=task_id)
+    elif args.command == "flow":
+        action = getattr(args, "flow_action", None)
+        if not action:
+            print("Usage: python3 flowcore.py flow <list|create|run|runs>")
+            sys.exit(1)
+        cmd_flow(
+            action,
+            flow_id=getattr(args, "flow_id", ""),
+            name=getattr(args, "name", ""),
+            steps_raw=getattr(args, "steps", ""),
+            description=getattr(args, "description", ""),
+        )
     elif args.command == "mcp":
         from flowcore_mcp.server import run_stdio
         run_stdio(version=cfg.version if hasattr(cfg, "version") else "0.1.0")

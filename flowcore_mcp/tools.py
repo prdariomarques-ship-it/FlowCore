@@ -174,6 +174,64 @@ FLOWCORE_TOOLS: list[Tool] = [
             "required": [],
         },
     ),
+    Tool(
+        name="flow_list",
+        description="List all flows defined in FlowCore.",
+        inputSchema={"type": "object", "properties": {}, "required": []},
+    ),
+    Tool(
+        name="flow_create",
+        description=(
+            "Create a new FlowCore flow — a named sequence of agent steps "
+            "that can be executed in order. Each step specifies an agent name "
+            "and optional context."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Display name for the flow."},
+                "description": {
+                    "type": "string",
+                    "description": "Short description of what this flow does.",
+                    "default": "",
+                },
+                "steps": {
+                    "type": "array",
+                    "description": "Ordered list of agent steps.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "agent": {"type": "string"},
+                            "context": {"type": "object"},
+                        },
+                        "required": ["agent"],
+                    },
+                },
+            },
+            "required": ["name"],
+        },
+    ),
+    Tool(
+        name="flow_run",
+        description=(
+            "Execute a FlowCore flow by its ID. Runs each step's agent in "
+            "sequence and returns the full FlowRun result."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "flow_id": {
+                    "type": "string",
+                    "description": "ID of the flow to run.",
+                },
+                "context": {
+                    "type": "object",
+                    "description": "Optional context dict merged into each step.",
+                },
+            },
+            "required": ["flow_id"],
+        },
+    ),
 ]
 
 _TOOL_MAP: dict[str, Tool] = {t.name: t for t in FLOWCORE_TOOLS}
@@ -365,6 +423,51 @@ def handle_agent_history(args: dict) -> CallToolResult:
         return _err(f"agent_history failed: {exc}")
 
 
+def handle_flow_list(_args: dict) -> CallToolResult:
+    try:
+        from flows.store import FlowStore
+        flows = FlowStore().list_flows()
+        return _ok({"flows": [f.to_dict() for f in flows], "total": len(flows)})
+    except Exception as exc:
+        return _err(f"flow_list failed: {exc}")
+
+
+def handle_flow_create(args: dict) -> CallToolResult:
+    try:
+        from flows.schema import Flow
+        from flows.store import FlowStore
+        name = args.get("name", "")
+        if not name:
+            return _err("name is required")
+        flow = Flow.new(
+            name=name,
+            steps=args.get("steps") or [],
+            description=args.get("description", ""),
+        )
+        FlowStore().save_flow(flow)
+        return _ok(flow.to_dict())
+    except Exception as exc:
+        return _err(f"flow_create failed: {exc}")
+
+
+def handle_flow_run(args: dict) -> CallToolResult:
+    try:
+        from flows.runner import FlowRunner
+        from flows.store import FlowStore
+        flow_id = args.get("flow_id", "")
+        if not flow_id:
+            return _err("flow_id is required")
+        context = args.get("context") or {}
+        store = FlowStore()
+        flow = store.get_flow(flow_id)
+        if flow is None:
+            return _err(f"Flow '{flow_id}' not found")
+        run = FlowRunner(store=store).run_sync(flow, context)
+        return _ok(run.to_dict())
+    except Exception as exc:
+        return _err(f"flow_run failed: {exc}")
+
+
 # ── Dispatch ──────────────────────────────────────────────────────────────────
 
 _HANDLERS = {
@@ -380,6 +483,9 @@ _HANDLERS = {
     "agent_list": handle_agent_list,
     "agent_run": handle_agent_run,
     "agent_history": handle_agent_history,
+    "flow_list": handle_flow_list,
+    "flow_create": handle_flow_create,
+    "flow_run": handle_flow_run,
 }
 
 

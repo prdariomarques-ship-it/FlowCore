@@ -35,6 +35,10 @@ Endpoints (Sprint 14 — Agent Runner):
   POST /api/agent/run       — run an agent by name (?agent_name=health)
   GET  /api/agent/tasks     — list persisted task history
   GET  /api/agent/tasks/{id}— get a specific task record
+
+Endpoints (Sprint 16 — Flow Execution Engine):
+  GET  /api/flows/{id}/run  — execute a flow (runs each step's agent in order)
+  GET  /api/flows/{id}/runs — list run history for a flow
 """
 from __future__ import annotations
 
@@ -57,15 +61,16 @@ _WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
 class FlowCreate(BaseModel):
     name: str
-    config: dict | None = None
+    description: str = ""
+    steps: list[dict] = []
 
 
 class FlowResponse(BaseModel):
     id: str
     name: str
-    status: str
+    description: str = ""
+    steps: list[dict] = []
     created_at: float
-    updated_at: float
 
 
 class ExecutionSubmit(BaseModel):
@@ -104,10 +109,9 @@ class NoteCreate(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# In-memory store (lightweight version)
+# Stores
 # ---------------------------------------------------------------------------
 
-_flows: dict[str, dict] = {}
 _executions: dict[str, dict] = {}
 _start_time = time.time()
 
@@ -411,40 +415,54 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
-    # ── Flows ───────────────────────────────────────────────────────────
+    # ── Flows (Sprint 16 — persistent + executable) ─────────────────────
     @app.get("/api/flows")
     async def list_flows():
-        return list(_flows.values())
+        from flows.store import FlowStore
+        return [f.to_dict() for f in FlowStore().list_flows()]
 
-    @app.post("/api/flows", response_model=FlowResponse)
+    @app.post("/api/flows")
     async def create_flow(data: FlowCreate):
-        flow_id = uuid.uuid4().hex
-        now = time.time()
-        flow = {
-            "id": flow_id,
-            "name": data.name,
-            "status": "created",
-            "config": data.config,
-            "created_at": now,
-            "updated_at": now,
-        }
-        _flows[flow_id] = flow
-        logger.info("Flow created: {} ({})", flow_id, data.name)
-        return FlowResponse(**flow)
+        from flows.schema import Flow
+        from flows.store import FlowStore
+        flow = Flow.new(data.name, steps=data.steps or [], description=data.description)
+        FlowStore().save_flow(flow)
+        logger.info("Flow created: {} ({})", flow.id, flow.name)
+        return flow.to_dict()
 
-    @app.get("/api/flows/{flow_id}", response_model=FlowResponse)
+    @app.get("/api/flows/{flow_id}")
     async def get_flow(flow_id: str):
-        if flow_id not in _flows:
+        from flows.store import FlowStore
+        flow = FlowStore().get_flow(flow_id)
+        if flow is None:
             raise HTTPException(status_code=404, detail="Flow not found")
-        return FlowResponse(**_flows[flow_id])
+        return flow.to_dict()
 
     @app.delete("/api/flows/{flow_id}")
     async def delete_flow(flow_id: str):
-        if flow_id not in _flows:
+        from flows.store import FlowStore
+        if not FlowStore().delete_flow(flow_id):
             raise HTTPException(status_code=404, detail="Flow not found")
-        del _flows[flow_id]
         logger.info("Flow deleted: {}", flow_id)
         return {"deleted": flow_id}
+
+    @app.post("/api/flows/{flow_id}/run", status_code=202)
+    async def run_flow(flow_id: str, context: dict | None = None):
+        from flows.runner import FlowRunner
+        from flows.store import FlowStore
+        store = FlowStore()
+        flow = store.get_flow(flow_id)
+        if flow is None:
+            raise HTTPException(status_code=404, detail="Flow not found")
+        runner = FlowRunner(store=store)
+        run = await runner.run(flow, context or {})
+        return run.to_dict()
+
+    @app.get("/api/flows/{flow_id}/runs")
+    async def list_flow_runs(flow_id: str, limit: int = Query(20, le=100)):
+        from flows.store import FlowStore
+        runs = FlowStore().list_runs(flow_id=flow_id, limit=limit)
+        return {"runs": [r.to_dict() for r in runs]}
 
     # ── Executions ──────────────────────────────────────────────────────
     @app.get("/api/executions")
