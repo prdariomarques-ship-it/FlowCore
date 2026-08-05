@@ -1,8 +1,12 @@
-"""Tests for Sprint 11 API endpoints — status, memories, notify, daemon control."""
+"""Tests for Sprint 11 API endpoints — status, memories, notify, daemon control.
+
+Also covers Sprint 15's Flow/Execution endpoints (TestFlowsEndpoints).
+"""
 
 from __future__ import annotations
 
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
@@ -143,3 +147,89 @@ class TestWebUI:
         if r.status_code == 200:
             assert "FlowCore" in r.text
             assert "text/html" in r.headers.get("content-type", "")
+
+
+@contextmanager
+def _isolated_service(tmp_path):
+    """Patch service.py's module-level repos onto tmp_path-backed instances.
+
+    api/router.py's flow endpoints all go through service.py's singletons
+    (service._flow_repo, service._doc_repo) rather than instantiating their
+    own repo per call, so patching those two is enough to isolate a test
+    run from the real data/flowcore.db.
+    """
+    import service
+    from storage import DocumentRepository, FlowRepository
+
+    with (
+        patch.object(service, "_flow_repo", FlowRepository(db_path=str(tmp_path / "flows.db"))),
+        patch.object(service, "_doc_repo", DocumentRepository(db_path=str(tmp_path / "docs.db"))),
+    ):
+        yield
+
+
+class TestFlowsEndpoints:
+    def test_create_list_run_delete_flow(self, tmp_path):
+        with _isolated_service(tmp_path):
+            c = _client()
+
+            r = c.post(
+                "/api/flows",
+                json={"name": "Test Flow", "steps": [{"action": "note", "params": {"text": "hi"}}]},
+            )
+            assert r.status_code == 201
+            flow_id = r.json()["id"]
+
+            r = c.get("/api/flows")
+            assert r.status_code == 200
+            assert any(f["id"] == flow_id for f in r.json()["flows"])
+
+            r = c.get(f"/api/flows/{flow_id}")
+            assert r.status_code == 200
+            assert r.json()["name"] == "Test Flow"
+
+            r = c.post(f"/api/flows/{flow_id}/run")
+            assert r.status_code == 200
+            execution = r.json()
+            # The bug this whole feature exists to fix: the old (Sprint
+            # 14-removed) stub never set these.
+            assert execution["status"] == "completed"
+            assert execution["started_at"] is not None
+            assert execution["finished_at"] is not None
+            assert execution["step_results"][0]["status"] == "completed"
+
+            r = c.get("/api/executions", params={"flow_id": flow_id})
+            assert r.status_code == 200
+            assert len(r.json()["executions"]) == 1
+
+            r = c.get(f"/api/executions/{execution['id']}")
+            assert r.status_code == 200
+
+            r = c.delete(f"/api/flows/{flow_id}")
+            assert r.status_code == 200
+            assert r.json()["deleted"] is True
+
+    def test_create_flow_unknown_action_returns_422(self, tmp_path):
+        with _isolated_service(tmp_path):
+            r = _client().post("/api/flows", json={"name": "Bad", "steps": [{"action": "nonexistent"}]})
+            assert r.status_code == 422
+
+    def test_get_missing_flow_returns_404(self, tmp_path):
+        with _isolated_service(tmp_path):
+            r = _client().get("/api/flows/999999")
+            assert r.status_code == 404
+
+    def test_run_missing_flow_returns_404(self, tmp_path):
+        with _isolated_service(tmp_path):
+            r = _client().post("/api/flows/999999/run")
+            assert r.status_code == 404
+
+    def test_delete_missing_flow_returns_404(self, tmp_path):
+        with _isolated_service(tmp_path):
+            r = _client().delete("/api/flows/999999")
+            assert r.status_code == 404
+
+    def test_get_missing_execution_returns_404(self, tmp_path):
+        with _isolated_service(tmp_path):
+            r = _client().get("/api/executions/999999")
+            assert r.status_code == 404

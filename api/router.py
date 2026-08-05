@@ -26,6 +26,15 @@ Endpoints (Sprint 12 — Passport + expanded UI):
 Endpoints (Chat / Web UI):
   POST /api/ask             — RAG ask via Ollama (see runtime/ollama.py)
   GET  /api/settings        — FlowCore version, platform, active Ollama endpoint/model
+
+Endpoints (Sprint 15 — Flows):
+  GET    /api/flows            — list flows
+  POST   /api/flows            — create a flow ({name, steps})
+  GET    /api/flows/{id}       — get a flow by id
+  DELETE /api/flows/{id}       — delete a flow
+  POST   /api/flows/{id}/run   — run a flow, returns the resulting execution
+  GET    /api/executions           — list executions (optional ?flow_id=)
+  GET    /api/executions/{id}      — get an execution by id
 """
 
 from __future__ import annotations
@@ -73,6 +82,11 @@ class NoteCreate(BaseModel):
 class AskRequest(BaseModel):
     question: str
     timeout: float | None = None
+
+
+class FlowCreate(BaseModel):
+    name: str
+    steps: list[dict]
 
 
 # ---------------------------------------------------------------------------
@@ -383,5 +397,50 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             "platform": _platform,
             "ollama": ollama_info,
         }
+
+    # ── Flows (Sprint 15) ────────────────────────────────────────────────
+    @app.get("/api/flows")
+    async def list_flows():
+        return {"flows": await service.list_flows()}
+
+    @app.post("/api/flows", status_code=201)
+    async def create_flow(data: FlowCreate):
+        try:
+            return await service.create_flow(data.name, data.steps)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+
+    @app.get("/api/flows/{flow_id}")
+    async def get_flow(flow_id: int):
+        try:
+            return await service.get_flow(flow_id)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+    @app.delete("/api/flows/{flow_id}")
+    async def delete_flow(flow_id: int):
+        deleted = await service.delete_flow(flow_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail=f"Flow not found: {flow_id}")
+        return {"deleted": True}
+
+    @app.post("/api/flows/{flow_id}/run")
+    async def run_flow(flow_id: int):
+        try:
+            return await service.run_flow(flow_id)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+    # ── Executions (Sprint 15) ───────────────────────────────────────────
+    @app.get("/api/executions")
+    async def list_executions(flow_id: int | None = Query(None)):
+        return {"executions": await service.list_executions(flow_id)}
+
+    @app.get("/api/executions/{execution_id}")
+    async def get_execution(execution_id: int):
+        try:
+            return await service.get_execution(execution_id)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
 
     return app

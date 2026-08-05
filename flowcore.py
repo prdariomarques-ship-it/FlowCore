@@ -31,6 +31,7 @@ Usage:
     python3 flowcore.py note "<text>"         Add a note
     python3 flowcore.py todo "<task>"         Add a todo item
     python3 flowcore.py agenda "<event>"      Add to agenda
+    python3 flowcore.py flow <list|create|show|run|delete>   Manage flows
 
 Env vars:
     FLOWCORE_MODEL=qwen3:8b              (default: llama2)
@@ -560,33 +561,18 @@ def cmd_memories() -> None:
 
 async def cmd_import(filepath: str) -> None:
     """Import Markdown file to SQLite with title extraction."""
+    import service
+
     try:
-        path = Path(filepath)
-        if not path.exists():
-            print(f"{RED}Error: File not found: {filepath}{NC}")
-            return
-
-        with open(path, "r", encoding="utf-8") as f:
-            content = f.read()
-
-        title = path.stem
-        for line in content.split("\n"):
-            if line.startswith("# "):
-                title = line[2:].strip()
-                break
-
-        line_count = len(content.split("\n"))
-        char_count = len(content)
-
-        doc_id = await _doc_repo.insert(title, content, str(path))
-
+        result = await service.import_markdown(filepath)
         print(f"\n{GREEN}✓ Document imported{NC}")
-        print(f"  {CYAN}Título:{NC} {title}")
-        print(f"  {CYAN}Linhas:{NC} {line_count}")
-        print(f"  {CYAN}Caracteres:{NC} {char_count}")
-        print(f"  {CYAN}ID:{NC} {doc_id}\n")
-        logger.info(f"Imported document: {filepath} (id={doc_id})")
-
+        print(f"  {CYAN}Título:{NC} {result['title']}")
+        print(f"  {CYAN}Linhas:{NC} {result['lines']}")
+        print(f"  {CYAN}Caracteres:{NC} {result['chars']}")
+        print(f"  {CYAN}ID:{NC} {result['id']}\n")
+        logger.info(f"Imported document: {filepath} (id={result['id']})")
+    except FileNotFoundError as e:
+        print(f"{RED}Error: {e}{NC}")
     except Exception as e:
         print(f"{RED}Error importing document: {e}{NC}")
         logger.error(f"Import error: {e}")
@@ -1027,9 +1013,12 @@ async def cmd_demo() -> None:
 
 async def cmd_search(query: str) -> None:
     """Search in documents and memories."""
+    import service
+
     try:
-        docs = await _doc_repo.search(query)
-        memories = _mem_repo.search(query)
+        results = await service.search(query)
+        docs = results["documents"]
+        memories = results["memories"]
 
         print(f"\n{BOLD}{CYAN}Search: '{query}'{NC}\n")
 
@@ -1422,6 +1411,81 @@ def cmd_jobs(action: str, name: str = "", script: str = "", schedule: str = "") 
         print("  Usage: python3 flowcore.py jobs <list|add|remove|run>")
 
 
+async def cmd_flow(action: str, name: str = "", steps_json: str = "", flow_id: int = 0) -> None:
+    """Manage flows (named, ordered lists of steps run via the Executor)."""
+    import service
+
+    if action == "list":
+        flows = await service.list_flows()
+        if not flows:
+            print(f"{YELLOW}No flows defined.{NC}")
+            print("  Add one: python3 flowcore.py flow create <name> '<steps_json>'")
+            return
+        print(f"\n{BOLD}{CYAN}Flows ({len(flows)}){NC}\n")
+        for f in flows:
+            print(f"  [{f['id']}] {f['name']} — {len(f['steps'])} step(s)")
+        print()
+
+    elif action == "create":
+        if not name or not steps_json:
+            print(f"{RED}Usage: python3 flowcore.py flow create <name> '<steps_json>'{NC}")
+            print('  Example: flow create "Daily Note" \'[{"action":"note","params":{"text":"hi"}}]\'')
+            return
+        try:
+            steps = json.loads(steps_json)
+        except json.JSONDecodeError as e:
+            print(f"{RED}Invalid steps JSON: {e}{NC}")
+            return
+        try:
+            flow = await service.create_flow(name, steps)
+            print(f"{GREEN}✓ Flow '{name}' created (id={flow['id']}){NC}")
+        except ValueError as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    elif action == "show":
+        if not flow_id:
+            print(f"{RED}Usage: python3 flowcore.py flow show <id>{NC}")
+            return
+        try:
+            flow = await service.get_flow(flow_id)
+            print(f"\n{BOLD}{CYAN}Flow [{flow['id']}] {flow['name']}{NC}")
+            print(f"  Created: {flow['created_at']}")
+            for i, step in enumerate(flow["steps"], 1):
+                print(f"  {i}. {step['action']} {step.get('params', {})}")
+            print()
+        except ValueError as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    elif action == "run":
+        if not flow_id:
+            print(f"{RED}Usage: python3 flowcore.py flow run <id>{NC}")
+            return
+        try:
+            print(f"Running flow {flow_id}...")
+            execution = await service.run_flow(flow_id)
+            mark = f"{GREEN}✓{NC}" if execution["status"] == "completed" else f"{RED}✗{NC}"
+            print(f"{mark} Execution {execution['id']} — status={execution['status']}")
+            for r in execution["step_results"]:
+                step_mark = f"{GREEN}✓{NC}" if r["status"] == "completed" else f"{RED}✗{NC}"
+                detail = r.get("output", r.get("error"))
+                print(f"  {step_mark} {r['action']}: {detail}")
+        except ValueError as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    elif action == "delete":
+        if not flow_id:
+            print(f"{RED}Usage: python3 flowcore.py flow delete <id>{NC}")
+            return
+        if await service.delete_flow(flow_id):
+            print(f"{GREEN}✓ Flow {flow_id} deleted{NC}")
+        else:
+            print(f"{YELLOW}Flow {flow_id} not found{NC}")
+
+    else:
+        print(f"{RED}Unknown flow action: {action!r}{NC}")
+        print("  Usage: python3 flowcore.py flow <list|create|show|run|delete>")
+
+
 def main() -> None:
     """Main CLI handler."""
     parser = argparse.ArgumentParser(description="FlowCore CLI")
@@ -1512,6 +1576,19 @@ def main() -> None:
     jobs_remove.add_argument("name", help="Job name to remove")
     jobs_run = jobs_sub.add_parser("run", help="Run a job immediately")
     jobs_run.add_argument("name", help="Job name to run")
+
+    flow_parser = subparsers.add_parser("flow", help="Manage flows (named step pipelines)")
+    flow_sub = flow_parser.add_subparsers(dest="flow_action")
+    flow_sub.add_parser("list", help="List all flows")
+    flow_create = flow_sub.add_parser("create", help="Create a new flow")
+    flow_create.add_argument("name", help="Flow name")
+    flow_create.add_argument("steps_json", help='JSON list of steps, e.g. \'[{"action":"note","params":{...}}]\'')
+    flow_show = flow_sub.add_parser("show", help="Show a flow's definition")
+    flow_show.add_argument("flow_id", type=int, help="Flow ID")
+    flow_run = flow_sub.add_parser("run", help="Run a flow now")
+    flow_run.add_argument("flow_id", type=int, help="Flow ID")
+    flow_delete = flow_sub.add_parser("delete", help="Delete a flow")
+    flow_delete.add_argument("flow_id", type=int, help="Flow ID")
 
     args = parser.parse_args()
     cfg = get_config()
@@ -1608,6 +1685,15 @@ def main() -> None:
         script = getattr(args, "script", "")
         schedule = getattr(args, "schedule", "")
         cmd_jobs(action, name=name, script=script, schedule=schedule)
+    elif args.command == "flow":
+        action = getattr(args, "flow_action", None)
+        if not action:
+            print("Usage: python3 flowcore.py flow <list|create|show|run|delete>")
+            sys.exit(1)
+        name = getattr(args, "name", "")
+        steps_json = getattr(args, "steps_json", "")
+        flow_id = getattr(args, "flow_id", 0)
+        asyncio.run(cmd_flow(action, name=name, steps_json=steps_json, flow_id=flow_id))
     else:
         parser.print_help()
         sys.exit(1)

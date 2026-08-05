@@ -1,8 +1,9 @@
 """FlowCore — MCP stdio server.
 
 Exposes memory/document commands (remember, recall, note, todo, agenda,
-search, ...) as MCP tools so an MCP client (e.g. Claude Code) can call
-FlowCore directly instead of shelling out to the CLI.
+search, ...) and flow commands (create, list, get, run, delete flows and
+their executions) as MCP tools so an MCP client (e.g. Claude Code) can
+call FlowCore directly instead of shelling out to the CLI.
 
 Started via: python3 flowcore.py mcp
 """
@@ -62,26 +63,13 @@ async def flowcore_show(doc_id: int) -> dict:
 @mcp.tool()
 async def flowcore_import_markdown(filepath: str) -> dict:
     """Import a Markdown file into FlowCore's document store."""
-    path = Path(filepath).expanduser()
-    if not path.exists():
-        raise FileNotFoundError(f"File not found: {filepath}")
-    content = path.read_text(encoding="utf-8")
-    title = path.stem
-    for line in content.split("\n"):
-        if line.startswith("# "):
-            title = line[2:].strip()
-            break
-    doc_id = await _doc_repo.insert(title, content, str(path))
-    return {"id": doc_id, "title": title, "chars": len(content)}
+    return await service.import_markdown(filepath)
 
 
 @mcp.tool()
 async def flowcore_search(query: str) -> dict:
     """Search both documents and memories for a query string."""
-    return {
-        "documents": await _doc_repo.search(query),
-        "memories": _mem_repo.search(query),
-    }
+    return await service.search(query)
 
 
 @mcp.tool()
@@ -137,6 +125,67 @@ async def flowcore_ask(question: str, timeout: float | None = None) -> str:
         answer, _model = await service.ask(question, timeout=timeout)
         return answer
     except OllamaError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_flow_create(name: str, steps: list[dict]) -> dict:
+    """Create a flow: a named, ordered list of steps.
+
+    Each step is {"action": <action>, "params": {...}}. Known actions:
+    note, todo, agenda (params: text), ask (params: question, timeout?),
+    search (params: query), import_markdown (params: filepath).
+    """
+    try:
+        return await service.create_flow(name, steps)
+    except ValueError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_flow_list() -> list[dict]:
+    """List all flows."""
+    return await service.list_flows()
+
+
+@mcp.tool()
+async def flowcore_flow_get(flow_id: int) -> dict:
+    """Get a flow's definition by id."""
+    try:
+        return await service.get_flow(flow_id)
+    except ValueError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_flow_run(flow_id: int) -> dict:
+    """Run a flow now, executing each step in order. Returns the resulting execution
+    (status, per-step results, real started_at/finished_at timestamps)."""
+    try:
+        return await service.run_flow(flow_id)
+    except ValueError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_flow_delete(flow_id: int) -> dict:
+    """Delete a flow by id."""
+    deleted = await service.delete_flow(flow_id)
+    return {"deleted": deleted}
+
+
+@mcp.tool()
+async def flowcore_execution_list(flow_id: int | None = None) -> list[dict]:
+    """List executions, optionally filtered by flow_id."""
+    return await service.list_executions(flow_id)
+
+
+@mcp.tool()
+async def flowcore_execution_get(execution_id: int) -> dict:
+    """Get an execution's status and per-step results by id."""
+    try:
+        return await service.get_execution(execution_id)
+    except ValueError as e:
         raise RuntimeError(str(e)) from e
 
 

@@ -14,16 +14,18 @@ MCP raises RuntimeError).
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 
 from runtime.ollama import (
     discover_default_model,
     discover_ollama_endpoint,
     generate as ollama_generate,
 )
-from storage import DocumentRepository, MemoryRepository
+from storage import DocumentRepository, FlowRepository, MemoryRepository
 
 _doc_repo = DocumentRepository()
 _mem_repo = MemoryRepository()
+_flow_repo = FlowRepository()
 
 # Canonical note/todo/agenda title labels. Previously CLI/MCP used
 # "Note"/"TODO"/"Agenda" while api/router.py separately used
@@ -83,3 +85,95 @@ async def ask(question: str, timeout: float | None = None) -> tuple[str, str]:
     # for the CLI's single-coroutine asyncio.run() too.
     answer = await asyncio.to_thread(ollama_generate, base_url, model, prompt, **kwargs)
     return answer, model
+
+
+async def search(query: str) -> dict:
+    """Search both documents and memories for a query string."""
+    return {
+        "documents": await _doc_repo.search(query),
+        "memories": _mem_repo.search(query),
+    }
+
+
+async def import_markdown(filepath: str) -> dict:
+    """Import a Markdown file into the document store, extracting an H1 title if present.
+
+    Raises FileNotFoundError if the file doesn't exist.
+    """
+    path = Path(filepath).expanduser()
+    if not path.exists():
+        raise FileNotFoundError(f"File not found: {filepath}")
+    content = path.read_text(encoding="utf-8")
+    title = path.stem
+    for line in content.split("\n"):
+        if line.startswith("# "):
+            title = line[2:].strip()
+            break
+    doc_id = await _doc_repo.insert(title, content, str(path))
+    return {"id": doc_id, "title": title, "lines": len(content.split("\n")), "chars": len(content)}
+
+
+# ── Flows ────────────────────────────────────────────────────────────────────
+# A Flow is a named, persisted, ordered list of steps. Running it (an
+# Execution) runs each step through runtime.executor.run_steps, which only
+# ever calls the service functions above — never arbitrary code.
+
+
+async def create_flow(name: str, steps: list[dict]) -> dict:
+    """Create a Flow. Raises ValueError if any step's action isn't a known one."""
+    from runtime.executor import ACTIONS
+
+    for step in steps:
+        action = step.get("action")
+        if action not in ACTIONS:
+            raise ValueError(f"Unknown flow action: {action!r} (known: {sorted(ACTIONS)})")
+    flow_id = await _flow_repo.create_flow(name, steps)
+    return {"id": flow_id, "name": name, "steps": steps}
+
+
+async def list_flows() -> list[dict]:
+    return await _flow_repo.list_flows()
+
+
+async def get_flow(flow_id: int) -> dict:
+    flow = await _flow_repo.get_flow(flow_id)
+    if flow is None:
+        raise ValueError(f"Flow not found: {flow_id}")
+    return flow
+
+
+async def delete_flow(flow_id: int) -> bool:
+    return await _flow_repo.delete_flow(flow_id)
+
+
+async def run_flow(flow_id: int) -> dict:
+    """Run every step of a Flow in order, persisting real status/timestamps/
+    per-step results as it goes. Raises ValueError if the Flow doesn't exist.
+    """
+    from runtime.executor import run_steps
+
+    flow = await _flow_repo.get_flow(flow_id)
+    if flow is None:
+        raise ValueError(f"Flow not found: {flow_id}")
+
+    execution_id = await _flow_repo.create_execution(flow_id, flow["name"])
+    await _flow_repo.start_execution(execution_id)
+
+    step_results = await run_steps(flow["steps"])
+    all_completed = len(step_results) == len(flow["steps"]) and all(r["status"] == "completed" for r in step_results)
+    status = "completed" if all_completed else "failed"
+    error = next((r["error"] for r in step_results if r["status"] == "failed"), None)
+
+    await _flow_repo.finish_execution(execution_id, status, step_results, error)
+    return await _flow_repo.get_execution(execution_id)
+
+
+async def list_executions(flow_id: int | None = None) -> list[dict]:
+    return await _flow_repo.list_executions(flow_id)
+
+
+async def get_execution(execution_id: int) -> dict:
+    execution = await _flow_repo.get_execution(execution_id)
+    if execution is None:
+        raise ValueError(f"Execution not found: {execution_id}")
+    return execution
