@@ -233,3 +233,19 @@ class TestFlowsEndpoints:
         with _isolated_service(tmp_path):
             r = _client().get("/api/executions/999999")
             assert r.status_code == 404
+
+    def test_list_executions_limit_param(self, tmp_path):
+        with _isolated_service(tmp_path):
+            c = _client()
+            flow_id = c.post("/api/flows", json={"name": "Limit Test", "steps": []}).json()["id"]
+            for _ in range(4):
+                c.post(f"/api/flows/{flow_id}/run")
+
+            r = c.get("/api/executions", params={"limit": 2})
+            assert r.status_code == 200
+            assert len(r.json()["executions"]) == 2
+
+    def test_list_executions_limit_over_500_rejected(self, tmp_path):
+        with _isolated_service(tmp_path):
+            r = _client().get("/api/executions", params={"limit": 501})
+            assert r.status_code == 422

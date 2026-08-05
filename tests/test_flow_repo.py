@@ -142,3 +142,30 @@ class TestExecutions:
             return await _repo(tmp_path).get_execution(999)
 
         assert asyncio.run(scenario()) is None
+
+    def test_list_executions_respects_limit(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            flow_id = await repo.create_flow("Flow", [])
+            for _ in range(5):
+                await repo.create_execution(flow_id, "Flow")
+            unlimited = await repo.list_executions()
+            limited = await repo.list_executions(limit=2)
+            return unlimited, limited
+
+        unlimited, limited = asyncio.run(scenario())
+        assert len(unlimited) == 5
+        assert len(limited) == 2
+        # Still most-recent-first under a limit.
+        assert limited[0]["id"] > limited[1]["id"]
+
+    def test_list_executions_respects_limit_with_flow_id_filter(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            flow_id = await repo.create_flow("Flow", [])
+            for _ in range(4):
+                await repo.create_execution(flow_id, "Flow")
+            return await repo.list_executions(flow_id=flow_id, limit=1)
+
+        limited = asyncio.run(scenario())
+        assert len(limited) == 1

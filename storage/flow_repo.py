@@ -133,21 +133,25 @@ class FlowRepository:
             )
             await db.commit()
 
-    async def list_executions(self, flow_id: int | None = None) -> list[dict[str, Any]]:
+    async def list_executions(self, flow_id: int | None = None, limit: int | None = None) -> list[dict[str, Any]]:
         await self.ensure_tables()
         async with aiosqlite.connect(self._db_path) as db:
+            limit_sql = " LIMIT ?" if limit is not None else ""
             if flow_id is not None:
+                params: tuple = (flow_id, limit) if limit is not None else (flow_id,)
                 cursor = await db.execute(
-                    """SELECT id, flow_id, flow_name, status, step_results, error, started_at, finished_at,
+                    f"""SELECT id, flow_id, flow_name, status, step_results, error, started_at, finished_at,
                               created_at
-                       FROM executions WHERE flow_id = ? ORDER BY created_at DESC, id DESC""",
-                    (flow_id,),
+                       FROM executions WHERE flow_id = ? ORDER BY created_at DESC, id DESC{limit_sql}""",
+                    params,
                 )
             else:
+                params = (limit,) if limit is not None else ()
                 cursor = await db.execute(
-                    """SELECT id, flow_id, flow_name, status, step_results, error, started_at, finished_at,
+                    f"""SELECT id, flow_id, flow_name, status, step_results, error, started_at, finished_at,
                               created_at
-                       FROM executions ORDER BY created_at DESC, id DESC"""
+                       FROM executions ORDER BY created_at DESC, id DESC{limit_sql}""",
+                    params,
                 )
             rows = await cursor.fetchall()
             return [self._row_to_execution(r) for r in rows]

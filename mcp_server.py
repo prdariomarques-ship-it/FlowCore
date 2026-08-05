@@ -175,9 +175,9 @@ async def flowcore_flow_delete(flow_id: int) -> dict:
 
 
 @mcp.tool()
-async def flowcore_execution_list(flow_id: int | None = None) -> list[dict]:
-    """List executions, optionally filtered by flow_id."""
-    return await service.list_executions(flow_id)
+async def flowcore_execution_list(flow_id: int | None = None, limit: int | None = None) -> list[dict]:
+    """List executions, optionally filtered by flow_id and/or capped by limit."""
+    return await service.list_executions(flow_id, limit)
 
 
 @mcp.tool()

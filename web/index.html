@@ -152,6 +152,23 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .ks{flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:7px;border-radius:8px;font-size:12px;text-align:center;cursor:pointer;transition:all .2s}
 .ks.active{color:var(--accent);border-color:var(--accent);background:rgba(0,212,255,.08)}
 
+/* Dashboard */
+.chart-svg{width:100%;height:110px;display:block}
+.chart-bar-ok{fill:var(--green)}
+.chart-bar-fail{fill:var(--red)}
+.chart-label{fill:var(--text2);font-size:7px}
+.flow-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);gap:8px}
+.flow-row:last-child{border-bottom:none}
+.flow-name{font-size:13px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.flow-meta{font-size:11px;color:var(--text2)}
+.run-btn{background:rgba(0,212,255,.15);border:1px solid rgba(0,212,255,.35);color:var(--accent);padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0}
+.run-btn:hover{background:rgba(0,212,255,.28)}
+.run-btn:disabled{opacity:.5;cursor:default}
+.exec-row{background:var(--bg3);border-radius:8px;padding:9px 11px;margin-bottom:6px;font-size:13px}
+.exec-row .exec-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;gap:8px}
+.exec-name{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.exec-sub{color:var(--text2);font-size:11px}
+
 /* Chat */
 .chat-log{display:flex;flex-direction:column;gap:10px;max-height:60vh;overflow-y:auto;padding-bottom:2px}
 .msg{max-width:85%;padding:9px 12px;border-radius:12px;font-size:13px;line-height:1.45;word-break:break-word;white-space:pre-wrap}
@@ -217,6 +234,35 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
           <span class="rl">via termux-notification</span>
           <span class="tag ty" id="n-status">nativo Android</span>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ DASHBOARD ══ -->
+  <div class="page" id="page-dashboard">
+    <div class="gap">
+      <div class="card">
+        <div class="sg">
+          <div class="st"><div class="sv" id="dash-flows">─</div><div class="sl">Flows</div></div>
+          <div class="st"><div class="sv" id="dash-execs">─</div><div class="sl">Execuções</div></div>
+          <div class="st"><div class="sv" id="dash-success">─</div><div class="sl">Sucesso</div></div>
+          <div class="st"><div class="sv" id="dash-fail">─</div><div class="sl">Falhas</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="ch"><span class="ct">Execuções (últimos 14 dias)</span><span class="ci">📈</span></div>
+        <svg class="chart-svg" id="exec-chart" viewBox="0 0 280 100" preserveAspectRatio="none"></svg>
+      </div>
+
+      <div class="card">
+        <div class="ch"><span class="ct">Flows</span><span class="ci">🧩</span></div>
+        <div id="flows-list"><div class="sk"></div><div class="sk"></div></div>
+      </div>
+
+      <div class="card">
+        <div class="ch"><span class="ct">Execuções recentes</span><span class="ci">🕓</span></div>
+        <div id="exec-list"><div class="sk"></div><div class="sk"></div></div>
       </div>
     </div>
   </div>
@@ -346,6 +392,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 <!-- Bottom nav -->
 <div class="nav">
   <button class="ni active" onclick="pg('home',this)"><span class="ni-icon">🏠</span><span>Início</span></button>
+  <button class="ni" onclick="pg('dashboard',this)"><span class="ni-icon">📈</span><span>Dashboard</span></button>
   <button class="ni" onclick="pg('sys',this)"><span class="ni-icon">📊</span><span>Sistema</span></button>
   <button class="ni" onclick="pg('caps',this)"><span class="ni-icon">⚡</span><span>Caps</span></button>
   <button class="ni" onclick="pg('mem',this)"><span class="ni-icon">🧠</span><span>Memórias</span></button>
@@ -366,6 +413,7 @@ function pg(name,btn){
   document.querySelectorAll('.ni').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   btn.classList.add('active');
+  if(name==='dashboard') loadDashboard();
   if(name==='sys') loadSys();
   if(name==='notes') loadNotes();
   if(name==='settings') loadSettings();
@@ -517,6 +565,110 @@ function renderPassport(pp){
     <div class="passport-field"><div class="pf-label">Capacidades</div><div class="pf-value">${(pp.capabilities||[]).length} disponíveis</div></div>
     <div class="passport-field"><div class="pf-label">Expira</div><div class="pf-value">${(pp.expires_at||'').replace('T',' ').slice(0,19)} UTC</div></div>
     <div class="passport-field"><div class="pf-label">Hash SHA-256</div><div class="hash-val">${pp.hash||''}</div></div>`;
+}
+
+/* ── Dashboard ── */
+async function loadDashboard(){
+  try{
+    const [flowsR,execR]=await Promise.all([api('/api/flows'),api('/api/executions?limit=200')]);
+    const flows=flowsR.flows||[];
+    const execs=execR.executions||[];
+    renderDashStats(flows,execs);
+    renderExecChart(execs);
+    renderFlowsList(flows);
+    renderExecList(execs);
+  }catch(e){
+    document.getElementById('flows-list').innerHTML='<div class="empty">Erro a carregar dashboard</div>';
+  }
+}
+
+function renderDashStats(flows,execs){
+  document.getElementById('dash-flows').textContent=flows.length;
+  document.getElementById('dash-execs').textContent=execs.length;
+  const done=execs.filter(e=>e.status==='completed').length;
+  const failed=execs.filter(e=>e.status==='failed').length;
+  document.getElementById('dash-success').textContent=execs.length?Math.round(done/execs.length*100)+'%':'─';
+  document.getElementById('dash-fail').textContent=failed;
+}
+
+function renderExecChart(execs){
+  const days=[];
+  const now=new Date();
+  for(let i=13;i>=0;i--){
+    const d=new Date(now); d.setDate(d.getDate()-i);
+    days.push({key:d.toISOString().slice(0,10),ok:0,fail:0});
+  }
+  const byKey=Object.fromEntries(days.map(d=>[d.key,d]));
+  for(const e of execs){
+    const ts=e.started_at||e.created_at||'';
+    const bucket=byKey[ts.slice(0,10)];
+    if(!bucket)continue;
+    if(e.status==='completed')bucket.ok++;
+    else if(e.status==='failed')bucket.fail++;
+  }
+  const max=Math.max(1,...days.map(d=>d.ok+d.fail));
+  const barW=18,gap=2,chartH=80,baseY=90;
+  let svg='';
+  days.forEach((d,i)=>{
+    const x=i*(barW+gap);
+    const total=d.ok+d.fail;
+    const okH=total?d.ok/max*chartH:0;
+    const failH=total?d.fail/max*chartH:0;
+    if(d.ok>0)svg+=`<rect class="chart-bar-ok" x="${x}" y="${baseY-okH}" width="${barW}" height="${Math.max(okH,1)}"/>`;
+    if(d.fail>0)svg+=`<rect class="chart-bar-fail" x="${x}" y="${baseY-okH-failH}" width="${barW}" height="${Math.max(failH,1)}"/>`;
+    if(total===0)svg+=`<rect x="${x}" y="${baseY-1}" width="${barW}" height="1" fill="var(--border)"/>`;
+    if(i%2===0)svg+=`<text class="chart-label" x="${x+barW/2}" y="99" text-anchor="middle">${d.key.slice(8,10)}</text>`;
+  });
+  document.getElementById('exec-chart').innerHTML=svg;
+}
+
+function renderFlowsList(flows){
+  const l=document.getElementById('flows-list');
+  if(!flows.length){l.innerHTML='<div class="empty">Sem flows ainda.<br>Cria uma via CLI: flowcore.py flow create</div>';return;}
+  l.innerHTML='';
+  for(const f of flows){
+    const el=document.createElement('div');
+    el.className='flow-row';
+    el.innerHTML=`<div><div class="flow-name">${f.name}</div><div class="flow-meta">${(f.steps||[]).length} passo(s)</div></div>
+      <button class="run-btn" onclick="runFlow(${f.id},this)">▶ Executar</button>`;
+    l.appendChild(el);
+  }
+}
+
+async function runFlow(id,btn){
+  if(btn){btn.disabled=true;btn.textContent='...';}
+  try{
+    const ex=await api('/api/flows/'+id+'/run',{method:'POST'});
+    toast(ex.status==='completed'?'✓ Flow executado':'✗ Flow falhou: '+(ex.error||''));
+    loadDashboard();
+  }catch(e){
+    toast('Erro: '+e.message);
+    if(btn){btn.disabled=false;btn.textContent='▶ Executar';}
+  }
+}
+
+function renderExecList(execs){
+  const l=document.getElementById('exec-list');
+  if(!execs.length){l.innerHTML='<div class="empty">Sem execuções ainda.</div>';return;}
+  l.innerHTML='';
+  for(const e of execs.slice(0,15)){
+    const el=document.createElement('div');
+    el.className='exec-row';
+    const tag=e.status==='completed'?'tg':e.status==='failed'?'tr':'ty';
+    const dur=execDuration(e.started_at,e.finished_at);
+    const when=(e.started_at||e.created_at||'').replace('T',' ').slice(0,19);
+    el.innerHTML=`<div class="exec-top"><span class="exec-name">${e.flow_name}</span><span class="tag ${tag}">${e.status}</span></div>
+      <div class="exec-sub">${when} UTC${dur?' · '+dur:''}</div>`;
+    l.appendChild(el);
+  }
+}
+
+function execDuration(start,finish){
+  if(!start||!finish)return '';
+  const s=new Date(start.replace(' ','T')+'Z');
+  const f=new Date(finish.replace(' ','T')+'Z');
+  const secs=Math.max(0,(f-s)/1000);
+  return fup(secs);
 }
 
 /* ── Memories ── */

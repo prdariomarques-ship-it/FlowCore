@@ -33,7 +33,7 @@ Endpoints (Sprint 15 — Flows):
   GET    /api/flows/{id}       — get a flow by id
   DELETE /api/flows/{id}       — delete a flow
   POST   /api/flows/{id}/run   — run a flow, returns the resulting execution
-  GET    /api/executions           — list executions (optional ?flow_id=)
+  GET    /api/executions           — list executions (optional ?flow_id=&limit=)
   GET    /api/executions/{id}      — get an execution by id
 """
 
@@ -433,8 +433,8 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
 
     # ── Executions (Sprint 15) ───────────────────────────────────────────
     @app.get("/api/executions")
-    async def list_executions(flow_id: int | None = Query(None)):
-        return {"executions": await service.list_executions(flow_id)}
+    async def list_executions(flow_id: int | None = Query(None), limit: int | None = Query(None, le=500)):
+        return {"executions": await service.list_executions(flow_id, limit)}
 
     @app.get("/api/executions/{execution_id}")
     async def get_execution(execution_id: int):

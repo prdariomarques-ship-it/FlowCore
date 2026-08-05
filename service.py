@@ -168,8 +168,8 @@ async def run_flow(flow_id: int) -> dict:
     return await _flow_repo.get_execution(execution_id)
 
 
-async def list_executions(flow_id: int | None = None) -> list[dict]:
-    return await _flow_repo.list_executions(flow_id)
+async def list_executions(flow_id: int | None = None, limit: int | None = None) -> list[dict]:
+    return await _flow_repo.list_executions(flow_id, limit)
 
 
 async def get_execution(execution_id: int) -> dict:
