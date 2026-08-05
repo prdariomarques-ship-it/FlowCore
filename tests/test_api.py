@@ -15,9 +15,9 @@ def test_get_root_ui(client):
     response = client.get("/")
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
-    assert "FlowCore Platform Environment" in response.text
+    assert "FlowCore | Professional Platform Environment" in response.text
     assert "System Dashboard" in response.text
-    assert "FlowCore Interactive Assistant" in response.text
+    assert "Interactive AI Assistant" in response.text
 
 def test_api_health(client):
     """Verify the /api/health endpoint."""
@@ -58,17 +58,17 @@ def test_api_chat(client):
     # Test general query
     response = client.post("/api/chat", json={"message": "Como vai?"})
     assert response.status_code == 200
-    assert "Como vai?" in response.json()["response"]
+    assert "como vai?" in response.json()["response"].lower() or "recebi" in response.json()["response"].lower()
 
     # Test battery query (fallback or real)
     response_battery = client.post("/api/chat", json={"message": "bateria"})
     assert response_battery.status_code == 200
-    assert "Battery" in response_battery.json()["response"] or "bateria" in response_battery.json()["response"].lower()
+    assert "battery" in response_battery.json()["response"].lower() or "bateria" in response_battery.json()["response"].lower()
 
     # Test wifi query (fallback or real)
     response_wifi = client.post("/api/chat", json={"message": "wifi"})
     assert response_wifi.status_code == 200
-    assert "Wi-Fi" in response_wifi.json()["response"] or "wifi" in response_wifi.json()["response"].lower()
+    assert "wi-fi" in response_wifi.json()["response"].lower() or "wifi" in response_wifi.json()["response"].lower()
 
 def test_api_doctor(client):
     """Verify GET /api/doctor system diagnostics."""

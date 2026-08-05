@@ -105,257 +105,623 @@ _runtime_config = {
 # ---------------------------------------------------------------------------
 
 HTML_TEMPLATE = """<!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlowCore Platform Environment</title>
+    <title>FlowCore | Professional Platform Environment</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            950: '#030712'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .font-mono {
+            font-family: 'JetBrains+Mono', monospace;
+        }
         .active-tab {
-            background-color: rgba(59, 130, 246, 0.1);
-            border-left: 4px solid #3b82f6;
+            background-color: rgba(59, 130, 246, 0.08);
+            border-left: 3px solid #3b82f6;
             color: #3b82f6;
+            font-weight: 600;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #18181b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3f3f46;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #52525b;
         }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-100 font-sans min-h-screen flex flex-col md:flex-row">
+<body class="bg-zinc-950 text-zinc-100 min-h-screen flex flex-col md:flex-row antialiased overflow-x-hidden selection:bg-blue-500/30 selection:text-blue-200">
+
+    <!-- Toast Notification System -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3 pointer-events-none"></div>
 
     <!-- Mobile Header -->
-    <div class="md:hidden bg-gray-800 border-b border-gray-700 flex items-center justify-between p-4 w-full">
-        <div class="flex items-center space-x-2">
-            <i class="fa-solid fa-microchip text-blue-500 text-2xl"></i>
-            <span class="font-bold text-lg tracking-wider text-blue-400">FLOWCORE</span>
+    <div class="md:hidden bg-zinc-900 border-b border-zinc-800 flex items-center justify-between p-4 w-full sticky top-0 z-40">
+        <div class="flex items-center space-x-3">
+            <div class="p-2 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-lg shadow-md shadow-blue-500/20">
+                <i class="fa-solid fa-microchip text-white text-lg"></i>
+            </div>
+            <span class="font-extrabold text-lg tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">FLOWCORE</span>
         </div>
-        <button id="mobile-menu-btn" class="text-gray-300 hover:text-white focus:outline-none">
+        <button id="mobile-menu-btn" class="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all focus:outline-none">
             <i class="fa-solid fa-bars text-xl"></i>
         </button>
     </div>
 
     <!-- Sidebar Navigation -->
-    <aside id="sidebar" class="hidden md:flex flex-col w-full md:w-64 bg-gray-800 border-r border-gray-700 p-5 space-y-6 shrink-0 transition-all duration-300">
+    <aside id="sidebar" class="hidden md:flex flex-col w-full md:w-64 bg-zinc-900/90 border-r border-zinc-800 p-5 space-y-6 shrink-0 transition-all duration-300 sticky top-0 h-screen z-40 backdrop-blur-md">
         <div class="hidden md:flex items-center space-x-3 px-2">
-            <i class="fa-solid fa-microchip text-blue-500 text-3xl"></i>
-            <span class="font-bold text-xl tracking-wider text-blue-400">FLOWCORE</span>
+            <div class="p-2 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-xl shadow-lg shadow-blue-500/20">
+                <i class="fa-solid fa-microchip text-white text-xl"></i>
+            </div>
+            <span class="font-black text-xl tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">FLOWCORE</span>
         </div>
 
-        <nav class="flex flex-col space-y-2 flex-grow">
-            <button onclick="switchTab('dashboard')" id="tab-dashboard" class="flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-all text-left">
-                <i class="fa-solid fa-chart-line text-lg w-6"></i>
-                <span class="font-medium">Dashboard</span>
-            </button>
-            <button onclick="switchTab('chat')" id="tab-chat" class="flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-all text-left">
-                <i class="fa-solid fa-comments text-lg w-6"></i>
-                <span class="font-medium">Chat Assistant</span>
-            </button>
-            <button onclick="switchTab('config')" id="tab-config" class="flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-all text-left">
-                <i class="fa-solid fa-sliders text-lg w-6"></i>
-                <span class="font-medium">Configuration</span>
-            </button>
-            <button onclick="switchTab('doctor')" id="tab-doctor" class="flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-all text-left">
-                <i class="fa-solid fa-user-doctor text-lg w-6"></i>
-                <span class="font-medium">Diagnostics</span>
-            </button>
-        </nav>
+        <div class="space-y-1.5 flex-grow overflow-y-auto">
+            <p class="text-[10px] font-bold text-zinc-500 px-3 uppercase tracking-widest mb-2">Workspace</p>
 
-        <div class="border-t border-gray-700 pt-4 flex items-center justify-between">
-            <div class="flex items-center space-x-2">
-                <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                <span id="platform-status" class="text-sm font-semibold text-green-400">READY</span>
+            <button onclick="switchTab('dashboard')" id="tab-dashboard" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-all text-left">
+                <i class="fa-solid fa-chart-line text-base w-5 text-center"></i>
+                <span class="text-sm">Dashboard</span>
+            </button>
+
+            <button onclick="switchTab('system')" id="tab-system" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-all text-left">
+                <i class="fa-solid fa-server text-base w-5 text-center"></i>
+                <span class="text-sm">System</span>
+            </button>
+
+            <button onclick="switchTab('capabilities')" id="tab-capabilities" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-all text-left">
+                <i class="fa-solid fa-shield-halved text-base w-5 text-center"></i>
+                <span class="text-sm">Capabilities</span>
+            </button>
+
+            <p class="text-[10px] font-bold text-zinc-500 px-3 uppercase tracking-widest mt-6 mb-2">Memory & Data</p>
+
+            <button onclick="switchTab('memories')" id="tab-memories" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-all text-left">
+                <i class="fa-solid fa-brain text-base w-5 text-center"></i>
+                <span class="text-sm">Memories</span>
+            </button>
+
+            <button onclick="switchTab('notes')" id="tab-notes" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-all text-left">
+                <i class="fa-solid fa-note-sticky text-base w-5 text-center"></i>
+                <span class="text-sm">Notes</span>
+            </button>
+
+            <button onclick="switchTab('search')" id="tab-search" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-all text-left">
+                <i class="fa-solid fa-magnifying-glass text-base w-5 text-center"></i>
+                <span class="text-sm">Search Console</span>
+            </button>
+
+            <p class="text-[10px] font-bold text-zinc-500 px-3 uppercase tracking-widest mt-6 mb-2">Interface</p>
+
+            <button onclick="switchTab('chat')" id="tab-chat" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-all text-left">
+                <i class="fa-solid fa-comments text-base w-5 text-center"></i>
+                <span class="text-sm">Chat Assistant</span>
+            </button>
+
+            <button onclick="switchTab('config')" id="tab-config" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-all text-left">
+                <i class="fa-solid fa-sliders text-base w-5 text-center"></i>
+                <span class="text-sm">Settings</span>
+            </button>
+
+            <button onclick="switchTab('doctor')" id="tab-doctor" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-all text-left">
+                <i class="fa-solid fa-user-doctor text-base w-5 text-center"></i>
+                <span class="text-sm">Doctor Scan</span>
+            </button>
+        </div>
+
+        <div class="border-t border-zinc-800 pt-4 flex flex-col gap-2">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <div class="relative flex h-2.5 w-2.5">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                    </div>
+                    <span id="platform-status" class="text-xs font-semibold text-emerald-400">SESSION SECURE</span>
+                </div>
+                <span class="text-[10px] font-mono bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-md">v1.0.0-ALPHA</span>
             </div>
-            <span class="text-xs text-gray-500">v4.0</span>
         </div>
     </aside>
 
     <!-- Main Content Area -->
-    <main class="flex-grow p-4 md:p-8 overflow-y-auto space-y-6">
+    <main class="flex-grow p-4 md:p-8 overflow-y-auto space-y-6 max-h-screen">
 
         <!-- DASHBOARD TAB -->
-        <section id="panel-dashboard" class="space-y-6">
-            <div class="flex flex-col md:flex-row md:items-center justify-between space-y-4 md:space-y-0">
+        <section id="panel-dashboard" class="space-y-6 hidden">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 class="text-3xl font-extrabold tracking-tight text-white">System Dashboard</h1>
-                    <p class="text-gray-400 mt-1">Real-time smartphone environment & telemetry indicators.</p>
+                    <h1 class="text-3xl font-extrabold tracking-tight text-white flex items-center gap-2">
+                        <i class="fa-solid fa-gauge-high text-blue-500"></i>
+                        <span>System Dashboard</span>
+                    </h1>
+                    <p class="text-zinc-400 mt-1">Real-time smartphone runtime & health metrics.</p>
                 </div>
-                <button onclick="runDiagnostics()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-lg shadow-lg flex items-center space-x-2 transition-all self-start">
+                <button onclick="runDiagnostics(true)" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold px-4 py-2.5 rounded-xl shadow-lg hover:shadow-blue-500/20 flex items-center space-x-2 transition-all self-start">
                     <i class="fa-solid fa-arrows-rotate animate-spin" id="sync-spinner" style="display:none;"></i>
                     <i class="fa-solid fa-heart-pulse" id="sync-icon"></i>
                     <span>Diagnose System</span>
                 </button>
             </div>
 
-            <!-- Metric Cards Grid -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <!-- Hardware Telemetry Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 <!-- Battery Card -->
-                <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 flex items-center space-x-4 shadow-md hover:border-blue-500 transition-all">
-                    <div class="p-3 bg-green-500/10 text-green-400 rounded-xl">
+                <div class="bg-zinc-900 border border-zinc-800 hover:border-blue-500/40 rounded-2xl p-5 flex items-center space-x-4 shadow-md transition-all group">
+                    <div class="p-3.5 bg-emerald-500/10 text-emerald-400 rounded-xl group-hover:scale-105 transition-transform">
                         <i class="fa-solid fa-battery-three-quarters text-2xl"></i>
                     </div>
-                    <div>
-                        <p class="text-sm text-gray-400 font-semibold uppercase tracking-wider">Battery Power</p>
-                        <h3 id="widget-battery" class="text-2xl font-bold text-white mt-1">88%</h3>
-                        <p class="text-xs text-gray-500 mt-1">Provider: Android BatteryManager</p>
+                    <div class="flex-grow">
+                        <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Battery Power</p>
+                        <h3 id="widget-battery" class="text-2xl font-black text-white mt-0.5">--</h3>
+                        <!-- Mini Progress Gauge -->
+                        <div class="w-full bg-zinc-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                            <div id="widget-battery-bar" class="bg-emerald-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Wi-Fi Card -->
-                <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 flex items-center space-x-4 shadow-md hover:border-blue-500 transition-all">
-                    <div class="p-3 bg-blue-500/10 text-blue-400 rounded-xl">
+                <div class="bg-zinc-900 border border-zinc-800 hover:border-blue-500/40 rounded-2xl p-5 flex items-center space-x-4 shadow-md transition-all group">
+                    <div class="p-3.5 bg-blue-500/10 text-blue-400 rounded-xl group-hover:scale-105 transition-transform">
                         <i class="fa-solid fa-wifi text-2xl"></i>
                     </div>
-                    <div>
-                        <p class="text-sm text-gray-400 font-semibold uppercase tracking-wider">Wi-Fi Network</p>
-                        <h3 id="widget-wifi" class="text-2xl font-bold text-white mt-1">Connected</h3>
-                        <p id="widget-wifi-ssid" class="text-xs text-gray-500 mt-1">SSID: FlowCore_WiFi</p>
+                    <div class="flex-grow min-w-0">
+                        <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Wi-Fi Connection</p>
+                        <h3 id="widget-wifi" class="text-xl font-bold text-white mt-0.5 truncate">Connected</h3>
+                        <p id="widget-wifi-ssid" class="text-xs text-zinc-400 mt-1 truncate">SSID: FlowCore_WiFi</p>
                     </div>
                 </div>
 
                 <!-- Storage Card -->
-                <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 flex items-center space-x-4 shadow-md hover:border-blue-500 transition-all">
-                    <div class="p-3 bg-purple-500/10 text-purple-400 rounded-xl">
+                <div class="bg-zinc-900 border border-zinc-800 hover:border-blue-500/40 rounded-2xl p-5 flex items-center space-x-4 shadow-md transition-all group">
+                    <div class="p-3.5 bg-indigo-500/10 text-indigo-400 rounded-xl group-hover:scale-105 transition-transform">
                         <i class="fa-solid fa-hard-drive text-2xl"></i>
                     </div>
-                    <div>
-                        <p class="text-sm text-gray-400 font-semibold uppercase tracking-wider">Disk Storage</p>
-                        <h3 class="text-2xl font-bold text-white mt-1">95 GB Free</h3>
-                        <p class="text-xs text-gray-500 mt-1">Total capacity: 100 GB</p>
+                    <div class="flex-grow">
+                        <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Disk Storage</p>
+                        <h3 id="widget-disk" class="text-2xl font-black text-white mt-0.5">--</h3>
+                        <div class="w-full bg-zinc-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                            <div id="widget-disk-bar" class="bg-indigo-500 h-full rounded-full transition-all duration-500" style="width: 95%"></div>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Memory Card -->
-                <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 flex items-center space-x-4 shadow-md hover:border-blue-500 transition-all">
-                    <div class="p-3 bg-yellow-500/10 text-yellow-400 rounded-xl">
+                <div class="bg-zinc-900 border border-zinc-800 hover:border-blue-500/40 rounded-2xl p-5 flex items-center space-x-4 shadow-md transition-all group">
+                    <div class="p-3.5 bg-violet-500/10 text-violet-400 rounded-xl group-hover:scale-105 transition-transform">
                         <i class="fa-solid fa-memory text-2xl"></i>
                     </div>
-                    <div>
-                        <p class="text-sm text-gray-400 font-semibold uppercase tracking-wider">RAM Usage</p>
-                        <h3 class="text-2xl font-bold text-white mt-1">2.0 GB Free</h3>
-                        <p class="text-xs text-gray-500 mt-1">Total memory: 4.0 GB</p>
+                    <div class="flex-grow">
+                        <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">RAM Usage</p>
+                        <h3 id="widget-ram" class="text-2xl font-black text-white mt-0.5">--</h3>
+                        <div class="w-full bg-zinc-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                            <div id="widget-ram-bar" class="bg-violet-500 h-full rounded-full transition-all duration-500" style="width: 50%"></div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Platform Details -->
+            <!-- Health Indicators & Quick Overview -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- System Diagnostics Health -->
-                <div class="bg-gray-800 border border-gray-700 rounded-xl p-6 shadow-md lg:col-span-2 space-y-4">
-                    <h2 class="text-xl font-bold text-white flex items-center space-x-2">
-                        <i class="fa-solid fa-shield-halved text-blue-500"></i>
-                        <span>Platform Health Indicators</span>
+                <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-md lg:col-span-2 space-y-4">
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-circle-check text-blue-500"></i>
+                        <span>Platform Integrity Checks</span>
                     </h2>
-                    <div class="border-t border-gray-700 pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="flex items-center justify-between p-3 bg-gray-900 rounded-lg border border-gray-700">
-                            <span class="text-gray-300">Android/Termux Host</span>
-                            <span class="bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs font-semibold uppercase">READY</span>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex items-center justify-between p-3.5 bg-zinc-950 rounded-xl border border-zinc-800">
+                            <span class="text-sm text-zinc-300">Android/Termux Host</span>
+                            <span class="bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-full text-xs font-semibold border border-emerald-500/20">READY</span>
                         </div>
-                        <div class="flex items-center justify-between p-3 bg-gray-900 rounded-lg border border-gray-700">
-                            <span class="text-gray-300">Python Environment</span>
-                            <span class="bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs font-semibold uppercase">VERIFIED</span>
+                        <div class="flex items-center justify-between p-3.5 bg-zinc-950 rounded-xl border border-zinc-800">
+                            <span class="text-sm text-zinc-300">Python Environment</span>
+                            <span class="bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-full text-xs font-semibold border border-emerald-500/20">VERIFIED</span>
                         </div>
-                        <div class="flex items-center justify-between p-3 bg-gray-900 rounded-lg border border-gray-700">
-                            <span class="text-gray-300">SQLite Database Integrity</span>
-                            <span class="bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs font-semibold uppercase">SECURE</span>
+                        <div class="flex items-center justify-between p-3.5 bg-zinc-950 rounded-xl border border-zinc-800">
+                            <span class="text-sm text-zinc-300">SQLite Database Integrity</span>
+                            <span class="bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-full text-xs font-semibold border border-emerald-500/20">SECURE</span>
                         </div>
-                        <div class="flex items-center justify-between p-3 bg-gray-900 rounded-lg border border-gray-700">
-                            <span class="text-gray-300">Active Model</span>
-                            <span id="widget-model" class="text-blue-400 font-semibold">qwen2.5:7b</span>
+                        <div class="flex items-center justify-between p-3.5 bg-zinc-950 rounded-xl border border-zinc-800">
+                            <span class="text-sm text-zinc-300">Reasoning Agent</span>
+                            <span id="widget-model" class="text-sm text-blue-400 font-semibold font-mono">--</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Secure Integrity Hashes (Passport) -->
-                <div class="bg-gray-800 border border-gray-700 rounded-xl p-6 shadow-md space-y-4 flex flex-col justify-between">
+                <!-- Quick Stats Info Panel -->
+                <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-md flex flex-col justify-between gap-4">
                     <div>
-                        <h2 class="text-xl font-bold text-white flex items-center space-x-2">
-                            <i class="fa-solid fa-passport text-blue-500"></i>
-                            <span>FlowCore Passport Hashes</span>
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-chart-simple text-blue-500"></i>
+                            <span>System Workspace Stats</span>
                         </h2>
-                        <p class="text-xs text-gray-400 mt-1">SHA-256 secure integrity check validating current session states.</p>
-                        <div class="space-y-3 mt-4 text-xs font-mono">
-                            <div>
-                                <p class="text-gray-400 font-sans font-semibold">Context Hash:</p>
-                                <p class="bg-gray-900 border border-gray-700 p-2 rounded mt-1 text-gray-300 overflow-x-auto">cb5e77de010b988257d209e98ff49ae1f45d83bb9d261b960397025434a48b73</p>
+                        <div class="mt-4 space-y-3.5 text-sm">
+                            <div class="flex justify-between items-center py-2 border-b border-zinc-800">
+                                <span class="text-zinc-400">Saved Notes:</span>
+                                <span id="stats-notes-count" class="font-bold text-white font-mono bg-zinc-800 px-2.5 py-0.5 rounded-md">--</span>
                             </div>
-                            <div>
-                                <p class="text-gray-400 font-sans font-semibold">Runtime Hash:</p>
-                                <p class="bg-gray-900 border border-gray-700 p-2 rounded mt-1 text-gray-300 overflow-x-auto">d643b3d5393c4cdbc1b0cba9f01af5c05fe0a60584613a9ce040f00ad426858a</p>
+                            <div class="flex justify-between items-center py-2 border-b border-zinc-800">
+                                <span class="text-zinc-400">Stored Memories:</span>
+                                <span id="stats-memories-count" class="font-bold text-white font-mono bg-zinc-800 px-2.5 py-0.5 rounded-md">--</span>
+                            </div>
+                            <div class="flex justify-between items-center py-2">
+                                <span class="text-zinc-400">API Gateway:</span>
+                                <span class="text-emerald-400 font-semibold flex items-center gap-1.5">
+                                    <span class="h-2 w-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                                    ONLINE
+                                </span>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SYSTEM TAB -->
+        <section id="panel-system" class="space-y-6 hidden">
+            <div>
+                <h1 class="text-3xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+                    <i class="fa-solid fa-server text-blue-500"></i>
+                    <span>System Specifications</span>
+                </h1>
+                <p class="text-zinc-400 mt-1">Detailed host configuration variables & session integrity verification.</p>
+            </div>
+
+            <!-- Credentials Card -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Session Passport Cryptographic Signatures -->
+                <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-md lg:col-span-1 space-y-4">
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-passport text-blue-500"></i>
+                        <span>FlowCore Passport</span>
+                    </h2>
+                    <p class="text-xs text-zinc-400">SHA-256 integrity signatures ensuring runtime state security.</p>
+                    <div class="space-y-4 mt-2 font-mono text-xs">
+                        <div>
+                            <p class="text-zinc-400 font-sans font-semibold text-xs">Context Session Hash:</p>
+                            <p class="bg-zinc-950 border border-zinc-800 p-2.5 rounded-lg mt-1 text-zinc-300 overflow-x-auto select-all">cb5e77de010b988257d209e98ff49ae1f45d83bb9d261b960397025434a48b73</p>
+                        </div>
+                        <div>
+                            <p class="text-zinc-400 font-sans font-semibold text-xs">Runtime Engine Hash:</p>
+                            <p class="bg-zinc-950 border border-zinc-800 p-2.5 rounded-lg mt-1 text-zinc-300 overflow-x-auto select-all">d643b3d5393c4cdbc1b0cba9f01af5c05fe0a60584613a9ce040f00ad426858a</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Host variables & Paths -->
+                <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-md lg:col-span-2 space-y-4">
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-gears text-blue-500"></i>
+                        <span>Environment Variables</span>
+                    </h2>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left text-zinc-300">
+                            <thead class="text-xs text-zinc-400 uppercase bg-zinc-950 border-b border-zinc-800">
+                                <tr>
+                                    <th scope="col" class="px-4 py-3 rounded-l-lg">Variable Key</th>
+                                    <th scope="col" class="px-4 py-3 rounded-r-lg">Active Value</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-zinc-800">
+                                <tr>
+                                    <td class="px-4 py-3 font-semibold font-mono text-xs">FLOWCORE_PLATFORM</td>
+                                    <td id="sys-platform-val" class="px-4 py-3 font-mono text-zinc-400">Android/Termux</td>
+                                </tr>
+                                <tr>
+                                    <td class="px-4 py-3 font-semibold font-mono text-xs">TERMUX_PREFIX</td>
+                                    <td id="sys-prefix-val" class="px-4 py-3 font-mono text-zinc-400">/data/data/com.termux/files/usr</td>
+                                </tr>
+                                <tr>
+                                    <td class="px-4 py-3 font-semibold font-mono text-xs">FLOWCORE_HOME</td>
+                                    <td id="sys-home-val" class="px-4 py-3 font-mono text-zinc-400">/home/jules</td>
+                                </tr>
+                                <tr>
+                                    <td class="px-4 py-3 font-semibold font-mono text-xs">LOG_LEVEL</td>
+                                    <td id="sys-loglevel-val" class="px-4 py-3 font-mono text-zinc-400">INFO</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Terminal-like scrolling console log -->
+            <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-md space-y-3">
+                <div class="flex items-center justify-between pb-2 border-b border-zinc-800">
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-terminal text-blue-500"></i>
+                        <span>Operational Console Stream</span>
+                    </h2>
+                    <span class="flex h-2 w-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                </div>
+                <div id="terminal-stream" class="bg-zinc-950 rounded-xl p-4 h-48 font-mono text-xs text-emerald-500 overflow-y-auto space-y-1.5 scrollbar-thin border border-zinc-800">
+                    <div>[04:16:01] <span class="text-zinc-400">INFO</span> — Starting FlowCore Runtime Boot sequence...</div>
+                    <div>[04:16:01] <span class="text-zinc-400">INFO</span> — Loading Context Engine artifacts and schemas.</div>
+                    <div>[04:16:02] <span class="text-zinc-400">INFO</span> — Active Platform Host: Android/Termux environment detected.</div>
+                    <div>[04:16:02] <span class="text-zinc-400">INFO</span> — Generating SHA-256 state signatures for triple contract.</div>
+                    <div>[04:16:03] <span class="text-blue-400">SUCCESS</span> — Passport generated: cb5e77de010b9882...</div>
+                    <div>[04:16:03] <span class="text-zinc-400">INFO</span> — API Gateway running on http://127.0.0.1:8080. Uptime active.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CAPABILITIES TAB -->
+        <section id="panel-capabilities" class="space-y-6 hidden">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h1 class="text-3xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+                        <i class="fa-solid fa-shield-halved text-blue-500"></i>
+                        <span>Platform Capabilities</span>
+                    </h1>
+                    <p class="text-zinc-400 mt-1">Registry mapping abstract intentions into platform execution paths.</p>
+                </div>
+                <!-- Input Search for Capabilities -->
+                <input type="text" id="cap-search-input" onkeyup="filterCapabilities()" placeholder="Search capability name..." class="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 text-sm focus:border-blue-500 focus:outline-none w-full sm:w-64 text-white">
+            </div>
+
+            <!-- Capabilities Grid -->
+            <div id="capabilities-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                <!-- Will be dynamically populated by Javascript -->
+            </div>
+        </section>
+
+        <!-- MEMORIES TAB -->
+        <section id="panel-memories" class="space-y-6 hidden">
+            <div>
+                <h1 class="text-3xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+                    <i class="fa-solid fa-brain text-blue-500"></i>
+                    <span>Semantic Memories</span>
+                </h1>
+                <p class="text-zinc-400 mt-1">Record, catalog, and query semantic associations in local runtime.</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Add Memory Form -->
+                <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-md space-y-4 self-start">
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-plus text-blue-500"></i>
+                        <span>New Memory</span>
+                    </h2>
+                    <form onsubmit="handleMemorySubmit(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Memory Description</label>
+                            <textarea id="mem-text" rows="4" placeholder="E.g., FlowCore uses port 8080. #flowcore #ports" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:border-blue-500 focus:outline-none text-white resize-none" required></textarea>
+                        </div>
+                        <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-2.5 rounded-xl transition-all shadow-md">
+                            Save Memory
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Memory List Display -->
+                <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-md lg:col-span-2 space-y-4 flex flex-col h-[500px]">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-list text-blue-500"></i>
+                            <span>Memory Feed</span>
+                        </h2>
+                        <input type="text" id="mem-search-input" onkeyup="filterMemories()" placeholder="Quick filter..." class="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs focus:border-blue-500 focus:outline-none w-40 text-white">
+                    </div>
+
+                    <!-- Inner Scrollable Feed -->
+                    <div id="memories-feed" class="flex-grow overflow-y-auto space-y-3 pr-2 scrollbar-thin">
+                        <!-- Dynamic content -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- NOTES TAB -->
+        <section id="panel-notes" class="space-y-6 hidden">
+            <div>
+                <h1 class="text-3xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+                    <i class="fa-solid fa-note-sticky text-blue-500"></i>
+                    <span>System Notes</span>
+                </h1>
+                <p class="text-zinc-400 mt-1">Rich notes organizer and file manager inside your active workspace.</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[550px]">
+                <!-- Notes list on left panel -->
+                <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 shadow-md flex flex-col h-full space-y-3">
+                    <div class="flex items-center justify-between pb-2 border-b border-zinc-800">
+                        <span class="text-sm font-bold text-white">All Notes</span>
+                        <button onclick="createNewNoteUI()" class="p-1.5 bg-blue-600/10 text-blue-400 hover:bg-blue-600 hover:text-white rounded-lg transition-all text-xs flex items-center gap-1 font-semibold">
+                            <i class="fa-solid fa-plus"></i> New Note
+                        </button>
+                    </div>
+                    <input type="text" id="note-search" onkeyup="filterNotes()" placeholder="Filter title..." class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs focus:border-blue-500 focus:outline-none text-white">
+                    <div id="notes-sidebar-list" class="flex-grow overflow-y-auto space-y-1.5 scrollbar-thin">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+
+                <!-- Note Viewer/Editor on right panel -->
+                <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-md lg:col-span-2 flex flex-col h-full space-y-4">
+                    <div id="note-viewer-empty" class="flex-grow flex flex-col items-center justify-center text-center p-6 space-y-3">
+                        <i class="fa-solid fa-note-sticky text-5xl text-zinc-600 animate-pulse"></i>
+                        <h3 class="text-lg font-bold text-zinc-400">No Note Selected</h3>
+                        <p class="text-xs text-zinc-500 max-w-xs">Select an existing note from the sidebar or click "New Note" to draft a new item.</p>
+                    </div>
+
+                    <div id="note-viewer-active" class="hidden flex-grow flex flex-col space-y-4">
+                        <div class="flex items-center justify-between">
+                            <input type="text" id="note-edit-title" class="bg-transparent text-2xl font-black text-white focus:outline-none border-b border-transparent focus:border-zinc-700 pb-1 flex-grow mr-4">
+                            <div class="flex items-center space-x-2">
+                                <button onclick="saveActiveNote()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-md transition-all flex items-center gap-1.5">
+                                    <i class="fa-solid fa-floppy-disk"></i> Save Note
+                                </button>
+                                <button onclick="deleteActiveNote()" class="bg-red-500/10 hover:bg-red-600 text-red-400 hover:text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
+                                    <i class="fa-solid fa-trash"></i> Delete
+                                </button>
+                            </div>
+                        </div>
+                        <div class="text-[10px] text-zinc-500 font-mono" id="note-edit-meta">ID: -- | Last updated: --</div>
+                        <textarea id="note-edit-content" placeholder="Type notes here..." class="flex-grow bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-sm focus:border-blue-500 focus:outline-none text-white resize-none scrollbar-thin"></textarea>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SEARCH TAB -->
+        <section id="panel-search" class="space-y-6 hidden">
+            <div>
+                <h1 class="text-3xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+                    <i class="fa-solid fa-magnifying-glass text-blue-500"></i>
+                    <span>Search Console</span>
+                </h1>
+                <p class="text-zinc-400 mt-1">Multi-source unified intelligence search across documents, notes and memories.</p>
+            </div>
+
+            <!-- Search Console Input -->
+            <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-md">
+                <form onsubmit="handleUniversalSearch(event)" class="flex items-center gap-3">
+                    <div class="relative flex-grow">
+                        <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 text-lg"></i>
+                        <input id="universal-search-input" type="text" placeholder="Type a search query (e.g., ports, notes)..." class="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-12 pr-4 py-3.5 focus:border-blue-500 focus:outline-none text-white text-sm">
+                    </div>
+                    <button type="submit" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold px-6 py-3.5 rounded-xl transition-all shadow-md">
+                        Execute Search
+                    </button>
+                </form>
+            </div>
+
+            <!-- Segments Results Feed -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Notes Segment -->
+                <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-md flex flex-col h-[350px]">
+                    <h2 class="text-lg font-bold text-white border-b border-zinc-800 pb-3 mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-note-sticky text-blue-500"></i>
+                        <span>Matching Notes</span>
+                    </h2>
+                    <div id="search-notes-results" class="flex-grow overflow-y-auto space-y-3 scrollbar-thin">
+                        <p class="text-xs text-zinc-500 text-center py-8">No queries executed yet.</p>
+                    </div>
+                </div>
+
+                <!-- Memories Segment -->
+                <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-md flex flex-col h-[350px]">
+                    <h2 class="text-lg font-bold text-white border-b border-zinc-800 pb-3 mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-brain text-blue-500"></i>
+                        <span>Matching Memories</span>
+                    </h2>
+                    <div id="search-memories-results" class="flex-grow overflow-y-auto space-y-3 scrollbar-thin">
+                        <p class="text-xs text-zinc-500 text-center py-8">No queries executed yet.</p>
                     </div>
                 </div>
             </div>
         </section>
 
         <!-- CHAT TAB -->
-        <section id="panel-chat" class="hidden flex flex-col h-[calc(100vh-8rem)] md:h-[calc(100vh-4rem)]">
-            <div class="flex items-center justify-between pb-4 border-b border-gray-700">
+        <section id="panel-chat" class="hidden flex flex-col h-[calc(100vh-8rem)] md:h-[calc(100vh-4rem)] bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-lg">
+            <div class="flex items-center justify-between p-4 border-b border-zinc-800 bg-zinc-900/50 backdrop-blur-sm">
                 <div>
-                    <h1 class="text-2xl font-bold text-white flex items-center space-x-2">
-                        <i class="fa-solid fa-comments text-blue-500"></i>
-                        <span>FlowCore Interactive Assistant</span>
+                    <h1 class="text-xl font-bold text-white flex items-center space-x-2">
+                        <span class="relative flex h-3 w-3">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                        </span>
+                        <span>Interactive AI Assistant</span>
                     </h1>
-                    <p class="text-sm text-gray-400">Direct capability query & platform task executor.</p>
+                    <p class="text-xs text-zinc-400">Direct query capability & platform task agent.</p>
                 </div>
-                <button onclick="clearChat()" class="text-gray-400 hover:text-white transition-all text-sm flex items-center space-x-1">
+                <button onclick="clearChat()" class="text-zinc-400 hover:text-white transition-all text-xs flex items-center space-x-1 p-2 bg-zinc-850 hover:bg-zinc-800 rounded-lg">
                     <i class="fa-solid fa-trash-can"></i>
-                    <span>Clear Chat</span>
+                    <span>Clear Feed</span>
                 </button>
             </div>
 
             <!-- Chat Message Thread -->
-            <div id="chat-thread" class="flex-grow overflow-y-auto p-4 space-y-4 my-4 bg-gray-950 border border-gray-700 rounded-xl scrollbar-thin">
+            <div id="chat-thread" class="flex-grow overflow-y-auto p-4 space-y-4 bg-zinc-950 scrollbar-thin">
                 <div class="flex items-start space-x-3">
-                    <div class="p-2 bg-blue-500/20 text-blue-400 rounded-xl">
-                        <i class="fa-solid fa-robot"></i>
+                    <div class="p-2 bg-blue-500/10 text-blue-400 rounded-xl border border-blue-500/20">
+                        <i class="fa-solid fa-robot text-lg"></i>
                     </div>
-                    <div class="bg-gray-800 border border-gray-700 rounded-xl p-3.5 max-w-xl">
-                        <p class="text-gray-100 text-sm">Olá! Sou o assistente do FlowCore. Como posso te ajudar hoje?</p>
-                        <p class="text-[10px] text-gray-500 mt-1">FlowCore Agent • READY</p>
+                    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 max-w-xl">
+                        <p class="text-zinc-100 text-sm">Olá! Sou o assistente inteligente do FlowCore. Como posso interagir com seu dispositivo Termux ou gerenciar seu workspace local?</p>
+                        <p class="text-[10px] text-zinc-500 mt-2 font-mono uppercase tracking-wider">FlowCore Agent • READY</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Quick Actions Grid -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-                <button onclick="sendQuickMessage('Resuma meus e-mails')" class="p-3 bg-gray-800 border border-gray-700 rounded-lg hover:border-blue-500 text-left hover:bg-gray-750 transition-all flex items-center space-x-2">
-                    <i class="fa-solid fa-envelope text-blue-400 w-5 text-center"></i>
-                    <span class="text-xs text-gray-300 font-semibold">Resuma meus e-mails</span>
+            <!-- Quick Actions Shelf -->
+            <div class="p-3 bg-zinc-900/60 border-t border-zinc-800 grid grid-cols-1 sm:grid-cols-4 gap-2">
+                <button onclick="sendQuickMessage('Resuma meus e-mails')" class="p-2.5 bg-zinc-950 hover:bg-zinc-850 border border-zinc-800 hover:border-blue-500/30 rounded-xl text-left transition-all flex items-center space-x-2.5">
+                    <i class="fa-solid fa-envelope text-blue-400 text-sm w-4 text-center"></i>
+                    <span class="text-xs text-zinc-300 font-semibold truncate">Resuma meus e-mails</span>
                 </button>
-                <button onclick="sendQuickMessage('Mostre meu calendário')" class="p-3 bg-gray-800 border border-gray-700 rounded-lg hover:border-blue-500 text-left hover:bg-gray-750 transition-all flex items-center space-x-2">
-                    <i class="fa-solid fa-calendar-days text-blue-400 w-5 text-center"></i>
-                    <span class="text-xs text-gray-300 font-semibold">Mostre meu calendário</span>
+                <button onclick="sendQuickMessage('Mostre meu calendário')" class="p-2.5 bg-zinc-950 hover:bg-zinc-850 border border-zinc-800 hover:border-blue-500/30 rounded-xl text-left transition-all flex items-center space-x-2.5">
+                    <i class="fa-solid fa-calendar-days text-blue-400 text-sm w-4 text-center"></i>
+                    <span class="text-xs text-zinc-300 font-semibold truncate">Mostre meu calendário</span>
                 </button>
-                <button onclick="sendQuickMessage('Abra meu WhatsApp')" class="p-3 bg-gray-800 border border-gray-700 rounded-lg hover:border-blue-500 text-left hover:bg-gray-750 transition-all flex items-center space-x-2">
-                    <i class="fa-brands fa-whatsapp text-blue-400 w-5 text-center"></i>
-                    <span class="text-xs text-gray-300 font-semibold">Abra meu WhatsApp</span>
+                <button onclick="sendQuickMessage('Abra meu WhatsApp')" class="p-2.5 bg-zinc-950 hover:bg-zinc-850 border border-zinc-800 hover:border-blue-500/30 rounded-xl text-left transition-all flex items-center space-x-2.5">
+                    <i class="fa-brands fa-whatsapp text-blue-400 text-sm w-4 text-center"></i>
+                    <span class="text-xs text-zinc-300 font-semibold truncate">Abra meu WhatsApp</span>
+                </button>
+                <button onclick="sendQuickMessage('Diagnosticar Hardware')" class="p-2.5 bg-zinc-950 hover:bg-zinc-850 border border-zinc-800 hover:border-blue-500/30 rounded-xl text-left transition-all flex items-center space-x-2.5">
+                    <i class="fa-solid fa-heart-pulse text-blue-400 text-sm w-4 text-center"></i>
+                    <span class="text-xs text-zinc-300 font-semibold truncate">Diagnosticar Hardware</span>
                 </button>
             </div>
 
             <!-- Input Form -->
-            <form id="chat-form" onsubmit="handleChatSubmit(event)" class="flex items-center space-x-3">
-                <input id="chat-input" type="text" placeholder="Digite uma capacidade ou faça uma pergunta..." class="flex-grow bg-gray-800 border border-gray-700 rounded-xl px-4 py-3.5 focus:border-blue-500 focus:outline-none text-sm placeholder-gray-500 text-white">
-                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white p-3.5 rounded-xl shadow-lg transition-all flex items-center justify-center">
-                    <i class="fa-solid fa-paper-plane text-lg"></i>
+            <form id="chat-form" onsubmit="handleChatSubmit(event)" class="p-4 bg-zinc-900 border-t border-zinc-800 flex items-center space-x-3">
+                <input id="chat-input" type="text" placeholder="Digite uma capacidade ou faça uma pergunta..." class="flex-grow bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:border-blue-500 focus:outline-none placeholder-zinc-500 text-white">
+                <button type="submit" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white p-3.5 rounded-xl shadow-lg hover:shadow-blue-500/20 transition-all flex items-center justify-center">
+                    <i class="fa-solid fa-paper-plane text-base"></i>
                 </button>
             </form>
         </section>
 
         <!-- CONFIGURATION TAB -->
-        <section id="panel-config" class="hidden space-y-6">
+        <section id="panel-config" class="space-y-6 hidden">
             <div>
-                <h1 class="text-3xl font-extrabold text-white flex items-center space-x-3">
+                <h1 class="text-3xl font-extrabold text-white flex items-center gap-2.5">
                     <i class="fa-solid fa-sliders text-blue-500"></i>
-                    <span>Platform Configuration</span>
+                    <span>Platform Settings</span>
                 </h1>
-                <p class="text-gray-400 mt-1">Configure models, parameters, and variable prefixes.</p>
+                <p class="text-zinc-400 mt-1">Configure reasoning modules, paths, and platform prefixes.</p>
             </div>
 
-            <form onsubmit="handleConfigSubmit(event)" class="bg-gray-800 border border-gray-700 rounded-xl p-6 shadow-md space-y-6 max-w-3xl">
+            <form onsubmit="handleConfigSubmit(event)" class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-md space-y-6 max-w-3xl">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label class="block text-sm font-semibold text-gray-300 uppercase tracking-wider mb-2">Default Reasoning Model</label>
-                        <select id="config-model" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-blue-500 focus:outline-none">
+                        <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Default Reasoning Model</label>
+                        <select id="config-model" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white focus:border-blue-500 focus:outline-none">
                             <option value="qwen2.5:7b">qwen2.5:7b (Default Platform)</option>
                             <option value="glm4:9b">glm4:9b (Advanced Reasoning)</option>
                             <option value="llama2">llama2 (Legacy)</option>
@@ -363,8 +729,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     </div>
 
                     <div>
-                        <label class="block text-sm font-semibold text-gray-300 uppercase tracking-wider mb-2">Active Platform Environment</label>
-                        <select id="config-platform" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-blue-500 focus:outline-none">
+                        <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Active Platform Environment</label>
+                        <select id="config-platform" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white focus:border-blue-500 focus:outline-none">
                             <option value="Android/Termux">Android / Termux</option>
                             <option value="Linux">Linux / Headless Server</option>
                             <option value="macOS">macOS</option>
@@ -374,18 +740,18 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     </div>
 
                     <div>
-                        <label class="block text-sm font-semibold text-gray-300 uppercase tracking-wider mb-2">Termux System Prefix Path</label>
-                        <input id="config-prefix" type="text" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-blue-500 focus:outline-none font-mono text-sm">
+                        <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Termux System Prefix Path</label>
+                        <input id="config-prefix" type="text" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-blue-500 focus:outline-none font-mono text-sm">
                     </div>
 
                     <div>
-                        <label class="block text-sm font-semibold text-gray-300 uppercase tracking-wider mb-2">Home Directory Path</label>
-                        <input id="config-home" type="text" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-blue-500 focus:outline-none font-mono text-sm">
+                        <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Home Directory Path</label>
+                        <input id="config-home" type="text" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-blue-500 focus:outline-none font-mono text-sm">
                     </div>
 
                     <div>
-                        <label class="block text-sm font-semibold text-gray-300 uppercase tracking-wider mb-2">Logging Verbosity Level</label>
-                        <select id="config-loglevel" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-blue-500 focus:outline-none">
+                        <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Logging Verbosity Level</label>
+                        <select id="config-loglevel" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white focus:border-blue-500 focus:outline-none">
                             <option value="DEBUG">DEBUG (Detailed Telemetry)</option>
                             <option value="INFO">INFO (Normal operational logs)</option>
                             <option value="WARNING">WARNING (Errors and failures only)</option>
@@ -393,8 +759,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     </div>
                 </div>
 
-                <div class="border-t border-gray-700 pt-6 flex justify-end">
-                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg shadow-lg transition-all flex items-center space-x-2">
+                <div class="border-t border-zinc-800 pt-6 flex justify-end">
+                    <button type="submit" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold px-6 py-3 rounded-xl shadow-lg transition-all flex items-center space-x-2">
                         <i class="fa-solid fa-floppy-disk"></i>
                         <span>Save Configuration</span>
                     </button>
@@ -405,25 +771,25 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         <!-- DIAGNOSTICS TAB -->
         <section id="panel-doctor" class="hidden space-y-6">
             <div>
-                <h1 class="text-3xl font-extrabold text-white flex items-center space-x-3">
+                <h1 class="text-3xl font-extrabold text-white flex items-center gap-2.5">
                     <i class="fa-solid fa-user-doctor text-blue-500"></i>
-                    <span>FlowCore Diagnostics Service</span>
+                    <span>Doctor Diagnostics</span>
                 </h1>
-                <p class="text-gray-400 mt-1">Detailed auditing of platform libraries, dependencies and permissions.</p>
+                <p class="text-zinc-400 mt-1">Detailed auditing of platform libraries, dependencies and permissions.</p>
             </div>
 
-            <div class="bg-gray-800 border border-gray-700 rounded-xl p-6 shadow-md max-w-4xl space-y-6">
-                <div class="flex items-center justify-between pb-4 border-b border-gray-700">
-                    <span class="text-gray-300 font-semibold">Diagnostic Output Log</span>
-                    <button onclick="runDiagnostics(true)" class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-1.5 rounded-lg border border-gray-600 transition-all flex items-center space-x-1">
+            <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-md max-w-4xl space-y-6">
+                <div class="flex items-center justify-between pb-4 border-b border-zinc-800">
+                    <span class="text-zinc-300 font-semibold">Diagnostic Output Log</span>
+                    <button onclick="runDiagnostics(true)" class="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-3 py-1.5 rounded-lg border border-zinc-700 transition-all flex items-center space-x-1.5">
                         <i class="fa-solid fa-arrows-rotate"></i>
-                        <span>Rerun Scan</span>
+                        <span>Rerun Diagnostics</span>
                     </button>
                 </div>
 
                 <div id="doctor-results" class="space-y-4">
-                    <div class="flex items-center justify-between p-3 bg-gray-900 rounded-lg border border-gray-700 animate-pulse">
-                        <span class="text-gray-400">Loading diagnostic indices...</span>
+                    <div class="flex items-center justify-between p-3.5 bg-zinc-950 rounded-xl border border-zinc-800 animate-pulse">
+                        <span class="text-zinc-400">Loading diagnostic indices...</span>
                     </div>
                 </div>
             </div>
@@ -435,6 +801,78 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <script>
         const API_URL = "";
 
+        // Standard Capabilities Mappings List
+        const DEFAULT_CAPABILITIES = {
+            "battery": { "resolver": "termux-battery-status", "risk": "LOW", "description": "Access system power and battery metrics.", "api": "Android BatteryManager" },
+            "wifi": { "resolver": "termux-wifi-connectioninfo", "risk": "LOW", "description": "Access Wi-Fi network state and signal strength.", "api": "Android WifiManager" },
+            "camera": { "resolver": "termux-camera-photo", "risk": "HIGH", "description": "Interface with the physical camera hardware.", "api": "Android Camera2 API" },
+            "microphone": { "resolver": "termux-microphone-record", "risk": "HIGH", "description": "Interface with system audio microphones.", "api": "Android AudioRecord" },
+            "filesystem": { "resolver": "shutil / path", "risk": "MEDIUM", "description": "Abstract interface to perform secure filesystem operations.", "api": "Standard FS API" },
+            "install_python_package": { "resolver": "pip wrapper", "risk": "MEDIUM", "description": "Install verified external packages safely into user-space runtime.", "api": "Host Pip Utility" },
+            "list_files": { "resolver": "os.scandir", "risk": "LOW", "description": "List files securely within current sandbox.", "api": "Standard OS API" },
+            "sqlite": { "resolver": "aiosqlite connector", "risk": "LOW", "description": "Perform robust transactional data storage on local SQLite.", "api": "SQLite3 Engine" },
+            "mcp": { "resolver": "MCP Client Bridge", "risk": "MEDIUM", "description": "Interface with Model Context Protocol servers.", "api": "MCP Protocol v1" }
+        };
+
+        // Storage Core Helpers
+        const Storage = {
+            get(key, fallback = []) {
+                try {
+                    const data = localStorage.getItem(key);
+                    return data ? JSON.parse(data) : fallback;
+                } catch (e) {
+                    return fallback;
+                }
+            },
+            set(key, val) {
+                try {
+                    localStorage.setItem(key, JSON.stringify(val));
+                } catch (e) {
+                    console.error("Storage error:", e);
+                }
+            }
+        };
+
+        // Toast Notification Trigger
+        function showToast(message, type = "info") {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = "flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border text-sm transition-all duration-300 transform translate-y-2 opacity-0 pointer-events-auto bg-zinc-900";
+
+            let colorClasses = "border-zinc-800 text-zinc-300";
+            let icon = '<i class="fa-solid fa-info-circle text-blue-400 text-lg"></i>';
+
+            if (type === "success") {
+                colorClasses = "border-emerald-500/20 text-emerald-300 bg-emerald-950/20";
+                icon = '<i class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>';
+            } else if (type === "warning") {
+                colorClasses = "border-amber-500/20 text-amber-300 bg-amber-950/20";
+                icon = '<i class="fa-solid fa-circle-exclamation text-amber-400 text-lg"></i>';
+            } else if (type === "error") {
+                colorClasses = "border-red-500/20 text-red-300 bg-red-950/20";
+                icon = '<i class="fa-solid fa-circle-xmark text-red-400 text-lg"></i>';
+            }
+
+            toast.className += " " + colorClasses;
+            toast.innerHTML = `
+                ${icon}
+                <span class="font-medium">${message}</span>
+            `;
+
+            container.appendChild(toast);
+
+            // Animate In
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 50);
+
+            // Animate Out
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
         // Mobile menu toggle
         const menuBtn = document.getElementById('mobile-menu-btn');
         const sidebar = document.getElementById('sidebar');
@@ -445,7 +883,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             });
         }
 
-        // Switch panels/tabs
+        // Tab Switching Engine
         function switchTab(tabId) {
             // Hide all panels
             document.querySelectorAll('main > section').forEach(section => {
@@ -459,6 +897,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             document.querySelectorAll('nav > button').forEach(button => {
                 button.classList.remove('active-tab');
             });
+            document.querySelectorAll('aside button').forEach(button => {
+                button.classList.remove('active-tab');
+            });
+
             // Highlight target tab
             const targetTab = document.getElementById(`tab-${tabId}`);
             if (targetTab) targetTab.classList.add('active-tab');
@@ -468,6 +910,296 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 sidebar.classList.add('hidden');
                 sidebar.classList.remove('flex');
             }
+
+            // Custom UI Actions on Specific Tab activation
+            if (tabId === 'capabilities') {
+                renderCapabilities();
+            } else if (tabId === 'memories') {
+                renderMemoriesFeed();
+            } else if (tabId === 'notes') {
+                renderNotesSidebar();
+            }
+        }
+
+        // Render Mapped Capabilities Table
+        function renderCapabilities() {
+            const grid = document.getElementById('capabilities-grid');
+            grid.innerHTML = "";
+
+            Object.entries(DEFAULT_CAPABILITIES).forEach(([name, data]) => {
+                let riskColor = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+                if (data.risk === "MEDIUM") {
+                    riskColor = "bg-amber-500/10 text-amber-400 border-amber-500/20";
+                } else if (data.risk === "HIGH") {
+                    riskColor = "bg-red-500/10 text-red-400 border-red-500/20";
+                }
+
+                const card = document.createElement('div');
+                card.className = "bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-sm space-y-3.5 hover:border-blue-500/40 transition-all cap-card";
+                card.dataset.name = name.toLowerCase();
+                card.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-black text-white font-mono">${name}</span>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${riskColor}">${data.risk} RISK</span>
+                    </div>
+                    <p class="text-xs text-zinc-400 line-clamp-2">${data.description}</p>
+                    <div class="border-t border-zinc-800 pt-3 flex flex-col gap-1 text-[11px] font-mono">
+                        <div class="flex justify-between text-zinc-500">
+                            <span>Resolver:</span>
+                            <span class="text-zinc-300 font-semibold">${data.resolver}</span>
+                        </div>
+                        <div class="flex justify-between text-zinc-500">
+                            <span>API Bridge:</span>
+                            <span class="text-zinc-300 font-semibold">${data.api}</span>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // Filter Capabilities Live
+        function filterCapabilities() {
+            const query = document.getElementById('cap-search-input').value.toLowerCase();
+            document.querySelectorAll('.cap-card').forEach(card => {
+                if (card.dataset.name.includes(query)) {
+                    card.classList.remove('hidden');
+                } else {
+                    card.classList.add('hidden');
+                }
+            });
+        }
+
+        // Render Memories Feed
+        function renderMemoriesFeed() {
+            const feed = document.getElementById('memories-feed');
+            const memories = Storage.get('memories');
+
+            // Sync count to stats
+            document.getElementById('stats-memories-count').innerText = memories.length;
+
+            if (memories.length === 0) {
+                feed.innerHTML = `
+                    <div class="flex flex-col items-center justify-center p-8 text-center h-full space-y-2">
+                        <i class="fa-solid fa-brain text-4xl text-zinc-700"></i>
+                        <p class="text-sm font-bold text-zinc-400">Memory Feed is Empty</p>
+                        <p class="text-xs text-zinc-500">Add key items or recall keywords using the form.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            feed.innerHTML = "";
+            memories.forEach((mem, index) => {
+                const card = document.createElement('div');
+                card.className = "bg-zinc-950 border border-zinc-800 rounded-xl p-4 space-y-2 relative group mem-item";
+                card.dataset.text = mem.text.toLowerCase();
+
+                // Extract hashtags
+                const tags = mem.text.match(/#[a-zA-Z0-9]+/g) || [];
+                const parsedText = mem.text.replace(/#[a-zA-Z0-9]+/g, '<span class="text-blue-400 font-semibold">$1</span>');
+
+                card.innerHTML = `
+                    <p class="text-sm text-zinc-200 whitespace-pre-wrap">${mem.text}</p>
+                    <div class="flex items-center justify-between text-[10px] text-zinc-500 font-mono">
+                        <span>Created: ${mem.date || 'unknown'}</span>
+                        <button onclick="deleteMemory(${index})" class="text-zinc-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">
+                            <i class="fa-solid fa-trash-can"></i> Delete
+                        </button>
+                    </div>
+                `;
+                feed.appendChild(card);
+            });
+        }
+
+        // Add New Memory
+        function handleMemorySubmit(e) {
+            e.preventDefault();
+            const textarea = document.getElementById('mem-text');
+            const text = textarea.value.trim();
+            if (!text) return;
+
+            const memories = Storage.get('memories');
+            memories.unshift({
+                text: text,
+                date: new Date().toLocaleDateString()
+            });
+
+            Storage.set('memories', memories);
+            textarea.value = "";
+            showToast("Memory successfully registered!", "success");
+            renderMemoriesFeed();
+        }
+
+        // Delete Memory
+        function deleteMemory(idx) {
+            if (!confirm("Are you sure you want to delete this memory?")) return;
+            const memories = Storage.get('memories');
+            memories.splice(idx, 1);
+            Storage.set('memories', memories);
+            showToast("Memory deleted.", "warning");
+            renderMemoriesFeed();
+        }
+
+        // Live Filter Memories
+        function filterMemories() {
+            const query = document.getElementById('mem-search-input').value.toLowerCase();
+            document.querySelectorAll('.mem-item').forEach(item => {
+                if (item.dataset.text.includes(query)) {
+                    item.classList.remove('hidden');
+                } else {
+                    item.classList.add('hidden');
+                }
+            });
+        }
+
+        // Notes double-pane logic
+        let activeNoteIndex = null;
+
+        function renderNotesSidebar() {
+            const container = document.getElementById('notes-sidebar-list');
+            const notes = Storage.get('notes');
+
+            // Sync stats count
+            document.getElementById('stats-notes-count').innerText = notes.length;
+
+            if (notes.length === 0) {
+                container.innerHTML = '<p class="text-[11px] text-zinc-500 text-center py-4">No notes created yet.</p>';
+                return;
+            }
+
+            container.innerHTML = "";
+            notes.forEach((note, index) => {
+                const btn = document.createElement('button');
+                btn.onclick = () => selectNote(index);
+                btn.className = `w-full text-left p-3 rounded-lg border text-xs transition-all flex flex-col gap-1 note-sidebar-item ${activeNoteIndex === index ? 'bg-zinc-800 border-blue-500/50 text-white' : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:bg-zinc-900'}`;
+                btn.dataset.title = note.title.toLowerCase();
+                btn.innerHTML = `
+                    <div class="font-bold truncate text-zinc-100">${note.title || 'Untitled'}</div>
+                    <div class="truncate text-[10px] text-zinc-500">${note.content || 'No text content'}</div>
+                `;
+                container.appendChild(btn);
+            });
+        }
+
+        function createNewNoteUI() {
+            const notes = Storage.get('notes');
+            const newNote = {
+                title: "New Note Title",
+                content: "",
+                date: new Date().toLocaleDateString()
+            };
+            notes.unshift(newNote);
+            Storage.set('notes', notes);
+            activeNoteIndex = 0;
+            renderNotesSidebar();
+            selectNote(0);
+            showToast("Note draft created.", "success");
+        }
+
+        function selectNote(index) {
+            activeNoteIndex = index;
+            renderNotesSidebar();
+
+            const notes = Storage.get('notes');
+            const note = notes[index];
+
+            document.getElementById('note-viewer-empty').classList.add('hidden');
+            document.getElementById('note-viewer-active').classList.remove('hidden');
+
+            document.getElementById('note-edit-title').value = note.title;
+            document.getElementById('note-edit-content').value = note.content;
+            document.getElementById('note-edit-meta').innerText = `INDEX: #${index} | Last updated: ${note.date}`;
+        }
+
+        function saveActiveNote() {
+            if (activeNoteIndex === null) return;
+            const notes = Storage.get('notes');
+            notes[activeNoteIndex].title = document.getElementById('note-edit-title').value.trim() || "Untitled Note";
+            notes[activeNoteIndex].content = document.getElementById('note-edit-content').value;
+            notes[activeNoteIndex].date = new Date().toLocaleDateString();
+
+            Storage.set('notes', notes);
+            showToast("Note saved successfully!", "success");
+            renderNotesSidebar();
+            selectNote(activeNoteIndex);
+        }
+
+        function deleteActiveNote() {
+            if (activeNoteIndex === null) return;
+            if (!confirm("Delete this note?")) return;
+
+            const notes = Storage.get('notes');
+            notes.splice(activeNoteIndex, 1);
+            Storage.set('notes', notes);
+
+            activeNoteIndex = null;
+            document.getElementById('note-viewer-empty').classList.remove('hidden');
+            document.getElementById('note-viewer-active').classList.add('hidden');
+
+            showToast("Note deleted.", "warning");
+            renderNotesSidebar();
+        }
+
+        function filterNotes() {
+            const query = document.getElementById('note-search').value.toLowerCase();
+            document.querySelectorAll('.note-sidebar-item').forEach(item => {
+                if (item.dataset.title.includes(query)) {
+                    item.classList.remove('hidden');
+                } else {
+                    item.classList.add('hidden');
+                }
+            });
+        }
+
+        // Universal Intelligence Search Console
+        function handleUniversalSearch(e) {
+            e.preventDefault();
+            const query = document.getElementById('universal-search-input').value.trim().toLowerCase();
+            const notesResults = document.getElementById('search-notes-results');
+            const memoriesResults = document.getElementById('search-memories-results');
+
+            if (!query) {
+                showToast("Please write a search term.", "warning");
+                return;
+            }
+
+            // Fetch stored values
+            const notes = Storage.get('notes');
+            const memories = Storage.get('memories');
+
+            // Notes Filter Match
+            const matchedNotes = notes.filter(n => n.title.toLowerCase().includes(query) || n.content.toLowerCase().includes(query));
+            notesResults.innerHTML = "";
+            if (matchedNotes.length === 0) {
+                notesResults.innerHTML = '<p class="text-xs text-zinc-500 text-center py-6">No matching notes found.</p>';
+            } else {
+                matchedNotes.forEach(n => {
+                    const div = document.createElement('div');
+                    div.className = "p-3 bg-zinc-950 border border-zinc-800 rounded-xl space-y-1.5";
+                    div.innerHTML = `
+                        <div class="text-sm font-bold text-white">${n.title}</div>
+                        <p class="text-xs text-zinc-400 line-clamp-2">${n.content || 'Empty content'}</p>
+                    `;
+                    notesResults.appendChild(div);
+                });
+            }
+
+            // Memories Filter Match
+            const matchedMemories = memories.filter(m => m.text.toLowerCase().includes(query));
+            memoriesResults.innerHTML = "";
+            if (matchedMemories.length === 0) {
+                memoriesResults.innerHTML = '<p class="text-xs text-zinc-500 text-center py-6">No matching memories found.</p>';
+            } else {
+                matchedMemories.forEach(m => {
+                    const div = document.createElement('div');
+                    div.className = "p-3 bg-zinc-950 border border-zinc-800 rounded-xl";
+                    div.innerHTML = `<p class="text-xs text-zinc-300 font-mono">${m.text}</p>`;
+                    memoriesResults.appendChild(div);
+                });
+            }
+
+            showToast(`Search completed. Found ${matchedNotes.length} notes and ${matchedMemories.length} memories.`, "success");
         }
 
         // Fetch current configuration on start
@@ -484,6 +1216,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
                     // Update UI Widgets
                     document.getElementById('widget-model').innerText = data.model;
+
+                    // Update System Specifications System Tab
+                    document.getElementById('sys-platform-val').innerText = data.platform;
+                    document.getElementById('sys-prefix-val').innerText = data.prefix;
+                    document.getElementById('sys-home-val').innerText = data.home;
+                    document.getElementById('sys-loglevel-val').innerText = data.log_level;
                 }
             } catch (err) {
                 console.error("Failed to load config:", err);
@@ -508,12 +1246,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     body: JSON.stringify(config)
                 });
                 if (response.ok) {
-                    alert("Configuration updated successfully!");
+                    showToast("Configuration saved successfully!", "success");
                     fetchConfig();
                     switchTab('dashboard');
                 }
             } catch (err) {
-                alert("Failed to save settings: " + err);
+                showToast("Failed to save settings: " + err, "error");
             }
         }
 
@@ -521,14 +1259,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         async function handleChatSubmit(e) {
             if (e) e.preventDefault();
             const input = document.getElementById('chat-input');
-            const message = input.value.strip ? input.value.strip() : input.value.trim();
+            const message = input.value.trim();
             if (!message) return;
 
             input.value = "";
             appendMessage("user", message);
 
             // Append thinking robot message
-            const thinkingId = appendMessage("assistant", "Thinking...");
+            const thinkingId = appendMessage("assistant", "Pensando...");
 
             try {
                 const response = await fetch(`${API_URL}/api/chat`, {
@@ -565,15 +1303,15 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             msgDiv.className = `flex items-start space-x-3 ${isUser ? 'flex-row-reverse space-x-reverse' : ''}`;
 
             const iconClass = isUser ? 'fa-user text-blue-400' : 'fa-robot text-blue-400';
-            const bgClass = isUser ? 'bg-blue-600 border-blue-500' : 'bg-gray-800 border-gray-700';
+            const bgClass = isUser ? 'bg-blue-600 border-blue-500' : 'bg-zinc-900 border-zinc-850';
 
             msgDiv.innerHTML = `
-                <div class="p-2 bg-blue-500/20 text-blue-400 rounded-xl">
+                <div class="p-2 bg-blue-500/10 text-blue-400 rounded-xl border border-blue-500/20">
                     <i class="fa-solid ${iconClass}"></i>
                 </div>
-                <div class="${bgClass} border rounded-xl p-3.5 max-w-xl shadow-md">
-                    <p class="text-gray-100 text-sm whitespace-pre-wrap"></p>
-                    <p class="text-[10px] text-gray-500 mt-1">${isUser ? 'You' : 'FlowCore Assistant'}</p>
+                <div class="${bgClass} border rounded-2xl p-4 max-w-xl shadow-md">
+                    <p class="text-zinc-100 text-sm whitespace-pre-wrap"></p>
+                    <p class="text-[10px] text-zinc-500 mt-2 font-mono uppercase tracking-wider">${isUser ? 'User Session' : 'FlowCore Assistant'}</p>
                 </div>
             `;
 
@@ -599,15 +1337,16 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             const thread = document.getElementById('chat-thread');
             thread.innerHTML = `
                 <div class="flex items-start space-x-3">
-                    <div class="p-2 bg-blue-500/20 text-blue-400 rounded-xl">
+                    <div class="p-2 bg-blue-500/10 text-blue-400 rounded-xl border border-blue-500/20">
                         <i class="fa-solid fa-robot"></i>
                     </div>
-                    <div class="bg-gray-800 border border-gray-700 rounded-xl p-3.5 max-w-xl">
-                        <p class="text-gray-100 text-sm">Olá! Sou o assistente do FlowCore. Como posso te ajudar hoje?</p>
-                        <p class="text-[10px] text-gray-500 mt-1">FlowCore Agent • READY</p>
+                    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 max-w-xl">
+                        <p class="text-zinc-100 text-sm">Olá! Sou o assistente inteligente do FlowCore. Como posso interagir com seu dispositivo Termux ou gerenciar seu workspace local?</p>
+                        <p class="text-[10px] text-zinc-500 mt-2 font-mono uppercase tracking-wider font-semibold">FlowCore Agent • READY</p>
                     </div>
                 </div>
             `;
+            showToast("Chat feed cleared.", "info");
         }
 
         // Run platform diagnostics
@@ -627,30 +1366,42 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     docPanel.innerHTML = "";
 
                     data.checks.forEach(check => {
-                        const statusColor = check.status === "PASS" ? "bg-green-500/20 text-green-400" : (check.status === "WARN" ? "bg-yellow-500/20 text-yellow-400" : "bg-red-500/20 text-red-400");
-                        const statusIcon = check.status === "PASS" ? "fa-circle-check text-green-400" : (check.status === "WARN" ? "fa-circle-exclamation text-yellow-400" : "fa-circle-xmark text-red-400");
+                        const statusColor = check.status === "PASS" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : (check.status === "WARN" ? "bg-amber-500/10 text-amber-400 border-amber-500/20" : "bg-red-500/10 text-red-400 border-red-500/20");
+                        const statusIcon = check.status === "PASS" ? "fa-circle-check text-emerald-400" : (check.status === "WARN" ? "fa-circle-exclamation text-amber-400" : "fa-circle-xmark text-red-400");
 
                         const itemDiv = document.createElement('div');
-                        itemDiv.className = "flex items-center justify-between p-3.5 bg-gray-900 rounded-lg border border-gray-700 shadow-sm";
+                        itemDiv.className = "flex items-center justify-between p-3.5 bg-zinc-950 rounded-xl border border-zinc-800 shadow-sm transition-all hover:border-zinc-700";
                         itemDiv.innerHTML = `
                             <div class="flex items-center space-x-3">
-                                <i class="fa-solid ${statusIcon} text-lg"></i>
-                                <span class="text-gray-100 font-semibold">${check.name}</span>
+                                <i class="fa-solid ${statusIcon} text-base"></i>
+                                <span class="text-zinc-100 font-semibold text-sm">${check.name}</span>
                             </div>
-                            <span class="${statusColor} px-3 py-1 rounded-full text-xs font-bold uppercase">${check.status}</span>
+                            <span class="${statusColor} px-2.5 py-1 rounded-full text-xs font-bold uppercase border">${check.status}</span>
                         `;
                         docPanel.appendChild(itemDiv);
                     });
 
                     // Update main metrics
-                    document.getElementById('widget-battery').innerText = data.battery_percentage + "%";
+                    const batVal = data.battery_percentage || 85;
+                    document.getElementById('widget-battery').innerText = batVal + "%";
+                    document.getElementById('widget-battery-bar').style.width = batVal + "%";
+
+                    // Set up disk mock/data representation
+                    document.getElementById('widget-disk').innerText = "95 GB Free";
+                    document.getElementById('widget-disk-bar').style.width = "95%";
+
+                    // Set up memory mock/data representation
+                    document.getElementById('widget-ram').innerText = "2.0 GB Free";
+                    document.getElementById('widget-ram-bar').style.width = "50%";
 
                     if (switchTabAfter) {
                         switchTab('doctor');
+                        showToast("Doctor scan completed successfully!", "success");
                     }
                 }
             } catch (err) {
                 console.error("Doctor execution failed:", err);
+                showToast("Failed to perform system audit.", "error");
             } finally {
                 if (spinner) spinner.style.display = "none";
                 if (icon) icon.style.display = "inline-block";
@@ -662,6 +1413,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             switchTab('dashboard');
             fetchConfig();
             runDiagnostics();
+            renderCapabilities();
         });
     </script>
 </body>
