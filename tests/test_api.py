@@ -647,17 +647,23 @@ class TestIntegrationsStatusEndpoint:
             {"name": "WhatsApp", "status": "ok", "detail": "y", "latency_ms": 2.0, "checked_at": "t"},
             {"name": "Ollama", "status": "ok", "detail": "z", "latency_ms": 3.0, "checked_at": "t"},
         ]
+        fake_len = len(fake)  # api/router.py copies-then-appends to its own
+        # result list rather than mutating service.integrations_status()'s
+        # return value, but snapshot the length anyway rather than rely on
+        # that — a mock's return_value is a live reference, not a copy.
         with patch("service.integrations_status", return_value=fake):
             r = c.get("/api/integrations/status")
         assert r.status_code == 200
         integrations = r.json()["integrations"]
-        assert integrations[: len(fake)] == fake
-        # api/router.py appends its own "FastAPI" row — not an external
-        # reachability probe, so it isn't routed through service.py.
-        fastapi_row = integrations[-1]
-        assert fastapi_row["name"] == "FastAPI"
-        assert fastapi_row["status"] == "ok"
-        assert fastapi_row["error"] is None
+        assert integrations[:fake_len] == fake
+        # api/router.py appends its own "FastAPI" and "CLI" rows — neither is
+        # an external reachability probe, so neither is routed through
+        # service.py.integrations_status()'s concurrent-check aggregator.
+        names_after = [row["name"] for row in integrations[fake_len:]]
+        assert names_after == ["FastAPI", "CLI"]
+        for row in integrations[fake_len:]:
+            assert row["status"] == "ok"
+            assert row["error"] is None
 
     def test_fastapi_row_route_count_matches_app(self):
         from api.router import create_app
@@ -667,6 +673,25 @@ class TestIntegrationsStatusEndpoint:
         r = c.get("/api/integrations/status")
         fastapi_row = next(row for row in r.json()["integrations"] if row["name"] == "FastAPI")
         assert str(len(app.routes)) in fastapi_row["detail"]
+
+    def test_cli_row_present(self):
+        c = _client()
+        r = c.get("/api/integrations/status")
+        cli_row = next(row for row in r.json()["integrations"] if row["name"] == "CLI")
+        assert cli_row["status"] == "ok"
+        assert cli_row["error"] is None
+
+
+class TestCliStatusEndpoint:
+    def test_returns_version_and_commands(self):
+        c = _client()
+        r = c.get("/api/cli/status")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["version"]
+        assert len(data["commands"]) > 0
+        for known in ("flow", "outlook", "calendar", "whatsapp", "integrations"):
+            assert known in data["commands"]
 
 
 class TestDaemonEndpoints:

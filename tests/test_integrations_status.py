@@ -293,6 +293,19 @@ class TestCheckMcp:
         assert result["error"] is None
 
 
+class TestCliStatus:
+    def test_returns_version_and_known_commands(self):
+        import asyncio
+
+        import service
+
+        result = asyncio.run(service.cli_status())
+        assert result["version"]
+        assert len(result["commands"]) > 0
+        for known in ("flow", "outlook", "calendar", "whatsapp", "integrations"):
+            assert known in result["commands"]
+
+
 class TestIntegrationsStatus:
     @staticmethod
     def _ok(detail: str) -> AsyncMock:

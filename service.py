@@ -491,6 +491,63 @@ async def _check_mcp() -> dict:
     return {"status": "ok", "detail": f"{len(tools)} tools registered", "error": None}
 
 
+_CLI_COMMANDS = [
+    "serve",
+    "mcp",
+    "run",
+    "health",
+    "version",
+    "selftest",
+    "chat",
+    "remember",
+    "recall",
+    "memories",
+    "import",
+    "docs",
+    "show",
+    "ping",
+    "models",
+    "stats",
+    "doctor",
+    "status",
+    "boot",
+    "install",
+    "bootstrap",
+    "repair",
+    "demo",
+    "search",
+    "daily",
+    "sync",
+    "watch",
+    "obsidian",
+    "ask",
+    "note",
+    "todo",
+    "agenda",
+    "ui",
+    "daemon",
+    "jobs",
+    "flow",
+    "android",
+    "outlook",
+    "calendar",
+    "whatsapp",
+    "integrations",
+    "telegram",
+    "observer",
+]
+
+
+async def cli_status() -> dict:
+    """Metadata, not a reachability check — flowcore.py's CLI is only ever
+    invoked directly by the user, there's nothing to probe. Command list is
+    a literal enumeration of flowcore.py main()'s subparsers, not runtime
+    introspection (argparse doesn't expose that cleanly from outside main())."""
+    from config.loader import get_config
+
+    return {"version": get_config()["app"]["version"], "commands": list(_CLI_COMMANDS)}
+
+
 async def integrations_status() -> list[dict]:
     checks = [
         ("Outlook Auth", _check_outlook),

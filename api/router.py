@@ -64,9 +64,11 @@ Endpoints (Sprint 17, Milestone 4 — WhatsApp via Evolution API):
   GET  /api/whatsapp/status   — configured instance's connection state
   POST /api/whatsapp/send     — send a message ({number, text})
 
-Endpoints (Sprint 17, Milestone 6 — Integration Dashboard):
-  GET  /api/integrations/status   — live health/latency for Outlook+Calendar,
-                                      WhatsApp, Ollama (no history — probed fresh)
+Endpoints (Sprint 17, Milestone 6 — Integration Dashboard; expanded, Issue #4):
+  GET  /api/integrations/status   — live status for Outlook Auth/Mailbox/Calendar,
+                                      WhatsApp, Ollama, Android, MCP, FastAPI, CLI
+                                      (no history — probed fresh each call)
+  GET  /api/cli/status            — CLI version + registered command list (static)
 
 Endpoints (Sprint 17, Milestone 4 — Telegram, reuses the spcx-monitor bot):
   GET  /api/telegram/health   — verifies the bot token via Telegram's getMe
@@ -591,8 +593,11 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         # here directly rather than routed through service.py's aggregator.
         from datetime import UTC, datetime
 
-        results = await service.integrations_status()
+        # Copy, don't mutate — service.integrations_status()'s return value
+        # isn't ours to modify in place.
+        results = list(await service.integrations_status())
         uptime = round(time.time() - _start_time, 1)
+        checked_at = datetime.now(UTC).isoformat()
         results.append(
             {
                 "name": "FastAPI",
@@ -600,10 +605,25 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
                 "detail": f"v{version}, {len(app.routes)} routes, {uptime}s uptime",
                 "error": None,
                 "latency_ms": 0.0,
-                "checked_at": datetime.now(UTC).isoformat(),
+                "checked_at": checked_at,
+            }
+        )
+        cli = await service.cli_status()
+        results.append(
+            {
+                "name": "CLI",
+                "status": "ok",
+                "detail": f"v{cli['version']}, {len(cli['commands'])} commands",
+                "error": None,
+                "latency_ms": 0.0,  # static metadata, not a live probe — see service.cli_status()
+                "checked_at": checked_at,
             }
         )
         return {"integrations": results}
+
+    @app.get("/api/cli/status")
+    async def cli_status():
+        return await service.cli_status()
 
     # ── Telegram (Sprint 17, Milestone 4) ─────────────────────────────────
     @app.get("/api/telegram/health")
