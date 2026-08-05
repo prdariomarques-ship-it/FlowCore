@@ -267,6 +267,46 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
     </div>
   </div>
 
+  <!-- ══ CALENDÁRIO ══ -->
+  <div class="page" id="page-calendar">
+    <div class="gap">
+      <div class="card">
+        <div class="ch"><span class="ct">Próxima reunião</span><span class="ci">⏰</span></div>
+        <div id="cal-next"><div class="sk"></div></div>
+      </div>
+
+      <div class="card">
+        <div class="ch"><span class="ct">Hoje</span><span class="ci">📅</span></div>
+        <div id="cal-today"><div class="sk"></div><div class="sk"></div></div>
+      </div>
+
+      <div class="card">
+        <div class="ch"><span class="ct">Esta semana</span><span class="ci">🗓️</span></div>
+        <div id="cal-week"><div class="sk"></div><div class="sk"></div></div>
+      </div>
+
+      <div class="card">
+        <div class="ch"><span class="ct">Pesquisar eventos</span><span class="ci">🔍</span></div>
+        <div class="ir">
+          <input class="if" id="cal-search-inp" placeholder="Pesquisar eventos...">
+          <button class="bs2" onclick="calSearch()">🔍</button>
+        </div>
+        <div id="cal-search-results"></div>
+      </div>
+
+      <div class="card">
+        <div class="ch"><span class="ct">Novo evento</span><span class="ci">➕</span></div>
+        <div class="ir"><input class="if" id="cal-subject" placeholder="Título"></div>
+        <div class="ir"><input class="if" id="cal-start" type="datetime-local"></div>
+        <div class="ir"><input class="if" id="cal-end" type="datetime-local"></div>
+        <div class="ir"><input class="if" id="cal-location" placeholder="Local (opcional)"></div>
+        <div class="ir"><input class="if" id="cal-attendees" placeholder="Participantes, separados por vírgula (opcional)"></div>
+        <div class="ir"><input class="if" id="cal-description" placeholder="Descrição (opcional)"></div>
+        <button class="btn bg" style="width:100%" onclick="calCreate()">✓ Criar evento</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ══ SISTEMA ══ -->
   <div class="page" id="page-sys">
     <div class="gap">
@@ -413,6 +453,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 <div class="nav">
   <button class="ni active" onclick="pg('home',this)"><span class="ni-icon">🏠</span><span>Início</span></button>
   <button class="ni" onclick="pg('dashboard',this)"><span class="ni-icon">📈</span><span>Dashboard</span></button>
+  <button class="ni" onclick="pg('calendar',this)"><span class="ni-icon">📅</span><span>Calendário</span></button>
   <button class="ni" onclick="pg('sys',this)"><span class="ni-icon">📊</span><span>Sistema</span></button>
   <button class="ni" onclick="pg('caps',this)"><span class="ni-icon">⚡</span><span>Caps</span></button>
   <button class="ni" onclick="pg('mem',this)"><span class="ni-icon">🧠</span><span>Memórias</span></button>
@@ -434,6 +475,7 @@ function pg(name,btn){
   document.getElementById('page-'+name).classList.add('active');
   btn.classList.add('active');
   if(name==='dashboard') loadDashboard();
+  if(name==='calendar') loadCalendar();
   if(name==='sys') loadSys();
   if(name==='notes') loadNotes();
   if(name==='settings') loadSettings();
@@ -743,6 +785,93 @@ function execDuration(start,finish){
   const f=new Date(finish.replace(' ','T')+'Z');
   const secs=Math.max(0,(f-s)/1000);
   return fup(secs);
+}
+
+/* ── Calendar ── */
+async function loadCalendar(){
+  await Promise.all([loadCalNext(), loadCalToday(), loadCalWeek()]);
+}
+
+function renderCalEvent(e){
+  const start=(e.start||'').replace('T',' ').slice(0,16);
+  const end=(e.end||'').slice(11,16);
+  const loc=e.location?` @ ${e.location}`:'';
+  return `<div class="exec-row"><div class="exec-top"><span class="exec-name">${e.subject||'(sem título)'}</span></div>
+    <div class="exec-sub">${start} – ${end}${loc}</div></div>`;
+}
+
+async function loadCalNext(){
+  const el=document.getElementById('cal-next');
+  try{
+    const r=await api('/api/calendar/next');
+    el.innerHTML=r.event?renderCalEvent(r.event):'<div class="empty">Sem reuniões nos próximos 30 dias.</div>';
+  }catch(e){
+    el.innerHTML=`<div class="empty">${e.message}</div>`;
+  }
+}
+
+async function loadCalToday(){
+  const el=document.getElementById('cal-today');
+  try{
+    const r=await api('/api/calendar/today');
+    el.innerHTML=(r.events||[]).length?r.events.map(renderCalEvent).join(''):'<div class="empty">Sem eventos hoje.</div>';
+  }catch(e){
+    el.innerHTML=`<div class="empty">${e.message}</div>`;
+  }
+}
+
+async function loadCalWeek(){
+  const el=document.getElementById('cal-week');
+  try{
+    const r=await api('/api/calendar/week');
+    const events=r.events||[];
+    if(!events.length){el.innerHTML='<div class="empty">Sem eventos esta semana.</div>';return;}
+    const groups={};
+    for(const e of events){
+      const day=(e.start||'').slice(0,10);
+      (groups[day]=groups[day]||[]).push(e);
+    }
+    let html='';
+    for(const day of Object.keys(groups).sort()){
+      html+=`<div class="sr-section"><div class="sr-title">${day}</div>${groups[day].map(renderCalEvent).join('')}</div>`;
+    }
+    el.innerHTML=html;
+  }catch(e){
+    el.innerHTML=`<div class="empty">${e.message}</div>`;
+  }
+}
+
+async function calSearch(){
+  const q=document.getElementById('cal-search-inp').value.trim();
+  if(!q)return;
+  const el=document.getElementById('cal-search-results');
+  el.innerHTML='<div class="sk"></div>';
+  try{
+    const r=await api('/api/calendar/search?q='+encodeURIComponent(q));
+    const events=r.events||[];
+    el.innerHTML=events.length?events.map(renderCalEvent).join(''):`<div class="empty">Sem resultados para "${q}"</div>`;
+  }catch(e){
+    el.innerHTML=`<div class="empty">${e.message}</div>`;
+  }
+}
+document.getElementById('cal-search-inp').addEventListener('keydown',e=>{if(e.key==='Enter')calSearch();});
+
+async function calCreate(){
+  const subject=document.getElementById('cal-subject').value.trim();
+  const start=document.getElementById('cal-start').value;
+  const end=document.getElementById('cal-end').value;
+  const location=document.getElementById('cal-location').value.trim();
+  const attendeesRaw=document.getElementById('cal-attendees').value.trim();
+  const description=document.getElementById('cal-description').value.trim();
+  if(!subject||!start||!end){toast('Preenche título, início e fim');return;}
+  const attendees=attendeesRaw?attendeesRaw.split(',').map(a=>a.trim()).filter(Boolean):[];
+  try{
+    await api('/api/calendar',{method:'POST',body:JSON.stringify({subject,start,end,location,attendees,description})});
+    toast('✓ Evento criado');
+    for(const id of ['cal-subject','cal-start','cal-end','cal-location','cal-attendees','cal-description'])
+      document.getElementById(id).value='';
+    loadCalendar();
+  }catch(e){toast('Erro: '+e.message);}
 }
 
 /* ── Memories ── */
