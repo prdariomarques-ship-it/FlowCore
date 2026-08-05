@@ -6,6 +6,7 @@ Capability adapters import this; the LLM (agent layer) never calls it directly.
 Design rule: arguments are always a list, never a shell string.
 This prevents shell injection regardless of input.
 """
+
 from __future__ import annotations
 
 import shutil
@@ -18,6 +19,7 @@ from typing import Sequence
 @dataclass
 class ShellResult:
     """Result of a controlled shell execution."""
+
     command: list[str]
     returncode: int
     stdout: str

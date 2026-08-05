@@ -7,6 +7,7 @@ Responsible for:
 
 Designed to run on Termux / Android with minimal resource footprint.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -41,6 +42,7 @@ def detect_platform() -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Lifecycle
 # ---------------------------------------------------------------------------
+
 
 class FlowCoreRuntime:
     """Main application runtime.

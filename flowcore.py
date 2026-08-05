@@ -36,6 +36,7 @@ Env vars:
     FLOWCORE_MODEL=qwen3:8b              (default: llama2)
     FLOWCORE_OLLAMA=http://127.0.0.1:11434  (default shown)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -99,6 +100,7 @@ def selftest_check(name: str, fn, detail: str = "", skip: bool = False) -> str:
         print(f"         {str(e)[:80]}")
         return "FAIL"
 
+
 def cmd_selftest() -> None:
     """Validate the core FlowCore installation."""
     passed = 0
@@ -116,6 +118,7 @@ def cmd_selftest() -> None:
 
     def _load_config():
         from config.loader import get_config
+
         cfg = get_config()
         assert cfg["app"]["name"] == "FlowCore"
         assert "api" in cfg
@@ -123,44 +126,56 @@ def cmd_selftest() -> None:
 
     result = selftest_check("CONFIG", _load_config, "JSON loaded")
     results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
 
     def _sqlite_test():
         import aiosqlite
+
         assert aiosqlite is not None
 
     result = selftest_check("SQLITE", _sqlite_test, "aiosqlite available")
     results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
 
     def _logging_test():
         from loguru import logger
+
         assert logger is not None
 
     result = selftest_check("LOGGING", _logging_test, "loguru available")
     results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
 
     def _storage_test():
         from storage import DocumentRepository, MemoryRepository
+
         assert DocumentRepository is not None
         assert MemoryRepository is not None
 
     result = selftest_check("STORAGE", _storage_test, "Repository layer ready")
     results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
 
     print(f"{BOLD}OPTIONAL{NC}")
 
     def _api_test():
         try:
-            import fastapi
+            import fastapi  # noqa: F401 — availability probe
             from api.router import create_app
             from config.loader import get_config
+
             cfg = get_config()
             app = create_app(version=cfg["app"]["version"], platform_info={"os_name": "linux"})
             assert app is not None
@@ -168,11 +183,14 @@ def cmd_selftest() -> None:
             raise ImportError("FastAPI not installed. Run: bash install_api.sh")
 
     try:
-        import fastapi
+        import fastapi  # noqa: F401 — availability probe
+
         result = selftest_check("API", _api_test, "FastAPI available")
         results.append(result)
-        if result == "PASS": passed += 1
-        elif result == "FAIL": failed += 1
+        if result == "PASS":
+            passed += 1
+        elif result == "FAIL":
+            failed += 1
     except ImportError:
         result = selftest_check("API", _api_test, "Install with: bash install_api.sh", skip=True)
         results.append(result)
@@ -185,8 +203,10 @@ def cmd_selftest() -> None:
 
     result = selftest_check("DOCUMENTS", _storage_dir_test, "SQLite ready")
     results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
 
     print(f"{BOLD}MEMORY{NC}")
 
@@ -209,13 +229,16 @@ def cmd_selftest() -> None:
 
     result = selftest_check("RECALL", _memory_recall_test, "Remember & recall work")
     results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
 
     print(f"{BOLD}DOCUMENTS{NC}")
 
     def _import_test():
         import tempfile
+
         with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
             f.write("# Test Document\n\nThis is a test markdown file.")
             temp_file = f.name
@@ -226,13 +249,16 @@ def cmd_selftest() -> None:
 
     result = selftest_check("IMPORT", _import_test, "Markdown import works")
     results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
 
     print(f"{BOLD}AI{NC}")
 
     def _ask_graceful_test():
         import io
+
         old_stdout = sys.stdout
         try:
             sys.stdout = io.StringIO()
@@ -242,11 +268,14 @@ def cmd_selftest() -> None:
 
     result = selftest_check("ASK", _ask_graceful_test, "Ask handles missing Ollama")
     results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
 
     def _ping_test():
         import io
+
         old_stdout = sys.stdout
         try:
             sys.stdout = io.StringIO()
@@ -256,11 +285,14 @@ def cmd_selftest() -> None:
 
     result = selftest_check("PING", _ping_test, "Ollama connection check works")
     results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
 
     def _stats_test():
         import io
+
         old_stdout = sys.stdout
         try:
             sys.stdout = io.StringIO()
@@ -270,13 +302,16 @@ def cmd_selftest() -> None:
 
     result = selftest_check("STATS", _stats_test, "Statistics display works")
     results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
 
     print(f"{BOLD}DAILY/SEARCH{NC}")
 
     def _daily_test():
         import io
+
         old_stdout = sys.stdout
         try:
             sys.stdout = io.StringIO()
@@ -286,11 +321,14 @@ def cmd_selftest() -> None:
 
     result = selftest_check("DAILY", _daily_test, "Daily summary works")
     results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
 
     def _search_test():
         import io
+
         old_stdout = sys.stdout
         try:
             sys.stdout = io.StringIO()
@@ -300,11 +338,14 @@ def cmd_selftest() -> None:
 
     result = selftest_check("SEARCH", _search_test, "Search works")
     results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
 
     def _sync_test():
         import tempfile
+
         with tempfile.TemporaryDirectory() as tmpdir:
             md_file = Path(tmpdir) / "test.md"
             md_file.write_text("# Test\nContent")
@@ -312,14 +353,17 @@ def cmd_selftest() -> None:
 
     result = selftest_check("SYNC", _sync_test, "Sync folder works")
     results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
 
     print(f"{BOLD}OBSIDIAN{NC}")
 
     def _obsidian_test():
         import tempfile
         import io
+
         with tempfile.TemporaryDirectory() as tmpdir:
             old_stdout = sys.stdout
             try:
@@ -331,8 +375,10 @@ def cmd_selftest() -> None:
 
     result = selftest_check("OBSIDIAN", _obsidian_test, "Obsidian init works")
     results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
 
     print("")
     if failed == 0:
@@ -410,7 +456,8 @@ def cmd_health(cfg: dict) -> None:
     print(f"  {GREEN}✓{NC} Storage")
 
     try:
-        import fastapi
+        import fastapi  # noqa: F401 — availability probe
+
         print(f"  {GREEN}✓{NC} API")
     except ImportError:
         print(f"  {YELLOW}○{NC} API (not installed)")
@@ -493,7 +540,7 @@ def cmd_memories() -> None:
     """List all memories."""
     memories = _mem_repo.list_all()
     if not memories:
-        print(f"{YELLOW}No memories yet. Use: python3 flowcore.py remember \"<text>\"{NC}")
+        print(f'{YELLOW}No memories yet. Use: python3 flowcore.py remember "<text>"{NC}')
         return
 
     print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
@@ -616,10 +663,7 @@ def cmd_models() -> None:
         active_model = None
 
     try:
-        request = urllib.request.Request(
-            _get_ollama_url("tags"),
-            headers={"Content-Type": "application/json"}
-        )
+        request = urllib.request.Request(_get_ollama_url("tags"), headers={"Content-Type": "application/json"})
 
         with urllib.request.urlopen(request, timeout=10) as response:
             data = json.loads(response.read().decode("utf-8"))
@@ -712,7 +756,8 @@ def cmd_doctor() -> None:
         checks["python"] = "FAIL"
 
     try:
-        import aiosqlite
+        import aiosqlite  # noqa: F401 — availability probe
+
         print(f"{GREEN}✓{NC} SQLite (aiosqlite)")
         checks["sqlite"] = "PASS"
     except Exception as e:
@@ -721,10 +766,12 @@ def cmd_doctor() -> None:
 
     try:
         from storage.database import get_db_path
+
         db_path = get_db_path()
 
         async def _test_db():
             import aiosqlite
+
             async with aiosqlite.connect(db_path) as db:
                 cursor = await db.execute("SELECT 1")
                 await cursor.fetchone()
@@ -766,7 +813,8 @@ def cmd_doctor() -> None:
         checks["ollama"] = "WARN"
 
     try:
-        import fastapi
+        import fastapi  # noqa: F401 — availability probe
+
         print(f"{GREEN}✓{NC} FastAPI (optional)")
         checks["api"] = "PASS"
     except ImportError:
@@ -788,6 +836,7 @@ def cmd_boot(verbose: bool = False) -> None:
     print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
     try:
         from runtime.kernel import RuntimeKernel
+
         kernel = RuntimeKernel()
         passport = kernel.boot(verbose=verbose)
         print(f"{GREEN}✓{NC} Platform  : {passport.platform}")
@@ -813,6 +862,7 @@ def cmd_status() -> None:
     runtime_json = Path.home() / ".flowcore" / "flowcore.runtime.json"
     if runtime_json.exists():
         import json as _json
+
         try:
             data = _json.loads(runtime_json.read_text())
             android = data.get("android", {})
@@ -833,6 +883,7 @@ def cmd_status() -> None:
     print(f"{BOLD}Capabilities{NC}")
     try:
         from capability.registry import CapabilityRegistry
+
         reg = CapabilityRegistry()
         cap_map = reg.list_capabilities()
         available = [(c, a) for c, a in cap_map.items() if a]
@@ -850,10 +901,10 @@ def cmd_status() -> None:
     print(f"{BOLD}Health (Doctor){NC}")
     try:
         from doctor.service import DoctorService
+
         doctor = DoctorService()
         report = doctor.run(verbose=False)
-        icons = {"ok": f"{GREEN}✓{NC}", "warn": f"{YELLOW}⚠{NC}",
-                 "fail": f"{RED}✗{NC}", "skip": "─"}
+        icons = {"ok": f"{GREEN}✓{NC}", "warn": f"{YELLOW}⚠{NC}", "fail": f"{RED}✗{NC}", "skip": "─"}
         for check in report.checks:
             icon = icons.get(check.status.value, "?")
             suffix = f"  → {check.fix}" if check.fix and check.status.value != "ok" else ""
@@ -875,6 +926,7 @@ def cmd_bootstrap() -> None:
     print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
     try:
         from installer.setup import FlowCoreInstaller
+
         installer = FlowCoreInstaller()
         report = installer.bootstrap(verbose=True)
         print()
@@ -896,6 +948,7 @@ def cmd_repair() -> None:
     print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
     try:
         from installer.setup import FlowCoreInstaller
+
         installer = FlowCoreInstaller()
         report = installer.repair(verbose=True)
         print()
@@ -917,6 +970,7 @@ def cmd_install() -> None:
     print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
     try:
         from installer.setup import FlowCoreInstaller
+
         installer = FlowCoreInstaller()
         report = installer.install(verbose=True)
         print()
@@ -946,6 +1000,7 @@ async def cmd_demo() -> None:
 
         print(f"\n{BOLD}3. Import Markdown{NC}")
         import tempfile
+
         with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
             f.write("# FlowCore Demo\n\nThis is a demo markdown file for testing import functionality.")
             temp_file = f.name
@@ -1215,6 +1270,7 @@ async def cmd_ask(question: str) -> None:
 async def cmd_note(text: str) -> None:
     """Add a note."""
     import service
+
     try:
         await service.add_note(text, "note")
         print(f"{GREEN}✓ Note saved{NC}")
@@ -1226,6 +1282,7 @@ async def cmd_note(text: str) -> None:
 async def cmd_todo(task: str) -> None:
     """Add a todo item."""
     import service
+
     try:
         await service.add_note(task, "todo")
         print(f"{GREEN}✓ Todo added{NC}")
@@ -1237,6 +1294,7 @@ async def cmd_todo(task: str) -> None:
 async def cmd_agenda(event: str) -> None:
     """Add to agenda."""
     import service
+
     try:
         await service.add_note(event, "agenda")
         print(f"{GREEN}✓ Event added to agenda{NC}")
@@ -1250,6 +1308,7 @@ def cmd_ui() -> None:
     url = "http://localhost:8080"
     try:
         from runtime.shell import is_available, run
+
         if is_available("termux-open-url"):
             result = run(["termux-open-url", url], timeout=5)
             if result.success:
@@ -1265,6 +1324,7 @@ def cmd_ui() -> None:
 def cmd_daemon(action: str, interval: int = 60) -> None:
     """Manage the FlowCore background daemon."""
     from runtime.daemon import FlowCoreDaemon
+
     d = FlowCoreDaemon()
 
     if action == "start":
@@ -1293,17 +1353,17 @@ def cmd_daemon(action: str, interval: int = 60) -> None:
             print(f"  Log   : {result.get('log', '')}")
         else:
             print(f"{YELLOW}○ Daemon not running{NC}")
-            print(f"  Start with: python3 flowcore.py daemon start")
+            print("  Start with: python3 flowcore.py daemon start")
 
     else:
         print(f"{RED}Unknown daemon action: {action!r}{NC}")
         print("  Usage: python3 flowcore.py daemon <start|stop|status>")
 
 
-def cmd_jobs(action: str, name: str = "", script: str = "",
-             schedule: str = "") -> None:
+def cmd_jobs(action: str, name: str = "", script: str = "", schedule: str = "") -> None:
     """Manage scheduled jobs."""
     from runtime.job_scheduler import JobScheduler
+
     sched = JobScheduler()
 
     if action == "list":
@@ -1437,8 +1497,7 @@ def main() -> None:
     daemon_parser = subparsers.add_parser("daemon", help="Manage background daemon")
     daemon_sub = daemon_parser.add_subparsers(dest="daemon_action")
     daemon_start = daemon_sub.add_parser("start", help="Start the daemon")
-    daemon_start.add_argument("--interval", type=int, default=60,
-                              help="Heartbeat interval in seconds (default: 60)")
+    daemon_start.add_argument("--interval", type=int, default=60, help="Heartbeat interval in seconds (default: 60)")
     daemon_sub.add_parser("stop", help="Stop the daemon")
     daemon_sub.add_parser("status", help="Show daemon status")
 
@@ -1462,6 +1521,7 @@ def main() -> None:
         asyncio.run(cmd_serve(cfg, platform))
     elif args.command == "mcp":
         from mcp_server import run as run_mcp_server
+
         run_mcp_server()
     elif args.command == "run":
         asyncio.run(cmd_run(cfg, platform))
@@ -1544,8 +1604,8 @@ def main() -> None:
         if not action:
             print("Usage: python3 flowcore.py jobs <list|add|remove|run>")
             sys.exit(1)
-        name     = getattr(args, "name", "")
-        script   = getattr(args, "script", "")
+        name = getattr(args, "name", "")
+        script = getattr(args, "script", "")
         schedule = getattr(args, "schedule", "")
         cmd_jobs(action, name=name, script=script, schedule=schedule)
     else:

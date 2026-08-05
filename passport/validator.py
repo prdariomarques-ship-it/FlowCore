@@ -1,4 +1,5 @@
 """FlowCore — Passport validator."""
+
 from __future__ import annotations
 
 import hashlib
@@ -34,9 +35,7 @@ class PassportValidator:
                 return result
         return ValidationResult(valid=True, reason="ok")
 
-    def require_capability(
-        self, passport: Passport, capability: str
-    ) -> ValidationResult:
+    def require_capability(self, passport: Passport, capability: str) -> ValidationResult:
         """Check passport is valid AND grants a specific capability."""
         result = self.validate(passport)
         if not result:
@@ -48,9 +47,7 @@ class PassportValidator:
             )
         return ValidationResult(valid=True, reason="ok")
 
-    def require_permission(
-        self, passport: Passport, permission: str
-    ) -> ValidationResult:
+    def require_permission(self, passport: Passport, permission: str) -> ValidationResult:
         """Check passport is valid AND grants a specific permission."""
         result = self.validate(passport)
         if not result:
@@ -89,12 +86,16 @@ class PassportValidator:
 
     @staticmethod
     def _recompute_hash(passport: Passport) -> str:
-        payload = json.dumps({
-            "agent": passport.agent.to_dict(),
-            "issued_at": passport.issued_at,
-            "expires_at": passport.expires_at,
-            "capabilities": sorted(passport.capabilities),
-            "permissions": sorted(passport.permissions),
-            "health_status": passport.health_status,
-        }, sort_keys=True, separators=(",", ":"))
+        payload = json.dumps(
+            {
+                "agent": passport.agent.to_dict(),
+                "issued_at": passport.issued_at,
+                "expires_at": passport.expires_at,
+                "capabilities": sorted(passport.capabilities),
+                "permissions": sorted(passport.permissions),
+                "health_status": passport.health_status,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
         return hashlib.sha256(payload.encode()).hexdigest()

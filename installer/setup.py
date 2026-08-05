@@ -18,6 +18,7 @@ Installation sequence:
 FlowCoreInstaller is idempotent: running it multiple times is safe.
 Each step checks whether the target is already satisfied before acting.
 """
+
 from __future__ import annotations
 
 import os
@@ -30,7 +31,7 @@ from runtime.shell import is_available, run, which
 
 @dataclass
 class InstallStep:
-    name:    str
+    name: str
     success: bool
     message: str
     skipped: bool = False
@@ -38,7 +39,7 @@ class InstallStep:
 
 @dataclass
 class InstallReport:
-    steps:   list[InstallStep] = field(default_factory=list)
+    steps: list[InstallStep] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -232,16 +233,19 @@ class FlowCoreInstaller:
     def _run_doctor(self) -> InstallStep:
         try:
             from doctor.service import DoctorService
+
             doctor = DoctorService()
             report = doctor.run(verbose=False)
             if report.healthy:
                 return InstallStep(
-                    "doctor", True,
+                    "doctor",
+                    True,
                     f"All checks passed ({report.passed}/{len(report.checks)})",
                 )
             warn_names = [c.name for c in report.checks if c.status.value in ("warn", "fail")]
             return InstallStep(
-                "doctor", True,  # warnings don't block install
+                "doctor",
+                True,  # warnings don't block install
                 f"{report.passed}/{len(report.checks)} passed; warnings: {warn_names}",
             )
         except Exception as e:
@@ -250,11 +254,13 @@ class FlowCoreInstaller:
     def _boot_kernel(self) -> InstallStep:
         try:
             from runtime.kernel import RuntimeKernel
+
             kernel = RuntimeKernel(root=self._root)
             passport = kernel.boot()
             caps = passport.capabilities
             return InstallStep(
-                "kernel_boot", True,
+                "kernel_boot",
+                True,
                 f"Runtime Passport issued — {len(caps)} capabilities: {caps}",
             )
         except Exception as e:
@@ -299,7 +305,8 @@ class FlowCoreInstaller:
         if prefix and os.path.exists(prefix + "/bin/bash"):
             return InstallStep("bootstrap_termux_env", True, f"Termux detected: PREFIX={prefix}")
         return InstallStep(
-            "bootstrap_termux_env", False,
+            "bootstrap_termux_env",
+            False,
             "Not running inside Termux — bootstrap requires Termux on Android",
         )
 
@@ -310,7 +317,8 @@ class FlowCoreInstaller:
         if result.success:
             return InstallStep("bootstrap_pkg_update", True, "pkg updated")
         return InstallStep(
-            "bootstrap_pkg_update", False,
+            "bootstrap_pkg_update",
+            False,
             f"pkg update failed: {result.stderr.strip()[:100]}",
         )
 
@@ -322,7 +330,8 @@ class FlowCoreInstaller:
         result = run(["pkg", "install", "-y", "termux-api"], timeout=120)
         if result.success:
             return InstallStep(
-                "bootstrap_termux_api", True,
+                "bootstrap_termux_api",
+                True,
                 "Termux:API installed (also install Termux:API app from F-Droid)",
             )
         return InstallStep("bootstrap_termux_api", False, result.stderr.strip()[:100])
@@ -332,7 +341,8 @@ class FlowCoreInstaller:
         if storage.exists():
             return InstallStep("bootstrap_storage", True, "Termux storage already configured", skipped=True)
         return InstallStep(
-            "bootstrap_storage", False,
+            "bootstrap_storage",
+            False,
             "Storage not set up — run 'termux-setup-storage' manually in Termux, then re-run bootstrap",
         )
 
@@ -348,11 +358,13 @@ class FlowCoreInstaller:
                 failed.append(pkg)
         if failed:
             return InstallStep(
-                "bootstrap_core_packages", False,
+                "bootstrap_core_packages",
+                False,
                 f"Some packages failed to install: {failed}. Installed: {installed}",
             )
         return InstallStep(
-            "bootstrap_core_packages", True,
+            "bootstrap_core_packages",
+            True,
             f"Core packages installed: {installed}",
         )
 
@@ -370,6 +382,7 @@ class FlowCoreInstaller:
 
         try:
             from doctor.service import DoctorService
+
             doctor = DoctorService()
             doctor_report = doctor.run(verbose=False)
         except Exception as e:
@@ -377,11 +390,13 @@ class FlowCoreInstaller:
             report.steps.append(step)
             return report
 
-        report.steps.append(InstallStep(
-            "repair_doctor", True,
-            f"Doctor: {doctor_report.passed}/{len(doctor_report.checks)} passed, "
-            f"{doctor_report.failed} failures",
-        ))
+        report.steps.append(
+            InstallStep(
+                "repair_doctor",
+                True,
+                f"Doctor: {doctor_report.passed}/{len(doctor_report.checks)} passed, {doctor_report.failed} failures",
+            )
+        )
 
         failed_checks = [c for c in doctor_report.checks if c.failed]
         if not failed_checks:
@@ -395,10 +410,13 @@ class FlowCoreInstaller:
         re_report = doctor.run(verbose=False)
         remaining = re_report.failed
         status = remaining == 0
-        report.steps.append(InstallStep(
-            "repair_final_check", status,
-            f"Post-repair: {re_report.passed}/{len(re_report.checks)} passed, {remaining} still failing",
-        ))
+        report.steps.append(
+            InstallStep(
+                "repair_final_check",
+                status,
+                f"Post-repair: {re_report.passed}/{len(re_report.checks)} passed, {remaining} still failing",
+            )
+        )
 
         return report
 
@@ -412,7 +430,8 @@ class FlowCoreInstaller:
 
         if not fix:
             return InstallStep(
-                f"repair_{name}", False,
+                f"repair_{name}",
+                False,
                 f"No automatic fix available for '{name}': {check.message}",
                 skipped=True,
             )
@@ -424,7 +443,8 @@ class FlowCoreInstaller:
 
         if not is_available(fix_parts[0]):
             return InstallStep(
-                f"repair_{name}", False,
+                f"repair_{name}",
+                False,
                 f"Fix command '{fix_parts[0]}' not available — manual action required: {fix}",
                 skipped=True,
             )
@@ -433,6 +453,7 @@ class FlowCoreInstaller:
         if result.success:
             return InstallStep(f"repair_{name}", True, f"Fixed via: {fix}")
         return InstallStep(
-            f"repair_{name}", False,
+            f"repair_{name}",
+            False,
             f"Auto-fix failed: {result.stderr.strip()[:100]} — manual action: {fix}",
         )

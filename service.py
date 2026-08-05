@@ -10,6 +10,7 @@ propagate. Each interface catches what it needs and presents it in its
 own idiom (CLI prints colored text, FastAPI maps to HTTP status codes,
 MCP raises RuntimeError).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -41,10 +42,7 @@ async def add_note(text: str, kind: str = "note") -> dict:
 async def list_notes(kind: str | None = None) -> list[dict]:
     """List note/todo/agenda documents, optionally filtered by kind."""
     docs = await _doc_repo.list_all()
-    return [
-        d for d in docs
-        if d.get("source") in NOTE_KIND_LABELS and (kind is None or d.get("source") == kind)
-    ]
+    return [d for d in docs if d.get("source") in NOTE_KIND_LABELS and (kind is None or d.get("source") == kind)]
 
 
 async def build_rag_context(limit: int = 5) -> str:

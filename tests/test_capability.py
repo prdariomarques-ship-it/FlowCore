@@ -1,4 +1,5 @@
 """Tests for the capability adapter layer and registry."""
+
 from __future__ import annotations
 
 import sys
@@ -13,9 +14,11 @@ if str(ROOT) not in sys.path:
 
 # ── CapabilityResult ──────────────────────────────────────────────────────────
 
+
 class TestCapabilityResult:
     def _cls(self):
         from capability.adapters.base import CapabilityResult
+
         return CapabilityResult
 
     def test_ok_sets_success_true(self):
@@ -28,11 +31,14 @@ class TestCapabilityResult:
 
     def test_fail_sets_success_false(self):
         CR = self._cls()
-        r = CR.fail("something broke", "adapter",
-                    reason="disk full",
-                    diagnosis="no space",
-                    corrective_action="free space",
-                    fallback_provider="other")
+        r = CR.fail(
+            "something broke",
+            "adapter",
+            reason="disk full",
+            diagnosis="no space",
+            corrective_action="free space",
+            fallback_provider="other",
+        )
         assert r.success is False
         assert r.error == "something broke"
         assert r.reason == "disk full"
@@ -61,12 +67,17 @@ class TestCapabilityResult:
 
 # ── CapabilityAdapter base ────────────────────────────────────────────────────
 
+
 class TestCapabilityAdapterBase:
     def _make_adapter(self):
         from capability.adapters.base import CapabilityAdapter
+
         class Concrete(CapabilityAdapter):
             name = "test"
-            def is_available(self): return True
+
+            def is_available(self):
+                return True
+
         return Concrete()
 
     def test_repr_contains_name(self):
@@ -86,9 +97,11 @@ class TestCapabilityAdapterBase:
 
 # ── CapabilityRegistry ────────────────────────────────────────────────────────
 
+
 class TestCapabilityRegistry:
     def _registry(self):
         from capability.registry import CapabilityRegistry
+
         return CapabilityRegistry()
 
     def test_list_capabilities_returns_dict(self):
@@ -124,8 +137,15 @@ class TestCapabilityRegistry:
     def test_known_capabilities_present(self):
         reg = self._registry()
         names = reg.capability_names()
-        for expected in ["getBattery", "runPython", "readFile", "httpRequest",
-                         "getClipboard", "sendNotification", "runGit"]:
+        for expected in [
+            "getBattery",
+            "runPython",
+            "readFile",
+            "httpRequest",
+            "getClipboard",
+            "sendNotification",
+            "runGit",
+        ]:
             assert expected in names, f"{expected} missing from registry"
 
     def test_read_file_has_adapter_on_linux(self):
@@ -150,9 +170,11 @@ class TestCapabilityRegistry:
 
 # ── Termux adapters (unit-level, no real calls) ───────────────────────────────
 
+
 class TestTermuxFilesystemAdapter:
     def _adapter(self):
         from capability.adapters.termux import TermuxFilesystemAdapter
+
         return TermuxFilesystemAdapter()
 
     def test_is_available_on_linux(self):
@@ -189,6 +211,7 @@ class TestTermuxFilesystemAdapter:
 class TestTermuxHTTPAdapter:
     def _adapter(self):
         from capability.adapters.termux import TermuxHTTPAdapter
+
         return TermuxHTTPAdapter()
 
     def test_is_available(self):
@@ -198,6 +221,7 @@ class TestTermuxHTTPAdapter:
 class TestTermuxPackageAdapter:
     def _adapter(self):
         from capability.adapters.termux import TermuxPackageAdapter
+
         return TermuxPackageAdapter()
 
     def test_invalid_package_name_rejected(self):
@@ -215,6 +239,7 @@ class TestTermuxPackageAdapter:
 class TestTermuxShellAdapter:
     def _adapter(self):
         from capability.adapters.termux import TermuxShellAdapter
+
         return TermuxShellAdapter()
 
     def test_empty_args_fails(self):

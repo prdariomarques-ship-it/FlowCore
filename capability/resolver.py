@@ -7,6 +7,7 @@ The resolver wraps CapabilityRegistry and adds:
 - Automatic fallback: if the primary adapter fails, try the next available one
 - Diagnostics: records which adapter was used and why fallback occurred
 """
+
 from __future__ import annotations
 
 from loguru import logger
@@ -37,15 +38,11 @@ class ProviderResolver:
         """
         method_name = _CAPABILITY_METHOD.get(capability)
         if method_name is None:
-            return CapabilityResult.fail(
-                f"Unknown capability: '{capability}'", "resolver"
-            )
+            return CapabilityResult.fail(f"Unknown capability: '{capability}'", "resolver")
 
         candidates = self._candidates(capability, method_name)
         if not candidates:
-            return CapabilityResult.fail(
-                f"No adapter supports '{capability}' on this platform", "resolver"
-            )
+            return CapabilityResult.fail(f"No adapter supports '{capability}' on this platform", "resolver")
 
         last_result: CapabilityResult | None = None
         for adapter in candidates:
@@ -56,13 +53,16 @@ class ProviderResolver:
                     # We fell back — log it so diagnostics can surface this
                     logger.debug(
                         "resolver: '{}' fell back to '{}' (primary failed)",
-                        capability, adapter.name,
+                        capability,
+                        adapter.name,
                     )
                 return result
             last_result = result
             logger.debug(
                 "resolver: adapter '{}' failed for '{}': {}",
-                adapter.name, capability, result.error,
+                adapter.name,
+                capability,
+                result.error,
             )
 
         # All adapters failed
@@ -86,11 +86,10 @@ class ProviderResolver:
 
     # ── Internal ──────────────────────────────────────────────────────────────
 
-    def _candidates(
-        self, capability: str, method_name: str
-    ) -> list[CapabilityAdapter]:
+    def _candidates(self, capability: str, method_name: str) -> list[CapabilityAdapter]:
         """All available adapters that override *method_name*, in priority order."""
         from capability.registry import _is_base_stub
+
         result = []
         for adapter in self._registry.available_adapters():
             if not _is_base_stub(adapter, method_name):

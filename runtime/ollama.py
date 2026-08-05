@@ -10,6 +10,7 @@ que responder HTTP 200.
 Usado por flowcore.py e mcp_server.py — implementação única, sem
 duplicação (ver requisito de reuso).
 """
+
 from __future__ import annotations
 
 import json
@@ -79,7 +80,9 @@ def _default_route_gateway() -> str | None:
     try:
         result = subprocess.run(
             ["ip", "route", "show", "default"],
-            capture_output=True, text=True, timeout=2,
+            capture_output=True,
+            text=True,
+            timeout=2,
         )
     except (OSError, subprocess.SubprocessError):
         return None
@@ -193,10 +196,7 @@ def discover_default_model() -> str:
     if not models:
         raise OllamaDiscoveryError(f"Nenhum modelo instalado no Ollama em {base_url}")
 
-    local_models = [
-        m for m in models
-        if not m.get("remote_host") and not (m.get("name") or "").endswith(":cloud")
-    ]
+    local_models = [m for m in models if not m.get("remote_host") and not (m.get("name") or "").endswith(":cloud")]
     if not local_models:
         raise OllamaDiscoveryError(
             f"Só há modelos Ollama Cloud instalados em {base_url} (exigem assinatura paga). "
@@ -218,6 +218,7 @@ def discover_default_model() -> str:
 # classifica erros em tipos distintos (inacessível, não instalado, exige
 # assinatura, timeout de carregamento) em vez de um genérico "falhou".
 # ---------------------------------------------------------------------------
+
 
 def list_loaded_models(base_url: str, timeout: float = 5) -> list[str]:
     """Retorna os nomes dos modelos atualmente carregados em memória (via /api/ps)."""
@@ -244,8 +245,7 @@ def _classify_http_error(e: urllib.error.HTTPError, base_url: str, model: str) -
         )
     if e.code == 404:
         return OllamaModelNotInstalledError(
-            f"Modelo '{model}' não está instalado em {base_url} (HTTP 404). "
-            f"Rode: ollama pull {model}. Detalhe: {body}"
+            f"Modelo '{model}' não está instalado em {base_url} (HTTP 404). Rode: ollama pull {model}. Detalhe: {body}"
         )
     return OllamaError(f"Erro HTTP {e.code} ao chamar {base_url}: {body or e.reason}")
 

@@ -10,6 +10,7 @@ per-category recommendation.
 Usage:
     python3 scripts/benchmark_models.py [--timeout SECONDS] [--out FILE.json]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -43,6 +44,7 @@ NC = "\033[0m"
 # Test suite — each check returns (passed: bool | None, detail: str).
 # None means "not automatically verifiable", the raw response is kept anyway.
 # ---------------------------------------------------------------------------
+
 
 def _check_reasoning(response: str) -> tuple[bool, str]:
     ok = "40" in response
@@ -80,7 +82,7 @@ def _check_agent(response: str) -> tuple[bool, str]:
     if start == -1 or end == -1:
         return False, "no JSON object found in response"
     try:
-        data = json.loads(text[start:end + 1])
+        data = json.loads(text[start : end + 1])
         ok = data.get("action") == "add" and data.get("a") == 3 and data.get("b") == 5
         return ok, "expected {'action':'add','a':3,'b':5}"
     except json.JSONDecodeError as e:
@@ -95,12 +97,14 @@ def _check_portuguese(response: str) -> tuple[bool, str]:
 CATEGORIES = [
     {
         "key": "reasoning",
-        "prompt": "A train travels 60 miles in 1.5 hours. What is its average speed in mph? Reply with just the number.",
+        "prompt": "A train travels 60 miles in 1.5 hours. What is its average speed in mph?"
+        " Reply with just the number.",
         "check": _check_reasoning,
     },
     {
         "key": "coding",
-        "prompt": "Write a Python function `factorial(n)` that returns n!. Output ONLY the code, no explanation, no markdown.",
+        "prompt": "Write a Python function `factorial(n)` that returns n!."
+        " Output ONLY the code, no explanation, no markdown.",
         "check": _check_coding,
     },
     {
@@ -114,8 +118,7 @@ CATEGORIES = [
     {
         "key": "agent_tool_use",
         "prompt": (
-            'Respond with ONLY a valid JSON object, no other text, matching exactly: '
-            '{"action": "add", "a": 3, "b": 5}'
+            'Respond with ONLY a valid JSON object, no other text, matching exactly: {"action": "add", "a": 3, "b": 5}'
         ),
         "check": _check_agent,
     },

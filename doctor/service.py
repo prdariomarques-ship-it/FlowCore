@@ -15,6 +15,7 @@ Usage::
     for check in report.checks:
         print(check.name, check.status, check.message)
 """
+
 from __future__ import annotations
 
 import os
@@ -32,19 +33,20 @@ from runtime.shell import is_available, run, which
 
 # ── Result types ──────────────────────────────────────────────────────────────
 
+
 class CheckStatus(str, Enum):
-    OK      = "ok"
-    WARN    = "warn"
-    FAIL    = "fail"
-    SKIP    = "skip"
+    OK = "ok"
+    WARN = "warn"
+    FAIL = "fail"
+    SKIP = "skip"
 
 
 @dataclass
 class CheckResult:
-    name:    str
-    status:  CheckStatus
+    name: str
+    status: CheckStatus
     message: str
-    fix:     str = ""  # suggested remediation command or instruction
+    fix: str = ""  # suggested remediation command or instruction
 
     @property
     def ok(self) -> bool:
@@ -94,6 +96,7 @@ class DoctorReport:
 
 
 # ── Doctor Service ────────────────────────────────────────────────────────────
+
 
 class DoctorService:
     """Runs all health checks and returns a DoctorReport."""
@@ -207,7 +210,10 @@ class DoctorService:
 
         logger.info(
             "Doctor: {}/{} checks passed ({} warnings, {} failures)",
-            report.passed, len(report.checks), report.warned, report.failed,
+            report.passed,
+            len(report.checks),
+            report.warned,
+            report.failed,
         )
         return report
 
@@ -242,7 +248,8 @@ class DoctorService:
         if is_available("termux-battery-status"):
             return CheckResult("termux_api", CheckStatus.OK, "Termux:API installed")
         return CheckResult(
-            "termux_api", CheckStatus.WARN,
+            "termux_api",
+            CheckStatus.WARN,
             "Termux:API not installed — Android capabilities unavailable",
             fix="pkg install termux-api",
         )
@@ -254,7 +261,8 @@ class DoctorService:
         if storage.exists():
             return CheckResult("termux_storage", CheckStatus.OK, "Termux storage set up")
         return CheckResult(
-            "termux_storage", CheckStatus.WARN,
+            "termux_storage",
+            CheckStatus.WARN,
             "Termux storage not configured",
             fix="termux-setup-storage",
         )
@@ -274,7 +282,8 @@ class DoctorService:
         if is_available("termux-wake-lock"):
             return CheckResult("wakelock", CheckStatus.OK, "termux-wake-lock available")
         return CheckResult(
-            "wakelock", CheckStatus.WARN,
+            "wakelock",
+            CheckStatus.WARN,
             "termux-wake-lock not found — background tasks may be killed",
             fix="pkg install termux-api",
         )
@@ -285,7 +294,8 @@ class DoctorService:
         if is_available("termux-camera-photo"):
             return CheckResult("camera", CheckStatus.OK, "termux-camera-photo available")
         return CheckResult(
-            "camera", CheckStatus.WARN,
+            "camera",
+            CheckStatus.WARN,
             "termux-camera-photo not found",
             fix="pkg install termux-api",
         )
@@ -296,7 +306,8 @@ class DoctorService:
         if is_available("termux-microphone-record"):
             return CheckResult("microphone", CheckStatus.OK, "termux-microphone-record available")
         return CheckResult(
-            "microphone", CheckStatus.WARN,
+            "microphone",
+            CheckStatus.WARN,
             "termux-microphone-record not found",
             fix="pkg install termux-api",
         )
@@ -307,7 +318,8 @@ class DoctorService:
         if is_available("termux-location"):
             return CheckResult("location", CheckStatus.OK, "termux-location available")
         return CheckResult(
-            "location", CheckStatus.WARN,
+            "location",
+            CheckStatus.WARN,
             "termux-location not found",
             fix="pkg install termux-api",
         )
@@ -320,12 +332,14 @@ class DoctorService:
         # Distinguish: termux-api not installed vs. tool absent on this Android version
         if not is_available("termux-battery-status"):
             return CheckResult(
-                "bluetooth", CheckStatus.WARN,
+                "bluetooth",
+                CheckStatus.WARN,
                 "Termux:API not installed — Bluetooth unavailable",
                 fix="pkg install termux-api",
             )
         return CheckResult(
-            "bluetooth", CheckStatus.SKIP,
+            "bluetooth",
+            CheckStatus.SKIP,
             "Bluetooth API not available on this Android version (termux-bluetooth-get-adapters absent)",
         )
 
@@ -335,7 +349,8 @@ class DoctorService:
         if is_available("termux-vibrate"):
             return CheckResult("vibrate", CheckStatus.OK, "termux-vibrate available")
         return CheckResult(
-            "vibrate", CheckStatus.WARN,
+            "vibrate",
+            CheckStatus.WARN,
             "termux-vibrate not found",
             fix="pkg install termux-api",
         )
@@ -346,7 +361,8 @@ class DoctorService:
         if is_available("termux-torch"):
             return CheckResult("torch", CheckStatus.OK, "termux-torch available")
         return CheckResult(
-            "torch", CheckStatus.WARN,
+            "torch",
+            CheckStatus.WARN,
             "termux-torch not found",
             fix="pkg install termux-api",
         )
@@ -357,7 +373,8 @@ class DoctorService:
         if is_available("termux-share"):
             return CheckResult("share", CheckStatus.OK, "termux-share available")
         return CheckResult(
-            "share", CheckStatus.WARN,
+            "share",
+            CheckStatus.WARN,
             "termux-share not found",
             fix="pkg install termux-api",
         )
@@ -368,7 +385,9 @@ class DoctorService:
         p = which("python3") or which("python")
         if not p:
             return CheckResult(
-                "python3", CheckStatus.FAIL, "python3 not found",
+                "python3",
+                CheckStatus.FAIL,
+                "python3 not found",
                 fix="pkg install python || apt-get install python3",
             )
         result = run([p, "--version"], timeout=5)
@@ -383,14 +402,18 @@ class DoctorService:
         if result.success:
             return CheckResult("pip", CheckStatus.OK, result.stdout.strip())
         return CheckResult(
-            "pip", CheckStatus.WARN, "pip not available",
+            "pip",
+            CheckStatus.WARN,
+            "pip not available",
             fix="python3 -m ensurepip --upgrade",
         )
 
     def _check_git(self) -> CheckResult:
         if not is_available("git"):
             return CheckResult(
-                "git", CheckStatus.WARN, "git not found",
+                "git",
+                CheckStatus.WARN,
+                "git not found",
                 fix="pkg install git || apt-get install git",
             )
         result = run(["git", "--version"], timeout=5)
@@ -399,7 +422,9 @@ class DoctorService:
     def _check_ssh(self) -> CheckResult:
         if not is_available("ssh"):
             return CheckResult(
-                "ssh", CheckStatus.WARN, "ssh not found",
+                "ssh",
+                CheckStatus.WARN,
+                "ssh not found",
                 fix="pkg install openssh || apt-get install openssh-client",
             )
         return CheckResult("ssh", CheckStatus.OK, f"ssh at {which('ssh')}")
@@ -407,7 +432,9 @@ class DoctorService:
     def _check_sqlite3(self) -> CheckResult:
         if not is_available("sqlite3"):
             return CheckResult(
-                "sqlite3", CheckStatus.WARN, "sqlite3 CLI not found",
+                "sqlite3",
+                CheckStatus.WARN,
+                "sqlite3 CLI not found",
                 fix="pkg install sqlite || apt-get install sqlite3",
             )
         result = run(["sqlite3", "--version"], timeout=5)
@@ -416,7 +443,9 @@ class DoctorService:
     def _check_curl(self) -> CheckResult:
         if not is_available("curl"):
             return CheckResult(
-                "curl", CheckStatus.WARN, "curl not found",
+                "curl",
+                CheckStatus.WARN,
+                "curl not found",
                 fix="pkg install curl || apt-get install curl",
             )
         result = run(["curl", "--version"], timeout=5)
@@ -426,7 +455,9 @@ class DoctorService:
     def _check_jq(self) -> CheckResult:
         if not is_available("jq"):
             return CheckResult(
-                "jq", CheckStatus.WARN, "jq not found (optional)",
+                "jq",
+                CheckStatus.WARN,
+                "jq not found (optional)",
                 fix="pkg install jq || apt-get install jq",
             )
         result = run(["jq", "--version"], timeout=5)
@@ -440,7 +471,8 @@ class DoctorService:
         if is_available("termux-notification"):
             return CheckResult("notification_permission", CheckStatus.OK, "termux-notification available")
         return CheckResult(
-            "notification_permission", CheckStatus.WARN,
+            "notification_permission",
+            CheckStatus.WARN,
             "Cannot verify notification permission — termux-api not installed",
             fix="pkg install termux-api",
         )
@@ -450,7 +482,8 @@ class DoctorService:
             return CheckResult("battery_optimization", CheckStatus.SKIP, "Not in Termux")
         # We can't query this from shell; inform the user to check manually
         return CheckResult(
-            "battery_optimization", CheckStatus.WARN,
+            "battery_optimization",
+            CheckStatus.WARN,
             "Cannot verify battery optimization from shell — check manually",
             fix="Settings → Battery → FlowCore/Termux → Unrestricted",
         )
@@ -480,7 +513,8 @@ class DoctorService:
                 return CheckResult("oracle_reachable", CheckStatus.OK, f"Oracle reachable at {host}")
         except Exception as e:
             return CheckResult(
-                "oracle_reachable", CheckStatus.WARN,
+                "oracle_reachable",
+                CheckStatus.WARN,
                 f"Oracle unreachable at {host}: {e}",
                 fix=f"Check FLOWCORE_ORACLE_HOST and network connectivity to {host}:443",
             )
@@ -514,7 +548,7 @@ class DoctorService:
         if is_available("ollama"):
             result = run(["ollama", "list"], timeout=10)
             if result.success:
-                models = [l.split()[0] for l in result.stdout.strip().splitlines()[1:] if l.strip()]
+                models = [line.split()[0] for line in result.stdout.strip().splitlines()[1:] if line.strip()]
                 return CheckResult("ollama", CheckStatus.OK, f"ollama available, models: {models or ['none']}")
             return CheckResult("ollama", CheckStatus.WARN, "ollama installed but 'ollama list' failed")
         # Try HTTP endpoint
@@ -524,7 +558,9 @@ class DoctorService:
         except Exception:
             pass
         return CheckResult(
-            "ollama", CheckStatus.WARN, "ollama not found",
+            "ollama",
+            CheckStatus.WARN,
+            "ollama not found",
             fix="curl -fsSL https://ollama.ai/install.sh | sh",
         )
 
@@ -536,7 +572,8 @@ class DoctorService:
             ver = result.stdout.splitlines()[0] if result.stdout else "rsync available"
             return CheckResult("rsync", CheckStatus.OK, ver)
         return CheckResult(
-            "rsync", CheckStatus.WARN,
+            "rsync",
+            CheckStatus.WARN,
             "rsync not found — file sync/backup unavailable",
             fix="pkg install rsync",
         )
@@ -547,7 +584,8 @@ class DoctorService:
         if is_available("termux-job-scheduler"):
             return CheckResult("cron", CheckStatus.OK, "termux-job-scheduler available")
         return CheckResult(
-            "cron", CheckStatus.WARN,
+            "cron",
+            CheckStatus.WARN,
             "No scheduler found (crontab / termux-job-scheduler)",
             fix="pkg install cronie  # or: pkg install termux-api",
         )
@@ -560,33 +598,40 @@ class DoctorService:
             scripts = list(boot_dir.iterdir())
             if scripts:
                 return CheckResult(
-                    "termux_boot", CheckStatus.OK,
+                    "termux_boot",
+                    CheckStatus.OK,
                     f"Termux:Boot configured ({len(scripts)} script(s))",
                 )
         if is_available("termux-wake-lock"):
             return CheckResult(
-                "termux_boot", CheckStatus.WARN,
+                "termux_boot",
+                CheckStatus.WARN,
                 "~/.termux/boot/ empty — FlowCore won't auto-start on reboot",
-                fix="mkdir -p ~/.termux/boot && echo 'cd ~/FlowCore && sshd' > ~/.termux/boot/start.sh && chmod +x ~/.termux/boot/start.sh",
+                fix="mkdir -p ~/.termux/boot && echo 'cd ~/FlowCore && sshd' > ~/.termux/boot/start.sh"
+                " && chmod +x ~/.termux/boot/start.sh",
             )
         return CheckResult(
-            "termux_boot", CheckStatus.SKIP,
+            "termux_boot",
+            CheckStatus.SKIP,
             "Termux:Boot not installed (optional)",
         )
 
     def _check_daemon_state(self) -> CheckResult:
         try:
             from runtime.daemon import FlowCoreDaemon
+
             d = FlowCoreDaemon()
             if d.is_running():
                 info = d.status()
                 uptime = info.get("uptime", 0)
                 return CheckResult(
-                    "daemon_state", CheckStatus.OK,
+                    "daemon_state",
+                    CheckStatus.OK,
                     f"FlowCore daemon running (pid={info['pid']} uptime={uptime:.0f}s)",
                 )
             return CheckResult(
-                "daemon_state", CheckStatus.WARN,
+                "daemon_state",
+                CheckStatus.WARN,
                 "FlowCore daemon not running",
                 fix="python3 flowcore.py daemon start",
             )
@@ -599,18 +644,21 @@ class DoctorService:
         runtime_json = Path.home() / ".flowcore" / "flowcore.runtime.json"
         if runtime_json.exists():
             import json
+
             try:
                 data = json.loads(runtime_json.read_text())
                 generated = data.get("generated_at", "unknown")
                 return CheckResult("runtime_json", CheckStatus.OK, f"flowcore.runtime.json (generated {generated})")
             except Exception:
                 return CheckResult(
-                    "runtime_json", CheckStatus.WARN,
+                    "runtime_json",
+                    CheckStatus.WARN,
                     "flowcore.runtime.json is corrupt",
-                    fix="python3 -c \"from runtime.kernel import RuntimeKernel; RuntimeKernel().boot()\"",
+                    fix='python3 -c "from runtime.kernel import RuntimeKernel; RuntimeKernel().boot()"',
                 )
         return CheckResult(
-            "runtime_json", CheckStatus.WARN,
+            "runtime_json",
+            CheckStatus.WARN,
             "flowcore.runtime.json not found — kernel has not booted",
             fix="python3 flowcore.py boot",
         )
@@ -619,10 +667,10 @@ class DoctorService:
         root = Path(__file__).resolve().parent.parent
         cfg = root / "config" / "default.json"
         if cfg.exists():
-            return CheckResult("flowcore_config", CheckStatus.OK, f"config/default.json found")
+            return CheckResult("flowcore_config", CheckStatus.OK, "config/default.json found")
         return CheckResult(
-            "flowcore_config", CheckStatus.FAIL,
+            "flowcore_config",
+            CheckStatus.FAIL,
             "config/default.json missing",
             fix="Restore from repository or re-clone FlowCore",
         )
-

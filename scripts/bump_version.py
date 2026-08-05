@@ -10,6 +10,7 @@ Usage:
 
 Updates VERSION file, config/default.json, and appends to CHANGELOG.md.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -46,6 +47,7 @@ def write_version(major: int, minor: int, patch: int) -> str:
 def update_changelog_header(version: str) -> None:
     """Append a new version section header to CHANGELOG.md."""
     import datetime
+
     today_str = datetime.date.today().isoformat()
 
     changelog = CHANGELOG_FILE.read_text()
@@ -94,9 +96,9 @@ def cmd_bump(bump_type: str) -> None:
     new_version = write_version(major, minor, patch)
     update_changelog_header(new_version)
     print(f"Version bumped: {read_version_formatted()} -> {new_version}")
-    print(f"  VERSION:      updated")
-    print(f"  config:       updated")
-    print(f"  CHANGELOG.md: new section added")
+    print("  VERSION:      updated")
+    print("  config:       updated")
+    print("  CHANGELOG.md: new section added")
 
 
 def read_version_formatted() -> str:

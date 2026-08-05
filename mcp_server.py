@@ -6,6 +6,7 @@ FlowCore directly instead of shelling out to the CLI.
 
 Started via: python3 flowcore.py mcp
 """
+
 from __future__ import annotations
 
 from pathlib import Path

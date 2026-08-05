@@ -1,4 +1,5 @@
 """Tests for runtime.discovery and runtime.kernel."""
+
 from __future__ import annotations
 
 import os
@@ -16,13 +17,16 @@ if str(ROOT) not in sys.path:
 
 # ── RuntimeDiscovery ──────────────────────────────────────────────────────────
 
+
 class TestRuntimeDiscovery:
     def _discovery(self):
         from runtime.discovery import RuntimeDiscovery
+
         return RuntimeDiscovery()
 
     def test_run_returns_snapshot(self):
         from runtime.discovery import RuntimeSnapshot
+
         snap = self._discovery().run()
         assert isinstance(snap, RuntimeSnapshot)
 
@@ -77,25 +81,30 @@ class TestRuntimeDiscovery:
 
 # ── RuntimeKernel ─────────────────────────────────────────────────────────────
 
+
 class TestRuntimeKernel:
     def test_boot_returns_passport(self):
         from runtime.kernel import RuntimeKernel, RuntimePassport
+
         kernel = RuntimeKernel()
         passport = kernel.boot()
         assert isinstance(passport, RuntimePassport)
 
     def test_passport_has_platform(self):
         from runtime.kernel import RuntimeKernel
+
         passport = RuntimeKernel().boot()
         assert passport.platform in ("termux", "android", "docker", "linux", "macos", "windows")
 
     def test_passport_capabilities_list(self):
         from runtime.kernel import RuntimeKernel
+
         passport = RuntimeKernel().boot()
         assert isinstance(passport.capabilities, list)
 
     def test_passport_written_to_disk(self):
         from runtime.kernel import RuntimeKernel
+
         RuntimeKernel().boot()
         runtime_json = Path.home() / ".flowcore" / "flowcore.runtime.json"
         assert runtime_json.exists()
@@ -105,6 +114,7 @@ class TestRuntimeKernel:
 
     def test_boot_twice_is_idempotent(self):
         from runtime.kernel import RuntimeKernel
+
         p1 = RuntimeKernel().boot()
         p2 = RuntimeKernel().boot()
         assert p1.platform == p2.platform

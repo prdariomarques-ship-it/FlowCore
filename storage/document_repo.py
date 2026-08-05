@@ -11,6 +11,7 @@ twice in Sprint 13. Removed rather than patched around again; the CLI
 now runs its document-touching commands via `asyncio.run()` at the
 top-level dispatch point instead (see flowcore.py's `main()`).
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -61,14 +62,9 @@ class DocumentRepository:
     async def list_all(self) -> list[dict[str, Any]]:
         await self.ensure_table()
         async with aiosqlite.connect(self._db_path) as db:
-            cursor = await db.execute(
-                "SELECT id, title, source, created_at FROM documents ORDER BY created_at DESC"
-            )
+            cursor = await db.execute("SELECT id, title, source, created_at FROM documents ORDER BY created_at DESC")
             rows = await cursor.fetchall()
-            return [
-                {"id": r[0], "title": r[1], "source": r[2], "created_at": r[3]}
-                for r in rows
-            ]
+            return [{"id": r[0], "title": r[1], "source": r[2], "created_at": r[3]} for r in rows]
 
     async def get_by_id(self, doc_id: int) -> dict[str, Any] | None:
         await self.ensure_table()

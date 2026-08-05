@@ -3,6 +3,7 @@
 Wraps the JSON-based memory store used by remember/recall/memories commands.
 Isolates file-system details from the CLI presentation layer.
 """
+
 from __future__ import annotations
 
 import json
@@ -47,11 +48,7 @@ class MemoryRepository:
     def add(self, text: str) -> dict[str, Any]:
         """Persist a new memory and return it."""
         memories = self.load()
-        topics = [
-            w[1:].lower()
-            for w in text.split()
-            if w.startswith("#") and len(w) > 1
-        ]
+        topics = [w[1:].lower() for w in text.split() if w.startswith("#") and len(w) > 1]
         memory: dict[str, Any] = {
             "text": text,
             "timestamp": datetime.now().isoformat(),
@@ -64,11 +61,7 @@ class MemoryRepository:
     def search(self, query: str) -> list[dict[str, Any]]:
         """Return memories matching *query* by text or topic (case-insensitive)."""
         q = query.lower().lstrip("#")
-        return [
-            m for m in self.load()
-            if q in m.get("text", "").lower()
-            or any(q in t for t in m.get("topics", []))
-        ]
+        return [m for m in self.load() if q in m.get("text", "").lower() or any(q in t for t in m.get("topics", []))]
 
     def count(self) -> int:
         return len(self.load())

@@ -9,6 +9,7 @@ RuntimeDiscovery interrogates the host system and produces a complete picture:
 
 This output feeds directly into flowcore.runtime.json.
 """
+
 from __future__ import annotations
 
 import os
@@ -24,10 +25,9 @@ from runtime.shell import is_available, run, version_of, which
 
 # ── Platform detection ────────────────────────────────────────────────────────
 
+
 def _is_termux() -> bool:
-    return bool(os.environ.get("PREFIX")) and os.path.exists(
-        os.environ.get("PREFIX", "") + "/bin/bash"
-    )
+    return bool(os.environ.get("PREFIX")) and os.path.exists(os.environ.get("PREFIX", "") + "/bin/bash")
 
 
 def _is_android() -> bool:
@@ -36,8 +36,7 @@ def _is_android() -> bool:
 
 def _is_docker() -> bool:
     return os.path.exists("/.dockerenv") or (
-        os.path.exists("/proc/1/cgroup")
-        and "docker" in Path("/proc/1/cgroup").read_text(errors="ignore")
+        os.path.exists("/proc/1/cgroup") and "docker" in Path("/proc/1/cgroup").read_text(errors="ignore")
     )
 
 
@@ -56,6 +55,7 @@ def _detect_platform_type() -> str:
 
 
 # ── Data types ────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class ToolInfo:
@@ -128,17 +128,26 @@ class RuntimeSnapshot:
 
 # ── Discovery engine ──────────────────────────────────────────────────────────
 
+
 class RuntimeDiscovery:
     """Discovers and returns the complete runtime snapshot of the host device."""
 
     # Tools to probe — every entry becomes a ToolInfo in the snapshot
     _TOOLS = [
-        "python3", "python", "pip3", "pip",
-        "git", "ssh", "scp", "rsync",
-        "curl", "wget",
-        "sqlite3", "jq",
-        "pkg",          # Termux package manager
-        "getprop",      # Android system properties
+        "python3",
+        "python",
+        "pip3",
+        "pip",
+        "git",
+        "ssh",
+        "scp",
+        "rsync",
+        "curl",
+        "wget",
+        "sqlite3",
+        "jq",
+        "pkg",  # Termux package manager
+        "getprop",  # Android system properties
         # Termux:API tools
         "termux-info",
         "termux-battery-status",
@@ -160,7 +169,8 @@ class RuntimeDiscovery:
         # Scheduling
         "crontab",
         # Other tools
-        "node", "npm",
+        "node",
+        "npm",
         "docker",
         "adb",
     ]

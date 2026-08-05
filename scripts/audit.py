@@ -11,6 +11,7 @@ Checks:
   7. Termux compatibility (no missing modules)
   8. Directory structure completeness
 """
+
 from __future__ import annotations
 
 import sys
@@ -169,9 +170,20 @@ def audit_structure() -> None:
     print("\n[Audit 8] Directory structure")
     required_dirs = ["config", "runtime", "executor", "scheduler", "api", "agents", "scripts", "logs", "backups"]
     required_files = [
-        "install.sh", "flowcore.py", "daemon.py", "validate_android.sh",
-        "doctor.sh", "optimize.sh", "benchmark.sh", "update.sh", "repair.sh",
-        "uninstall.sh", "requirements.txt", "README.md", "LICENSE", ".gitignore",
+        "install.sh",
+        "flowcore.py",
+        "daemon.py",
+        "validate_android.sh",
+        "doctor.sh",
+        "optimize.sh",
+        "benchmark.sh",
+        "update.sh",
+        "repair.sh",
+        "uninstall.sh",
+        "requirements.txt",
+        "README.md",
+        "LICENSE",
+        ".gitignore",
     ]
     for d in required_dirs:
         if (ROOT / d).is_dir():

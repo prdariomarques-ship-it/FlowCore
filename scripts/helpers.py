@@ -2,6 +2,7 @@
 
 This module contains utilities used by the CLI scripts (doctor, repair, etc).
 """
+
 from __future__ import annotations
 
 import os
