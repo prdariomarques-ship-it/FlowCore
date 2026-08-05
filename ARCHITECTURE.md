@@ -1,10 +1,10 @@
 # FlowCore Architecture
 
-This document describes what's actually built and wired together, as of Sprint 13. Where a component is real but unconnected, or where two components appear to overlap but don't, that's called out explicitly — this replaces an earlier, more aspirational version of this document that described several Sprint 8–11 components as planned or in-progress; most now exist, some differently shaped than originally sketched.
+This document describes what's actually built and wired together, as of Sprint 14 ("Architecture Consolidation"). Where a component is real but unconnected, or where two components appear to overlap but don't, that's called out explicitly.
 
-## Three entry points, one storage layer, no shared process
+## Three entry points, one service layer, one storage layer, no shared process
 
-FlowCore is not one running process — it's three independent interfaces that each wrap the same underlying storage layer directly, with no communication between them:
+FlowCore is not one running process — it's three independent interfaces (CLI, FastAPI, MCP) that each run in their own process. As of Sprint 14 they no longer talk to storage directly for any operation that has real business logic behind it — `service.py` is the shared layer both `api/router.py` and `mcp_server.py` call for note-taking and RAG/ask; `flowcore.py` calls it too:
 
 ```
 ┌──────────────┐   ┌──────────────────┐   ┌──────────────────────┐
@@ -17,13 +17,17 @@ FlowCore is not one running process — it's three independent interfaces that e
        └────────────────────┼──────────────────────────┘
                              ▼
                  ┌───────────────────────┐
+                 │   service.py           │  ← add_note(), list_notes(), ask()
+                 └───────────┬───────────┘
+                             ▼
+                 ┌───────────────────────┐
                  │   Storage layer        │
                  │   DocumentRepository    │  ← SQLite (data/flowcore.db)
                  │   MemoryRepository       │  ← JSON (~/.flowcore/memories.json)
                  └───────────────────────┘
 ```
 
-Each interface instantiates its own `DocumentRepository()`/`MemoryRepository()` independently and talks to the same on-disk files. That's the entire integration between them — no shared in-memory state, no HTTP calls between the FastAPI and MCP processes, no message bus. Some logic is duplicated as a result (e.g. the note-kind label mapping `{"note": "Nota", "todo": "TODO", "agenda": "Agenda"}` exists once in `api/router.py` and again, separately, in `mcp_server.py`'s note/todo/agenda tools). If unifying them is ever wanted, the two real options are: MCP calls the FastAPI endpoints over HTTP, or the shared logic gets extracted into a service layer both import. Neither exists today.
+`service.py` owns the note-kind label mapping (`{"note": "Note", "todo": "TODO", "agenda": "Agenda"}` — previously defined twice, differently, in `api/router.py` and `mcp_server.py`) and the RAG/ask flow (context building + Ollama generation), so that logic now exists in exactly one place. Simple read-only listing/search/stats calls (`flowcore_docs`, `flowcore_search`, `flowcore_stats`, etc. in `mcp_server.py`; the CLI's `docs`/`show`/`stats`/`search`/`daily` commands) still go straight to `DocumentRepository`/`MemoryRepository` — there's no real logic to share there beyond a repository call, so routing them through `service.py` would just be an extra layer with no behavioral benefit. One inconsistency remains: `api/router.py` instantiates a fresh `MemoryRepository()`/`DocumentRepository()` inline per endpoint rather than reusing a module-level instance the way `flowcore.py` and `mcp_server.py` do — harmless (both repos are stateless, re-reading from disk each call) but worth normalizing if `api/router.py` is touched again.
 
 ## The Ollama layer (`runtime/ollama.py`)
 
@@ -37,7 +41,7 @@ api/router.py (/api/ask)                                            ─┘
 
 ## Storage layer (`storage/`)
 
-- `document_repo.py` — `DocumentRepository`, async, backed by SQLite via `aiosqlite` (`data/flowcore.db`). Has both native async methods (`insert`, `list_all`, `get_by_id`, `search`, `list_recent`, `count`, `count_by_source`) and `*_sync()` wrapper convenience methods that call `asyncio.run()` internally. **The `*_sync()` wrappers break when called from inside an already-running event loop** — this bit both `mcp_server.py` and `api/router.py` this sprint; both were fixed by awaiting the native async methods directly at the call site instead. The wrapper methods themselves are unchanged and would still break any future async caller that uses them.
+- `document_repo.py` — `DocumentRepository`, async-only, backed by SQLite via `aiosqlite` (`data/flowcore.db`): `insert`, `list_all`, `get_by_id`, `search`, `list_recent`, `count`, `count_by_source`. Sprint 14 removed the `*_sync()` wrapper methods that used to call `asyncio.run()` internally — they broke whenever called from inside an already-running event loop (FastAPI/MCP contexts). Instead, every caller up the stack (`flowcore.py`'s CLI commands, `cmd_selftest()`'s nested closures) is now `async def` and awaits the native methods directly; `asyncio.run()` is only ever called once, at each interface's true top-level dispatch point.
 - `memory_repo.py` — `MemoryRepository`, synchronous, backed by a JSON file (`~/.flowcore/memories.json`). No `asyncio.run()` involved, safe from any context.
 - `database.py` — single source of truth for the SQLite path.
 
@@ -47,24 +51,23 @@ api/router.py (/api/ask)                                            ─┘
 
 ## Passport (`passport/`)
 
-`PassportGenerator` issues a signed (SHA-256 hash) runtime snapshot — agent identity, platform, capabilities, health, expiry — consumed by `GET /api/passport` and the Web UI's Sistema tab. `PassportValidator`/`ValidationResult` exist with full test coverage but currently have **no caller anywhere in the running application** — built ahead of a consumer that hasn't been wired up yet.
+`PassportGenerator` issues a signed (SHA-256 hash) runtime snapshot — agent identity, platform, capabilities, health, expiry — consumed by `GET /api/passport` and the Web UI's Sistema tab. As of Sprint 14, `PassportValidator`/`ValidationResult` are wired in: `GET /api/passport` runs every generated passport through `PassportValidator().validate(p)` and includes the result as a `"validation": {"valid": ..., "reason": ...}` field in the response, instead of leaving a tested-but-uncalled validator sitting unused.
 
-## Scheduling — two separate implementations, one actually used
+## Scheduling
 
-- `runtime/job_scheduler.py`'s `JobScheduler` — backs the real `flowcore.py jobs` CLI command (list/add/remove/run). This is the one actually in use.
-- `scheduler/service.py`'s `SchedulerService` (APScheduler wrapper) — only ever instantiated inside `cmd_selftest()`'s "is this importable" check. Not wired to anything else.
+`runtime/job_scheduler.py`'s `JobScheduler` backs the real `flowcore.py jobs` CLI command (list/add/remove/run) via crontab/`termux-job-scheduler`. This is the only scheduler in the codebase. Sprint 14 removed `scheduler/service.py` (an APScheduler wrapper, `SchedulerService`) — it was never wired to anything beyond its own importability check inside `cmd_selftest()`, and `apscheduler` was never a declared dependency in any `requirements*.txt` in the first place.
 
-## Execution engine — built, not connected
+## Execution engine and flows/executions — removed
 
-`executor/engine.py`'s `ExecutorEngine` (async task queue with retry/timeout/concurrency limits) is, like `SchedulerService`, only ever instantiated inside `cmd_selftest()`. `api/router.py`'s `/api/flows` and `/api/executions` endpoints are a **pure in-memory dict stub** (`_flows`, `_executions`) — they do not call `ExecutorEngine` at all. A flow's `status` field is set once at creation and never transitions; an execution's `started_at`/`finished_at` are always `None` (a real gap flagged in `RELEASE_NOTES.md`, not fixed this sprint).
+Sprint 14 removed `executor/engine.py` (`ExecutorEngine`, an async task queue) and `api/router.py`'s `/api/flows`/`/api/executions` endpoints together. The endpoints were a pure in-memory dict stub that never called `ExecutorEngine` — a flow's `status` was set once at creation and never transitioned; an execution's `started_at`/`finished_at` were always `None`. Rather than wire a stub to an engine with no real caller demand, both were deleted as a pair. If flow/execution orchestration becomes a real near-term need, it should be designed and built together as one working feature, not reassembled from these two abandoned halves.
 
-## Agents (`agents/`) — orphaned
+## Agents (`agents/`) — removed
 
-`BaseAgent` (ABC) + `AgentRegistry` exist with a clean interface (`run()`, `health_check()`) but have **zero references anywhere else in the codebase**, confirmed by repo-wide grep. Reads as deliberate forward-looking scaffolding rather than an accidental leftover, but nothing currently instantiates or registers an agent.
+`BaseAgent` (ABC) + `AgentRegistry` had zero references anywhere else in the codebase (confirmed by repo-wide grep before removal) and no concrete agent implementation ever existed. Removed in Sprint 14 rather than left as speculative scaffolding with no consumer.
 
 ## Doctor (`doctor/service.py`)
 
-Health-check aggregator consumed by `flowcore.py doctor`, `GET /api/status`, and the Web UI's Caps tab. Includes four placeholder multi-provider bridge checks (`_check_qwen_bridge`, `_check_glm_bridge`, `_check_gemini_bridge`, `_check_claude_bridge`) that only verify an env var is set (`QWEN_PORT`, `GLM_HOST`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`) — no actual provider implementation exists behind any of them yet. `doctor/checks/` is an empty, unreferenced package, likely intended as a future home for splitting these checks out of `service.py`.
+Health-check aggregator consumed by `flowcore.py doctor`, `GET /api/status`, and the Web UI's Caps tab. Sprint 14 removed four placeholder multi-provider bridge checks (`_check_qwen_bridge`, `_check_glm_bridge`, `_check_gemini_bridge`, `_check_claude_bridge`) that only verified an env var was set (`QWEN_PORT`, `GLM_HOST`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`) with no real provider implementation behind any of them, plus the now-orphaned `_check_bridge()` helper they shared, and the empty `doctor/checks/` package. `_check_ollama` — the one bridge check with a real implementation — remains, but note it re-implements its own reachability probe (`ollama list`, then a raw socket connect to `127.0.0.1:11434`) instead of calling `runtime/ollama.py`'s `discover_ollama_endpoint()`. That means Doctor can report Ollama as unreachable on a setup where the discovery-based endpoint (e.g. a Windows-side Ollama reached from WSL2) is actually working fine for `flowcore.py ask`/`ping`. Flagged as a concrete follow-up, not fixed this sprint (out of scope for a report-only task).
 
 ## Config (`config/`)
 
@@ -76,7 +79,7 @@ Single-file, single-page app (no build step, no framework) served by FastAPI's `
 
 ## Runtime (`runtime/`)
 
-Beyond `ollama.py` and `job_scheduler.py` above: `core.py` (`FlowCoreRuntime`, `detect_platform()`, SQLite init via SQLAlchemy — a *second*, separate database access path from `storage/document_repo.py`'s direct `aiosqlite` usage, intended for `flows`/`executions`/`settings` tables that currently back nothing, since `api/router.py`'s flows/executions are the in-memory stub described above), `daemon.py` (background heartbeat process), `kernel.py` (boot sequence, emits a Runtime Passport), `discovery.py`, `checkpoint.py`, `shell.py` (subprocess helpers used by the capability adapters).
+Beyond `ollama.py` and `job_scheduler.py` above: `core.py` (`FlowCoreRuntime`, `detect_platform()`), `daemon.py` (background heartbeat process), `kernel.py` (boot sequence, emits a Runtime Passport), `discovery.py`, `checkpoint.py`, `shell.py` (subprocess helpers used by the capability adapters). Sprint 14 removed `core.py`'s `init_database()`, which used SQLAlchemy to create `flows`/`executions`/`settings` tables that backed nothing (a second, separate database access path from `storage/document_repo.py`'s direct `aiosqlite` usage) — `sqlalchemy` was dropped from `requirements-api.txt` as a result, confirmed unused anywhere else in the codebase.
 
 ## Security model
 
@@ -89,7 +92,7 @@ Beyond `ollama.py` and `job_scheduler.py` above: `core.py` (`FlowCoreRuntime`, `
 
 ## What's genuinely tested vs. manually verified
 
-136 automated tests (`tests/`) cover: capability adapters, checkpoint, daemon, doctor, passport, runtime discovery/kernel, scheduler. **The Ollama pipeline (`runtime/ollama.py`) and the Web UI have zero automated test coverage** — everything about them in this sprint was verified manually (live curl sweeps, a real headless-browser session, direct model benchmarking). The test suite itself has a known isolation bug: it writes real entries into the live `~/.flowcore/memories.json` rather than a temp store.
+135 automated tests (`tests/`) cover: capability adapters, checkpoint, daemon, doctor, passport, API endpoints, runtime discovery/kernel, `runtime/job_scheduler.py`. As of Sprint 14 they run in CI (`.github/workflows/ci.yml`) on every push, split into a `test-core` job (installs `requirements-core.txt` only — verifies the Termux/Android-safe tier has no hidden dependency on the API tier) and a `test-api` job (installs `requirements-api.txt`, runs `tests/test_api.py` explicitly). A `lint` job runs `ruff format --check` and `ruff check` (config in `pyproject.toml`). No deployment step exists — CI is validation-only. **The Ollama pipeline (`runtime/ollama.py`) and the Web UI still have zero automated test coverage** — everything about them was verified manually (live curl sweeps, a real headless-browser session, direct model benchmarking).
 
 ## Target platforms
 
