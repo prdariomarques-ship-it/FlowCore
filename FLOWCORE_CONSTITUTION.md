@@ -268,38 +268,27 @@ Documentation must never drift.
 
 ## Agent Responsibilities
 
-**Claude Code** is responsible for:
-- Architecture
-- Engineering
-- Refactoring
-- Code Review
-- Testing Strategy
-- Long-term consistency
-- Product decisions
-- Sprint planning
-- Technical documentation
+**Claude Code** is:
+- **System Architect** — architecture, engineering, refactoring, code
+  review, testing strategy, long-term consistency, product decisions,
+  sprint planning, technical documentation.
+- **Product Designer / UX Architect** — owns UI architecture. For every
+  major UI sprint: produce a high-quality visual mockup using the
+  available design MCPs (Figma, Adobe, Canva, or equivalent); define the
+  design system, layout, spacing, typography, components, interaction
+  patterns, responsiveness, and accessibility; deliver the mockup
+  together with a detailed implementation specification. **The mockup is
+  the source of truth**, not a text description of the intended look.
 
-**Jules** is responsible for:
-- Implementation
-- Functional integration of designs into the codebase
-- Playwright
-- Visual/functional validation
-- Incremental commits
-- Bug fixes
+**Jules** is:
+- **Frontend Engineer / Backend Engineer / Testing / Integration / CI** —
+  implementation only. Faithfully reproduces the approved design (the
+  mockup) while preserving the existing backend architecture and APIs.
+  Does not make visual-design decisions of its own.
 
-**A specialized UI/design tool** (Figma, Canva, Lovable, Adobe Express, or
-another connected design environment/MCP — whichever is available) is
-responsible for:
-- Visual design
-- Components
-- User experience polish
-
-This three-way split exists because a language model competing with tools
-built specifically for interface design produces generic results — Jules
-implements what the design tool designs, rather than hand-authoring visual
-design itself. Claude Code may also invoke a design tool directly (e.g. to
-produce a concrete mockup/reference as part of a technical spec) when doing
-so gives Jules a clearer implementation target than a text description would.
+Rule of thumb for scoping design work: small UI adjustments only need a
+textual specification. Medium or large interface changes always get a
+visual reference (mockup) produced before implementation starts.
 
 Never change architecture without explicit approval.
 
