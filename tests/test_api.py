@@ -69,19 +69,24 @@ class TestMemoriesEndpoint:
         assert r.status_code == 200
         assert "memories" in r.json()
 
-    def test_create_memory(self):
-        c = _client()
-        r = c.post("/api/memories", json={"text": "Test memory #api"})
+    def test_create_memory(self, tmp_path):
+        # api/router.py's create_memory instantiates MemoryRepository() with no
+        # path override, which defaults to the real ~/.flowcore/memories.json.
+        # Patch Path.home() so this test writes to a throwaway temp dir instead.
+        with patch("pathlib.Path.home", return_value=tmp_path):
+            c = _client()
+            r = c.post("/api/memories", json={"text": "Test memory #api"})
         assert r.status_code == 201
         data = r.json()
         assert "memory" in data
         assert "Test memory" in data["memory"]["text"]
 
-    def test_created_memory_appears_in_list(self):
-        c = _client()
-        unique = "UniqueTestContent_xyz_789"
-        c.post("/api/memories", json={"text": unique})
-        mems = c.get("/api/memories").json()["memories"]
+    def test_created_memory_appears_in_list(self, tmp_path):
+        with patch("pathlib.Path.home", return_value=tmp_path):
+            c = _client()
+            unique = "UniqueTestContent_xyz_789"
+            c.post("/api/memories", json={"text": unique})
+            mems = c.get("/api/memories").json()["memories"]
         assert any(unique in m.get("text", "") for m in mems)
 
 
