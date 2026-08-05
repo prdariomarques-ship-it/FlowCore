@@ -39,6 +39,9 @@ Thumbs.db
 .env
 .env.local
 
+# Local config overrides (per-machine, e.g. port conflicts — MUST NOT be committed)
+config/local.json
+
 # SQLite databases
 *.db
 *.sqlite
