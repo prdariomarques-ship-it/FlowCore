@@ -94,6 +94,16 @@ class TestCapabilityAdapterBase:
         r = a.run_python("x.py")
         assert r.success is False
 
+    def test_default_get_disk_usage_fails(self):
+        a = self._make_adapter()
+        r = a.get_disk_usage()
+        assert r.success is False
+
+    def test_default_list_installed_apps_fails(self):
+        a = self._make_adapter()
+        r = a.list_installed_apps()
+        assert r.success is False
+
 
 # ── CapabilityRegistry ────────────────────────────────────────────────────────
 
@@ -145,6 +155,8 @@ class TestCapabilityRegistry:
             "getClipboard",
             "sendNotification",
             "runGit",
+            "getDiskUsage",
+            "listInstalledApps",
         ]:
             assert expected in names, f"{expected} missing from registry"
 
@@ -166,6 +178,30 @@ class TestCapabilityRegistry:
         reg = self._registry()
         adapter = reg.get("httpRequest")
         assert adapter is not None  # urllib always available
+
+    def test_disk_usage_has_adapter_on_linux(self):
+        if sys.platform == "win32":
+            pytest.skip("Linux-only")
+        reg = self._registry()
+        adapter = reg.get("getDiskUsage")
+        assert adapter is not None, "getDiskUsage should resolve via LinuxAdapter outside Termux"
+
+    def test_disk_usage_call_returns_real_data_on_linux(self):
+        if sys.platform == "win32":
+            pytest.skip("Linux-only")
+        reg = self._registry()
+        result = reg.call("getDiskUsage", "/")
+        assert result.success is True
+        assert "total" in result.data
+
+    def test_list_installed_apps_unavailable_outside_termux(self):
+        import os
+
+        if os.environ.get("PREFIX"):
+            pytest.skip("Running inside Termux — listInstalledApps may resolve for real")
+        reg = self._registry()
+        adapter = reg.get("listInstalledApps")
+        assert adapter is None
 
 
 # ── Termux adapters (unit-level, no real calls) ───────────────────────────────
@@ -255,4 +291,68 @@ class TestTermuxShellAdapter:
 
     def test_nonexistent_command_fails(self):
         r = self._adapter().run_shell(["__nonexistent_cmd_xyz__"])
+        assert r.success is False
+
+
+# ── New Android adapters (Sprint 17, Milestone 1) ─────────────────────────────
+# Parsing logic tested directly with a mocked run() — doesn't require a real
+# Android/Termux device, verified independently of is_available().
+
+
+class TestAndroidDiskUsageAdapter:
+    def _adapter(self):
+        from capability.adapters.android import AndroidDiskUsageAdapter
+
+        return AndroidDiskUsageAdapter()
+
+    def test_parses_df_output(self, monkeypatch):
+        import capability.adapters.android as mod
+
+        fake_result = type(
+            "R",
+            (),
+            {
+                "success": True,
+                "stdout": "Filesystem Size Used Avail Use% Mounted\n/dev/x 10G 3G 7G 30% /data\n",
+                "stderr": "",
+            },
+        )()
+        monkeypatch.setattr(mod, "run", lambda *a, **k: fake_result)
+        r = self._adapter().get_disk_usage("/data")
+        assert r.success is True
+        assert r.data == {"total": "10G", "used": "3G", "avail": "7G"}
+
+    def test_df_failure_reported(self, monkeypatch):
+        import capability.adapters.android as mod
+
+        fake_result = type("R", (), {"success": False, "stdout": "", "stderr": "no such path"})()
+        monkeypatch.setattr(mod, "run", lambda *a, **k: fake_result)
+        r = self._adapter().get_disk_usage("/nope")
+        assert r.success is False
+
+
+class TestAndroidAppsAdapter:
+    def _adapter(self):
+        from capability.adapters.android import AndroidAppsAdapter
+
+        return AndroidAppsAdapter()
+
+    def test_parses_package_list(self, monkeypatch):
+        import capability.adapters.android as mod
+
+        fake_result = type(
+            "R", (), {"success": True, "stdout": "package:com.b.app\npackage:com.a.app\n", "stderr": ""}
+        )()
+        monkeypatch.setattr(mod, "run", lambda *a, **k: fake_result)
+        r = self._adapter().list_installed_apps()
+        assert r.success is True
+        assert r.data["count"] == 2
+        assert r.data["packages"] == ["com.a.app", "com.b.app"]  # sorted
+
+    def test_pm_failure_reported(self, monkeypatch):
+        import capability.adapters.android as mod
+
+        fake_result = type("R", (), {"success": False, "stdout": "", "stderr": "pm not found"})()
+        monkeypatch.setattr(mod, "run", lambda *a, **k: fake_result)
+        r = self._adapter().list_installed_apps()
         assert r.success is False

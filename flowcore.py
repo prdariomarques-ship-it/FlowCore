@@ -32,6 +32,7 @@ Usage:
     python3 flowcore.py todo "<task>"         Add a todo item
     python3 flowcore.py agenda "<event>"      Add to agenda
     python3 flowcore.py flow <list|create|show|run|delete>   Manage flows
+    python3 flowcore.py android <battery|wifi|storage|apps|clipboard-get|clipboard-set|notify>
 
 Env vars:
     FLOWCORE_MODEL=qwen3:8b              (default: llama2)
@@ -1486,6 +1487,55 @@ async def cmd_flow(action: str, name: str = "", steps_json: str = "", flow_id: i
         print("  Usage: python3 flowcore.py flow <list|create|show|run|delete>")
 
 
+def _print_capability_result(result: dict, label: str) -> None:
+    if result.get("success"):
+        print(f"{GREEN}✓ {label}{NC}")
+        print(json.dumps(result.get("data"), indent=2, ensure_ascii=False))
+    else:
+        print(f"{RED}✗ {label} failed{NC}")
+        print(f"  {result.get('error') or result.get('reason')}")
+        if result.get("corrective_action"):
+            print(f"  {YELLOW}Fix:{NC} {result['corrective_action']}")
+
+
+async def cmd_android(action: str, text: str = "", title: str = "FlowCore") -> None:
+    """Android device capabilities (battery, wifi, storage, clipboard, notify, apps)."""
+    import service
+
+    if action == "battery":
+        _print_capability_result(await service.get_battery(), "Battery")
+    elif action == "wifi":
+        _print_capability_result(await service.get_wifi_info(), "Wifi")
+    elif action == "storage":
+        _print_capability_result(await service.get_disk_usage(), "Disk usage")
+    elif action == "apps":
+        result = await service.list_installed_apps()
+        if result.get("success"):
+            data = result["data"]
+            print(f"{GREEN}✓ {data['count']} installed app(s){NC}")
+            for pkg in data["packages"][:50]:
+                print(f"  {pkg}")
+            if data["count"] > 50:
+                print(f"  ... and {data['count'] - 50} more")
+        else:
+            _print_capability_result(result, "Installed apps")
+    elif action == "clipboard-get":
+        _print_capability_result(await service.get_clipboard(), "Clipboard")
+    elif action == "clipboard-set":
+        if not text:
+            print(f'{RED}Usage: python3 flowcore.py android clipboard-set "<text>"{NC}')
+            return
+        _print_capability_result(await service.set_clipboard(text), "Clipboard set")
+    elif action == "notify":
+        if not text:
+            print(f'{RED}Usage: python3 flowcore.py android notify "<text>" [--title TITLE]{NC}')
+            return
+        _print_capability_result(await service.send_notification(title, text), "Notification")
+    else:
+        print(f"{RED}Unknown android action: {action!r}{NC}")
+        print("  Usage: python3 flowcore.py android <battery|wifi|storage|apps|clipboard-get|clipboard-set|notify>")
+
+
 def main() -> None:
     """Main CLI handler."""
     parser = argparse.ArgumentParser(description="FlowCore CLI")
@@ -1589,6 +1639,19 @@ def main() -> None:
     flow_run.add_argument("flow_id", type=int, help="Flow ID")
     flow_delete = flow_sub.add_parser("delete", help="Delete a flow")
     flow_delete.add_argument("flow_id", type=int, help="Flow ID")
+
+    android_parser = subparsers.add_parser("android", help="Android device capabilities")
+    android_sub = android_parser.add_subparsers(dest="android_action")
+    android_sub.add_parser("battery", help="Show battery status")
+    android_sub.add_parser("wifi", help="Show wifi/network info")
+    android_sub.add_parser("storage", help="Show disk usage")
+    android_sub.add_parser("apps", help="List installed apps")
+    android_sub.add_parser("clipboard-get", help="Read clipboard")
+    android_clip_set = android_sub.add_parser("clipboard-set", help="Set clipboard")
+    android_clip_set.add_argument("text", help="Text to copy to clipboard")
+    android_notify = android_sub.add_parser("notify", help="Send an Android notification")
+    android_notify.add_argument("text", help="Notification body")
+    android_notify.add_argument("--title", default="FlowCore", help="Notification title (default: FlowCore)")
 
     args = parser.parse_args()
     cfg = get_config()
@@ -1694,6 +1757,14 @@ def main() -> None:
         steps_json = getattr(args, "steps_json", "")
         flow_id = getattr(args, "flow_id", 0)
         asyncio.run(cmd_flow(action, name=name, steps_json=steps_json, flow_id=flow_id))
+    elif args.command == "android":
+        action = getattr(args, "android_action", None)
+        if not action:
+            print("Usage: python3 flowcore.py android <battery|wifi|storage|apps|clipboard-get|clipboard-set|notify>")
+            sys.exit(1)
+        text = getattr(args, "text", "")
+        title = getattr(args, "title", "FlowCore")
+        asyncio.run(cmd_android(action, text=text, title=title))
     else:
         parser.print_help()
         sys.exit(1)

@@ -177,3 +177,19 @@ class LinuxAdapter(CapabilityAdapter):
                 return CapabilityResult.ok({"output": result.stdout, "via": "ifconfig"}, self.name)
 
         return CapabilityResult.fail("Neither ip nor ifconfig found", self.name)
+
+    # ── Disk usage ────────────────────────────────────────────────────────────
+
+    def get_disk_usage(self, path: str = "/") -> CapabilityResult:
+        if not is_available("df"):
+            return CapabilityResult.fail("df not found", self.name)
+        result = run(["df", "-h", path], timeout=5)
+        if not result.success or not result.stdout:
+            return CapabilityResult.fail(result.stderr or "df failed", self.name, reason=f"Cannot read {path}")
+        lines = result.stdout.strip().splitlines()
+        if len(lines) < 2:
+            return CapabilityResult.fail("Unexpected df output", self.name)
+        parts = lines[1].split()
+        if len(parts) < 4:
+            return CapabilityResult.fail("Unexpected df output", self.name)
+        return CapabilityResult.ok({"total": parts[1], "used": parts[2], "avail": parts[3]}, self.name)

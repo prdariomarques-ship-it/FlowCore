@@ -159,6 +159,14 @@ class CapabilityAdapter(ABC):
     def get_android_info(self) -> CapabilityResult:
         return CapabilityResult.fail("getAndroidInfo not supported", self.name)
 
+    def get_disk_usage(self, path: str = "/data") -> CapabilityResult:
+        return CapabilityResult.fail("getDiskUsage not supported", self.name)
+
+    def list_installed_apps(self) -> CapabilityResult:
+        return CapabilityResult.fail(
+            "listInstalledApps not supported", self.name, corrective_action="Only available in Termux"
+        )
+
     # ── Termux / Linux ────────────────────────────────────────────────────────
 
     def run_python(self, script: str, args: list[str] | None = None) -> CapabilityResult:

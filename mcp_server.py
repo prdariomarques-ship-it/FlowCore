@@ -189,5 +189,48 @@ async def flowcore_execution_get(execution_id: int) -> dict:
         raise RuntimeError(str(e)) from e
 
 
+@mcp.tool()
+async def flowcore_battery() -> dict:
+    """Get Android battery status (level, charging status, health, temperature)."""
+    return await service.get_battery()
+
+
+@mcp.tool()
+async def flowcore_wifi() -> dict:
+    """Get wifi/network info."""
+    return await service.get_wifi_info()
+
+
+@mcp.tool()
+async def flowcore_disk_usage(path: str = "/data") -> dict:
+    """Get disk usage (total/used/available) for a given path."""
+    return await service.get_disk_usage(path)
+
+
+@mcp.tool()
+async def flowcore_clipboard_get() -> dict:
+    """Read the device clipboard."""
+    return await service.get_clipboard()
+
+
+@mcp.tool()
+async def flowcore_clipboard_set(text: str) -> dict:
+    """Set the device clipboard."""
+    return await service.set_clipboard(text)
+
+
+@mcp.tool()
+async def flowcore_notify(text: str, title: str = "FlowCore") -> dict:
+    """Send an Android notification."""
+    return await service.send_notification(title, text)
+
+
+@mcp.tool()
+async def flowcore_apps() -> dict:
+    """List installed apps (Termux/Android only). Package visibility may be
+    restricted by Android's package-visibility filtering."""
+    return await service.list_installed_apps()
+
+
 def run() -> None:
     mcp.run(transport="stdio")

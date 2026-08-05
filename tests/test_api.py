@@ -96,23 +96,127 @@ class TestMemoriesEndpoint:
 
 
 class TestNotifyEndpoint:
+    # /api/notify routes through service.send_notification -> the capability
+    # registry (Sprint 17, Milestone 1) — mocked at that single choke point
+    # rather than the old direct termux-notification shell call.
     def test_notify_without_termux_api(self):
+        from capability.adapters.base import CapabilityResult
+
         c = _client()
-        with patch("runtime.shell.is_available", return_value=False):
+        with patch("service._registry.call", return_value=CapabilityResult.fail("not installed", "test")):
             r = c.post("/api/notify", json={"title": "Test", "body": "Hello"})
         assert r.status_code == 200
         assert r.json()["sent"] is False
 
     def test_notify_with_termux_api(self):
+        from capability.adapters.base import CapabilityResult
+
         c = _client()
-        mock_result = MagicMock(success=True, stderr="")
-        with (
-            patch("runtime.shell.is_available", return_value=True),
-            patch("runtime.shell.run", return_value=mock_result),
-        ):
+        with patch("service._registry.call", return_value=CapabilityResult.ok({"sent": True}, "test")) as m:
             r = c.post("/api/notify", json={"title": "FlowCore", "body": "Test notification"})
         assert r.status_code == 200
         assert r.json()["sent"] is True
+        m.assert_called_once_with("sendNotification", "FlowCore", "Test notification")
+
+
+class TestSystemEndpoint:
+    # /api/system now routes battery/storage/wifi/android_version through the
+    # capability layer (Sprint 17, Milestone 1) instead of ad hoc shell calls.
+    # These tests confirm the response still has the same keys/shape the Web
+    # UI's renderSys() depends on — a regression check, not a new contract.
+    def test_returns_200_with_no_capabilities_available(self):
+        from capability.adapters.base import CapabilityResult
+
+        c = _client()
+        with patch("service._registry.call", return_value=CapabilityResult.fail("n/a", "test")):
+            r = c.get("/api/system")
+        assert r.status_code == 200
+        data = r.json()
+        assert "uptime_api" in data
+        assert "battery" not in data  # omitted, not crashed, when unavailable
+
+    def test_battery_shape_matches_web_ui_contract(self):
+        from capability.adapters.base import CapabilityResult
+
+        def fake_call(capability, *args):
+            if capability == "getBattery":
+                return CapabilityResult.ok(
+                    {"level": 87, "status": "charging", "health": "good", "temperature": 30, "plugged": "AC"}, "test"
+                )
+            return CapabilityResult.fail("n/a", "test")
+
+        c = _client()
+        with patch("service._registry.call", side_effect=fake_call):
+            r = c.get("/api/system")
+        battery = r.json()["battery"]
+        assert battery["percentage"] == 87
+        assert battery["status"] == "charging"
+        assert battery["health"] == "good"
+
+    def test_storage_and_wifi_included_when_available(self):
+        from capability.adapters.base import CapabilityResult
+
+        def fake_call(capability, *args):
+            if capability == "getDiskUsage":
+                return CapabilityResult.ok({"total": "10G", "used": "3G", "avail": "7G"}, "test")
+            if capability == "getNetworkInfo":
+                return CapabilityResult.ok({"ssid": "MyWifi", "rssi": -50}, "test")
+            return CapabilityResult.fail("n/a", "test")
+
+        c = _client()
+        with patch("service._registry.call", side_effect=fake_call):
+            r = c.get("/api/system")
+        data = r.json()
+        assert data["storage"]["total"] == "10G"
+        assert data["wifi"]["ssid"] == "MyWifi"
+
+
+class TestClipboardEndpoint:
+    def test_get_clipboard_unavailable_returns_503(self):
+        from capability.adapters.base import CapabilityResult
+
+        c = _client()
+        with patch("service._registry.call", return_value=CapabilityResult.fail("n/a", "test")):
+            r = c.get("/api/clipboard")
+        assert r.status_code == 503
+
+    def test_get_clipboard_success(self):
+        from capability.adapters.base import CapabilityResult
+
+        c = _client()
+        with patch("service._registry.call", return_value=CapabilityResult.ok({"text": "hello"}, "test")):
+            r = c.get("/api/clipboard")
+        assert r.status_code == 200
+        assert r.json()["text"] == "hello"
+
+    def test_set_clipboard_passes_text(self):
+        from capability.adapters.base import CapabilityResult
+
+        c = _client()
+        with patch("service._registry.call", return_value=CapabilityResult.ok({"set": True}, "test")) as m:
+            r = c.post("/api/clipboard", json={"text": "copied text"})
+        assert r.status_code == 200
+        m.assert_called_once_with("setClipboard", "copied text")
+
+
+class TestAppsEndpoint:
+    def test_list_apps_unavailable_returns_503(self):
+        from capability.adapters.base import CapabilityResult
+
+        c = _client()
+        with patch("service._registry.call", return_value=CapabilityResult.fail("n/a", "test")):
+            r = c.get("/api/apps")
+        assert r.status_code == 503
+
+    def test_list_apps_success(self):
+        from capability.adapters.base import CapabilityResult
+
+        c = _client()
+        data = {"count": 2, "packages": ["com.a", "com.b"]}
+        with patch("service._registry.call", return_value=CapabilityResult.ok(data, "test")):
+            r = c.get("/api/apps")
+        assert r.status_code == 200
+        assert r.json()["count"] == 2
 
 
 class TestDaemonEndpoints:

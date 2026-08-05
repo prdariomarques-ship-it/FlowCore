@@ -10,14 +10,14 @@ Endpoints (core):
 Endpoints (Sprint 11 — Android UX):
   GET  /api/memories        — list memories
   POST /api/memories        — save a memory
-  POST /api/notify          — send Android notification via termux-notification
+  POST /api/notify          — send Android notification (via capability layer)
   POST /api/daemon/start    — start background daemon
   POST /api/daemon/stop     — stop background daemon
   GET  /api/daemon/status   — daemon state
   GET  /                    — serve web UI (index.html)
 
 Endpoints (Sprint 12 — Passport + expanded UI):
-  GET  /api/system          — battery, storage, uptime (Android system info)
+  GET  /api/system          — battery, storage, wifi, uptime (Android system info)
   GET  /api/search          — search memories + docs (?q=)
   GET  /api/notes           — list notes/todos/agenda items
   POST /api/notes           — create a note/todo/agenda item
@@ -35,10 +35,16 @@ Endpoints (Sprint 15 — Flows):
   POST   /api/flows/{id}/run   — run a flow, returns the resulting execution
   GET    /api/executions           — list executions (optional ?flow_id=&limit=)
   GET    /api/executions/{id}      — get an execution by id
+
+Endpoints (Sprint 17, Milestone 1 — Android integration):
+  GET  /api/clipboard       — read clipboard
+  POST /api/clipboard       — set clipboard ({text})
+  GET  /api/apps            — list installed apps (Termux/Android only)
 """
 
 from __future__ import annotations
 
+import asyncio
 import time
 from pathlib import Path
 
@@ -71,7 +77,6 @@ class MemoryCreate(BaseModel):
 class NotifyRequest(BaseModel):
     title: str = "FlowCore"
     body: str
-    id: int = 1
 
 
 class NoteCreate(BaseModel):
@@ -87,6 +92,10 @@ class AskRequest(BaseModel):
 class FlowCreate(BaseModel):
     name: str
     steps: list[dict]
+
+
+class ClipboardSet(BaseModel):
+    text: str
 
 
 # ---------------------------------------------------------------------------
@@ -201,22 +210,11 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     # ── Notify ──────────────────────────────────────────────────────────
     @app.post("/api/notify")
     async def notify(data: NotifyRequest):
-        try:
-            from runtime.shell import is_available, run
-
-            if not is_available("termux-notification"):
-                logger.warning("termux-notification not available")
-                return {"sent": False, "reason": "termux-notification not installed"}
-            result = run(
-                ["termux-notification", "--id", str(data.id), "--title", data.title, "--content", data.body],
-                timeout=8,
-            )
-            if result.success:
-                logger.info("Notification sent: {}", data.body[:40])
-                return {"sent": True}
-            return {"sent": False, "reason": result.stderr}
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+        result = await service.send_notification(data.title, data.body)
+        if result.get("success"):
+            logger.info("Notification sent: {}", data.body[:40])
+            return {"sent": True}
+        return {"sent": False, "reason": result.get("error") or result.get("reason")}
 
     # ── Daemon control ───────────────────────────────────────────────────
     @app.post("/api/daemon/start")
@@ -253,53 +251,67 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
-    # ── System info (Sprint 12) ──────────────────────────────────────────
+    # ── System info (Sprint 12; Sprint 17 — routed through the capability layer) ──
     @app.get("/api/system")
     async def system_info():
         info: dict = {"uptime_api": round(time.time() - _start_time, 1)}
 
-        # Battery via termux-battery-status
-        try:
-            from runtime.shell import is_available, run
+        # Four independent capability calls, each a subprocess with its own
+        # timeout — run concurrently so total latency is the slowest single
+        # call, not their sum (this was sequential before and visibly slow).
+        battery, storage, wifi, android_info = await asyncio.gather(
+            service.get_battery(),
+            service.get_disk_usage(),
+            service.get_wifi_info(),
+            service.get_android_info(),
+        )
 
-            if is_available("termux-battery-status"):
-                r = run(["termux-battery-status"], timeout=5)
-                if r.success and r.stdout:
-                    import json as _json
+        # Battery — capability layer's normalized keys (level/status/health/...)
+        # translated back to the shape this endpoint has always returned
+        # (percentage/status/health/...), so the Web UI's existing renderSys()
+        # keeps working unchanged.
+        if battery.get("success"):
+            d = battery["data"]
+            info["battery"] = {
+                "percentage": d.get("level"),
+                "status": d.get("status"),
+                "health": d.get("health"),
+                "temperature": d.get("temperature"),
+                "plugged": d.get("plugged"),
+            }
 
-                    info["battery"] = _json.loads(r.stdout)
-        except Exception:
-            pass
+        if storage.get("success"):
+            info["storage"] = storage["data"]
 
-        # Storage via df
-        try:
-            from runtime.shell import run as _run
+        if wifi.get("success"):
+            info["wifi"] = wifi["data"]
 
-            r = _run(["df", "-h", "/data"], timeout=5)
-            if r.success and r.stdout:
-                lines = r.stdout.strip().splitlines()
-                if len(lines) >= 2:
-                    parts = lines[1].split()
-                    if len(parts) >= 4:
-                        info["storage"] = {
-                            "total": parts[1],
-                            "used": parts[2],
-                            "avail": parts[3],
-                        }
-        except Exception:
-            pass
-
-        # Android version
-        try:
-            from runtime.shell import run as _run
-
-            r = _run(["getprop", "ro.build.version.release"], timeout=3)
-            if r.success and r.stdout.strip():
-                info["android_version"] = r.stdout.strip()
-        except Exception:
-            pass
+        if android_info.get("success") and android_info["data"].get("release"):
+            info["android_version"] = android_info["data"]["release"]
 
         return info
+
+    # ── Clipboard, installed apps (Sprint 17, Milestone 1) ────────────────
+    @app.get("/api/clipboard")
+    async def get_clipboard():
+        result = await service.get_clipboard()
+        if not result.get("success"):
+            raise HTTPException(status_code=503, detail=result.get("error") or result.get("reason"))
+        return result["data"]
+
+    @app.post("/api/clipboard")
+    async def set_clipboard(data: ClipboardSet):
+        result = await service.set_clipboard(data.text)
+        if not result.get("success"):
+            raise HTTPException(status_code=503, detail=result.get("error") or result.get("reason"))
+        return result["data"]
+
+    @app.get("/api/apps")
+    async def list_apps():
+        result = await service.list_installed_apps()
+        if not result.get("success"):
+            raise HTTPException(status_code=503, detail=result.get("error") or result.get("reason"))
+        return result["data"]
 
     # ── Search (Sprint 12) ───────────────────────────────────────────────
     @app.get("/api/search")

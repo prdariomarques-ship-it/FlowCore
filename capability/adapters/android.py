@@ -459,6 +459,63 @@ class AndroidStorageAdapter(CapabilityAdapter):
             return CapabilityResult.fail(str(e), self.name)
 
 
+# ── Disk usage ──────────────────────────────────────────────────────────────
+# Separate from AndroidStorageAdapter above (which is about shared-storage
+# file access via ~/storage) — `df` works regardless of whether the shared
+# storage symlink exists, so it needs its own availability check.
+
+
+class AndroidDiskUsageAdapter(CapabilityAdapter):
+    name = "android.disk_usage"
+    priority = 100
+
+    def is_available(self) -> bool:
+        return _in_termux() and is_available("df")
+
+    def get_disk_usage(self, path: str = "/data") -> CapabilityResult:
+        result = run(["df", "-h", path], timeout=5)
+        if not result.success or not result.stdout:
+            return CapabilityResult.fail(
+                result.stderr or "df failed", self.name, reason=f"Cannot read disk usage for {path}"
+            )
+        lines = result.stdout.strip().splitlines()
+        if len(lines) < 2:
+            return CapabilityResult.fail("Unexpected df output", self.name)
+        parts = lines[1].split()
+        if len(parts) < 4:
+            return CapabilityResult.fail("Unexpected df output", self.name)
+        return CapabilityResult.ok({"total": parts[1], "used": parts[2], "avail": parts[3]}, self.name)
+
+
+# ── Installed apps ────────────────────────────────────────────────────────────
+# Uses Android's `pm` (package manager) binary, reachable from a plain Termux
+# shell without termux-api. Note: Android's package-visibility filtering may
+# restrict what a non-privileged app like Termux can see without the
+# QUERY_ALL_PACKAGES permission (which Termux doesn't request) — this surfaces
+# whatever the device actually returns rather than assuming completeness.
+
+
+class AndroidAppsAdapter(CapabilityAdapter):
+    name = "android.apps"
+    priority = 100
+
+    def is_available(self) -> bool:
+        return _in_termux() and is_available("pm")
+
+    def list_installed_apps(self) -> CapabilityResult:
+        result = run(["pm", "list", "packages"], timeout=10)
+        if not result.success:
+            return CapabilityResult.fail(
+                result.stderr or "pm list packages failed",
+                self.name,
+                corrective_action="pm requires a real Android/Termux environment",
+            )
+        packages = sorted(
+            line.split(":", 1)[1] for line in result.stdout.strip().splitlines() if line.startswith("package:")
+        )
+        return CapabilityResult.ok({"count": len(packages), "packages": packages}, self.name)
+
+
 # ── All Android adapters (for registry auto-registration) ─────────────────────
 
 ANDROID_ADAPTERS: list[type[CapabilityAdapter]] = [
@@ -471,6 +528,8 @@ ANDROID_ADAPTERS: list[type[CapabilityAdapter]] = [
     AndroidCameraAdapter,
     AndroidMicrophoneAdapter,
     AndroidWakeLockAdapter,
+    AndroidDiskUsageAdapter,
+    AndroidAppsAdapter,
     AndroidIntentAdapter,
     AndroidPermissionAdapter,
     AndroidInfoAdapter,

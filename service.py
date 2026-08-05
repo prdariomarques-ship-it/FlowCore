@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
+from capability.registry import CapabilityRegistry
 from runtime.ollama import (
     discover_default_model,
     discover_ollama_endpoint,
@@ -26,6 +27,7 @@ from storage import DocumentRepository, FlowRepository, MemoryRepository
 _doc_repo = DocumentRepository()
 _mem_repo = MemoryRepository()
 _flow_repo = FlowRepository()
+_registry = CapabilityRegistry()
 
 # Canonical note/todo/agenda title labels. Previously CLI/MCP used
 # "Note"/"TODO"/"Agenda" while api/router.py separately used
@@ -177,3 +179,43 @@ async def get_execution(execution_id: int) -> dict:
     if execution is None:
         raise ValueError(f"Execution not found: {execution_id}")
     return execution
+
+
+# ── Android capabilities (Sprint 17, Milestone 1) ─────────────────────────────
+# Thin wrappers over capability.registry.CapabilityRegistry — the one place
+# CLI/FastAPI/MCP all resolve these through, instead of each interface
+# duplicating termux-* shell calls ad hoc (which /api/system and /api/notify
+# used to do before this milestone). Run off-thread like ask() does for its
+# blocking call, so a slow subprocess never blocks the event loop.
+
+
+async def get_battery() -> dict:
+    return (await asyncio.to_thread(_registry.call, "getBattery")).to_dict()
+
+
+async def get_wifi_info() -> dict:
+    return (await asyncio.to_thread(_registry.call, "getNetworkInfo")).to_dict()
+
+
+async def get_disk_usage(path: str = "/data") -> dict:
+    return (await asyncio.to_thread(_registry.call, "getDiskUsage", path)).to_dict()
+
+
+async def get_clipboard() -> dict:
+    return (await asyncio.to_thread(_registry.call, "getClipboard")).to_dict()
+
+
+async def set_clipboard(text: str) -> dict:
+    return (await asyncio.to_thread(_registry.call, "setClipboard", text)).to_dict()
+
+
+async def send_notification(title: str, message: str) -> dict:
+    return (await asyncio.to_thread(_registry.call, "sendNotification", title, message)).to_dict()
+
+
+async def list_installed_apps() -> dict:
+    return (await asyncio.to_thread(_registry.call, "listInstalledApps")).to_dict()
+
+
+async def get_android_info() -> dict:
+    return (await asyncio.to_thread(_registry.call, "getAndroidInfo")).to_dict()
