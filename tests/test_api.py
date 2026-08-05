@@ -535,6 +535,79 @@ class TestTelegramEndpoints:
         assert r.status_code == 422
 
 
+class TestObserverEndpoints:
+    # service.observer_* is mocked directly — no real yfinance/network calls
+    # (see tests/test_observer.py for runtime.observer's own coverage
+    # against mocked yfinance).
+    def test_snapshot_success(self):
+        c = _client()
+        payload = {
+            "vix": {
+                "name": "vix",
+                "symbol": "^VIX",
+                "price": 15.81,
+                "previous_close": 16.5,
+                "change_pct": -4.18,
+                "checked_at": "t",
+            },
+        }
+        with patch("service.observer_snapshot", return_value=payload):
+            r = c.get("/api/observer/snapshot")
+        assert r.status_code == 200
+        assert r.json() == payload
+
+    def test_health_success(self):
+        c = _client()
+        payload = {
+            "name": "vix",
+            "symbol": "^VIX",
+            "price": 15.81,
+            "previous_close": 16.5,
+            "change_pct": -4.18,
+            "checked_at": "t",
+        }
+        with patch("service.observer_health", return_value=payload):
+            r = c.get("/api/observer/health")
+        assert r.status_code == 200
+        assert r.json() == payload
+
+    def test_health_failure_returns_502(self):
+        from runtime.observer import ObserverError
+
+        c = _client()
+        with patch("service.observer_health", side_effect=ObserverError("timeout")):
+            r = c.get("/api/observer/health")
+        assert r.status_code == 502
+
+    def test_indicator_success(self):
+        c = _client()
+        payload = {
+            "name": "gold",
+            "symbol": "GC=F",
+            "price": 4305.0,
+            "previous_close": 4186.6,
+            "change_pct": 2.83,
+            "checked_at": "t",
+        }
+        with patch("service.observer_indicator", return_value=payload):
+            r = c.get("/api/observer/gold")
+        assert r.status_code == 200
+        assert r.json() == payload
+
+    def test_unknown_indicator_returns_404(self):
+        c = _client()
+        r = c.get("/api/observer/bogus")
+        assert r.status_code == 404
+
+    def test_indicator_failure_returns_502(self):
+        from runtime.observer import ObserverError
+
+        c = _client()
+        with patch("service.observer_indicator", side_effect=ObserverError("fetch failed")):
+            r = c.get("/api/observer/vix")
+        assert r.status_code == 502
+
+
 class TestIntegrationsStatusEndpoint:
     def test_returns_all_integrations(self):
         c = _client()

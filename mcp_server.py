@@ -4,10 +4,10 @@ Exposes memory/document commands (remember, recall, note, todo, agenda,
 search, ...), flow commands (create, list, get, run, delete flows and
 their executions), Android device capabilities, Outlook (read-only),
 Calendar (shares Outlook's auth session), WhatsApp (via Evolution API,
-already-paired instance), Telegram (reuses the spcx-monitor bot), and a
-live integration status aggregator as MCP tools so an MCP client (e.g.
-Claude Code) can call FlowCore directly instead of shelling out to the
-CLI.
+already-paired instance), Telegram (reuses the spcx-monitor bot), the
+SCPX Observer Engine (live market/macro indicators), and a live
+integration status aggregator as MCP tools so an MCP client (e.g. Claude
+Code) can call FlowCore directly instead of shelling out to the CLI.
 
 Started via: python3 flowcore.py mcp
 """
@@ -482,6 +482,36 @@ async def flowcore_telegram_send(text: str, chat_id: str | None = None) -> dict:
     try:
         return await service.telegram_send(text, chat_id)
     except TelegramError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_observer_snapshot() -> dict:
+    """SCPX Observer Engine — live market/macro indicators: treasury_10y,
+    usd_brl, vix, brent, gold. Fetched concurrently, no persisted history."""
+    return await service.observer_snapshot()
+
+
+@mcp.tool()
+async def flowcore_observer_indicator(name: str) -> dict:
+    """A single SCPX Observer Engine indicator by name (treasury_10y,
+    usd_brl, vix, brent, gold)."""
+    from runtime.observer import ObserverError
+
+    try:
+        return await service.observer_indicator(name)
+    except ObserverError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_observer_health() -> dict:
+    """Live reachability probe for the SCPX Observer Engine (fetches VIX)."""
+    from runtime.observer import ObserverError
+
+    try:
+        return await service.observer_health()
+    except ObserverError as e:
         raise RuntimeError(str(e)) from e
 
 

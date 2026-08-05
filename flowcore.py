@@ -38,6 +38,7 @@ Usage:
     python3 flowcore.py whatsapp <health|status|send>
     python3 flowcore.py integrations         Show live status of all integrations
     python3 flowcore.py telegram <health|config|send>
+    python3 flowcore.py observer <snapshot|health|<indicator-name>>
 
 Env vars:
     FLOWCORE_MODEL=qwen3:8b              (default: llama2)
@@ -1861,6 +1862,46 @@ async def cmd_telegram(action: str, text: str = "", chat_id: str = "") -> None:
         print("  Usage: python3 flowcore.py telegram <health|config|send>")
 
 
+def _print_indicator(result: dict) -> None:
+    change = result.get("change_pct")
+    color = GREEN if (change or 0) >= 0 else RED
+    change_str = f"{change:+.2f}%" if change is not None else "n/a"
+    print(f"  {result['name']:<14} {result['price']:>12.4f}  {color}{change_str}{NC}")
+
+
+async def cmd_observer(action: str) -> None:
+    """SCPX Observer Engine (Sprint 18, Fase 1) — live market/macro indicators."""
+    import service
+    from runtime.observer import SYMBOLS, ObserverError
+
+    if action == "snapshot":
+        try:
+            snapshot = await service.observer_snapshot()
+        except ObserverError as e:
+            print(f"{RED}Error: {e}{NC}")
+            return
+        for result in snapshot.values():
+            _print_indicator(result)
+
+    elif action == "health":
+        try:
+            result = await service.observer_health()
+            print(f"{GREEN}✓ Reachable{NC} (vix={result['price']})")
+        except ObserverError as e:
+            print(f"{RED}✗ {e}{NC}")
+
+    elif action in SYMBOLS:
+        try:
+            result = await service.observer_indicator(action)
+            _print_indicator(result)
+        except ObserverError as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    else:
+        print(f"{RED}Unknown observer action: {action!r}{NC}")
+        print(f"  Usage: python3 flowcore.py observer <snapshot|health|{'|'.join(SYMBOLS)}>")
+
+
 def main() -> None:
     """Main CLI handler."""
     parser = argparse.ArgumentParser(description="FlowCore CLI")
@@ -2039,6 +2080,12 @@ def main() -> None:
     telegram_send_p.add_argument("--text", required=True, help="Message text")
     telegram_send_p.add_argument("--chat-id", default="", help="Override TELEGRAM_CHAT_ID for this message")
 
+    observer_parser = subparsers.add_parser("observer", help="SCPX Observer Engine (live market/macro indicators)")
+    observer_parser.add_argument(
+        "observer_action",
+        help="snapshot | health | <indicator-name> (treasury_10y, usd_brl, vix, brent, gold)",
+    )
+
     args = parser.parse_args()
     cfg = get_config()
     platform = detect_platform()
@@ -2199,6 +2246,8 @@ def main() -> None:
         text = getattr(args, "text", "")
         chat_id = getattr(args, "chat_id", "")
         asyncio.run(cmd_telegram(action, text=text, chat_id=chat_id))
+    elif args.command == "observer":
+        asyncio.run(cmd_observer(args.observer_action))
     else:
         parser.print_help()
         sys.exit(1)

@@ -72,6 +72,12 @@ Endpoints (Sprint 17, Milestone 4 — Telegram, reuses the spcx-monitor bot):
   GET  /api/telegram/health   — verifies the bot token via Telegram's getMe
   GET  /api/telegram/config   — static check: are the env vars set at all
   POST /api/telegram/send     — send a message ({text, chat_id?})
+
+Endpoints (Sprint 18, Fase 1 — SCPX Observer Engine, live market data):
+  GET  /api/observer/snapshot     — all indicators (treasury_10y, usd_brl,
+                                      vix, brent, gold), fetched concurrently
+  GET  /api/observer/health       — live reachability probe (fetches VIX)
+  GET  /api/observer/{name}       — a single indicator by name
 """
 
 from __future__ import annotations
@@ -607,6 +613,33 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         except TelegramNotConfiguredError as e:
             raise HTTPException(status_code=503, detail=str(e))
         except TelegramError as e:
+            raise HTTPException(status_code=502, detail=str(e))
+
+    # ── Observer Engine (Sprint 18, Fase 1) ────────────────────────────────
+    # Fixed paths ("snapshot", "health") must be declared before the
+    # dynamic {name} route below, or FastAPI would match them as a name.
+    @app.get("/api/observer/snapshot")
+    async def observer_snapshot():
+        return await service.observer_snapshot()
+
+    @app.get("/api/observer/health")
+    async def observer_health():
+        from runtime.observer import ObserverError
+
+        try:
+            return await service.observer_health()
+        except ObserverError as e:
+            raise HTTPException(status_code=502, detail=str(e))
+
+    @app.get("/api/observer/{name}")
+    async def observer_indicator(name: str):
+        from runtime.observer import SYMBOLS, ObserverError
+
+        if name not in SYMBOLS:
+            raise HTTPException(status_code=404, detail=f"Unknown indicator: {name!r}")
+        try:
+            return await service.observer_indicator(name)
+        except ObserverError as e:
             raise HTTPException(status_code=502, detail=str(e))
 
     # ── Search (Sprint 12) ───────────────────────────────────────────────

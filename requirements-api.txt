@@ -14,3 +14,9 @@ mcp>=1.9.0,<2.0.0
 # runtime/outlook.py imports it directly for Graph API calls.
 msal>=1.28.0,<2.0.0
 requests>=2.31.0,<3.0.0
+
+# SCPX Observer Engine (Sprint 18, Fase 1) — live market/macro indicators
+# (Treasury yield, USD/BRL, VIX, commodities). runtime/observer.py imports
+# it directly; already proven in the user's other projects (spcx-monitor,
+# signal-engine).
+yfinance>=0.2.40

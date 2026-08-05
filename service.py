@@ -466,3 +466,27 @@ async def telegram_send(text: str, chat_id: str | None = None) -> dict:
     from runtime.telegram import send_message
 
     return await asyncio.to_thread(send_message, text, chat_id)
+
+
+# ── Observer Engine (Sprint 18, Fase 1) ─────────────────────────────────────────
+# The "Market Data" stage of the SCPX pipeline (FLOWCORE_CONSTITUTION.md,
+# "SCPX Vision"). Live snapshot only, no persistence — see runtime/observer.py.
+
+
+async def observer_snapshot() -> dict:
+    from runtime.observer import SYMBOLS, get_indicator
+
+    results = await asyncio.gather(*(asyncio.to_thread(get_indicator, name) for name in SYMBOLS))
+    return dict(zip(SYMBOLS.keys(), results, strict=True))
+
+
+async def observer_indicator(name: str) -> dict:
+    from runtime.observer import get_indicator
+
+    return await asyncio.to_thread(get_indicator, name)
+
+
+async def observer_health() -> dict:
+    from runtime.observer import check_health
+
+    return await asyncio.to_thread(check_health)
