@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Callable
 
 from loguru import logger
+from runtime.ollama import OllamaDiscoveryError, discover_ollama_endpoint
 from runtime.shell import is_available, run, which
 
 
@@ -551,18 +552,19 @@ class DoctorService:
                 models = [line.split()[0] for line in result.stdout.strip().splitlines()[1:] if line.strip()]
                 return CheckResult("ollama", CheckStatus.OK, f"ollama available, models: {models or ['none']}")
             return CheckResult("ollama", CheckStatus.WARN, "ollama installed but 'ollama list' failed")
-        # Try HTTP endpoint
+        # No local ollama CLI (e.g. Ollama runs on the Windows host, reached from WSL2/Termux).
+        # Use the same auto-discovery every other Ollama-touching code path uses instead of a
+        # hardcoded 127.0.0.1:11434 — that would report "unreachable" on exactly this setup.
         try:
-            with socket.create_connection(("127.0.0.1", 11434), timeout=2):
-                return CheckResult("ollama", CheckStatus.OK, "ollama API reachable at :11434")
-        except Exception:
-            pass
-        return CheckResult(
-            "ollama",
-            CheckStatus.WARN,
-            "ollama not found",
-            fix="curl -fsSL https://ollama.ai/install.sh | sh",
-        )
+            endpoint = discover_ollama_endpoint()
+            return CheckResult("ollama", CheckStatus.OK, f"ollama API reachable at {endpoint}")
+        except OllamaDiscoveryError as e:
+            return CheckResult(
+                "ollama",
+                CheckStatus.WARN,
+                f"ollama not found: {e}",
+                fix="curl -fsSL https://ollama.ai/install.sh | sh",
+            )
 
     # ── Termux Runtime checks (Sprint 10) ────────────────────────────────────
 
