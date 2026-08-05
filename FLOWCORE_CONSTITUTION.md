@@ -117,13 +117,22 @@ No console errors. No network errors. CI must remain green.
 
 ## User Experience
 
+Frontend quality is a first-class requirement, not a finishing touch.
+
 FlowCore must feel like a premium commercial application.
 
 References: Linear, Notion, Cursor, Raycast, Arc, Perplexity, ChatGPT Desktop,
-Apple Human Interface Guidelines, Material 3.
+Superhuman, Vercel, Apple Human Interface Guidelines, Material 3.
 
 The user must never feel they are using an internal dashboard. They must feel they
 are using a finished commercial product.
+
+Do not build generic developer dashboards. Avoid placeholder dashboards and
+generic admin templates.
+
+**Never stop at "functional."** Evaluate your own UI critically. If the result
+looks like an internal developer tool, redesign it. Iterate until it reaches
+production-grade quality — "it works" is not the finish line.
 
 ---
 
@@ -140,6 +149,14 @@ are using a finished commercial product.
 - No duplicated CSS.
 - No isolated styles.
 - No inconsistent colors.
+
+Prefer specialized design tools over handwritten HTML/CSS whenever they produce
+a better result while preserving compatibility with the existing backend. If a
+specialized tool, MCP server, or connected design application (Figma, Canva,
+Lovable, Adobe Express, or another UI-focused environment) can materially
+improve interface quality, use it instead of hand-rolling markup. The backend
+architecture is already consolidated — the open problem is visual/experience
+quality, and that is what specialized tools exist to solve.
 
 ---
 
@@ -264,13 +281,25 @@ Documentation must never drift.
 
 **Jules** is responsible for:
 - Implementation
-- UI
-- UX
-- Frontend polish
+- Functional integration of designs into the codebase
 - Playwright
-- Visual validation
+- Visual/functional validation
 - Incremental commits
 - Bug fixes
+
+**A specialized UI/design tool** (Figma, Canva, Lovable, Adobe Express, or
+another connected design environment/MCP — whichever is available) is
+responsible for:
+- Visual design
+- Components
+- User experience polish
+
+This three-way split exists because a language model competing with tools
+built specifically for interface design produces generic results — Jules
+implements what the design tool designs, rather than hand-authoring visual
+design itself. Claude Code may also invoke a design tool directly (e.g. to
+produce a concrete mockup/reference as part of a technical spec) when doing
+so gives Jules a clearer implementation target than a text description would.
 
 Never change architecture without explicit approval.
 
