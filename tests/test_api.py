@@ -537,34 +537,50 @@ class TestTelegramEndpoints:
 
 class TestObserverEndpoints:
     # service.observer_* is mocked directly — no real yfinance/network calls
-    # (see tests/test_observer.py for runtime.observer's own coverage
-    # against mocked yfinance).
-    def test_snapshot_success(self):
+    # (see tests/observers/ for the runtime.observers framework's own
+    # coverage, mocked at the yfinance boundary).
+    def test_registry_success(self):
         c = _client()
-        payload = {
-            "vix": {
-                "name": "vix",
-                "symbol": "^VIX",
-                "price": 15.81,
-                "previous_close": 16.5,
-                "change_pct": -4.18,
-                "checked_at": "t",
-            },
-        }
-        with patch("service.observer_snapshot", return_value=payload):
-            r = c.get("/api/observer/snapshot")
+        payload = [{"source": "vix", "category": "volatility", "symbol": "^VIX"}]
+        with patch("service.observer_registry_info", return_value=payload):
+            r = c.get("/api/observer/registry")
         assert r.status_code == 200
-        assert r.json() == payload
+        assert r.json() == {"observers": payload}
+
+    def test_events_success(self):
+        c = _client()
+        payload = [
+            {
+                "id": "abc",
+                "timestamp": "t",
+                "source": "vix",
+                "category": "volatility",
+                "symbol": "^VIX",
+                "event": "initial_observation",
+                "severity": "info",
+                "confidence": 0.95,
+                "payload": {"value": 15.81, "previous_close": 16.5},
+                "metadata": {"provider": "yfinance"},
+            }
+        ]
+        with patch("service.observer_events", return_value=payload):
+            r = c.get("/api/observer/events")
+        assert r.status_code == 200
+        assert r.json() == {"events": payload}
 
     def test_health_success(self):
         c = _client()
         payload = {
-            "name": "vix",
+            "id": "abc",
+            "timestamp": "t",
+            "source": "vix",
+            "category": "volatility",
             "symbol": "^VIX",
-            "price": 15.81,
-            "previous_close": 16.5,
-            "change_pct": -4.18,
-            "checked_at": "t",
+            "event": "initial_observation",
+            "severity": "info",
+            "confidence": 0.95,
+            "payload": {"value": 15.81, "previous_close": 16.5},
+            "metadata": {"provider": "yfinance"},
         }
         with patch("service.observer_health", return_value=payload):
             r = c.get("/api/observer/health")
@@ -572,39 +588,48 @@ class TestObserverEndpoints:
         assert r.json() == payload
 
     def test_health_failure_returns_502(self):
-        from runtime.observer import ObserverError
+        from runtime.observers.base import ObserverError
 
         c = _client()
         with patch("service.observer_health", side_effect=ObserverError("timeout")):
             r = c.get("/api/observer/health")
         assert r.status_code == 502
 
-    def test_indicator_success(self):
+    def test_source_events_success(self):
         c = _client()
-        payload = {
-            "name": "gold",
-            "symbol": "GC=F",
-            "price": 4305.0,
-            "previous_close": 4186.6,
-            "change_pct": 2.83,
-            "checked_at": "t",
-        }
-        with patch("service.observer_indicator", return_value=payload):
-            r = c.get("/api/observer/gold")
+        payload = [
+            {
+                "id": "abc",
+                "timestamp": "t",
+                "source": "gold",
+                "category": "commodities",
+                "symbol": "GC=F",
+                "event": "initial_observation",
+                "severity": "info",
+                "confidence": 0.95,
+                "payload": {"value": 4305.0, "previous_close": 4186.6},
+                "metadata": {"provider": "yfinance"},
+            }
+        ]
+        with (
+            patch("runtime.observers.registry.registry.names", return_value=["gold"]),
+            patch("service.observer_source_events", return_value=payload),
+        ):
+            r = c.get("/api/observer/events/gold")
         assert r.status_code == 200
-        assert r.json() == payload
+        assert r.json() == {"events": payload}
 
-    def test_unknown_indicator_returns_404(self):
+    def test_unknown_source_returns_404(self):
         c = _client()
-        r = c.get("/api/observer/bogus")
+        r = c.get("/api/observer/events/bogus")
         assert r.status_code == 404
 
-    def test_indicator_failure_returns_502(self):
-        from runtime.observer import ObserverError
+    def test_source_events_failure_returns_502(self):
+        from runtime.observers.base import ObserverError
 
         c = _client()
-        with patch("service.observer_indicator", side_effect=ObserverError("fetch failed")):
-            r = c.get("/api/observer/vix")
+        with patch("service.observer_source_events", side_effect=ObserverError("fetch failed")):
+            r = c.get("/api/observer/events/vix")
         assert r.status_code == 502
 
 

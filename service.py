@@ -468,25 +468,40 @@ async def telegram_send(text: str, chat_id: str | None = None) -> dict:
     return await asyncio.to_thread(send_message, text, chat_id)
 
 
-# ── Observer Engine (Sprint 18, Fase 1) ─────────────────────────────────────────
+# ── SCPX Observer Framework (Sprint 18) ─────────────────────────────────────────
 # The "Market Data" stage of the SCPX pipeline (FLOWCORE_CONSTITUTION.md,
-# "SCPX Vision"). Live snapshot only, no persistence — see runtime/observer.py.
+# "SCPX Vision"). Observers only observe — normalized MarketEvents out, no
+# interpretation/scoring/recommendations. See runtime/observers/.
 
 
-async def observer_snapshot() -> dict:
-    from runtime.observer import SYMBOLS, get_indicator
+async def observer_registry_info() -> list[dict]:
+    from runtime.observers.registry import registry
 
-    results = await asyncio.gather(*(asyncio.to_thread(get_indicator, name) for name in SYMBOLS))
-    return dict(zip(SYMBOLS.keys(), results, strict=True))
+    return [{"source": o.source, "category": o.category, "symbol": o.symbol} for o in registry.all()]
 
 
-async def observer_indicator(name: str) -> dict:
-    from runtime.observer import get_indicator
+async def observer_events() -> list[dict]:
+    from runtime.observers.scheduler import scheduler
 
-    return await asyncio.to_thread(get_indicator, name)
+    events = await scheduler.run_once()
+    return [e.to_dict() for e in events]
+
+
+async def observer_source_events(source: str) -> list[dict]:
+    from runtime.observers.registry import registry
+    from runtime.observers.base import ObserverError
+
+    observer = registry.get(source)
+    try:
+        events = await asyncio.to_thread(observer.observe)
+    except ObserverError:
+        raise
+    return [e.to_dict() for e in events]
 
 
 async def observer_health() -> dict:
-    from runtime.observer import check_health
+    from runtime.observers.registry import registry
 
-    return await asyncio.to_thread(check_health)
+    observer = registry.get("vix")
+    events = await asyncio.to_thread(observer.observe)
+    return events[0].to_dict()

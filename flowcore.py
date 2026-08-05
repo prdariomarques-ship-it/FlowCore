@@ -38,7 +38,7 @@ Usage:
     python3 flowcore.py whatsapp <health|status|send>
     python3 flowcore.py integrations         Show live status of all integrations
     python3 flowcore.py telegram <health|config|send>
-    python3 flowcore.py observer <snapshot|health|<indicator-name>>
+    python3 flowcore.py observer <registry|events [source]|health|watch>
 
 Env vars:
     FLOWCORE_MODEL=qwen3:8b              (default: llama2)
@@ -1862,44 +1862,58 @@ async def cmd_telegram(action: str, text: str = "", chat_id: str = "") -> None:
         print("  Usage: python3 flowcore.py telegram <health|config|send>")
 
 
-def _print_indicator(result: dict) -> None:
-    change = result.get("change_pct")
-    color = GREEN if (change or 0) >= 0 else RED
-    change_str = f"{change:+.2f}%" if change is not None else "n/a"
-    print(f"  {result['name']:<14} {result['price']:>12.4f}  {color}{change_str}{NC}")
+def _print_event(event: dict) -> None:
+    payload = event.get("payload", {})
+    delta = payload.get("delta_bps", payload.get("delta_pct"))
+    color = GREEN if (delta or 0) >= 0 else RED
+    delta_str = f"{delta:+.2f}" if delta is not None else "n/a"
+    print(f"  {event['source']:<10} {event['event']:<20} value={payload.get('value')}  {color}{delta_str}{NC}")
 
 
-async def cmd_observer(action: str) -> None:
-    """SCPX Observer Engine (Sprint 18, Fase 1) — live market/macro indicators."""
+async def cmd_observer(action: str, source: str = "", interval: float = 300) -> None:
+    """SCPX Observer Framework (Sprint 18) — normalized MarketEvents. No interpretation/scoring."""
     import service
-    from runtime.observer import SYMBOLS, ObserverError
+    from runtime.observers.registry import registry
+    from runtime.observers.scheduler import scheduler
+    from runtime.observers.base import ObserverError
 
-    if action == "snapshot":
+    if action == "registry":
+        info = await service.observer_registry_info()
+        for o in info:
+            print(f"  {o['source']:<10} {o['category']:<12} {o['symbol']}")
+
+    elif action == "events":
         try:
-            snapshot = await service.observer_snapshot()
+            if source:
+                if source not in registry.names():
+                    print(f"{RED}Unknown observer: {source!r}{NC}")
+                    return
+                events = await service.observer_source_events(source)
+            else:
+                events = await service.observer_events()
         except ObserverError as e:
             print(f"{RED}Error: {e}{NC}")
             return
-        for result in snapshot.values():
-            _print_indicator(result)
+        for event in events:
+            _print_event(event)
 
     elif action == "health":
         try:
             result = await service.observer_health()
-            print(f"{GREEN}✓ Reachable{NC} (vix={result['price']})")
+            print(f"{GREEN}✓ Reachable{NC} (vix={result['payload']['value']})")
         except ObserverError as e:
             print(f"{RED}✗ {e}{NC}")
 
-    elif action in SYMBOLS:
+    elif action == "watch":
+        print(f"Watching {len(registry.names())} observer(s) every {interval}s (Ctrl-C to stop)...")
         try:
-            result = await service.observer_indicator(action)
-            _print_indicator(result)
-        except ObserverError as e:
-            print(f"{RED}Error: {e}{NC}")
+            await scheduler.run_forever(interval)
+        except (KeyboardInterrupt, asyncio.CancelledError):
+            print("\nStopped.")
 
     else:
         print(f"{RED}Unknown observer action: {action!r}{NC}")
-        print(f"  Usage: python3 flowcore.py observer <snapshot|health|{'|'.join(SYMBOLS)}>")
+        print("  Usage: python3 flowcore.py observer <registry|events [source]|health|watch>")
 
 
 def main() -> None:
@@ -2080,11 +2094,16 @@ def main() -> None:
     telegram_send_p.add_argument("--text", required=True, help="Message text")
     telegram_send_p.add_argument("--chat-id", default="", help="Override TELEGRAM_CHAT_ID for this message")
 
-    observer_parser = subparsers.add_parser("observer", help="SCPX Observer Engine (live market/macro indicators)")
-    observer_parser.add_argument(
-        "observer_action",
-        help="snapshot | health | <indicator-name> (treasury_10y, usd_brl, vix, brent, gold)",
+    observer_parser = subparsers.add_parser("observer", help="SCPX Observer Framework (normalized MarketEvents)")
+    observer_sub = observer_parser.add_subparsers(dest="observer_action")
+    observer_sub.add_parser("registry", help="List registered observers (no fetch)")
+    observer_events_p = observer_sub.add_parser("events", help="Run observers now and print MarketEvents")
+    observer_events_p.add_argument(
+        "source", nargs="?", default="", help="Run only this observer (treasury, dollar, vix, oil, gold)"
     )
+    observer_sub.add_parser("health", help="Live reachability probe (runs the vix observer)")
+    observer_watch_p = observer_sub.add_parser("watch", help="Run the scheduler in the foreground (Ctrl-C to stop)")
+    observer_watch_p.add_argument("--interval", type=float, default=300, help="Seconds between cycles (default: 300)")
 
     args = parser.parse_args()
     cfg = get_config()
@@ -2247,7 +2266,13 @@ def main() -> None:
         chat_id = getattr(args, "chat_id", "")
         asyncio.run(cmd_telegram(action, text=text, chat_id=chat_id))
     elif args.command == "observer":
-        asyncio.run(cmd_observer(args.observer_action))
+        action = getattr(args, "observer_action", None)
+        if not action:
+            print("Usage: python3 flowcore.py observer <registry|events [source]|health|watch>")
+            sys.exit(1)
+        source = getattr(args, "source", "")
+        interval = getattr(args, "interval", 300)
+        asyncio.run(cmd_observer(action, source=source, interval=interval))
     else:
         parser.print_help()
         sys.exit(1)

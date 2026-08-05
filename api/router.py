@@ -73,11 +73,11 @@ Endpoints (Sprint 17, Milestone 4 — Telegram, reuses the spcx-monitor bot):
   GET  /api/telegram/config   — static check: are the env vars set at all
   POST /api/telegram/send     — send a message ({text, chat_id?})
 
-Endpoints (Sprint 18, Fase 1 — SCPX Observer Engine, live market data):
-  GET  /api/observer/snapshot     — all indicators (treasury_10y, usd_brl,
-                                      vix, brent, gold), fetched concurrently
-  GET  /api/observer/health       — live reachability probe (fetches VIX)
-  GET  /api/observer/{name}       — a single indicator by name
+Endpoints (Sprint 18 — SCPX Observer Framework, normalized MarketEvents):
+  GET  /api/observer/registry         — registered observers (name/category/symbol), no fetch
+  GET  /api/observer/events           — run every observer now, return MarketEvents
+  GET  /api/observer/events/{source}  — run one observer by name (treasury, dollar, vix, oil, gold)
+  GET  /api/observer/health           — live reachability probe (runs the vix observer)
 """
 
 from __future__ import annotations
@@ -615,30 +615,35 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         except TelegramError as e:
             raise HTTPException(status_code=502, detail=str(e))
 
-    # ── Observer Engine (Sprint 18, Fase 1) ────────────────────────────────
-    # Fixed paths ("snapshot", "health") must be declared before the
-    # dynamic {name} route below, or FastAPI would match them as a name.
-    @app.get("/api/observer/snapshot")
-    async def observer_snapshot():
-        return await service.observer_snapshot()
+    # ── SCPX Observer Framework (Sprint 18) ────────────────────────────────
+    # Fixed paths ("registry", "events", "health") must be declared before
+    # the dynamic {source} route below, or FastAPI would match them as one.
+    @app.get("/api/observer/registry")
+    async def observer_registry():
+        return {"observers": await service.observer_registry_info()}
+
+    @app.get("/api/observer/events")
+    async def observer_events():
+        return {"events": await service.observer_events()}
 
     @app.get("/api/observer/health")
     async def observer_health():
-        from runtime.observer import ObserverError
+        from runtime.observers.base import ObserverError
 
         try:
             return await service.observer_health()
         except ObserverError as e:
             raise HTTPException(status_code=502, detail=str(e))
 
-    @app.get("/api/observer/{name}")
-    async def observer_indicator(name: str):
-        from runtime.observer import SYMBOLS, ObserverError
+    @app.get("/api/observer/events/{source}")
+    async def observer_source_events(source: str):
+        from runtime.observers.registry import registry
+        from runtime.observers.base import ObserverError
 
-        if name not in SYMBOLS:
-            raise HTTPException(status_code=404, detail=f"Unknown indicator: {name!r}")
+        if source not in registry.names():
+            raise HTTPException(status_code=404, detail=f"Unknown observer: {source!r}")
         try:
-            return await service.observer_indicator(name)
+            return {"events": await service.observer_source_events(source)}
         except ObserverError as e:
             raise HTTPException(status_code=502, detail=str(e))
 
