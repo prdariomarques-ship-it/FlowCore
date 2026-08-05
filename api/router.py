@@ -314,7 +314,7 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             pass
         try:
             from storage import DocumentRepository
-            results["documents"] = DocumentRepository().search_sync(q)
+            results["documents"] = await DocumentRepository().search(q)
         except Exception:
             pass
         return results
@@ -324,7 +324,7 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     async def list_notes(kind: str | None = Query(None)):
         try:
             from storage import DocumentRepository
-            docs = DocumentRepository().list_all_sync()
+            docs = await DocumentRepository().list_all()
             kinds = {"note", "todo", "agenda"}
             filtered = [
                 d for d in docs
@@ -342,7 +342,7 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         try:
             from storage import DocumentRepository
             label = {"note": "Nota", "todo": "TODO", "agenda": "Agenda"}[data.kind]
-            doc_id = DocumentRepository().insert_sync(label, data.text, data.kind)
+            doc_id = await DocumentRepository().insert(label, data.text, data.kind)
             logger.info("Note created via API: kind={} text={}", data.kind, data.text[:40])
             return {"id": doc_id, "kind": data.kind, "text": data.text}
         except Exception as e:
