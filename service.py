@@ -282,3 +282,39 @@ async def outlook_search(query: str, limit: int = 10) -> list[dict]:
     from runtime.outlook import search_messages
 
     return await asyncio.to_thread(search_messages, query, limit)
+
+
+# ── Calendar (Sprint 17, Milestone 3) ─────────────────────────────────────────
+# Shares the same auth session as Outlook (runtime.microsoft_graph) — no
+# separate outlook_auth_start()-style calendar auth function; the existing
+# one already covers both (see runtime/microsoft_graph.py's combined SCOPES).
+
+
+async def calendar_today() -> list[dict]:
+    from runtime.calendar import list_today
+
+    return await asyncio.to_thread(list_today)
+
+
+async def calendar_tomorrow() -> list[dict]:
+    from runtime.calendar import list_tomorrow
+
+    return await asyncio.to_thread(list_tomorrow)
+
+
+async def calendar_week() -> list[dict]:
+    from runtime.calendar import list_week
+
+    return await asyncio.to_thread(list_week)
+
+
+async def calendar_next() -> dict | None:
+    from runtime.calendar import get_next
+
+    return await asyncio.to_thread(get_next)
+
+
+async def calendar_search(query: str, limit: int = 10) -> list[dict]:
+    from runtime.calendar import search_events
+
+    return await asyncio.to_thread(search_events, query, limit)

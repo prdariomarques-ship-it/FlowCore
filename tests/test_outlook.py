@@ -1,15 +1,17 @@
-"""Tests for runtime.outlook — Outlook integration (Sprint 17, Milestone 2).
+"""Tests for runtime.outlook — Outlook-specific logic (Sprint 17, Milestone 2).
 
-msal.PublicClientApplication and requests.get are mocked throughout — no
-real network or Azure AD credentials needed. This is exactly what CI
-exercises (it never has real Outlook credentials).
+As of Milestone 3, auth/token/generic-Graph-request plumbing lives in
+runtime.microsoft_graph (see tests/test_microsoft_graph.py) — this file
+only tests what's still specific to Outlook: message listing/search/
+formatting. graph_get is patched directly rather than the underlying
+requests/msal mocks, since that's the actual boundary this module owns.
 """
 
 from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -19,160 +21,41 @@ if str(ROOT) not in sys.path:
 
 # msal/requests are requirements-api.txt (optional) — skip gracefully on a
 # core-only install instead of failing (same pattern as test_api.py's
-# fastapi/httpx importorskip).
+# fastapi/httpx importorskip). runtime.outlook imports runtime.microsoft_graph,
+# which imports both.
 msal = pytest.importorskip("msal")
 requests = pytest.importorskip("requests")
 
 
-@pytest.fixture(autouse=True)
-def _isolated_cache(tmp_path, monkeypatch):
-    """Never touch the real ~/.flowcore/outlook_token_cache.json in tests."""
-    import runtime.outlook as mod
+class TestBackwardCompatibleNames:
+    """runtime/outlook.py's public API must stay identical after the
+    Milestone 3 extraction — nothing that already imports from it should
+    need to change."""
 
-    monkeypatch.setattr(mod, "_CACHE_FILE", tmp_path / "outlook_token_cache.json")
+    def test_error_classes_importable(self):
+        from runtime.outlook import OutlookAuthRequiredError, OutlookError, OutlookNotConfiguredError
 
+        assert issubclass(OutlookNotConfiguredError, OutlookError)
+        assert issubclass(OutlookAuthRequiredError, OutlookError)
 
-@pytest.fixture(autouse=True)
-def _clear_env(monkeypatch):
-    monkeypatch.delenv("OUTLOOK_CLIENT_ID", raising=False)
-    monkeypatch.delenv("OUTLOOK_TENANT_ID", raising=False)
+    def test_auth_functions_importable(self):
+        from runtime.outlook import complete_device_flow, is_authenticated, start_device_flow
 
+        assert callable(start_device_flow)
+        assert callable(complete_device_flow)
+        assert callable(is_authenticated)
 
-class TestConfig:
-    def test_require_config_raises_without_client_id(self):
-        from runtime.outlook import OutlookNotConfiguredError, _require_config
+    def test_error_classes_are_shared_with_calendar(self):
+        # Same underlying classes as runtime.microsoft_graph — a caller
+        # catching OutlookError also catches what Calendar raises, and
+        # vice versa, since they're the same auth/Graph layer.
+        from runtime.calendar import CalendarError
+        from runtime.outlook import OutlookError
 
-        with pytest.raises(OutlookNotConfiguredError):
-            _require_config()
-
-    def test_require_config_defaults_tenant_to_common(self, monkeypatch):
-        from runtime.outlook import _require_config
-
-        monkeypatch.setenv("OUTLOOK_CLIENT_ID", "abc123")
-        client_id, tenant_id = _require_config()
-        assert client_id == "abc123"
-        assert tenant_id == "common"
-
-    def test_start_device_flow_raises_without_config(self):
-        from runtime.outlook import OutlookNotConfiguredError, start_device_flow
-
-        with pytest.raises(OutlookNotConfiguredError):
-            start_device_flow()
-
-    def test_is_authenticated_false_without_config(self):
-        from runtime.outlook import is_authenticated
-
-        assert is_authenticated() is False
+        assert OutlookError is CalendarError
 
 
-class TestDeviceFlow:
-    def test_start_device_flow_success(self):
-        import runtime.outlook as mod
-
-        fake_app = MagicMock()
-        fake_app.initiate_device_flow.return_value = {
-            "user_code": "ABC123",
-            "device_code": "xyz",
-            "verification_uri": "https://microsoft.com/devicelogin",
-            "expires_in": 900,
-            "message": "Go to ... and enter ABC123",
-        }
-        with patch.object(mod, "_app", return_value=fake_app):
-            flow = mod.start_device_flow()
-        assert flow["user_code"] == "ABC123"
-        fake_app.initiate_device_flow.assert_called_once_with(scopes=mod.SCOPES)
-
-    def test_start_device_flow_error_response(self):
-        import runtime.outlook as mod
-
-        fake_app = MagicMock()
-        fake_app.initiate_device_flow.return_value = {"error": "bad_request", "error_description": "nope"}
-        with patch.object(mod, "_app", return_value=fake_app):
-            with pytest.raises(mod.OutlookError):
-                mod.start_device_flow()
-
-    def test_complete_device_flow_success(self):
-        import runtime.outlook as mod
-
-        fake_app = MagicMock()
-        fake_app.acquire_token_by_device_flow.return_value = {"access_token": "tok"}
-        with patch.object(mod, "_app", return_value=fake_app):
-            mod.complete_device_flow({"device_code": "xyz"})  # should not raise
-
-    def test_complete_device_flow_failure(self):
-        import runtime.outlook as mod
-
-        fake_app = MagicMock()
-        fake_app.acquire_token_by_device_flow.return_value = {"error_description": "expired_token"}
-        with patch.object(mod, "_app", return_value=fake_app):
-            with pytest.raises(mod.OutlookError, match="expired_token"):
-                mod.complete_device_flow({"device_code": "xyz"})
-
-
-class TestAuthState:
-    def test_is_authenticated_no_accounts(self):
-        import runtime.outlook as mod
-
-        fake_app = MagicMock()
-        fake_app.get_accounts.return_value = []
-        with patch.object(mod, "_app", return_value=fake_app):
-            assert mod.is_authenticated() is False
-
-    def test_is_authenticated_silent_success(self):
-        import runtime.outlook as mod
-
-        fake_app = MagicMock()
-        fake_app.get_accounts.return_value = [{"username": "me@example.com"}]
-        fake_app.acquire_token_silent.return_value = {"access_token": "tok"}
-        with patch.object(mod, "_app", return_value=fake_app):
-            assert mod.is_authenticated() is True
-
-    def test_is_authenticated_silent_fails(self):
-        import runtime.outlook as mod
-
-        fake_app = MagicMock()
-        fake_app.get_accounts.return_value = [{"username": "me@example.com"}]
-        fake_app.acquire_token_silent.return_value = None
-        with patch.object(mod, "_app", return_value=fake_app):
-            assert mod.is_authenticated() is False
-
-    def test_access_token_raises_without_accounts(self):
-        import runtime.outlook as mod
-
-        fake_app = MagicMock()
-        fake_app.get_accounts.return_value = []
-        with patch.object(mod, "_app", return_value=fake_app):
-            with pytest.raises(mod.OutlookAuthRequiredError):
-                mod._access_token()
-
-    def test_access_token_raises_when_silent_fails(self):
-        import runtime.outlook as mod
-
-        fake_app = MagicMock()
-        fake_app.get_accounts.return_value = [{"username": "me@example.com"}]
-        fake_app.acquire_token_silent.return_value = None
-        with patch.object(mod, "_app", return_value=fake_app):
-            with pytest.raises(mod.OutlookAuthRequiredError):
-                mod._access_token()
-
-    def test_access_token_returns_token(self):
-        import runtime.outlook as mod
-
-        fake_app = MagicMock()
-        fake_app.get_accounts.return_value = [{"username": "me@example.com"}]
-        fake_app.acquire_token_silent.return_value = {"access_token": "real-token"}
-        with patch.object(mod, "_app", return_value=fake_app):
-            assert mod._access_token() == "real-token"
-
-
-class TestGraphCalls:
-    def _mock_response(self, status_code=200, json_data=None, text=""):
-        r = MagicMock()
-        r.status_code = status_code
-        r.json.return_value = json_data or {}
-        r.text = text
-        return r
-
+class TestMessageOperations:
     def test_list_messages_parses_response(self):
         import runtime.outlook as mod
 
@@ -186,23 +69,16 @@ class TestGraphCalls:
                 }
             ]
         }
-        with (
-            patch.object(mod, "_access_token", return_value="tok"),
-            patch("runtime.outlook.requests.get", return_value=self._mock_response(json_data=payload)) as m,
-        ):
+        with patch.object(mod, "graph_get", return_value=payload) as m:
             result = mod.list_messages(limit=5)
         assert result == [{"subject": "Hello", "from": "Alice", "received": "2026-08-05T10:00:00Z", "is_read": False}]
         args, kwargs = m.call_args
-        assert kwargs["params"]["$top"] == "5"
-        assert kwargs["headers"]["Authorization"] == "Bearer tok"
+        assert args[1]["$top"] == "5"
 
     def test_get_unread_count(self):
         import runtime.outlook as mod
 
-        with (
-            patch.object(mod, "_access_token", return_value="tok"),
-            patch("runtime.outlook.requests.get", return_value=self._mock_response(json_data={"unreadItemCount": 7})),
-        ):
+        with patch.object(mod, "graph_get", return_value={"unreadItemCount": 7}):
             assert mod.get_unread_count() == 7
 
     def test_search_messages(self):
@@ -218,31 +94,21 @@ class TestGraphCalls:
                 }
             ]
         }
-        with (
-            patch.object(mod, "_access_token", return_value="tok"),
-            patch("runtime.outlook.requests.get", return_value=self._mock_response(json_data=payload)) as m,
-        ):
+        with patch.object(mod, "graph_get", return_value=payload) as m:
             result = mod.search_messages("invoice", limit=3)
         assert result[0]["from"] == "billing@example.com"  # falls back to address when no name
         args, kwargs = m.call_args
-        assert kwargs["params"]["$search"] == '"invoice"'
+        assert args[1]["$search"] == '"invoice"'
 
-    def test_graph_get_raises_on_non_200(self):
+    def test_list_messages_empty_result(self):
         import runtime.outlook as mod
 
-        with (
-            patch.object(mod, "_access_token", return_value="tok"),
-            patch(
-                "runtime.outlook.requests.get",
-                return_value=self._mock_response(status_code=403, text="Forbidden"),
-            ),
-        ):
+        with patch.object(mod, "graph_get", return_value={"value": []}):
+            assert mod.list_messages() == []
+
+    def test_graph_get_error_propagates(self):
+        import runtime.outlook as mod
+
+        with patch.object(mod, "graph_get", side_effect=mod.OutlookError("Graph API error 403: Forbidden")):
             with pytest.raises(mod.OutlookError, match="403"):
-                mod.list_messages()
-
-    def test_graph_get_raises_without_authentication(self):
-        import runtime.outlook as mod
-
-        with patch.object(mod, "_access_token", side_effect=mod.OutlookAuthRequiredError("not authed")):
-            with pytest.raises(mod.OutlookAuthRequiredError):
                 mod.list_messages()

@@ -2,9 +2,10 @@
 
 Exposes memory/document commands (remember, recall, note, todo, agenda,
 search, ...), flow commands (create, list, get, run, delete flows and
-their executions), Android device capabilities, and Outlook (read-only)
-as MCP tools so an MCP client (e.g. Claude Code) can call FlowCore
-directly instead of shelling out to the CLI.
+their executions), Android device capabilities, Outlook (read-only), and
+Calendar (read-only so far — shares Outlook's auth session) as MCP tools
+so an MCP client (e.g. Claude Code) can call FlowCore directly instead of
+shelling out to the CLI.
 
 Started via: python3 flowcore.py mcp
 """
@@ -284,6 +285,62 @@ async def flowcore_outlook_search(query: str, limit: int = 10) -> list[dict]:
     try:
         return await service.outlook_search(query, limit)
     except OutlookError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_calendar_today() -> list[dict]:
+    """List today's calendar events. Shares auth with Outlook — use
+    flowcore_outlook_auth_start if not yet authenticated."""
+    from runtime.calendar import CalendarError
+
+    try:
+        return await service.calendar_today()
+    except CalendarError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_calendar_tomorrow() -> list[dict]:
+    """List tomorrow's calendar events."""
+    from runtime.calendar import CalendarError
+
+    try:
+        return await service.calendar_tomorrow()
+    except CalendarError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_calendar_week() -> list[dict]:
+    """List this week's calendar events."""
+    from runtime.calendar import CalendarError
+
+    try:
+        return await service.calendar_week()
+    except CalendarError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_calendar_next() -> dict | None:
+    """Get the next upcoming calendar event (within 30 days), or None."""
+    from runtime.calendar import CalendarError
+
+    try:
+        return await service.calendar_next()
+    except CalendarError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_calendar_search(query: str, limit: int = 10) -> list[dict]:
+    """Search calendar events."""
+    from runtime.calendar import CalendarError
+
+    try:
+        return await service.calendar_search(query, limit)
+    except CalendarError as e:
         raise RuntimeError(str(e)) from e
 
 

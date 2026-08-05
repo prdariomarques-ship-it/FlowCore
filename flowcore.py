@@ -34,6 +34,7 @@ Usage:
     python3 flowcore.py flow <list|create|show|run|delete>   Manage flows
     python3 flowcore.py android <battery|wifi|storage|apps|clipboard-get|clipboard-set|notify>
     python3 flowcore.py outlook <auth|messages|unread|search>
+    python3 flowcore.py calendar <auth|today|tomorrow|week|next|search>
 
 Env vars:
     FLOWCORE_MODEL=qwen3:8b              (default: llama2)
@@ -1614,6 +1615,88 @@ async def cmd_outlook(action: str, query: str = "", limit: int = 10) -> None:
         print("  Usage: python3 flowcore.py outlook <auth|messages|unread|search>")
 
 
+def _print_events(events: list, empty_msg: str) -> None:
+    if not events:
+        print(f"{YELLOW}{empty_msg}{NC}")
+        return
+    for e in events:
+        loc = f" @ {e['location']}" if e.get("location") else ""
+        print(f"  [{e['id'][:12]}...] {e['subject']}{loc}")
+        print(f"      {e['start']} — {e['end']} ({e.get('timezone', '')})")
+
+
+async def cmd_calendar(action: str, query: str = "", limit: int = 10) -> None:
+    """Microsoft Calendar (read-only so far): auth, today, tomorrow, week, next, search.
+
+    Shares the same authenticated session as `outlook auth` — running either
+    one authenticates both (see runtime/microsoft_graph.py).
+    """
+    from runtime.calendar import (
+        CalendarAuthRequiredError,
+        CalendarError,
+        CalendarNotConfiguredError,
+        get_next,
+        list_today,
+        list_tomorrow,
+        list_week,
+        search_events,
+    )
+    from runtime.microsoft_graph import complete_device_flow, start_device_flow
+
+    if action == "auth":
+        try:
+            flow = await asyncio.to_thread(start_device_flow)
+        except CalendarNotConfiguredError as e:
+            print(f"{RED}Error: {e}{NC}")
+            return
+        message = flow.get("message") or f"Go to {flow['verification_uri']} and enter code {flow['user_code']}"
+        print(f"\n{CYAN}{message}{NC}")
+        print(f"{YELLOW}Waiting for authorization...{NC}")
+        try:
+            await asyncio.to_thread(complete_device_flow, flow)
+            print(f"{GREEN}✓ Authenticated with Microsoft Graph (Outlook + Calendar){NC}\n")
+        except CalendarError as e:
+            print(f"{RED}✗ Authentication failed: {e}{NC}")
+
+    elif action in ("today", "tomorrow", "week"):
+        fn = {"today": list_today, "tomorrow": list_tomorrow, "week": list_week}[action]
+        try:
+            events = await asyncio.to_thread(fn)
+            print(f"\n{BOLD}{CYAN}{action.capitalize()} ({len(events)}){NC}\n")
+            _print_events(events, f"No events {action}.")
+            print()
+        except (CalendarNotConfiguredError, CalendarAuthRequiredError, CalendarError) as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    elif action == "next":
+        try:
+            event = await asyncio.to_thread(get_next)
+            if not event:
+                print(f"{YELLOW}No upcoming events in the next 30 days.{NC}")
+                return
+            print(f"\n{BOLD}{CYAN}Next meeting{NC}\n")
+            _print_events([event], "")
+            print()
+        except (CalendarNotConfiguredError, CalendarAuthRequiredError, CalendarError) as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    elif action == "search":
+        if not query:
+            print(f'{RED}Usage: python3 flowcore.py calendar search "<query>"{NC}')
+            return
+        try:
+            events = await asyncio.to_thread(search_events, query, limit)
+            print(f"\n{BOLD}{CYAN}Search: '{query}' ({len(events)}){NC}\n")
+            _print_events(events, f"No results for '{query}'.")
+            print()
+        except (CalendarNotConfiguredError, CalendarAuthRequiredError, CalendarError) as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    else:
+        print(f"{RED}Unknown calendar action: {action!r}{NC}")
+        print("  Usage: python3 flowcore.py calendar <auth|today|tomorrow|week|next|search>")
+
+
 def main() -> None:
     """Main CLI handler."""
     parser = argparse.ArgumentParser(description="FlowCore CLI")
@@ -1741,6 +1824,17 @@ def main() -> None:
     outlook_search_p.add_argument("query", help="Search query")
     outlook_search_p.add_argument("--limit", type=int, default=10, help="Max results (default: 10)")
 
+    calendar_parser = subparsers.add_parser("calendar", help="Microsoft Calendar integration")
+    calendar_sub = calendar_parser.add_subparsers(dest="calendar_action")
+    calendar_sub.add_parser("auth", help="Authenticate via device code flow (shared with outlook auth)")
+    calendar_sub.add_parser("today", help="Show today's events")
+    calendar_sub.add_parser("tomorrow", help="Show tomorrow's events")
+    calendar_sub.add_parser("week", help="Show this week's events")
+    calendar_sub.add_parser("next", help="Show the next upcoming meeting")
+    calendar_search_p = calendar_sub.add_parser("search", help="Search events")
+    calendar_search_p.add_argument("query", help="Search query")
+    calendar_search_p.add_argument("--limit", type=int, default=10, help="Max results (default: 10)")
+
     args = parser.parse_args()
     cfg = get_config()
     platform = detect_platform()
@@ -1861,6 +1955,14 @@ def main() -> None:
         query = getattr(args, "query", "")
         limit = getattr(args, "limit", 10)
         asyncio.run(cmd_outlook(action, query=query, limit=limit))
+    elif args.command == "calendar":
+        action = getattr(args, "calendar_action", None)
+        if not action:
+            print("Usage: python3 flowcore.py calendar <auth|today|tomorrow|week|next|search>")
+            sys.exit(1)
+        query = getattr(args, "query", "")
+        limit = getattr(args, "limit", 10)
+        asyncio.run(cmd_calendar(action, query=query, limit=limit))
     else:
         parser.print_help()
         sys.exit(1)

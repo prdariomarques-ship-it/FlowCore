@@ -290,6 +290,66 @@ class TestOutlookEndpoints:
         m.assert_called_once_with("invoice", 10)
 
 
+class TestCalendarEndpoints:
+    # service.calendar_* is mocked directly — no real network/Azure AD
+    # credentials needed (see tests/test_calendar.py for runtime.calendar's
+    # own coverage against mocked graph_get).
+    def test_today_not_configured_returns_503(self):
+        from runtime.calendar import CalendarNotConfiguredError
+
+        c = _client()
+        with patch("service.calendar_today", side_effect=CalendarNotConfiguredError("no client id")):
+            r = c.get("/api/calendar/today")
+        assert r.status_code == 503
+
+    def test_today_auth_required_returns_401(self):
+        from runtime.calendar import CalendarAuthRequiredError
+
+        c = _client()
+        with patch("service.calendar_today", side_effect=CalendarAuthRequiredError("not authed")):
+            r = c.get("/api/calendar/today")
+        assert r.status_code == 401
+
+    def test_today_success(self):
+        c = _client()
+        events = [{"id": "e1", "subject": "Standup", "start": "...", "end": "..."}]
+        with patch("service.calendar_today", return_value=events):
+            r = c.get("/api/calendar/today")
+        assert r.status_code == 200
+        assert r.json()["events"] == events
+
+    def test_tomorrow_success(self):
+        c = _client()
+        with patch("service.calendar_tomorrow", return_value=[]):
+            r = c.get("/api/calendar/tomorrow")
+        assert r.status_code == 200
+
+    def test_week_success(self):
+        c = _client()
+        with patch("service.calendar_week", return_value=[]):
+            r = c.get("/api/calendar/week")
+        assert r.status_code == 200
+
+    def test_next_success(self):
+        c = _client()
+        with patch("service.calendar_next", return_value=None):
+            r = c.get("/api/calendar/next")
+        assert r.status_code == 200
+        assert r.json()["event"] is None
+
+    def test_search_requires_query_param(self):
+        c = _client()
+        r = c.get("/api/calendar/search")
+        assert r.status_code == 422
+
+    def test_search_success(self):
+        c = _client()
+        with patch("service.calendar_search", return_value=[]) as m:
+            r = c.get("/api/calendar/search", params={"q": "budget"})
+        assert r.status_code == 200
+        m.assert_called_once_with("budget", 10)
+
+
 class TestDaemonEndpoints:
     def test_daemon_status_returns_200(self):
         r = _client().get("/api/daemon/status")

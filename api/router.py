@@ -47,6 +47,14 @@ Endpoints (Sprint 17, Milestone 2 — Outlook integration, read-only):
   GET  /api/outlook/messages      — latest messages (?limit=)
   GET  /api/outlook/unread        — unread count
   GET  /api/outlook/search        — search messages (?q=&limit=)
+
+Endpoints (Sprint 17, Milestone 3 — Calendar, read-only so far):
+  GET  /api/calendar/today        — today's events
+  GET  /api/calendar/tomorrow     — tomorrow's events
+  GET  /api/calendar/week         — this week's events
+  GET  /api/calendar/next         — next upcoming event
+  GET  /api/calendar/search       — search events (?q=&limit=)
+  (auth is shared with Outlook — see /api/outlook/auth/*)
 """
 
 from __future__ import annotations
@@ -373,6 +381,74 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         except OutlookAuthRequiredError as e:
             raise HTTPException(status_code=401, detail=str(e))
         except OutlookError as e:
+            raise HTTPException(status_code=502, detail=str(e))
+
+    # ── Calendar (Sprint 17, Milestone 3) ─────────────────────────────────
+    # Shares /api/outlook/auth/start + /auth/status — one combined-scope
+    # session covers Outlook and Calendar, no separate calendar auth route.
+    @app.get("/api/calendar/today")
+    async def calendar_today():
+        from runtime.calendar import CalendarAuthRequiredError, CalendarError, CalendarNotConfiguredError
+
+        try:
+            return {"events": await service.calendar_today()}
+        except CalendarNotConfiguredError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except CalendarAuthRequiredError as e:
+            raise HTTPException(status_code=401, detail=str(e))
+        except CalendarError as e:
+            raise HTTPException(status_code=502, detail=str(e))
+
+    @app.get("/api/calendar/tomorrow")
+    async def calendar_tomorrow():
+        from runtime.calendar import CalendarAuthRequiredError, CalendarError, CalendarNotConfiguredError
+
+        try:
+            return {"events": await service.calendar_tomorrow()}
+        except CalendarNotConfiguredError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except CalendarAuthRequiredError as e:
+            raise HTTPException(status_code=401, detail=str(e))
+        except CalendarError as e:
+            raise HTTPException(status_code=502, detail=str(e))
+
+    @app.get("/api/calendar/week")
+    async def calendar_week():
+        from runtime.calendar import CalendarAuthRequiredError, CalendarError, CalendarNotConfiguredError
+
+        try:
+            return {"events": await service.calendar_week()}
+        except CalendarNotConfiguredError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except CalendarAuthRequiredError as e:
+            raise HTTPException(status_code=401, detail=str(e))
+        except CalendarError as e:
+            raise HTTPException(status_code=502, detail=str(e))
+
+    @app.get("/api/calendar/next")
+    async def calendar_next():
+        from runtime.calendar import CalendarAuthRequiredError, CalendarError, CalendarNotConfiguredError
+
+        try:
+            return {"event": await service.calendar_next()}
+        except CalendarNotConfiguredError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except CalendarAuthRequiredError as e:
+            raise HTTPException(status_code=401, detail=str(e))
+        except CalendarError as e:
+            raise HTTPException(status_code=502, detail=str(e))
+
+    @app.get("/api/calendar/search")
+    async def calendar_search(q: str = Query(..., min_length=1), limit: int = Query(10, le=50)):
+        from runtime.calendar import CalendarAuthRequiredError, CalendarError, CalendarNotConfiguredError
+
+        try:
+            return {"events": await service.calendar_search(q, limit)}
+        except CalendarNotConfiguredError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except CalendarAuthRequiredError as e:
+            raise HTTPException(status_code=401, detail=str(e))
+        except CalendarError as e:
             raise HTTPException(status_code=502, detail=str(e))
 
     # ── Search (Sprint 12) ───────────────────────────────────────────────
