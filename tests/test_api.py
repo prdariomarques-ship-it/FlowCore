@@ -349,6 +349,70 @@ class TestCalendarEndpoints:
         assert r.status_code == 200
         m.assert_called_once_with("budget", 10)
 
+    def test_create_requires_fields(self):
+        c = _client()
+        r = c.post("/api/calendar", json={"subject": "Missing start/end"})
+        assert r.status_code == 422
+
+    def test_create_success(self):
+        c = _client()
+        event = {"id": "e1", "subject": "Standup"}
+        with patch("service.calendar_create", return_value=event) as m:
+            r = c.post(
+                "/api/calendar",
+                json={"subject": "Standup", "start": "2026-08-10T10:00:00", "end": "2026-08-10T10:30:00"},
+            )
+        assert r.status_code == 201
+        assert r.json() == event
+        m.assert_called_once_with("Standup", "2026-08-10T10:00:00", "2026-08-10T10:30:00", "UTC", "", "", [])
+
+    def test_create_not_configured_returns_503(self):
+        from runtime.calendar import CalendarNotConfiguredError
+
+        c = _client()
+        with patch("service.calendar_create", side_effect=CalendarNotConfiguredError("no client id")):
+            r = c.post(
+                "/api/calendar",
+                json={"subject": "X", "start": "2026-08-10T10:00:00", "end": "2026-08-10T10:30:00"},
+            )
+        assert r.status_code == 503
+
+    def test_update_no_fields_returns_422(self):
+        c = _client()
+        r = c.put("/api/calendar/e1", json={})
+        assert r.status_code == 422
+
+    def test_update_success(self):
+        c = _client()
+        with patch("service.calendar_update", return_value={"id": "e1", "subject": "Renamed"}) as m:
+            r = c.put("/api/calendar/e1", json={"subject": "Renamed"})
+        assert r.status_code == 200
+        assert r.json()["subject"] == "Renamed"
+        m.assert_called_once_with("e1", subject="Renamed")
+
+    def test_update_maps_timezone_field_when_start_or_end_given(self):
+        c = _client()
+        with patch("service.calendar_update", return_value={}) as m:
+            r = c.put("/api/calendar/e1", json={"start": "2026-08-11T09:00:00", "timezone": "America/Sao_Paulo"})
+        assert r.status_code == 200
+        m.assert_called_once_with("e1", start="2026-08-11T09:00:00", timezone_="America/Sao_Paulo")
+
+    def test_delete_success(self):
+        c = _client()
+        with patch("service.calendar_delete", return_value=None) as m:
+            r = c.delete("/api/calendar/e1")
+        assert r.status_code == 200
+        assert r.json()["deleted"] is True
+        m.assert_called_once_with("e1")
+
+    def test_delete_not_configured_returns_503(self):
+        from runtime.calendar import CalendarNotConfiguredError
+
+        c = _client()
+        with patch("service.calendar_delete", side_effect=CalendarNotConfiguredError("no client id")):
+            r = c.delete("/api/calendar/e1")
+        assert r.status_code == 503
+
 
 class TestDaemonEndpoints:
     def test_daemon_status_returns_200(self):

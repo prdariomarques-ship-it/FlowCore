@@ -153,3 +153,80 @@ class TestReadOperations:
             "location": "",
             "organizer": "",
         }
+
+
+class TestWriteOperations:
+    def test_create_event_minimal(self):
+        import runtime.calendar as mod
+
+        response = {
+            "id": "new1",
+            "subject": "Standup",
+            "start": {"dateTime": "2026-08-10T10:00:00", "timeZone": "UTC"},
+            "end": {"dateTime": "2026-08-10T10:30:00", "timeZone": "UTC"},
+        }
+        with patch.object(mod, "graph_post", return_value=response) as m:
+            result = mod.create_event("Standup", "2026-08-10T10:00:00", "2026-08-10T10:30:00")
+        assert result["id"] == "new1"
+        args, kwargs = m.call_args
+        assert args[0] == "/me/events"
+        body = args[1]
+        assert body["subject"] == "Standup"
+        assert body["start"] == {"dateTime": "2026-08-10T10:00:00", "timeZone": "UTC"}
+        assert "attendees" not in body
+        assert "location" not in body
+
+    def test_create_event_full(self):
+        import runtime.calendar as mod
+
+        with patch.object(mod, "graph_post", return_value={"id": "new2"}) as m:
+            mod.create_event(
+                "Planning",
+                "2026-08-10T14:00:00",
+                "2026-08-10T15:00:00",
+                timezone_="America/Sao_Paulo",
+                description="Q3 planning",
+                location="Room 2",
+                attendees=["a@example.com", "b@example.com"],
+            )
+        args, kwargs = m.call_args
+        body = args[1]
+        assert body["start"]["timeZone"] == "America/Sao_Paulo"
+        assert body["body"] == {"contentType": "Text", "content": "Q3 planning"}
+        assert body["location"] == {"displayName": "Room 2"}
+        assert body["attendees"] == [
+            {"emailAddress": {"address": "a@example.com"}, "type": "required"},
+            {"emailAddress": {"address": "b@example.com"}, "type": "required"},
+        ]
+
+    def test_update_event_only_given_fields(self):
+        import runtime.calendar as mod
+
+        with patch.object(mod, "graph_patch", return_value={"id": "e1", "subject": "Renamed"}) as m:
+            result = mod.update_event("e1", subject="Renamed")
+        assert result["subject"] == "Renamed"
+        args, kwargs = m.call_args
+        assert args[0] == "/me/events/e1"
+        assert args[1] == {"subject": "Renamed"}  # only the given field, nothing else
+
+    def test_update_event_start_end_uses_timezone(self):
+        import runtime.calendar as mod
+
+        with patch.object(mod, "graph_patch", return_value={}) as m:
+            mod.update_event("e1", start="2026-08-11T09:00:00", end="2026-08-11T10:00:00", timezone_="UTC")
+        args, kwargs = m.call_args
+        assert args[1]["start"] == {"dateTime": "2026-08-11T09:00:00", "timeZone": "UTC"}
+        assert args[1]["end"] == {"dateTime": "2026-08-11T10:00:00", "timeZone": "UTC"}
+
+    def test_update_event_no_fields_raises_value_error(self):
+        import runtime.calendar as mod
+
+        with pytest.raises(ValueError):
+            mod.update_event("e1")
+
+    def test_delete_event(self):
+        import runtime.calendar as mod
+
+        with patch.object(mod, "graph_delete") as m:
+            mod.delete_event("e1")
+        m.assert_called_once_with("/me/events/e1")

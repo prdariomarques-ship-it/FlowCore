@@ -318,3 +318,29 @@ async def calendar_search(query: str, limit: int = 10) -> list[dict]:
     from runtime.calendar import search_events
 
     return await asyncio.to_thread(search_events, query, limit)
+
+
+async def calendar_create(
+    subject: str,
+    start: str,
+    end: str,
+    timezone_: str = "UTC",
+    description: str = "",
+    location: str = "",
+    attendees: list[str] | None = None,
+) -> dict:
+    from runtime.calendar import create_event
+
+    return await asyncio.to_thread(create_event, subject, start, end, timezone_, description, location, attendees)
+
+
+async def calendar_update(event_id: str, **fields) -> dict:
+    from runtime.calendar import update_event
+
+    return await asyncio.to_thread(update_event, event_id, **fields)
+
+
+async def calendar_delete(event_id: str) -> None:
+    from runtime.calendar import delete_event
+
+    return await asyncio.to_thread(delete_event, event_id)

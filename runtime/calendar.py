@@ -19,7 +19,10 @@ from runtime.microsoft_graph import (
     MicrosoftGraphAuthRequiredError as CalendarAuthRequiredError,
     MicrosoftGraphError as CalendarError,
     MicrosoftGraphNotConfiguredError as CalendarNotConfiguredError,
+    graph_delete,
     graph_get,
+    graph_patch,
+    graph_post,
 )
 
 __all__ = [
@@ -31,6 +34,9 @@ __all__ = [
     "list_week",
     "get_next",
     "search_events",
+    "create_event",
+    "update_event",
+    "delete_event",
 ]
 
 
@@ -79,6 +85,57 @@ def get_next() -> dict[str, Any] | None:
 def search_events(query: str, limit: int = 10) -> list[dict[str, Any]]:
     data = graph_get("/me/events", {"$search": f'"{query}"', "$top": str(limit)})
     return [_format_event(e) for e in data.get("value", [])]
+
+
+def create_event(
+    subject: str,
+    start: str,
+    end: str,
+    timezone_: str = "UTC",
+    description: str = "",
+    location: str = "",
+    attendees: list[str] | None = None,
+) -> dict[str, Any]:
+    """Create a calendar event. start/end are ISO 8601 datetimes without an
+    offset — interpreted in timezone_, per Graph's convention."""
+    body: dict[str, Any] = {
+        "subject": subject,
+        "start": {"dateTime": start, "timeZone": timezone_},
+        "end": {"dateTime": end, "timeZone": timezone_},
+    }
+    if description:
+        body["body"] = {"contentType": "Text", "content": description}
+    if location:
+        body["location"] = {"displayName": location}
+    if attendees:
+        body["attendees"] = [{"emailAddress": {"address": a}, "type": "required"} for a in attendees]
+    return _format_event(graph_post("/me/events", body))
+
+
+def update_event(event_id: str, **fields: Any) -> dict[str, Any]:
+    """Update only the given fields. Accepts: subject, start, end, timezone_,
+    description, location, attendees (same shapes as create_event). Raises
+    ValueError if no fields are given."""
+    body: dict[str, Any] = {}
+    if "subject" in fields:
+        body["subject"] = fields["subject"]
+    if "start" in fields:
+        body["start"] = {"dateTime": fields["start"], "timeZone": fields.get("timezone_", "UTC")}
+    if "end" in fields:
+        body["end"] = {"dateTime": fields["end"], "timeZone": fields.get("timezone_", "UTC")}
+    if "description" in fields:
+        body["body"] = {"contentType": "Text", "content": fields["description"]}
+    if "location" in fields:
+        body["location"] = {"displayName": fields["location"]}
+    if "attendees" in fields:
+        body["attendees"] = [{"emailAddress": {"address": a}, "type": "required"} for a in fields["attendees"]]
+    if not body:
+        raise ValueError("update_event: no fields to update")
+    return _format_event(graph_patch(f"/me/events/{event_id}", body))
+
+
+def delete_event(event_id: str) -> None:
+    graph_delete(f"/me/events/{event_id}")
 
 
 def _format_event(e: dict[str, Any]) -> dict[str, Any]:

@@ -48,12 +48,15 @@ Endpoints (Sprint 17, Milestone 2 — Outlook integration, read-only):
   GET  /api/outlook/unread        — unread count
   GET  /api/outlook/search        — search messages (?q=&limit=)
 
-Endpoints (Sprint 17, Milestone 3 — Calendar, read-only so far):
-  GET  /api/calendar/today        — today's events
-  GET  /api/calendar/tomorrow     — tomorrow's events
-  GET  /api/calendar/week         — this week's events
-  GET  /api/calendar/next         — next upcoming event
-  GET  /api/calendar/search       — search events (?q=&limit=)
+Endpoints (Sprint 17, Milestone 3 — Calendar):
+  GET    /api/calendar/today        — today's events
+  GET    /api/calendar/tomorrow     — tomorrow's events
+  GET    /api/calendar/week         — this week's events
+  GET    /api/calendar/next         — next upcoming event
+  GET    /api/calendar/search       — search events (?q=&limit=)
+  POST   /api/calendar              — create an event
+  PUT    /api/calendar/{id}         — update an event (any subset of fields)
+  DELETE /api/calendar/{id}         — delete an event
   (auth is shared with Outlook — see /api/outlook/auth/*)
 """
 
@@ -111,6 +114,26 @@ class FlowCreate(BaseModel):
 
 class ClipboardSet(BaseModel):
     text: str
+
+
+class CalendarEventCreate(BaseModel):
+    subject: str
+    start: str
+    end: str
+    timezone: str = "UTC"
+    description: str = ""
+    location: str = ""
+    attendees: list[str] = []
+
+
+class CalendarEventUpdate(BaseModel):
+    subject: str | None = None
+    start: str | None = None
+    end: str | None = None
+    timezone: str | None = None
+    description: str | None = None
+    location: str | None = None
+    attendees: list[str] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -444,6 +467,53 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
 
         try:
             return {"events": await service.calendar_search(q, limit)}
+        except CalendarNotConfiguredError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except CalendarAuthRequiredError as e:
+            raise HTTPException(status_code=401, detail=str(e))
+        except CalendarError as e:
+            raise HTTPException(status_code=502, detail=str(e))
+
+    @app.post("/api/calendar", status_code=201)
+    async def calendar_create(data: CalendarEventCreate):
+        from runtime.calendar import CalendarAuthRequiredError, CalendarError, CalendarNotConfiguredError
+
+        try:
+            return await service.calendar_create(
+                data.subject, data.start, data.end, data.timezone, data.description, data.location, data.attendees
+            )
+        except CalendarNotConfiguredError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except CalendarAuthRequiredError as e:
+            raise HTTPException(status_code=401, detail=str(e))
+        except CalendarError as e:
+            raise HTTPException(status_code=502, detail=str(e))
+
+    @app.put("/api/calendar/{event_id}")
+    async def calendar_update(event_id: str, data: CalendarEventUpdate):
+        from runtime.calendar import CalendarAuthRequiredError, CalendarError, CalendarNotConfiguredError
+
+        fields = data.model_dump(exclude_none=True)
+        if "timezone" in fields:
+            fields["timezone_"] = fields.pop("timezone")
+        if not fields:
+            raise HTTPException(status_code=422, detail="No fields to update")
+        try:
+            return await service.calendar_update(event_id, **fields)
+        except CalendarNotConfiguredError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except CalendarAuthRequiredError as e:
+            raise HTTPException(status_code=401, detail=str(e))
+        except CalendarError as e:
+            raise HTTPException(status_code=502, detail=str(e))
+
+    @app.delete("/api/calendar/{event_id}")
+    async def calendar_delete(event_id: str):
+        from runtime.calendar import CalendarAuthRequiredError, CalendarError, CalendarNotConfiguredError
+
+        try:
+            await service.calendar_delete(event_id)
+            return {"deleted": True}
         except CalendarNotConfiguredError as e:
             raise HTTPException(status_code=503, detail=str(e))
         except CalendarAuthRequiredError as e:

@@ -344,5 +344,73 @@ async def flowcore_calendar_search(query: str, limit: int = 10) -> list[dict]:
         raise RuntimeError(str(e)) from e
 
 
+@mcp.tool()
+async def flowcore_calendar_create(
+    subject: str,
+    start: str,
+    end: str,
+    timezone: str = "UTC",
+    description: str = "",
+    location: str = "",
+    attendees: list[str] | None = None,
+) -> dict:
+    """Create a calendar event. start/end are ISO 8601 datetimes without an
+    offset (e.g. "2026-08-10T10:00:00"), interpreted in `timezone`."""
+    from runtime.calendar import CalendarError
+
+    try:
+        return await service.calendar_create(subject, start, end, timezone, description, location, attendees)
+    except CalendarError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_calendar_update(
+    event_id: str,
+    subject: str | None = None,
+    start: str | None = None,
+    end: str | None = None,
+    timezone: str | None = None,
+    description: str | None = None,
+    location: str | None = None,
+    attendees: list[str] | None = None,
+) -> dict:
+    """Update a calendar event. Only pass the fields you want to change."""
+    from runtime.calendar import CalendarError
+
+    fields = {
+        k: v
+        for k, v in {
+            "subject": subject,
+            "start": start,
+            "end": end,
+            "description": description,
+            "location": location,
+            "attendees": attendees,
+        }.items()
+        if v is not None
+    }
+    if timezone is not None and ("start" in fields or "end" in fields):
+        fields["timezone_"] = timezone
+    if not fields:
+        raise RuntimeError("No fields given to update.")
+    try:
+        return await service.calendar_update(event_id, **fields)
+    except CalendarError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_calendar_delete(event_id: str) -> dict:
+    """Delete a calendar event."""
+    from runtime.calendar import CalendarError
+
+    try:
+        await service.calendar_delete(event_id)
+        return {"deleted": True}
+    except CalendarError as e:
+        raise RuntimeError(str(e)) from e
+
+
 def run() -> None:
     mcp.run(transport="stdio")

@@ -34,7 +34,7 @@ Usage:
     python3 flowcore.py flow <list|create|show|run|delete>   Manage flows
     python3 flowcore.py android <battery|wifi|storage|apps|clipboard-get|clipboard-set|notify>
     python3 flowcore.py outlook <auth|messages|unread|search>
-    python3 flowcore.py calendar <auth|today|tomorrow|week|next|search>
+    python3 flowcore.py calendar <auth|today|tomorrow|week|next|search|create|update|delete>
 
 Env vars:
     FLOWCORE_MODEL=qwen3:8b              (default: llama2)
@@ -1625,8 +1625,20 @@ def _print_events(events: list, empty_msg: str) -> None:
         print(f"      {e['start']} — {e['end']} ({e.get('timezone', '')})")
 
 
-async def cmd_calendar(action: str, query: str = "", limit: int = 10) -> None:
-    """Microsoft Calendar (read-only so far): auth, today, tomorrow, week, next, search.
+async def cmd_calendar(
+    action: str,
+    query: str = "",
+    limit: int = 10,
+    event_id: str = "",
+    subject: str = "",
+    start: str = "",
+    end: str = "",
+    timezone_: str = "UTC",
+    description: str = "",
+    location: str = "",
+    attendees: list[str] | None = None,
+) -> None:
+    """Microsoft Calendar: auth, today, tomorrow, week, next, search, create, update, delete.
 
     Shares the same authenticated session as `outlook auth` — running either
     one authenticates both (see runtime/microsoft_graph.py).
@@ -1635,11 +1647,14 @@ async def cmd_calendar(action: str, query: str = "", limit: int = 10) -> None:
         CalendarAuthRequiredError,
         CalendarError,
         CalendarNotConfiguredError,
+        create_event,
+        delete_event,
         get_next,
         list_today,
         list_tomorrow,
         list_week,
         search_events,
+        update_event,
     )
     from runtime.microsoft_graph import complete_device_flow, start_device_flow
 
@@ -1692,9 +1707,61 @@ async def cmd_calendar(action: str, query: str = "", limit: int = 10) -> None:
         except (CalendarNotConfiguredError, CalendarAuthRequiredError, CalendarError) as e:
             print(f"{RED}Error: {e}{NC}")
 
+    elif action == "create":
+        if not subject or not start or not end:
+            print(f"{RED}Usage: python3 flowcore.py calendar create --subject S --start S --end S [options]{NC}")
+            return
+        try:
+            event = await asyncio.to_thread(
+                create_event, subject, start, end, timezone_, description, location, attendees
+            )
+            print(f"{GREEN}✓ Event created{NC}")
+            _print_events([event], "")
+        except (CalendarNotConfiguredError, CalendarAuthRequiredError, CalendarError) as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    elif action == "update":
+        if not event_id:
+            print(f"{RED}Usage: python3 flowcore.py calendar update <event_id> [--subject ...] ...{NC}")
+            return
+        fields = {}
+        if subject:
+            fields["subject"] = subject
+        if start:
+            fields["start"] = start
+        if end:
+            fields["end"] = end
+        if description:
+            fields["description"] = description
+        if location:
+            fields["location"] = location
+        if attendees:
+            fields["attendees"] = attendees
+        if "start" in fields or "end" in fields:
+            fields["timezone_"] = timezone_
+        if not fields:
+            print(f"{RED}Error: no fields given to update.{NC}")
+            return
+        try:
+            event = await asyncio.to_thread(update_event, event_id, **fields)
+            print(f"{GREEN}✓ Event updated{NC}")
+            _print_events([event], "")
+        except (CalendarNotConfiguredError, CalendarAuthRequiredError, CalendarError) as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    elif action == "delete":
+        if not event_id:
+            print(f"{RED}Usage: python3 flowcore.py calendar delete <event_id>{NC}")
+            return
+        try:
+            await asyncio.to_thread(delete_event, event_id)
+            print(f"{GREEN}✓ Event {event_id} deleted{NC}")
+        except (CalendarNotConfiguredError, CalendarAuthRequiredError, CalendarError) as e:
+            print(f"{RED}Error: {e}{NC}")
+
     else:
         print(f"{RED}Unknown calendar action: {action!r}{NC}")
-        print("  Usage: python3 flowcore.py calendar <auth|today|tomorrow|week|next|search>")
+        print("  Usage: python3 flowcore.py calendar <auth|today|tomorrow|week|next|search|create|update|delete>")
 
 
 def main() -> None:
@@ -1835,6 +1902,28 @@ def main() -> None:
     calendar_search_p.add_argument("query", help="Search query")
     calendar_search_p.add_argument("--limit", type=int, default=10, help="Max results (default: 10)")
 
+    calendar_create_p = calendar_sub.add_parser("create", help="Create an event")
+    calendar_create_p.add_argument("--subject", required=True, help="Event title")
+    calendar_create_p.add_argument("--start", required=True, help="Start, ISO 8601 (e.g. 2026-08-10T10:00:00)")
+    calendar_create_p.add_argument("--end", required=True, help="End, ISO 8601")
+    calendar_create_p.add_argument("--timezone", default="UTC", help="Timezone (default: UTC)")
+    calendar_create_p.add_argument("--description", default="", help="Event description")
+    calendar_create_p.add_argument("--location", default="", help="Event location")
+    calendar_create_p.add_argument("--attendees", default="", help="Comma-separated email addresses")
+
+    calendar_update_p = calendar_sub.add_parser("update", help="Update an event")
+    calendar_update_p.add_argument("event_id", help="Event ID (from `calendar today`/`search` output)")
+    calendar_update_p.add_argument("--subject", default="", help="New title")
+    calendar_update_p.add_argument("--start", default="", help="New start, ISO 8601")
+    calendar_update_p.add_argument("--end", default="", help="New end, ISO 8601")
+    calendar_update_p.add_argument("--timezone", default="UTC", help="Timezone for start/end (default: UTC)")
+    calendar_update_p.add_argument("--description", default="", help="New description")
+    calendar_update_p.add_argument("--location", default="", help="New location")
+    calendar_update_p.add_argument("--attendees", default="", help="Comma-separated email addresses")
+
+    calendar_delete_p = calendar_sub.add_parser("delete", help="Delete an event")
+    calendar_delete_p.add_argument("event_id", help="Event ID")
+
     args = parser.parse_args()
     cfg = get_config()
     platform = detect_platform()
@@ -1958,11 +2047,25 @@ def main() -> None:
     elif args.command == "calendar":
         action = getattr(args, "calendar_action", None)
         if not action:
-            print("Usage: python3 flowcore.py calendar <auth|today|tomorrow|week|next|search>")
+            print("Usage: python3 flowcore.py calendar <auth|today|tomorrow|week|next|search|create|update|delete>")
             sys.exit(1)
-        query = getattr(args, "query", "")
-        limit = getattr(args, "limit", 10)
-        asyncio.run(cmd_calendar(action, query=query, limit=limit))
+        attendees_raw = getattr(args, "attendees", "")
+        attendees = [a.strip() for a in attendees_raw.split(",") if a.strip()] if attendees_raw else None
+        asyncio.run(
+            cmd_calendar(
+                action,
+                query=getattr(args, "query", ""),
+                limit=getattr(args, "limit", 10),
+                event_id=getattr(args, "event_id", ""),
+                subject=getattr(args, "subject", ""),
+                start=getattr(args, "start", ""),
+                end=getattr(args, "end", ""),
+                timezone_=getattr(args, "timezone", "UTC"),
+                description=getattr(args, "description", ""),
+                location=getattr(args, "location", ""),
+                attendees=attendees,
+            )
+        )
     else:
         parser.print_help()
         sys.exit(1)
