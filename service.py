@@ -380,16 +380,55 @@ async def whatsapp_send(number: str, text: str) -> dict:
 # asked for a mechanism to populate.
 
 
-async def _check_outlook() -> dict:
+async def _outlook_guard() -> dict | None:
+    """Shared not-configured/not-authenticated check for every Outlook/Calendar
+    probe below — they all share one Microsoft Graph auth session. Returns a
+    status dict if the caller should short-circuit, None if the caller should
+    proceed with its own capability-specific probe."""
     from runtime.microsoft_graph import is_authenticated
 
     if not os.getenv("OUTLOOK_CLIENT_ID"):
         return {"status": "not_configured", "detail": "OUTLOOK_CLIENT_ID not set", "error": None}
     authed = await asyncio.to_thread(is_authenticated)
-    if authed:
-        return {"status": "ok", "detail": "Authenticated", "error": None}
-    detail = "Configured, not authenticated yet — run `outlook auth`"
-    return {"status": "not_authenticated", "detail": detail, "error": None}
+    if not authed:
+        detail = "Configured, not authenticated yet — run `outlook auth`"
+        return {"status": "not_authenticated", "detail": detail, "error": None}
+    return None
+
+
+async def _check_outlook() -> dict:
+    """The shared auth session's own status — distinct from the Mailbox/Calendar
+    capability-specific probes below."""
+    guard = await _outlook_guard()
+    if guard is not None:
+        return guard
+    return {"status": "ok", "detail": "Authenticated", "error": None}
+
+
+async def _check_outlook_mailbox() -> dict:
+    guard = await _outlook_guard()
+    if guard is not None:
+        return guard
+    from runtime.outlook import OutlookError, get_unread_count
+
+    try:
+        count = await asyncio.to_thread(get_unread_count)
+        return {"status": "ok", "detail": f"{count} unread", "error": None}
+    except OutlookError as e:
+        return {"status": "error", "detail": str(e), "error": str(e)}
+
+
+async def _check_outlook_calendar() -> dict:
+    guard = await _outlook_guard()
+    if guard is not None:
+        return guard
+    from runtime.calendar import CalendarError, list_today
+
+    try:
+        events = await asyncio.to_thread(list_today)
+        return {"status": "ok", "detail": f"{len(events)} events today", "error": None}
+    except CalendarError as e:
+        return {"status": "error", "detail": str(e), "error": str(e)}
 
 
 async def _check_whatsapp() -> dict:
@@ -428,7 +467,13 @@ async def _check_ollama() -> dict:
 
 
 async def integrations_status() -> list[dict]:
-    checks = [("Outlook / Calendar", _check_outlook), ("WhatsApp", _check_whatsapp), ("Ollama", _check_ollama)]
+    checks = [
+        ("Outlook Auth", _check_outlook),
+        ("Outlook Mailbox", _check_outlook_mailbox),
+        ("Outlook Calendar", _check_outlook_calendar),
+        ("WhatsApp", _check_whatsapp),
+        ("Ollama", _check_ollama),
+    ]
 
     async def _run(name: str, fn) -> dict:
         start = time.monotonic()

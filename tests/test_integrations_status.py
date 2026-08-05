@@ -67,6 +67,86 @@ class TestCheckOutlook:
         assert result["error"] is None
 
 
+class TestCheckOutlookMailbox:
+    def test_not_configured(self):
+        import asyncio
+
+        import service
+
+        result = asyncio.run(service._check_outlook_mailbox())
+        assert result["status"] == "not_configured"
+
+    def test_ok(self, monkeypatch):
+        import asyncio
+
+        import service
+
+        monkeypatch.setenv("OUTLOOK_CLIENT_ID", "abc")
+        with (
+            patch("runtime.microsoft_graph.is_authenticated", return_value=True),
+            patch("runtime.outlook.get_unread_count", return_value=7),
+        ):
+            result = asyncio.run(service._check_outlook_mailbox())
+        assert result["status"] == "ok"
+        assert "7 unread" in result["detail"]
+        assert result["error"] is None
+
+    def test_error(self, monkeypatch):
+        import asyncio
+
+        import service
+        from runtime.outlook import OutlookError
+
+        monkeypatch.setenv("OUTLOOK_CLIENT_ID", "abc")
+        with (
+            patch("runtime.microsoft_graph.is_authenticated", return_value=True),
+            patch("runtime.outlook.get_unread_count", side_effect=OutlookError("graph down")),
+        ):
+            result = asyncio.run(service._check_outlook_mailbox())
+        assert result["status"] == "error"
+        assert result["error"] == "graph down"
+
+
+class TestCheckOutlookCalendar:
+    def test_not_configured(self):
+        import asyncio
+
+        import service
+
+        result = asyncio.run(service._check_outlook_calendar())
+        assert result["status"] == "not_configured"
+
+    def test_ok(self, monkeypatch):
+        import asyncio
+
+        import service
+
+        monkeypatch.setenv("OUTLOOK_CLIENT_ID", "abc")
+        with (
+            patch("runtime.microsoft_graph.is_authenticated", return_value=True),
+            patch("runtime.calendar.list_today", return_value=[{"subject": "Standup"}]),
+        ):
+            result = asyncio.run(service._check_outlook_calendar())
+        assert result["status"] == "ok"
+        assert "1 events today" in result["detail"]
+        assert result["error"] is None
+
+    def test_error(self, monkeypatch):
+        import asyncio
+
+        import service
+        from runtime.calendar import CalendarError
+
+        monkeypatch.setenv("OUTLOOK_CLIENT_ID", "abc")
+        with (
+            patch("runtime.microsoft_graph.is_authenticated", return_value=True),
+            patch("runtime.calendar.list_today", side_effect=CalendarError("graph down")),
+        ):
+            result = asyncio.run(service._check_outlook_calendar())
+        assert result["status"] == "error"
+        assert result["error"] == "graph down"
+
+
 class TestCheckWhatsApp:
     def test_unreachable(self):
         import asyncio
@@ -149,28 +229,26 @@ class TestCheckOllama:
 
 
 class TestIntegrationsStatus:
-    def test_aggregates_all_three_with_latency_and_timestamp(self):
+    @staticmethod
+    def _ok(detail: str) -> AsyncMock:
+        return AsyncMock(return_value={"status": "ok", "detail": detail, "error": None})
+
+    def test_aggregates_all_five_with_latency_and_timestamp(self):
         import asyncio
 
         import service
 
         with (
-            patch.object(
-                service, "_check_outlook", new=AsyncMock(return_value={"status": "ok", "detail": "x", "error": None})
-            ),
-            patch.object(
-                service,
-                "_check_whatsapp",
-                new=AsyncMock(return_value={"status": "ok", "detail": "y", "error": None}),
-            ),
-            patch.object(
-                service, "_check_ollama", new=AsyncMock(return_value={"status": "ok", "detail": "z", "error": None})
-            ),
+            patch.object(service, "_check_outlook", new=self._ok("a")),
+            patch.object(service, "_check_outlook_mailbox", new=self._ok("b")),
+            patch.object(service, "_check_outlook_calendar", new=self._ok("c")),
+            patch.object(service, "_check_whatsapp", new=self._ok("y")),
+            patch.object(service, "_check_ollama", new=self._ok("z")),
         ):
             results = asyncio.run(service.integrations_status())
-        assert len(results) == 3
+        assert len(results) == 5
         names = {r["name"] for r in results}
-        assert names == {"Outlook / Calendar", "WhatsApp", "Ollama"}
+        assert names == {"Outlook Auth", "Outlook Mailbox", "Outlook Calendar", "WhatsApp", "Ollama"}
         for r in results:
             assert "latency_ms" in r
             assert "checked_at" in r
@@ -184,16 +262,14 @@ class TestIntegrationsStatus:
 
         with (
             patch.object(service, "_check_outlook", new=AsyncMock(side_effect=RuntimeError("boom"))),
-            patch.object(
-                service, "_check_whatsapp", new=AsyncMock(return_value={"status": "ok", "detail": "y", "error": None})
-            ),
-            patch.object(
-                service, "_check_ollama", new=AsyncMock(return_value={"status": "ok", "detail": "z", "error": None})
-            ),
+            patch.object(service, "_check_outlook_mailbox", new=self._ok("b")),
+            patch.object(service, "_check_outlook_calendar", new=self._ok("c")),
+            patch.object(service, "_check_whatsapp", new=self._ok("y")),
+            patch.object(service, "_check_ollama", new=self._ok("z")),
         ):
             results = asyncio.run(service.integrations_status())
-        assert len(results) == 3
-        outlook_result = next(r for r in results if r["name"] == "Outlook / Calendar")
+        assert len(results) == 5
+        outlook_result = next(r for r in results if r["name"] == "Outlook Auth")
         assert outlook_result["status"] == "error"
         assert "boom" in outlook_result["detail"]
         assert outlook_result["error"] == "boom"
