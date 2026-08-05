@@ -466,6 +466,22 @@ async def _check_ollama() -> dict:
     return {"status": "ok", "detail": f"{endpoint} — model {model}", "error": None}
 
 
+async def _check_android() -> dict:
+    """Availability only — never invoke a capability with side effects (sending
+    a notification, reading clipboard) just to check status. registry.get()
+    returns an adapter or None; that alone is the presence check."""
+    caps = ["getBattery", "getClipboard", "sendNotification", "listInstalledApps", "getNetworkInfo"]
+    available = [c for c in caps if _registry.get(c) is not None]
+    if not available:
+        detail = "No Android capabilities available on this platform"
+        return {"status": "unreachable", "detail": detail, "error": None, "capabilities": []}
+    if len(available) < len(caps):
+        detail = f"{len(available)}/{len(caps)} available: {', '.join(available)}"
+    else:
+        detail = f"All {len(caps)} capabilities available"
+    return {"status": "ok", "detail": detail, "error": None, "capabilities": available}
+
+
 async def integrations_status() -> list[dict]:
     checks = [
         ("Outlook Auth", _check_outlook),
@@ -473,6 +489,7 @@ async def integrations_status() -> list[dict]:
         ("Outlook Calendar", _check_outlook_calendar),
         ("WhatsApp", _check_whatsapp),
         ("Ollama", _check_ollama),
+        ("Android", _check_android),
     ]
 
     async def _run(name: str, fn) -> dict:

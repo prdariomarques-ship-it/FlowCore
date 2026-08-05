@@ -228,6 +228,56 @@ class TestCheckOllama:
         assert result["error"] is None
 
 
+class TestCheckAndroid:
+    def test_none_available(self):
+        import asyncio
+
+        import service
+
+        with patch.object(service._registry, "get", return_value=None):
+            result = asyncio.run(service._check_android())
+        assert result["status"] == "unreachable"
+        assert result["capabilities"] == []
+
+    def test_all_available(self):
+        import asyncio
+
+        import service
+
+        with patch.object(service._registry, "get", return_value=object()):
+            result = asyncio.run(service._check_android())
+        assert result["status"] == "ok"
+        assert len(result["capabilities"]) == 5
+        assert "All 5 capabilities available" in result["detail"]
+
+    def test_partial_availability(self):
+        import asyncio
+
+        import service
+
+        def fake_get(capability):
+            return object() if capability in ("getBattery", "getNetworkInfo") else None
+
+        with patch.object(service._registry, "get", side_effect=fake_get):
+            result = asyncio.run(service._check_android())
+        assert result["status"] == "ok"
+        assert set(result["capabilities"]) == {"getBattery", "getNetworkInfo"}
+        assert "2/5 available" in result["detail"]
+
+    def test_does_not_call_capabilities_with_side_effects(self):
+        import asyncio
+
+        import service
+
+        with (
+            patch.object(service._registry, "get", return_value=object()) as mock_get,
+            patch.object(service._registry, "call") as mock_call,
+        ):
+            asyncio.run(service._check_android())
+        mock_get.assert_called()
+        mock_call.assert_not_called()
+
+
 class TestIntegrationsStatus:
     @staticmethod
     def _ok(detail: str) -> AsyncMock:
@@ -244,11 +294,12 @@ class TestIntegrationsStatus:
             patch.object(service, "_check_outlook_calendar", new=self._ok("c")),
             patch.object(service, "_check_whatsapp", new=self._ok("y")),
             patch.object(service, "_check_ollama", new=self._ok("z")),
+            patch.object(service, "_check_android", new=self._ok("w")),
         ):
             results = asyncio.run(service.integrations_status())
-        assert len(results) == 5
+        assert len(results) == 6
         names = {r["name"] for r in results}
-        assert names == {"Outlook Auth", "Outlook Mailbox", "Outlook Calendar", "WhatsApp", "Ollama"}
+        assert names == {"Outlook Auth", "Outlook Mailbox", "Outlook Calendar", "WhatsApp", "Ollama", "Android"}
         for r in results:
             assert "latency_ms" in r
             assert "checked_at" in r
@@ -266,9 +317,10 @@ class TestIntegrationsStatus:
             patch.object(service, "_check_outlook_calendar", new=self._ok("c")),
             patch.object(service, "_check_whatsapp", new=self._ok("y")),
             patch.object(service, "_check_ollama", new=self._ok("z")),
+            patch.object(service, "_check_android", new=self._ok("w")),
         ):
             results = asyncio.run(service.integrations_status())
-        assert len(results) == 5
+        assert len(results) == 6
         outlook_result = next(r for r in results if r["name"] == "Outlook Auth")
         assert outlook_result["status"] == "error"
         assert "boom" in outlook_result["detail"]
