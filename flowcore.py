@@ -250,7 +250,7 @@ def cmd_selftest() -> None:
             f.write("# Test Document\n\nThis is a test markdown file.")
             temp_file = f.name
         try:
-            cmd_import(temp_file)
+            asyncio.run(cmd_import(temp_file))
         finally:
             Path(temp_file).unlink()
 
@@ -266,7 +266,7 @@ def cmd_selftest() -> None:
         old_stdout = sys.stdout
         try:
             sys.stdout = io.StringIO()
-            cmd_ask("test question")
+            asyncio.run(cmd_ask("test question"))
         finally:
             sys.stdout = old_stdout
 
@@ -294,7 +294,7 @@ def cmd_selftest() -> None:
         old_stdout = sys.stdout
         try:
             sys.stdout = io.StringIO()
-            cmd_stats()
+            asyncio.run(cmd_stats())
         finally:
             sys.stdout = old_stdout
 
@@ -310,7 +310,7 @@ def cmd_selftest() -> None:
         old_stdout = sys.stdout
         try:
             sys.stdout = io.StringIO()
-            cmd_daily()
+            asyncio.run(cmd_daily())
         finally:
             sys.stdout = old_stdout
 
@@ -324,7 +324,7 @@ def cmd_selftest() -> None:
         old_stdout = sys.stdout
         try:
             sys.stdout = io.StringIO()
-            cmd_search("test")
+            asyncio.run(cmd_search("test"))
         finally:
             sys.stdout = old_stdout
 
@@ -338,7 +338,7 @@ def cmd_selftest() -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             md_file = Path(tmpdir) / "test.md"
             md_file.write_text("# Test\nContent")
-            cmd_sync(tmpdir)
+            asyncio.run(cmd_sync(tmpdir))
 
     result = selftest_check("SYNC", _sync_test, "Sync folder works")
     results.append(result)
@@ -547,7 +547,7 @@ def cmd_memories() -> None:
         print()
 
 
-def cmd_import(filepath: str) -> None:
+async def cmd_import(filepath: str) -> None:
     """Import Markdown file to SQLite with title extraction."""
     try:
         path = Path(filepath)
@@ -567,7 +567,7 @@ def cmd_import(filepath: str) -> None:
         line_count = len(content.split("\n"))
         char_count = len(content)
 
-        doc_id = _doc_repo.insert_sync(title, content, str(path))
+        doc_id = await _doc_repo.insert(title, content, str(path))
 
         print(f"\n{GREEN}✓ Document imported{NC}")
         print(f"  {CYAN}Título:{NC} {title}")
@@ -581,10 +581,10 @@ def cmd_import(filepath: str) -> None:
         logger.error(f"Import error: {e}")
 
 
-def cmd_docs() -> None:
+async def cmd_docs() -> None:
     """List all imported documents."""
     try:
-        docs = _doc_repo.list_all_sync()
+        docs = await _doc_repo.list_all()
         if not docs:
             print(f"{YELLOW}No documents found.{NC}")
             return
@@ -604,10 +604,10 @@ def cmd_docs() -> None:
         logger.error(f"Docs error: {e}")
 
 
-def cmd_show(doc_id: str) -> None:
+async def cmd_show(doc_id: str) -> None:
     """Display a document by ID."""
     try:
-        doc = _doc_repo.get_by_id_sync(int(doc_id))
+        doc = await _doc_repo.get_by_id(int(doc_id))
         if not doc:
             print(f"{RED}Document not found: {doc_id}{NC}")
             return
@@ -687,10 +687,10 @@ def cmd_models() -> None:
         logger.error(f"Models error: {e}")
 
 
-def cmd_stats() -> None:
+async def cmd_stats() -> None:
     """Show FlowCore statistics."""
     try:
-        doc_count = _doc_repo.count_sync()
+        doc_count = await _doc_repo.count()
         mem_count = _mem_repo.count()
         try:
             ollama_host = discover_ollama_endpoint()
@@ -975,7 +975,7 @@ def cmd_install() -> None:
         sys.exit(1)
 
 
-def cmd_demo() -> None:
+async def cmd_demo() -> None:
     """Interactive demo: remember → recall → import → docs → show → stats."""
     print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
     print(f"{BOLD}{CYAN}║         FlowCore Demo                           ║{NC}")
@@ -994,18 +994,18 @@ def cmd_demo() -> None:
             f.write("# FlowCore Demo\n\nThis is a demo markdown file for testing import functionality.")
             temp_file = f.name
         try:
-            cmd_import(temp_file)
+            await cmd_import(temp_file)
         finally:
             Path(temp_file).unlink()
 
         print(f"\n{BOLD}4. List Documents{NC}")
-        cmd_docs()
+        await cmd_docs()
 
         print(f"\n{BOLD}5. Show Document{NC}")
         print("(Display the first document)")
 
         print(f"\n{BOLD}6. Statistics{NC}")
-        cmd_stats()
+        await cmd_stats()
 
         print(f"\n{GREEN}{BOLD}FlowCore está operacional.{NC}\n")
 
@@ -1014,10 +1014,10 @@ def cmd_demo() -> None:
         logger.error(f"Demo error: {e}")
 
 
-def cmd_search(query: str) -> None:
+async def cmd_search(query: str) -> None:
     """Search in documents and memories."""
     try:
-        docs = _doc_repo.search_sync(query)
+        docs = await _doc_repo.search(query)
         memories = _mem_repo.search(query)
 
         print(f"\n{BOLD}{CYAN}Search: '{query}'{NC}\n")
@@ -1043,12 +1043,12 @@ def cmd_search(query: str) -> None:
         logger.error(f"Search error: {e}")
 
 
-def cmd_daily() -> None:
+async def cmd_daily() -> None:
     """Show daily summary."""
     try:
-        doc_count = _doc_repo.count_sync()
-        task_count = _doc_repo.count_by_source_sync("note", "todo", "agenda")
-        recent_docs = _doc_repo.list_recent_sync(5)
+        doc_count = await _doc_repo.count()
+        task_count = await _doc_repo.count_by_source("note", "todo", "agenda")
+        recent_docs = await _doc_repo.list_recent(5)
         mem_count = _mem_repo.count()
 
         print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
@@ -1074,7 +1074,7 @@ def cmd_daily() -> None:
         logger.error(f"Daily error: {e}")
 
 
-def cmd_sync(folder: str) -> None:
+async def cmd_sync(folder: str) -> None:
     """Import all Markdown files from a folder."""
     try:
         path = Path(folder).expanduser()
@@ -1091,7 +1091,7 @@ def cmd_sync(folder: str) -> None:
 
         for md_file in md_files:
             try:
-                cmd_import(str(md_file))
+                await cmd_import(str(md_file))
                 print()
             except Exception as e:
                 print(f"{RED}  Error: {md_file.name} — {str(e)[:50]}{NC}\n")
@@ -1103,10 +1103,9 @@ def cmd_sync(folder: str) -> None:
         logger.error(f"Sync error: {e}")
 
 
-def cmd_watch(folder: str, interval: int = 5) -> None:
+async def cmd_watch(folder: str, interval: int = 5) -> None:
     """Monitor a folder for new/modified Markdown files."""
     try:
-        import time
         path = Path(folder).expanduser()
         if not path.exists():
             print(f"{RED}Folder not found: {folder}{NC}")
@@ -1125,11 +1124,11 @@ def cmd_watch(folder: str, interval: int = 5) -> None:
                     if file_key not in tracked or tracked[file_key] != mtime:
                         print(f"{GREEN}→{NC} {md_file.name}")
                         try:
-                            cmd_import(str(md_file))
+                            await cmd_import(str(md_file))
                         except Exception as e:
                             print(f"  {RED}Error: {str(e)[:50]}{NC}")
                         tracked[file_key] = mtime
-                time.sleep(interval)
+                await asyncio.sleep(interval)
         except KeyboardInterrupt:
             print(f"\n{YELLOW}Watch stopped.{NC}\n")
 
@@ -1174,7 +1173,7 @@ def cmd_obsidian_init(vault_path: str = None) -> None:
         logger.error(f"Obsidian init error: {e}")
 
 
-def cmd_obsidian_sync(vault_path: str = None) -> None:
+async def cmd_obsidian_sync(vault_path: str = None) -> None:
     """Sync entire Obsidian vault to SQLite."""
     try:
         vault = Path(vault_path).expanduser() if vault_path else _get_obsidian_path()
@@ -1192,7 +1191,7 @@ def cmd_obsidian_sync(vault_path: str = None) -> None:
 
         for md_file in md_files:
             try:
-                cmd_import(str(md_file))
+                await cmd_import(str(md_file))
             except Exception:
                 print(f"  {RED}Error: {md_file.name}{NC}")
 
@@ -1204,7 +1203,7 @@ def cmd_obsidian_sync(vault_path: str = None) -> None:
         logger.error(f"Obsidian sync error: {e}")
 
 
-def cmd_obsidian_watch(vault_path: str = None) -> None:
+async def cmd_obsidian_watch(vault_path: str = None) -> None:
     """Watch Obsidian vault for changes."""
     try:
         vault = Path(vault_path).expanduser() if vault_path else _get_obsidian_path()
@@ -1212,13 +1211,13 @@ def cmd_obsidian_watch(vault_path: str = None) -> None:
             print(f"{RED}Vault not found: {vault}{NC}")
             return
         _save_obsidian_path(vault)
-        cmd_watch(str(vault))
+        await cmd_watch(str(vault))
     except Exception as e:
         print(f"{RED}Obsidian watch error: {e}{NC}")
         logger.error(f"Obsidian watch error: {e}")
 
 
-def cmd_ask(question: str) -> None:
+async def cmd_ask(question: str) -> None:
     """RAG: Ask AI using Ollama with document context."""
     from runtime.ollama import (
         generate as ollama_generate,
@@ -1237,7 +1236,7 @@ def cmd_ask(question: str) -> None:
         logger.warning(f"Ollama discovery failed: {e}")
         return
 
-    recent_docs = _doc_repo.list_recent_sync(5)
+    recent_docs = await _doc_repo.list_recent(5)
     context = ""
     if recent_docs:
         context = "Context from documents:\n"
@@ -1269,30 +1268,30 @@ def cmd_ask(question: str) -> None:
         print(f"{RED}Erro: {e}{NC}")
 
 
-def cmd_note(text: str) -> None:
+async def cmd_note(text: str) -> None:
     """Add a note."""
     try:
-        _doc_repo.insert_sync("Note", text, "note")
+        await _doc_repo.insert("Note", text, "note")
         print(f"{GREEN}✓ Note saved{NC}")
         logger.info(f"Note added: {text}")
     except Exception as e:
         print(f"{RED}Error: {e}{NC}")
 
 
-def cmd_todo(task: str) -> None:
+async def cmd_todo(task: str) -> None:
     """Add a todo item."""
     try:
-        _doc_repo.insert_sync("TODO", task, "todo")
+        await _doc_repo.insert("TODO", task, "todo")
         print(f"{GREEN}✓ Todo added{NC}")
         logger.info(f"Todo added: {task}")
     except Exception as e:
         print(f"{RED}Error: {e}{NC}")
 
 
-def cmd_agenda(event: str) -> None:
+async def cmd_agenda(event: str) -> None:
     """Add to agenda."""
     try:
-        _doc_repo.insert_sync("Agenda", event, "agenda")
+        await _doc_repo.insert("Agenda", event, "agenda")
         print(f"{GREEN}✓ Event added to agenda{NC}")
         logger.info(f"Agenda event: {event}")
     except Exception as e:
@@ -1534,17 +1533,17 @@ def main() -> None:
     elif args.command == "memories":
         cmd_memories()
     elif args.command == "import":
-        cmd_import(args.file)
+        asyncio.run(cmd_import(args.file))
     elif args.command == "docs":
-        cmd_docs()
+        asyncio.run(cmd_docs())
     elif args.command == "show":
-        cmd_show(args.id)
+        asyncio.run(cmd_show(args.id))
     elif args.command == "ping":
         cmd_ping()
     elif args.command == "models":
         cmd_models()
     elif args.command == "stats":
-        cmd_stats()
+        asyncio.run(cmd_stats())
     elif args.command == "doctor":
         cmd_doctor()
     elif args.command == "status":
@@ -1558,30 +1557,30 @@ def main() -> None:
     elif args.command == "repair":
         cmd_repair()
     elif args.command == "demo":
-        cmd_demo()
+        asyncio.run(cmd_demo())
     elif args.command == "search":
-        cmd_search(args.query)
+        asyncio.run(cmd_search(args.query))
     elif args.command == "daily":
-        cmd_daily()
+        asyncio.run(cmd_daily())
     elif args.command == "sync":
-        cmd_sync(args.folder)
+        asyncio.run(cmd_sync(args.folder))
     elif args.command == "watch":
-        cmd_watch(args.folder)
+        asyncio.run(cmd_watch(args.folder))
     elif args.command == "ask":
-        cmd_ask(" ".join(args.question))
+        asyncio.run(cmd_ask(" ".join(args.question)))
     elif args.command == "note":
-        cmd_note(" ".join(args.text))
+        asyncio.run(cmd_note(" ".join(args.text)))
     elif args.command == "todo":
-        cmd_todo(" ".join(args.task))
+        asyncio.run(cmd_todo(" ".join(args.task)))
     elif args.command == "agenda":
-        cmd_agenda(" ".join(args.event))
+        asyncio.run(cmd_agenda(" ".join(args.event)))
     elif args.command == "obsidian":
         if args.obsidian_command == "init":
             cmd_obsidian_init()
         elif args.obsidian_command == "sync":
-            cmd_obsidian_sync()
+            asyncio.run(cmd_obsidian_sync())
         elif args.obsidian_command == "watch":
-            cmd_obsidian_watch()
+            asyncio.run(cmd_obsidian_watch())
         else:
             parser.print_help()
     elif args.command == "ui":

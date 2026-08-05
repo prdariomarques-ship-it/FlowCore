@@ -2,10 +2,17 @@
 
 Centralises every SQLite operation on the `documents` table.
 Previously these were duplicated inline across 8+ functions in flowcore.py.
+
+Async-only: every caller (CLI, FastAPI, MCP) awaits these methods
+directly. There used to be `*_sync()` convenience wrappers that called
+`asyncio.run()` internally — they broke whenever invoked from a caller
+that already had an event loop running (FastAPI, MCP), which happened
+twice in Sprint 13. Removed rather than patched around again; the CLI
+now runs its document-touching commands via `asyncio.run()` at the
+top-level dispatch point instead (see flowcore.py's `main()`).
 """
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -112,26 +119,3 @@ class DocumentRepository:
             )
             row = await cursor.fetchone()
             return row[0] if row else 0
-
-    # ── Sync convenience ─────────────────────────────────────────────────────
-
-    def insert_sync(self, title: str, content: str, source: str = "") -> int:
-        return asyncio.run(self.insert(title, content, source))
-
-    def list_all_sync(self) -> list[dict[str, Any]]:
-        return asyncio.run(self.list_all())
-
-    def get_by_id_sync(self, doc_id: int) -> dict[str, Any] | None:
-        return asyncio.run(self.get_by_id(doc_id))
-
-    def search_sync(self, query: str) -> list[dict[str, Any]]:
-        return asyncio.run(self.search(query))
-
-    def list_recent_sync(self, limit: int = 5) -> list[dict[str, Any]]:
-        return asyncio.run(self.list_recent(limit))
-
-    def count_sync(self) -> int:
-        return asyncio.run(self.count())
-
-    def count_by_source_sync(self, *sources: str) -> int:
-        return asyncio.run(self.count_by_source(*sources))
