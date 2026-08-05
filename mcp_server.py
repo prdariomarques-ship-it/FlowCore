@@ -2,10 +2,10 @@
 
 Exposes memory/document commands (remember, recall, note, todo, agenda,
 search, ...), flow commands (create, list, get, run, delete flows and
-their executions), Android device capabilities, Outlook (read-only), and
-Calendar (read-only so far — shares Outlook's auth session) as MCP tools
-so an MCP client (e.g. Claude Code) can call FlowCore directly instead of
-shelling out to the CLI.
+their executions), Android device capabilities, Outlook (read-only),
+Calendar (shares Outlook's auth session), and WhatsApp (via Evolution
+API, already-paired instance) as MCP tools so an MCP client (e.g. Claude
+Code) can call FlowCore directly instead of shelling out to the CLI.
 
 Started via: python3 flowcore.py mcp
 """
@@ -409,6 +409,40 @@ async def flowcore_calendar_delete(event_id: str) -> dict:
         await service.calendar_delete(event_id)
         return {"deleted": True}
     except CalendarError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_whatsapp_health() -> dict:
+    """Check whether the Evolution API server is reachable. No instance/API key needed."""
+    from runtime.whatsapp import WhatsAppError
+
+    try:
+        return await service.whatsapp_health()
+    except WhatsAppError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_whatsapp_status() -> dict:
+    """Get the configured WhatsApp instance's connection state (open/close/connecting)."""
+    from runtime.whatsapp import WhatsAppError
+
+    try:
+        return await service.whatsapp_status()
+    except WhatsAppError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_whatsapp_send(number: str, text: str) -> dict:
+    """Send a WhatsApp message through the already-paired Evolution API instance.
+    number: destination in international format, digits only (e.g. "5511999999999")."""
+    from runtime.whatsapp import WhatsAppError
+
+    try:
+        return await service.whatsapp_send(number, text)
+    except WhatsAppError as e:
         raise RuntimeError(str(e)) from e
 
 

@@ -58,6 +58,11 @@ Endpoints (Sprint 17, Milestone 3 — Calendar):
   PUT    /api/calendar/{id}         — update an event (any subset of fields)
   DELETE /api/calendar/{id}         — delete an event
   (auth is shared with Outlook — see /api/outlook/auth/*)
+
+Endpoints (Sprint 17, Milestone 4 — WhatsApp via Evolution API):
+  GET  /api/whatsapp/health   — is the Evolution API server reachable
+  GET  /api/whatsapp/status   — configured instance's connection state
+  POST /api/whatsapp/send     — send a message ({number, text})
 """
 
 from __future__ import annotations
@@ -134,6 +139,11 @@ class CalendarEventUpdate(BaseModel):
     description: str | None = None
     location: str | None = None
     attendees: list[str] | None = None
+
+
+class WhatsAppSend(BaseModel):
+    number: str
+    text: str
 
 
 # ---------------------------------------------------------------------------
@@ -519,6 +529,38 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         except CalendarAuthRequiredError as e:
             raise HTTPException(status_code=401, detail=str(e))
         except CalendarError as e:
+            raise HTTPException(status_code=502, detail=str(e))
+
+    # ── WhatsApp (Sprint 17, Milestone 4) ─────────────────────────────────
+    @app.get("/api/whatsapp/health")
+    async def whatsapp_health():
+        from runtime.whatsapp import WhatsAppError
+
+        try:
+            return await service.whatsapp_health()
+        except WhatsAppError as e:
+            raise HTTPException(status_code=502, detail=str(e))
+
+    @app.get("/api/whatsapp/status")
+    async def whatsapp_status():
+        from runtime.whatsapp import WhatsAppError, WhatsAppNotConfiguredError
+
+        try:
+            return await service.whatsapp_status()
+        except WhatsAppNotConfiguredError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except WhatsAppError as e:
+            raise HTTPException(status_code=502, detail=str(e))
+
+    @app.post("/api/whatsapp/send")
+    async def whatsapp_send(data: WhatsAppSend):
+        from runtime.whatsapp import WhatsAppError, WhatsAppNotConfiguredError
+
+        try:
+            return await service.whatsapp_send(data.number, data.text)
+        except WhatsAppNotConfiguredError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except WhatsAppError as e:
             raise HTTPException(status_code=502, detail=str(e))
 
     # ── Search (Sprint 12) ───────────────────────────────────────────────

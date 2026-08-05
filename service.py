@@ -344,3 +344,26 @@ async def calendar_delete(event_id: str) -> None:
     from runtime.calendar import delete_event
 
     return await asyncio.to_thread(delete_event, event_id)
+
+
+# ── WhatsApp (Sprint 17, Milestone 4) ─────────────────────────────────────────
+# runtime.whatsapp is imported locally, same optional-dependency reasoning
+# as Outlook/Calendar (requests is requirements-api.txt-only).
+
+
+async def whatsapp_health() -> dict:
+    from runtime.whatsapp import check_health
+
+    return await asyncio.to_thread(check_health)
+
+
+async def whatsapp_status() -> dict:
+    from runtime.whatsapp import get_status
+
+    return await asyncio.to_thread(get_status)
+
+
+async def whatsapp_send(number: str, text: str) -> dict:
+    from runtime.whatsapp import send_message
+
+    return await asyncio.to_thread(send_message, number, text)

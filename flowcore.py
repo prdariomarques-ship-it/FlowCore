@@ -35,6 +35,7 @@ Usage:
     python3 flowcore.py android <battery|wifi|storage|apps|clipboard-get|clipboard-set|notify>
     python3 flowcore.py outlook <auth|messages|unread|search>
     python3 flowcore.py calendar <auth|today|tomorrow|week|next|search|create|update|delete>
+    python3 flowcore.py whatsapp <health|status|send>
 
 Env vars:
     FLOWCORE_MODEL=qwen3:8b              (default: llama2)
@@ -1764,6 +1765,39 @@ async def cmd_calendar(
         print("  Usage: python3 flowcore.py calendar <auth|today|tomorrow|week|next|search|create|update|delete>")
 
 
+async def cmd_whatsapp(action: str, number: str = "", text: str = "") -> None:
+    """WhatsApp via Evolution API (health, status, send) — reuses the already-paired instance."""
+    from runtime.whatsapp import WhatsAppError, WhatsAppNotConfiguredError, check_health, get_status, send_message
+
+    if action == "health":
+        try:
+            result = await asyncio.to_thread(check_health)
+            print(f"{GREEN}✓ Evolution API reachable{NC} (v{result.get('version', '?')})")
+        except WhatsAppError as e:
+            print(f"{RED}✗ Evolution API unreachable: {e}{NC}")
+
+    elif action == "status":
+        try:
+            result = await asyncio.to_thread(get_status)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+        except (WhatsAppNotConfiguredError, WhatsAppError) as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    elif action == "send":
+        if not number or not text:
+            print(f'{RED}Usage: python3 flowcore.py whatsapp send --number 5511999999999 --text "message"{NC}')
+            return
+        try:
+            await asyncio.to_thread(send_message, number, text)
+            print(f"{GREEN}✓ Message sent to {number}{NC}")
+        except (WhatsAppNotConfiguredError, WhatsAppError) as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    else:
+        print(f"{RED}Unknown whatsapp action: {action!r}{NC}")
+        print("  Usage: python3 flowcore.py whatsapp <health|status|send>")
+
+
 def main() -> None:
     """Main CLI handler."""
     parser = argparse.ArgumentParser(description="FlowCore CLI")
@@ -1924,6 +1958,14 @@ def main() -> None:
     calendar_delete_p = calendar_sub.add_parser("delete", help="Delete an event")
     calendar_delete_p.add_argument("event_id", help="Event ID")
 
+    whatsapp_parser = subparsers.add_parser("whatsapp", help="WhatsApp via Evolution API")
+    whatsapp_sub = whatsapp_parser.add_subparsers(dest="whatsapp_action")
+    whatsapp_sub.add_parser("health", help="Check Evolution API server reachability")
+    whatsapp_sub.add_parser("status", help="Show the configured instance's connection state")
+    whatsapp_send_p = whatsapp_sub.add_parser("send", help="Send a WhatsApp message")
+    whatsapp_send_p.add_argument("--number", required=True, help="Destination number (e.g. 5511999999999)")
+    whatsapp_send_p.add_argument("--text", required=True, help="Message text")
+
     args = parser.parse_args()
     cfg = get_config()
     platform = detect_platform()
@@ -2066,6 +2108,14 @@ def main() -> None:
                 attendees=attendees,
             )
         )
+    elif args.command == "whatsapp":
+        action = getattr(args, "whatsapp_action", None)
+        if not action:
+            print("Usage: python3 flowcore.py whatsapp <health|status|send>")
+            sys.exit(1)
+        number = getattr(args, "number", "")
+        text = getattr(args, "text", "")
+        asyncio.run(cmd_whatsapp(action, number=number, text=text))
     else:
         parser.print_help()
         sys.exit(1)

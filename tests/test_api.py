@@ -414,6 +414,63 @@ class TestCalendarEndpoints:
         assert r.status_code == 503
 
 
+class TestWhatsAppEndpoints:
+    # service.whatsapp_* is mocked directly — no real Evolution API calls
+    # (see tests/test_whatsapp.py for runtime.whatsapp's own coverage
+    # against mocked requests).
+    def test_health_success(self):
+        c = _client()
+        payload = {"status": 200, "message": "Welcome", "version": "2.2.3"}
+        with patch("service.whatsapp_health", return_value=payload):
+            r = c.get("/api/whatsapp/health")
+        assert r.status_code == 200
+        assert r.json() == payload
+
+    def test_health_unreachable_returns_502(self):
+        from runtime.whatsapp import WhatsAppError
+
+        c = _client()
+        with patch("service.whatsapp_health", side_effect=WhatsAppError("unreachable")):
+            r = c.get("/api/whatsapp/health")
+        assert r.status_code == 502
+
+    def test_status_not_configured_returns_503(self):
+        from runtime.whatsapp import WhatsAppNotConfiguredError
+
+        c = _client()
+        with patch("service.whatsapp_status", side_effect=WhatsAppNotConfiguredError("no key")):
+            r = c.get("/api/whatsapp/status")
+        assert r.status_code == 503
+
+    def test_status_success(self):
+        c = _client()
+        payload = {"instance": {"state": "open"}}
+        with patch("service.whatsapp_status", return_value=payload):
+            r = c.get("/api/whatsapp/status")
+        assert r.status_code == 200
+        assert r.json() == payload
+
+    def test_send_not_configured_returns_503(self):
+        from runtime.whatsapp import WhatsAppNotConfiguredError
+
+        c = _client()
+        with patch("service.whatsapp_send", side_effect=WhatsAppNotConfiguredError("no key")):
+            r = c.post("/api/whatsapp/send", json={"number": "5511999999999", "text": "hi"})
+        assert r.status_code == 503
+
+    def test_send_success(self):
+        c = _client()
+        with patch("service.whatsapp_send", return_value={"status": "PENDING"}) as m:
+            r = c.post("/api/whatsapp/send", json={"number": "5511999999999", "text": "hi"})
+        assert r.status_code == 200
+        m.assert_called_once_with("5511999999999", "hi")
+
+    def test_send_requires_fields(self):
+        c = _client()
+        r = c.post("/api/whatsapp/send", json={"number": "5511999999999"})
+        assert r.status_code == 422
+
+
 class TestDaemonEndpoints:
     def test_daemon_status_returns_200(self):
         r = _client().get("/api/daemon/status")
