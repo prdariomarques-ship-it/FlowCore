@@ -278,6 +278,21 @@ class TestCheckAndroid:
         mock_call.assert_not_called()
 
 
+class TestCheckMcp:
+    def test_ok_with_real_tool_count(self):
+        import asyncio
+
+        import mcp_server
+        import service
+
+        result = asyncio.run(service._check_mcp())
+        expected_count = len(asyncio.run(mcp_server.mcp.list_tools()))
+        assert result["status"] == "ok"
+        assert expected_count > 0
+        assert str(expected_count) in result["detail"]
+        assert result["error"] is None
+
+
 class TestIntegrationsStatus:
     @staticmethod
     def _ok(detail: str) -> AsyncMock:
@@ -295,11 +310,20 @@ class TestIntegrationsStatus:
             patch.object(service, "_check_whatsapp", new=self._ok("y")),
             patch.object(service, "_check_ollama", new=self._ok("z")),
             patch.object(service, "_check_android", new=self._ok("w")),
+            patch.object(service, "_check_mcp", new=self._ok("m")),
         ):
             results = asyncio.run(service.integrations_status())
-        assert len(results) == 6
+        assert len(results) == 7
         names = {r["name"] for r in results}
-        assert names == {"Outlook Auth", "Outlook Mailbox", "Outlook Calendar", "WhatsApp", "Ollama", "Android"}
+        assert names == {
+            "Outlook Auth",
+            "Outlook Mailbox",
+            "Outlook Calendar",
+            "WhatsApp",
+            "Ollama",
+            "Android",
+            "MCP",
+        }
         for r in results:
             assert "latency_ms" in r
             assert "checked_at" in r
@@ -318,9 +342,10 @@ class TestIntegrationsStatus:
             patch.object(service, "_check_whatsapp", new=self._ok("y")),
             patch.object(service, "_check_ollama", new=self._ok("z")),
             patch.object(service, "_check_android", new=self._ok("w")),
+            patch.object(service, "_check_mcp", new=self._ok("m")),
         ):
             results = asyncio.run(service.integrations_status())
-        assert len(results) == 6
+        assert len(results) == 7
         outlook_result = next(r for r in results if r["name"] == "Outlook Auth")
         assert outlook_result["status"] == "error"
         assert "boom" in outlook_result["detail"]

@@ -482,6 +482,15 @@ async def _check_android() -> dict:
     return {"status": "ok", "detail": detail, "error": None, "capabilities": available}
 
 
+async def _check_mcp() -> dict:
+    """If service.py can import mcp_server at all, the tool registry exists —
+    no not-configured/unreachable states needed here, just ok."""
+    import mcp_server
+
+    tools = await mcp_server.mcp.list_tools()
+    return {"status": "ok", "detail": f"{len(tools)} tools registered", "error": None}
+
+
 async def integrations_status() -> list[dict]:
     checks = [
         ("Outlook Auth", _check_outlook),
@@ -490,6 +499,7 @@ async def integrations_status() -> list[dict]:
         ("WhatsApp", _check_whatsapp),
         ("Ollama", _check_ollama),
         ("Android", _check_android),
+        ("MCP", _check_mcp),
     ]
 
     async def _run(name: str, fn) -> dict:
