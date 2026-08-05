@@ -135,10 +135,6 @@ class DoctorService:
             self._check_mcp_reachable,
             # ── AI Bridges ───────────────────────────────────────────────────
             self._check_ollama,
-            self._check_qwen_bridge,
-            self._check_glm_bridge,
-            self._check_gemini_bridge,
-            self._check_claude_bridge,
             # ── Termux Runtime (Sprint 10) ───────────────────────────────────
             self._check_rsync,
             self._check_cron,
@@ -532,30 +528,6 @@ class DoctorService:
             fix="curl -fsSL https://ollama.ai/install.sh | sh",
         )
 
-    def _check_qwen_bridge(self) -> CheckResult:
-        host = os.environ.get("QWEN_HOST", "")
-        if not host:
-            return CheckResult("qwen_bridge", CheckStatus.SKIP, "QWEN_HOST not set")
-        return self._check_bridge("qwen_bridge", host, int(os.environ.get("QWEN_PORT", "8000")))
-
-    def _check_glm_bridge(self) -> CheckResult:
-        host = os.environ.get("GLM_HOST", "")
-        if not host:
-            return CheckResult("glm_bridge", CheckStatus.SKIP, "GLM_HOST not set")
-        return self._check_bridge("glm_bridge", host, int(os.environ.get("GLM_PORT", "8001")))
-
-    def _check_gemini_bridge(self) -> CheckResult:
-        key = os.environ.get("GEMINI_API_KEY", "")
-        if not key:
-            return CheckResult("gemini_bridge", CheckStatus.SKIP, "GEMINI_API_KEY not set")
-        return CheckResult("gemini_bridge", CheckStatus.OK, "GEMINI_API_KEY configured")
-
-    def _check_claude_bridge(self) -> CheckResult:
-        key = os.environ.get("ANTHROPIC_API_KEY", "")
-        if not key:
-            return CheckResult("claude_bridge", CheckStatus.SKIP, "ANTHROPIC_API_KEY not set")
-        return CheckResult("claude_bridge", CheckStatus.OK, "ANTHROPIC_API_KEY configured")
-
     # ── Termux Runtime checks (Sprint 10) ────────────────────────────────────
 
     def _check_rsync(self) -> CheckResult:
@@ -654,15 +626,3 @@ class DoctorService:
             fix="Restore from repository or re-clone FlowCore",
         )
 
-    # ── Helpers ───────────────────────────────────────────────────────────────
-
-    def _check_bridge(self, name: str, host: str, port: int) -> CheckResult:
-        try:
-            with socket.create_connection((host, port), timeout=3):
-                return CheckResult(name, CheckStatus.OK, f"{name} reachable at {host}:{port}")
-        except Exception as e:
-            return CheckResult(
-                name, CheckStatus.WARN,
-                f"{name} unreachable at {host}:{port}: {e}",
-                fix=f"Ensure the {name} server is running at {host}:{port}",
-            )

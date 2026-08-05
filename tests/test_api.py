@@ -145,18 +145,3 @@ class TestWebUI:
             assert "FlowCore" in r.text
             assert "text/html" in r.headers.get("content-type", "")
 
-    def test_flows_crud(self):
-        c = _client()
-        r = c.post("/api/flows", json={"name": "TestFlow"})
-        assert r.status_code == 200
-        fid = r.json()["id"]
-
-        r2 = c.get(f"/api/flows/{fid}")
-        assert r2.status_code == 200
-        assert r2.json()["name"] == "TestFlow"
-
-        r3 = c.delete(f"/api/flows/{fid}")
-        assert r3.status_code == 200
-
-        r4 = c.get(f"/api/flows/{fid}")
-        assert r4.status_code == 404

@@ -1,1 +1,0 @@
-"""Doctor health check subpackage."""

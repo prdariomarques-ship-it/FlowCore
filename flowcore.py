@@ -4,7 +4,7 @@
 Usage:
     python3 flowcore.py serve            Start the API server
     python3 flowcore.py mcp              Start the MCP stdio server
-    python3 flowcore.py run              Start the full application (API + scheduler + agents)
+    python3 flowcore.py run              Start the API server with full runtime lifecycle
     python3 flowcore.py health           Quick health check
     python3 flowcore.py version          Print version
     python3 flowcore.py selftest         Validate the entire installation
@@ -126,16 +126,6 @@ def cmd_selftest() -> None:
     if result == "PASS": passed += 1
     elif result == "FAIL": failed += 1
 
-    def _executor_test():
-        from executor.engine import ExecutorEngine
-        executor = ExecutorEngine()
-        assert executor is not None
-
-    result = selftest_check("EXECUTOR", _executor_test, "Engine ready")
-    results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
-
     def _sqlite_test():
         import aiosqlite
         assert aiosqlite is not None
@@ -185,26 +175,6 @@ def cmd_selftest() -> None:
         elif result == "FAIL": failed += 1
     except ImportError:
         result = selftest_check("API", _api_test, "Install with: bash install_api.sh", skip=True)
-        results.append(result)
-        skipped += 1
-
-    def _scheduler_test():
-        try:
-            from apscheduler.schedulers.asyncio import AsyncIOScheduler
-            from scheduler.service import SchedulerService
-            scheduler = SchedulerService(timezone="UTC")
-            assert scheduler is not None
-        except ImportError:
-            raise ImportError("apscheduler not installed. Run: bash install_api.sh")
-
-    try:
-        import apscheduler
-        result = selftest_check("SCHEDULER", _scheduler_test, "apscheduler available")
-        results.append(result)
-        if result == "PASS": passed += 1
-        elif result == "FAIL": failed += 1
-    except ImportError:
-        result = selftest_check("SCHEDULER", _scheduler_test, "Install with: bash install_api.sh", skip=True)
         results.append(result)
         skipped += 1
 
@@ -401,7 +371,7 @@ async def cmd_serve(cfg: dict, platform: dict) -> None:
 
 
 async def cmd_run(cfg: dict, platform: dict) -> None:
-    """Start the full application (API + scheduler + agents)."""
+    """Start the API server with full runtime lifecycle (FlowCoreRuntime start/stop)."""
     try:
         import uvicorn
         from api.router import create_app
@@ -444,12 +414,6 @@ def cmd_health(cfg: dict) -> None:
         print(f"  {GREEN}✓{NC} API")
     except ImportError:
         print(f"  {YELLOW}○{NC} API (not installed)")
-
-    try:
-        import apscheduler
-        print(f"  {GREEN}✓{NC} Scheduler")
-    except ImportError:
-        print(f"  {YELLOW}○{NC} Scheduler (not installed)")
 
     print("")
     print(f"{GREEN}{BOLD}Status: Healthy{NC}")
@@ -808,14 +772,6 @@ def cmd_doctor() -> None:
     except ImportError:
         print(f"{YELLOW}⚠{NC} FastAPI: Not installed")
         checks["api"] = "WARN"
-
-    try:
-        import apscheduler
-        print(f"{GREEN}✓{NC} APScheduler (optional)")
-        checks["scheduler"] = "PASS"
-    except ImportError:
-        print(f"{YELLOW}⚠{NC} APScheduler: Not installed")
-        checks["scheduler"] = "WARN"
 
     print()
     failures = [k for k, v in checks.items() if v == "FAIL"]
@@ -1413,7 +1369,7 @@ def main() -> None:
 
     subparsers.add_parser("serve", help="Start the API server")
     subparsers.add_parser("mcp", help="Start the MCP stdio server (for Claude Code / MCP clients)")
-    subparsers.add_parser("run", help="Start full application (API + scheduler + agents)")
+    subparsers.add_parser("run", help="Start the API server with full runtime lifecycle")
     subparsers.add_parser("health", help="Quick health check")
     subparsers.add_parser("version", help="Print version info")
     subparsers.add_parser("selftest", help="Validate the entire installation")
