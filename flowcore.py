@@ -364,7 +364,6 @@ def cmd_selftest() -> None:
     if result == "PASS": passed += 1
     elif result == "FAIL": failed += 1
 
-    total = passed + failed + skipped
     print("")
     if failed == 0:
         print(f"{GREEN}{BOLD}══════════════════════════════════════════════════{NC}")
@@ -774,7 +773,7 @@ def cmd_doctor() -> None:
         checks["database"] = "FAIL"
 
     try:
-        test_json = json.dumps({"test": "data"})
+        json.dumps({"test": "data"})
         print(f"{GREEN}✓{NC} JSON")
         checks["json"] = "PASS"
     except Exception as e:
@@ -1194,7 +1193,7 @@ def cmd_obsidian_sync(vault_path: str = None) -> None:
         for md_file in md_files:
             try:
                 cmd_import(str(md_file))
-            except Exception as e:
+            except Exception:
                 print(f"  {RED}Error: {md_file.name}{NC}")
 
         print(f"{GREEN}Sync complete: {len(md_files)} file(s) processed.{NC}\n")

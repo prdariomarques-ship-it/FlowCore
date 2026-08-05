@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
 
 import pytest
 
@@ -64,7 +63,7 @@ class TestCapabilityResult:
 
 class TestCapabilityAdapterBase:
     def _make_adapter(self):
-        from capability.adapters.base import CapabilityAdapter, CapabilityResult
+        from capability.adapters.base import CapabilityAdapter
         class Concrete(CapabilityAdapter):
             name = "test"
             def is_available(self): return True

@@ -11,7 +11,6 @@ Thread-safe and designed for low-resource Termux environments.
 from __future__ import annotations
 
 import asyncio
-import json
 import time
 import uuid
 from enum import Enum

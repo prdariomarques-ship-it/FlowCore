@@ -11,7 +11,6 @@ This output feeds directly into flowcore.runtime.json.
 """
 from __future__ import annotations
 
-import json
 import os
 import platform
 import socket

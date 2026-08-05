@@ -21,7 +21,6 @@ Each step checks whether the target is already satisfied before acting.
 from __future__ import annotations
 
 import os
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 

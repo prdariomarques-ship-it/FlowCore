@@ -49,7 +49,6 @@ def write_version(major: int, minor: int, patch: int) -> str:
 
 def update_changelog_header(version: str) -> None:
     """Append a new version section header to CHANGELOG.md."""
-    today = Path().cwd()  # not used; we use fixed format
     import datetime
     today_str = datetime.date.today().isoformat()
 

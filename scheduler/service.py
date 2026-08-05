@@ -5,7 +5,6 @@ Lightweight enough for Termux; only one scheduler instance per process.
 """
 from __future__ import annotations
 
-import asyncio
 from typing import Any, Callable, Coroutine
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler

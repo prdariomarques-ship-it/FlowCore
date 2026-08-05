@@ -37,7 +37,6 @@ Endpoints (Chat / Web UI):
 from __future__ import annotations
 
 import asyncio
-import json
 import time
 import uuid
 from pathlib import Path
@@ -172,7 +171,7 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
                 cap: (adapter is not None)
                 for cap, adapter in reg.list_capabilities().items()
             }
-        except Exception as e:
+        except Exception:
             result["capabilities"] = {}
 
         # Doctor (quick run)
@@ -184,7 +183,7 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
                  "fix": c.fix}
                 for c in report.checks
             ]
-        except Exception as e:
+        except Exception:
             result["doctor"] = []
 
         # Memory count

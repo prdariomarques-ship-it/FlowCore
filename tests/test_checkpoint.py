@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import sys
-import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -15,7 +14,7 @@ if str(ROOT) not in sys.path:
 
 class TestCheckpoint:
     def _cp(self, task_id: str, tmpdir: Path):
-        from runtime.checkpoint import Checkpoint, _CHECKPOINT_DIR
+        from runtime.checkpoint import Checkpoint
         with patch("runtime.checkpoint._CHECKPOINT_DIR", tmpdir):
             cp = Checkpoint(task_id)
             cp._path = tmpdir / f"{task_id}.json"

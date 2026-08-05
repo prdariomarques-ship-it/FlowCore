@@ -15,7 +15,6 @@ that has python3 — including macOS, WSL, CI runners, and cloud VMs.
 from __future__ import annotations
 
 import shlex
-import subprocess
 from pathlib import Path
 
 from capability.adapters.base import CapabilityAdapter, CapabilityResult
