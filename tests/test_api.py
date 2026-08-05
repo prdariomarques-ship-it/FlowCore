@@ -471,6 +471,26 @@ class TestWhatsAppEndpoints:
         assert r.status_code == 422
 
 
+class TestIntegrationsStatusEndpoint:
+    def test_returns_all_integrations(self):
+        c = _client()
+        fake = [
+            {
+                "name": "Outlook / Calendar",
+                "status": "not_configured",
+                "detail": "x",
+                "latency_ms": 1.0,
+                "checked_at": "t",
+            },
+            {"name": "WhatsApp", "status": "ok", "detail": "y", "latency_ms": 2.0, "checked_at": "t"},
+            {"name": "Ollama", "status": "ok", "detail": "z", "latency_ms": 3.0, "checked_at": "t"},
+        ]
+        with patch("service.integrations_status", return_value=fake):
+            r = c.get("/api/integrations/status")
+        assert r.status_code == 200
+        assert r.json()["integrations"] == fake
+
+
 class TestDaemonEndpoints:
     def test_daemon_status_returns_200(self):
         r = _client().get("/api/daemon/status")

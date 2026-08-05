@@ -63,6 +63,10 @@ Endpoints (Sprint 17, Milestone 4 — WhatsApp via Evolution API):
   GET  /api/whatsapp/health   — is the Evolution API server reachable
   GET  /api/whatsapp/status   — configured instance's connection state
   POST /api/whatsapp/send     — send a message ({number, text})
+
+Endpoints (Sprint 17, Milestone 6 — Integration Dashboard):
+  GET  /api/integrations/status   — live health/latency for Outlook+Calendar,
+                                      WhatsApp, Ollama (no history — probed fresh)
 """
 
 from __future__ import annotations
@@ -562,6 +566,11 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             raise HTTPException(status_code=503, detail=str(e))
         except WhatsAppError as e:
             raise HTTPException(status_code=502, detail=str(e))
+
+    # ── Integration Dashboard (Sprint 17, Milestone 6) ────────────────────
+    @app.get("/api/integrations/status")
+    async def integrations_status():
+        return {"integrations": await service.integrations_status()}
 
     # ── Search (Sprint 12) ───────────────────────────────────────────────
     @app.get("/api/search")

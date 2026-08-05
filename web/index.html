@@ -138,7 +138,8 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 
 /* Bottom nav */
 .nav{position:fixed;bottom:0;left:0;right:0;background:rgba(17,24,39,.96);border-top:1px solid var(--border);display:flex;backdrop-filter:blur(10px);z-index:100}
-.ni{flex:1;display:flex;flex-direction:column;align-items:center;padding:9px 0 13px;gap:3px;cursor:pointer;color:var(--text2);font-size:9px;font-weight:500;border:none;background:none;transition:color .2s}
+.ni{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;padding:9px 0 13px;gap:3px;cursor:pointer;color:var(--text2);font-size:9px;font-weight:500;border:none;background:none;transition:color .2s}
+.ni span:last-child{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ni.active{color:var(--accent)}
 .ni:hover{color:var(--text)}
 .ni-icon{font-size:19px}
@@ -307,6 +308,20 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
     </div>
   </div>
 
+  <!-- ══ INTEGRAÇÕES ══ -->
+  <div class="page" id="page-integrations">
+    <div class="gap">
+      <div class="card">
+        <div class="ch"><span class="ct">Integrações</span><span class="ci">🔌</span></div>
+        <div class="row" style="padding-top:0;border:none">
+          <span class="rl">Verificação ao vivo, sem histórico</span>
+          <button class="btn-sm" onclick="loadIntegrations()">↻ Verificar</button>
+        </div>
+      </div>
+      <div id="integrations-list"><div class="sk"></div><div class="sk"></div><div class="sk"></div></div>
+    </div>
+  </div>
+
   <!-- ══ SISTEMA ══ -->
   <div class="page" id="page-sys">
     <div class="gap">
@@ -454,6 +469,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
   <button class="ni active" onclick="pg('home',this)"><span class="ni-icon">🏠</span><span>Início</span></button>
   <button class="ni" onclick="pg('dashboard',this)"><span class="ni-icon">📈</span><span>Dashboard</span></button>
   <button class="ni" onclick="pg('calendar',this)"><span class="ni-icon">📅</span><span>Calendário</span></button>
+  <button class="ni" onclick="pg('integrations',this)"><span class="ni-icon">🔌</span><span>Integrações</span></button>
   <button class="ni" onclick="pg('sys',this)"><span class="ni-icon">📊</span><span>Sistema</span></button>
   <button class="ni" onclick="pg('caps',this)"><span class="ni-icon">⚡</span><span>Caps</span></button>
   <button class="ni" onclick="pg('mem',this)"><span class="ni-icon">🧠</span><span>Memórias</span></button>
@@ -476,6 +492,7 @@ function pg(name,btn){
   btn.classList.add('active');
   if(name==='dashboard') loadDashboard();
   if(name==='calendar') loadCalendar();
+  if(name==='integrations') loadIntegrations();
   if(name==='sys') loadSys();
   if(name==='notes') loadNotes();
   if(name==='settings') loadSettings();
@@ -872,6 +889,36 @@ async function calCreate(){
       document.getElementById(id).value='';
     loadCalendar();
   }catch(e){toast('Erro: '+e.message);}
+}
+
+/* ── Integrations ── */
+const INTEGRATION_TAG={ok:'tg',not_configured:'ty',not_authenticated:'ty',unreachable:'tr',error:'tr'};
+const INTEGRATION_LABEL={ok:'Conectado',not_configured:'Não configurado',not_authenticated:'Não autenticado',unreachable:'Inacessível',error:'Erro'};
+
+function renderIntegrations(list){
+  const el=document.getElementById('integrations-list');
+  if(!list.length){el.innerHTML='<div class="empty">Nenhuma integração encontrada.</div>';return;}
+  el.innerHTML=list.map(r=>{
+    const tag=INTEGRATION_TAG[r.status]||'tr';
+    const label=INTEGRATION_LABEL[r.status]||r.status;
+    const when=(r.checked_at||'').replace('T',' ').slice(0,19);
+    return `<div class="card">
+      <div class="ch"><span class="ct">${r.name}</span><span class="tag ${tag}">${label}</span></div>
+      <div class="row"><span class="rl">Detalhe</span><span class="rv" style="text-align:right;max-width:220px">${r.detail}</span></div>
+      <div class="row" style="border:none"><span class="rl">Latência</span><span class="rv">${r.latency_ms}ms · ${when} UTC</span></div>
+    </div>`;
+  }).join('');
+}
+
+async function loadIntegrations(){
+  const el=document.getElementById('integrations-list');
+  el.innerHTML='<div class="sk"></div><div class="sk"></div><div class="sk"></div>';
+  try{
+    const r=await api('/api/integrations/status');
+    renderIntegrations(r.integrations||[]);
+  }catch(e){
+    el.innerHTML=`<div class="empty">Erro: ${e.message}</div>`;
+  }
 }
 
 /* ── Memories ── */

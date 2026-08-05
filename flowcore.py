@@ -36,6 +36,7 @@ Usage:
     python3 flowcore.py outlook <auth|messages|unread|search>
     python3 flowcore.py calendar <auth|today|tomorrow|week|next|search|create|update|delete>
     python3 flowcore.py whatsapp <health|status|send>
+    python3 flowcore.py integrations         Show live status of all integrations
 
 Env vars:
     FLOWCORE_MODEL=qwen3:8b              (default: llama2)
@@ -1798,6 +1799,30 @@ async def cmd_whatsapp(action: str, number: str = "", text: str = "") -> None:
         print("  Usage: python3 flowcore.py whatsapp <health|status|send>")
 
 
+_STATUS_ICON = {"ok": "✓", "not_configured": "○", "not_authenticated": "△", "unreachable": "✗", "error": "✗"}
+
+
+async def cmd_integrations() -> None:
+    """Show live health/latency for every connected integration (Outlook/Calendar, WhatsApp, Ollama)."""
+    import service
+
+    results = await service.integrations_status()
+    status_color = {
+        "ok": GREEN,
+        "not_configured": YELLOW,
+        "not_authenticated": YELLOW,
+        "unreachable": RED,
+        "error": RED,
+    }
+    print(f"\n{BOLD}{CYAN}Integrations{NC}\n")
+    for r in results:
+        color = status_color.get(r["status"], RED)
+        icon = _STATUS_ICON.get(r["status"], "?")
+        print(f"  {color}{icon}{NC} {r['name']:<20} {r['detail']}")
+        print(f"      {r['latency_ms']}ms · checked {r['checked_at']}")
+    print()
+
+
 def main() -> None:
     """Main CLI handler."""
     parser = argparse.ArgumentParser(description="FlowCore CLI")
@@ -1966,6 +1991,8 @@ def main() -> None:
     whatsapp_send_p.add_argument("--number", required=True, help="Destination number (e.g. 5511999999999)")
     whatsapp_send_p.add_argument("--text", required=True, help="Message text")
 
+    subparsers.add_parser("integrations", help="Show live status of all connected integrations")
+
     args = parser.parse_args()
     cfg = get_config()
     platform = detect_platform()
@@ -2116,6 +2143,8 @@ def main() -> None:
         number = getattr(args, "number", "")
         text = getattr(args, "text", "")
         asyncio.run(cmd_whatsapp(action, number=number, text=text))
+    elif args.command == "integrations":
+        asyncio.run(cmd_integrations())
     else:
         parser.print_help()
         sys.exit(1)

@@ -14,6 +14,9 @@ MCP raises RuntimeError).
 from __future__ import annotations
 
 import asyncio
+import os
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 from capability.registry import CapabilityRegistry
@@ -367,3 +370,74 @@ async def whatsapp_send(number: str, text: str) -> dict:
     from runtime.whatsapp import send_message
 
     return await asyncio.to_thread(send_message, number, text)
+
+
+# ── Integration Dashboard (Sprint 17, Milestone 6) ────────────────────────────
+# Live-probe only — no history/persistence. Every check below hits the real
+# service fresh each time this is called; "checked_at" is when THIS call ran,
+# not a synchronization log (none of these integrations keep one). Confirmed
+# with the user before building rather than inventing a history table nobody
+# asked for a mechanism to populate.
+
+
+async def _check_outlook() -> dict:
+    from runtime.microsoft_graph import is_authenticated
+
+    if not os.getenv("OUTLOOK_CLIENT_ID"):
+        return {"status": "not_configured", "detail": "OUTLOOK_CLIENT_ID not set"}
+    authed = await asyncio.to_thread(is_authenticated)
+    if authed:
+        return {"status": "ok", "detail": "Authenticated"}
+    return {"status": "not_authenticated", "detail": "Configured, not authenticated yet — run `outlook auth`"}
+
+
+async def _check_whatsapp() -> dict:
+    from runtime.whatsapp import WhatsAppError, WhatsAppNotConfiguredError, check_health, get_status
+
+    try:
+        health = await asyncio.to_thread(check_health)
+    except WhatsAppError as e:
+        return {"status": "unreachable", "detail": str(e)}
+    version = health.get("version", "?")
+    if not os.getenv("EVOLUTION_API_KEY") or not os.getenv("EVOLUTION_INSTANCE_NAME"):
+        return {"status": "not_configured", "detail": f"Evolution API v{version} reachable, no instance configured"}
+    try:
+        status = await asyncio.to_thread(get_status)
+    except WhatsAppNotConfiguredError:
+        return {"status": "not_configured", "detail": f"Evolution API v{version} reachable, no instance configured"}
+    except WhatsAppError as e:
+        return {"status": "error", "detail": str(e)}
+    state = (status.get("instance") or {}).get("state", "unknown")
+    ok = state == "open"
+    return {"status": "ok" if ok else "error", "detail": f"Evolution API v{version} — instance {state}"}
+
+
+async def _check_ollama() -> dict:
+    from runtime.ollama import OllamaDiscoveryError, discover_default_model, discover_ollama_endpoint
+
+    try:
+        endpoint = await asyncio.to_thread(discover_ollama_endpoint)
+        model = await asyncio.to_thread(discover_default_model)
+    except OllamaDiscoveryError as e:
+        return {"status": "unreachable", "detail": str(e)}
+    return {"status": "ok", "detail": f"{endpoint} — model {model}"}
+
+
+async def integrations_status() -> list[dict]:
+    checks = [("Outlook / Calendar", _check_outlook), ("WhatsApp", _check_whatsapp), ("Ollama", _check_ollama)]
+
+    async def _run(name: str, fn) -> dict:
+        start = time.monotonic()
+        try:
+            result = await fn()
+        except Exception as e:
+            result = {"status": "error", "detail": str(e)}
+        latency_ms = round((time.monotonic() - start) * 1000, 1)
+        return {
+            "name": name,
+            "latency_ms": latency_ms,
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+            **result,
+        }
+
+    return list(await asyncio.gather(*(_run(name, fn) for name, fn in checks)))

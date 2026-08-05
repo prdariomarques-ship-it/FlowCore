@@ -3,9 +3,10 @@
 Exposes memory/document commands (remember, recall, note, todo, agenda,
 search, ...), flow commands (create, list, get, run, delete flows and
 their executions), Android device capabilities, Outlook (read-only),
-Calendar (shares Outlook's auth session), and WhatsApp (via Evolution
-API, already-paired instance) as MCP tools so an MCP client (e.g. Claude
-Code) can call FlowCore directly instead of shelling out to the CLI.
+Calendar (shares Outlook's auth session), WhatsApp (via Evolution API,
+already-paired instance), and a live integration status aggregator as
+MCP tools so an MCP client (e.g. Claude Code) can call FlowCore directly
+instead of shelling out to the CLI.
 
 Started via: python3 flowcore.py mcp
 """
@@ -444,6 +445,13 @@ async def flowcore_whatsapp_send(number: str, text: str) -> dict:
         return await service.whatsapp_send(number, text)
     except WhatsAppError as e:
         raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_integrations_status() -> list[dict]:
+    """Live health/latency for every connected integration (Outlook/Calendar,
+    WhatsApp, Ollama). Probed fresh on every call — no history."""
+    return await service.integrations_status()
 
 
 def run() -> None:
