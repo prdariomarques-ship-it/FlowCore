@@ -110,8 +110,7 @@ Beyond `ollama.py` and `job_scheduler.py` above: `core.py` (`FlowCoreRuntime`, `
 
 | Platform | Status |
 |---|---|
-| Linux (WSL2, native) | Supported, primary dev target |
-| Termux / Android | Supported |
+| Linux / Debian family (WSL2) | Primary development platform. Windows hosts the local Ollama models, reached via `FLOWCORE_OLLAMA` (see `runtime/ollama.py`) — not a FlowCore runtime target itself. |
+| Termux / Android | Deployment and validation target only, not part of the normal dev workflow — capabilities are developed and tested on WSL2 first, then validated on-device. Android-only capabilities (battery, wifi, clipboard, notifications, installed apps, ...) reporting "unavailable" when running on WSL2/Debian is an expected platform limitation, not a bug — `capability/adapters/linux.py` provides fallbacks where one makes sense (e.g. `getBattery`, `getDiskUsage`), and the rest simply have no non-Android equivalent. |
 | macOS | Untested this sprint, no known blockers |
-| Windows (native) | Not a FlowCore runtime target — Ollama can run there and be reached from WSL2/Termux via `FLOWCORE_OLLAMA` |
 | Docker | Not packaged |
