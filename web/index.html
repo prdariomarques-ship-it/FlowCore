@@ -151,6 +151,22 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .kind-sel{display:flex;gap:6px;margin-bottom:12px}
 .ks{flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:7px;border-radius:8px;font-size:12px;text-align:center;cursor:pointer;transition:all .2s}
 .ks.active{color:var(--accent);border-color:var(--accent);background:rgba(0,212,255,.08)}
+
+/* Agents */
+.agent-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:13px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.agent-info{flex:1;min-width:0}
+.agent-name{font-weight:700;font-size:14px;color:var(--accent)}
+.agent-desc{font-size:11px;color:var(--text2);margin-top:2px}
+.btn-run{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:8px;color:#fff;font-size:12px;font-weight:700;padding:7px 14px;cursor:pointer;white-space:nowrap;transition:opacity .2s}
+.btn-run:hover{opacity:.85}
+.btn-run:disabled{opacity:.4;cursor:not-allowed}
+.task-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg3);border-radius:8px;font-size:12px;margin-bottom:5px}
+.task-agent{font-weight:600;color:var(--text);flex:0 0 70px}
+.task-status{flex:0 0 80px}
+.task-dur{color:var(--text2);flex:0 0 42px;text-align:right}
+.task-id{color:var(--text2);font-size:10px;font-family:monospace;flex:1;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spin{display:inline-block;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -296,6 +312,54 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
     </div>
   </div>
 
+  <!-- ══ AGENTES ══ -->
+  <div class="page" id="page-agents">
+    <div class="gap">
+
+      <!-- Agent cards -->
+      <div class="card">
+        <div class="ch"><span class="ct">Agentes disponíveis</span><span class="ci">🤖</span></div>
+        <div id="agent-cards" style="display:flex;flex-direction:column;gap:8px">
+          <div class="sk" style="height:52px"></div>
+          <div class="sk" style="height:52px"></div>
+        </div>
+      </div>
+
+      <!-- Task result preview -->
+      <div class="card" id="agent-result-card" style="display:none">
+        <div class="ch"><span class="ct" id="agent-result-title">Resultado</span><span class="ci" id="agent-result-icon">⏳</span></div>
+        <pre id="agent-result" style="font-size:11px;color:var(--text2);white-space:pre-wrap;word-break:break-all;max-height:260px;overflow-y:auto;background:var(--bg3);border-radius:8px;padding:10px"></pre>
+      </div>
+
+      <!-- Task history -->
+      <div class="card">
+        <div class="ch">
+          <span class="ct">Histórico de tarefas</span>
+          <button class="btn-sm" onclick="loadAgents()">↻</button>
+        </div>
+        <div id="task-history"><div class="sk"></div><div class="sk"></div></div>
+      </div>
+
+      <!-- Flows list -->
+      <div class="card">
+        <div class="ch">
+          <span class="ct">Flows</span>
+          <button class="btn-sm" onclick="loadFlows()">↻</button>
+        </div>
+        <div id="flow-cards" style="display:flex;flex-direction:column;gap:8px">
+          <div class="sk" style="height:42px"></div>
+        </div>
+      </div>
+
+      <!-- Flow run result -->
+      <div class="card" id="flow-result-card" style="display:none">
+        <div class="ch"><span class="ct" id="flow-result-title">Flow resultado</span><span class="ci" id="flow-result-icon">⏳</span></div>
+        <pre id="flow-result" style="font-size:11px;color:var(--text2);white-space:pre-wrap;word-break:break-all;max-height:260px;overflow-y:auto;background:var(--bg3);border-radius:8px;padding:10px"></pre>
+      </div>
+
+    </div>
+  </div>
+
 </div>
 
 <!-- Bottom nav -->
@@ -305,6 +369,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
   <button class="ni" onclick="pg('caps',this)"><span class="ni-icon">⚡</span><span>Caps</span></button>
   <button class="ni" onclick="pg('mem',this)"><span class="ni-icon">🧠</span><span>Memórias</span></button>
   <button class="ni" onclick="pg('notes',this)"><span class="ni-icon">📝</span><span>Notas</span></button>
+  <button class="ni" onclick="pg('agents',this)"><span class="ni-icon">🤖</span><span>Agentes</span></button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -321,6 +386,7 @@ function pg(name,btn){
   btn.classList.add('active');
   if(name==='sys') loadSys();
   if(name==='notes') loadNotes();
+  if(name==='agents'){loadAgents();loadFlows();}
 }
 
 /* ── Toast ── */
@@ -591,6 +657,142 @@ function fup(s){
   if(s<60) return s+'s';
   if(s<3600) return Math.floor(s/60)+'m '+s%60+'s';
   return Math.floor(s/3600)+'h '+Math.floor(s%3600/60)+'m';
+}
+
+/* ── Agents ── */
+const _agentIcons={health:'❤️',doctor:'🩺'};
+
+async function loadAgents(){
+  try{
+    const [agentsRes,histRes]=await Promise.all([
+      api('/api/agent/agents'),
+      api('/api/agent/tasks?limit=20')
+    ]);
+    renderAgentCards(agentsRes.agents||[]);
+    renderTaskHistory(histRes.tasks||[]);
+  }catch(e){
+    document.getElementById('agent-cards').innerHTML='<div class="empty">API não disponível</div>';
+    document.getElementById('task-history').innerHTML='<div class="empty">─</div>';
+  }
+}
+
+function renderAgentCards(agents){
+  const c=document.getElementById('agent-cards');
+  if(!agents.length){c.innerHTML='<div class="empty">Nenhum agente registado</div>';return;}
+  c.innerHTML='';
+  for(const a of agents){
+    const icon=_agentIcons[a.name]||'🤖';
+    const el=document.createElement('div');
+    el.className='agent-card';
+    el.id='agent-card-'+a.name;
+    el.innerHTML=`
+      <div class="agent-info">
+        <div class="agent-name">${icon} ${a.name}</div>
+        <div class="agent-desc">${a.description||''}</div>
+      </div>
+      <button class="btn-run" id="btn-run-${a.name}" onclick="runAgent('${a.name}')">▶ Run</button>`;
+    c.appendChild(el);
+  }
+}
+
+async function runAgent(name){
+  const btn=document.getElementById('btn-run-'+name);
+  if(btn){btn.disabled=true;btn.innerHTML='<span class="spin">⟳</span>';}
+  const rc=document.getElementById('agent-result-card');
+  const rt=document.getElementById('agent-result-title');
+  const ri=document.getElementById('agent-result-icon');
+  const rp=document.getElementById('agent-result');
+  rc.style.display='block';
+  rt.textContent='A correr '+name+'...';
+  ri.textContent='⏳';
+  rp.textContent='...';
+  try{
+    const r=await api('/api/agent/run?agent_name='+encodeURIComponent(name),{method:'POST',body:JSON.stringify({})});
+    const ok=r.status==='completed';
+    rt.textContent=name+' — '+(ok?'concluído':'falhou');
+    ri.textContent=ok?'✅':'❌';
+    const display=ok?(r.result||{}):(r.error||'Falhou');
+    rp.textContent=typeof display==='object'?JSON.stringify(display,null,2):String(display);
+    toast(ok?'✅ '+name+' concluído':'❌ '+name+' falhou');
+    loadAgents();
+  }catch(e){
+    rt.textContent='Erro';ri.textContent='❌';
+    rp.textContent=String(e);
+    toast('Erro: '+e.message);
+  }finally{
+    if(btn){btn.disabled=false;btn.innerHTML='▶ Run';}
+  }
+}
+
+function renderTaskHistory(tasks){
+  const h=document.getElementById('task-history');
+  if(!tasks.length){h.innerHTML='<div class="empty">Sem histórico ainda.<br>Corre um agente acima ↑</div>';return;}
+  const stIcons={completed:'✅',failed:'❌',running:'⏳',pending:'⌛'};
+  const stClass={completed:'tg',failed:'tr',running:'ty',pending:'ty'};
+  h.innerHTML='';
+  for(const t of [...tasks].reverse().slice(0,15)){
+    const dur=t.duration_seconds!=null?t.duration_seconds+'s':'─';
+    const el=document.createElement('div');
+    el.className='task-row';
+    el.innerHTML=`
+      <span class="task-agent">${_agentIcons[t.agent]||'🤖'} ${t.agent}</span>
+      <span class="task-status"><span class="tag ${stClass[t.status]||'ty'}">${stIcons[t.status]||'?'} ${t.status}</span></span>
+      <span class="task-dur">${dur}</span>
+      <span class="task-id">${t.id}</span>`;
+    h.appendChild(el);
+  }
+}
+
+/* ── Flows ── */
+async function loadFlows(){
+  try{
+    const res=await api('/api/flows');
+    renderFlowCards(Array.isArray(res)?res:[]);
+  }catch(e){
+    document.getElementById('flow-cards').innerHTML='<div class="empty">─</div>';
+  }
+}
+
+function renderFlowCards(flows){
+  const c=document.getElementById('flow-cards');
+  if(!flows.length){c.innerHTML='<div class="empty">Nenhum flow criado ainda.<br><small>flowcore flow create --name "Nome" --steps health,doctor</small></div>';return;}
+  c.innerHTML='';
+  for(const f of flows){
+    const el=document.createElement('div');
+    el.className='agent-card';
+    el.innerHTML=`
+      <div class="agent-info">
+        <div class="agent-name">▶ ${f.name}</div>
+        <div class="agent-desc">${f.steps.length} passo(s)${f.description?' — '+f.description:''}</div>
+      </div>
+      <button class="btn-run" id="btn-flow-${f.id}" onclick="runFlow('${f.id}','${f.name}')">▶ Run</button>`;
+    c.appendChild(el);
+  }
+}
+
+async function runFlow(id,name){
+  const btn=document.getElementById('btn-flow-'+id);
+  if(btn){btn.disabled=true;btn.innerHTML='<span class="spin">⟳</span>';}
+  const rc=document.getElementById('flow-result-card');
+  const rt=document.getElementById('flow-result-title');
+  const ri=document.getElementById('flow-result-icon');
+  const rp=document.getElementById('flow-result');
+  rc.style.display='block';
+  rt.textContent='A correr flow '+name+'...';
+  ri.textContent='⏳';rp.textContent='...';
+  try{
+    const r=await api('/api/flows/'+encodeURIComponent(id)+'/run',{method:'POST',body:'null'});
+    const ok=r.status==='completed';
+    rt.textContent=name+' — '+(ok?'concluído':'falhou');
+    ri.textContent=ok?'✅':'❌';
+    rp.textContent=JSON.stringify(r,null,2);
+    toast(ok?'✅ Flow concluído':'❌ Flow falhou');
+  }catch(e){
+    rt.textContent='Erro';ri.textContent='❌';rp.textContent=String(e);
+    toast('Erro: '+e.message);
+  }finally{
+    if(btn){btn.disabled=false;btn.innerHTML='▶ Run';}
+  }
 }
 
 /* ── Init ── */

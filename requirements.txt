@@ -1,6 +1,8 @@
-# FlowCore — All dependencies (Core + API)
+# FlowCore — All dependencies (Core + API + MCP)
 # For installing everything, use this file.
 # For core-only installation, use requirements-core.txt
 # For API-only (after core), use requirements-api.txt
+# For MCP server only (PC/desktop), use requirements-mcp.txt
 
 -r requirements-api.txt
+-r requirements-mcp.txt
