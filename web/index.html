@@ -151,6 +151,15 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .kind-sel{display:flex;gap:6px;margin-bottom:12px}
 .ks{flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:7px;border-radius:8px;font-size:12px;text-align:center;cursor:pointer;transition:all .2s}
 .ks.active{color:var(--accent);border-color:var(--accent);background:rgba(0,212,255,.08)}
+
+/* Chat */
+.chat-log{display:flex;flex-direction:column;gap:10px;max-height:60vh;overflow-y:auto;padding-bottom:2px}
+.msg{max-width:85%;padding:9px 12px;border-radius:12px;font-size:13px;line-height:1.45;word-break:break-word;white-space:pre-wrap}
+.msg.user{align-self:flex-end;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border-bottom-right-radius:3px}
+.msg.bot{align-self:flex-start;background:var(--bg3);border:1px solid var(--border);border-bottom-left-radius:3px}
+.msg.thinking{color:var(--text2);font-style:italic;animation:pulse 1.6s infinite}
+.if:disabled{opacity:.5}
+.bs2:disabled{opacity:.5;cursor:default}
 </style>
 </head>
 <body>
@@ -296,6 +305,24 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
     </div>
   </div>
 
+  <!-- ══ CHAT ══ -->
+  <div class="page" id="page-chat">
+    <div class="gap">
+      <div class="card">
+        <div class="ch"><span class="ct">Chat local</span><span class="ci">💬</span></div>
+        <div class="chat-log" id="chat-log">
+          <div class="empty">Faz uma pergunta ao modelo local.<br>Pode demorar — modelos maiores levam mais tempo a responder.</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ir">
+          <input class="if" id="chat-inp" placeholder="Escreve a tua pergunta...">
+          <button class="bs2" id="chat-send" onclick="sendChat()">➤</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- Bottom nav -->
@@ -305,6 +332,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
   <button class="ni" onclick="pg('caps',this)"><span class="ni-icon">⚡</span><span>Caps</span></button>
   <button class="ni" onclick="pg('mem',this)"><span class="ni-icon">🧠</span><span>Memórias</span></button>
   <button class="ni" onclick="pg('notes',this)"><span class="ni-icon">📝</span><span>Notas</span></button>
+  <button class="ni" onclick="pg('chat',this)"><span class="ni-icon">💬</span><span>Chat</span></button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -334,7 +362,11 @@ function toast(m,ms=2500){
 /* ── API ── */
 async function api(path,opts={}){
   const r=await fetch(API+path,{headers:{'Content-Type':'application/json'},...opts});
-  if(!r.ok) throw new Error(r.status);
+  if(!r.ok){
+    let detail=String(r.status);
+    try{ const body=await r.json(); if(body.detail) detail=body.detail; }catch(e){}
+    throw new Error(detail);
+  }
   return r.json();
 }
 
@@ -584,6 +616,46 @@ async function sendNotify(){
   }catch(e){toast('Erro: '+e.message);}
 }
 document.getElementById('n-text').addEventListener('keydown',e=>{if(e.key==='Enter')sendNotify();});
+
+/* ── Chat ── */
+let _chatHistory=[];
+function renderChatLog(){
+  const l=document.getElementById('chat-log');
+  if(!_chatHistory.length){
+    l.innerHTML='<div class="empty">Faz uma pergunta ao modelo local.<br>Pode demorar — modelos maiores levam mais tempo a responder.</div>';
+    return;
+  }
+  l.innerHTML='';
+  for(const m of _chatHistory){
+    const el=document.createElement('div');
+    el.className='msg '+m.role+(m.thinking?' thinking':'');
+    el.textContent=m.text;
+    l.appendChild(el);
+  }
+  l.scrollTop=l.scrollHeight;
+}
+
+async function sendChat(){
+  const inp=document.getElementById('chat-inp');
+  const btn=document.getElementById('chat-send');
+  const q=inp.value.trim(); if(!q)return;
+  inp.value='';
+  _chatHistory.push({role:'user',text:q});
+  const thinking={role:'bot',text:'A pensar...',thinking:true};
+  _chatHistory.push(thinking);
+  renderChatLog();
+  inp.disabled=true; btn.disabled=true;
+  try{
+    const r=await api('/api/ask',{method:'POST',body:JSON.stringify({question:q})});
+    _chatHistory[_chatHistory.indexOf(thinking)]={role:'bot',text:r.answer||'(sem resposta)'};
+  }catch(e){
+    _chatHistory[_chatHistory.indexOf(thinking)]={role:'bot',text:'Erro: '+e.message};
+  }
+  inp.disabled=false; btn.disabled=false;
+  renderChatLog();
+  inp.focus();
+}
+document.getElementById('chat-inp').addEventListener('keydown',e=>{if(e.key==='Enter')sendChat();});
 
 /* ── Helpers ── */
 function fup(s){

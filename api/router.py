@@ -29,9 +29,13 @@ Endpoints (Sprint 12 — Passport + expanded UI):
   GET  /api/notes           — list notes/todos/agenda items
   POST /api/notes           — create a note/todo/agenda item
   GET  /api/passport        — generate and return current system passport
+
+Endpoints (Chat / Web UI):
+  POST /api/ask             — RAG ask via Ollama (see runtime/ollama.py)
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 import uuid
@@ -95,6 +99,11 @@ class NotifyRequest(BaseModel):
 class NoteCreate(BaseModel):
     text: str
     kind: str = "note"   # "note" | "todo" | "agenda"
+
+
+class AskRequest(BaseModel):
+    question: str
+    timeout: float | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -361,6 +370,50 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             return p.to_dict()
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+
+    # ── Chat / Ask (Web UI) ──────────────────────────────────────────────
+    @app.post("/api/ask")
+    async def ask(data: AskRequest):
+        from runtime.ollama import (
+            OllamaError,
+            OllamaDiscoveryError,
+            discover_default_model,
+            discover_ollama_endpoint,
+            generate as ollama_generate,
+        )
+
+        try:
+            base_url = discover_ollama_endpoint()
+            model = discover_default_model()
+        except OllamaDiscoveryError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+
+        try:
+            from storage import DocumentRepository
+            recent_docs = await DocumentRepository().list_recent(5)
+        except Exception:
+            recent_docs = []
+
+        context = ""
+        if recent_docs:
+            context = "Context from documents:\n"
+            for doc in recent_docs:
+                context += f"\n[{doc['title']}]\n{doc['content'][:300]}\n"
+
+        prompt = (
+            "You are a helpful AI assistant. Use the provided context to answer questions accurately.\n\n"
+            f"Context:\n{context}\n\nQuestion: {data.question}\n\nAnswer:"
+        )
+
+        kwargs = {"timeout": data.timeout} if data.timeout is not None else {}
+        try:
+            # generate() blocks (network I/O + warm-up polling); run off the
+            # event loop thread so other API requests stay responsive.
+            answer = await asyncio.to_thread(ollama_generate, base_url, model, prompt, **kwargs)
+        except OllamaError as e:
+            raise HTTPException(status_code=502, detail=str(e))
+
+        return {"answer": answer, "model": model}
 
     # ── Flows ───────────────────────────────────────────────────────────
     @app.get("/api/flows")
