@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.0] — 2026-08-05
+
+### Added
+
+- **Sprint 18 — Premium Web UI Refresh**: This release transforms the embedded FlowCore Single Page Application (SPA), served directly by `api/router.py`, into a polished, fully responsive, premium productivity console built around a cohesive Zinc and Deep Slate design system.
+  - Premium dark theme using a unified Zinc / Deep Slate design language.
+  - Improved responsive layout for desktop and mobile.
+  - Consistent reusable UI components across all pages (Dashboard, System, Capabilities, Memories, Notes, Search, Chat, Settings, Doctor).
+  - Enhanced navigation and information hierarchy.
+  - Better loading, empty, and error states.
+  - Accessibility improvements.
+  - Zero backend API changes.
+  - Zero regressions.
+  - 100% compatibility with the existing FlowCore architecture.
+  - Full automated test suite passing.
+
+---
+
 ## [1.1.0] — 2026-07-27
 
 ### Added
