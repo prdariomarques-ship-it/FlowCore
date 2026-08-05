@@ -1219,8 +1219,9 @@ async def cmd_obsidian_watch(vault_path: str = None) -> None:
 
 async def cmd_ask(question: str) -> None:
     """RAG: Ask AI using Ollama with document context."""
+    import service
     from runtime.ollama import (
-        generate as ollama_generate,
+        OllamaError,
         OllamaModelLoadTimeoutError,
         OllamaModelNotInstalledError,
         OllamaSubscriptionRequiredError,
@@ -1228,28 +1229,9 @@ async def cmd_ask(question: str) -> None:
     )
 
     try:
-        base_url = discover_ollama_endpoint()
-        model = discover_default_model()
-    except OllamaDiscoveryError as e:
-        print(f"{RED}Ollama não encontrado.{NC}")
-        print(f"{YELLOW}{e}{NC}")
-        logger.warning(f"Ollama discovery failed: {e}")
-        return
-
-    recent_docs = await _doc_repo.list_recent(5)
-    context = ""
-    if recent_docs:
-        context = "Context from documents:\n"
-        for doc in recent_docs:
-            context += f"\n[{doc['title']}]\n{doc['content'][:300]}\n"
-
-    system_prompt = "You are a helpful AI assistant. Use the provided context to answer questions accurately."
-    prompt = f"{system_prompt}\n\nContext:\n{context}\n\nQuestion: {question}\n\nAnswer:"
-
-    try:
-        result = ollama_generate(base_url, model, prompt)
+        answer, model = await service.ask(question)
         print(f"\n{BOLD}{CYAN}FlowCore AI ({model}):{NC}")
-        print(result)
+        print(answer)
     except OllamaSubscriptionRequiredError as e:
         print(f"{RED}Modelo requer assinatura Ollama Cloud.{NC}")
         print(f"{YELLOW}{e}{NC}")
@@ -1262,7 +1244,13 @@ async def cmd_ask(question: str) -> None:
     except OllamaUnreachableError as e:
         print(f"{RED}Ollama não encontrado.{NC}")
         print(f"{YELLOW}{e}{NC}")
-        logger.warning(f"Ollama not available at {base_url}")
+        logger.warning(f"Ollama not available: {e}")
+    except OllamaError as e:
+        # Covers OllamaDiscoveryError (endpoint/model resolution failed
+        # before generation even started) with the same "not found" framing.
+        print(f"{RED}Ollama não encontrado.{NC}")
+        print(f"{YELLOW}{e}{NC}")
+        logger.warning(f"Ollama discovery failed: {e}")
     except Exception as e:
         logger.error(f"Ask command error: {e}")
         print(f"{RED}Erro: {e}{NC}")
@@ -1270,8 +1258,9 @@ async def cmd_ask(question: str) -> None:
 
 async def cmd_note(text: str) -> None:
     """Add a note."""
+    import service
     try:
-        await _doc_repo.insert("Note", text, "note")
+        await service.add_note(text, "note")
         print(f"{GREEN}✓ Note saved{NC}")
         logger.info(f"Note added: {text}")
     except Exception as e:
@@ -1280,8 +1269,9 @@ async def cmd_note(text: str) -> None:
 
 async def cmd_todo(task: str) -> None:
     """Add a todo item."""
+    import service
     try:
-        await _doc_repo.insert("TODO", task, "todo")
+        await service.add_note(task, "todo")
         print(f"{GREEN}✓ Todo added{NC}")
         logger.info(f"Todo added: {task}")
     except Exception as e:
@@ -1290,8 +1280,9 @@ async def cmd_todo(task: str) -> None:
 
 async def cmd_agenda(event: str) -> None:
     """Add to agenda."""
+    import service
     try:
-        await _doc_repo.insert("Agenda", event, "agenda")
+        await service.add_note(event, "agenda")
         print(f"{GREEN}✓ Event added to agenda{NC}")
         logger.info(f"Agenda event: {event}")
     except Exception as e:

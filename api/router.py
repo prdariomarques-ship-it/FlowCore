@@ -36,7 +36,6 @@ Endpoints (Chat / Web UI):
 """
 from __future__ import annotations
 
-import asyncio
 import time
 import uuid
 from pathlib import Path
@@ -45,6 +44,8 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from loguru import logger
 from pydantic import BaseModel
+
+import service
 
 _WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
@@ -332,28 +333,18 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     @app.get("/api/notes")
     async def list_notes(kind: str | None = Query(None)):
         try:
-            from storage import DocumentRepository
-            docs = await DocumentRepository().list_all()
-            kinds = {"note", "todo", "agenda"}
-            filtered = [
-                d for d in docs
-                if d.get("source") in kinds
-                and (kind is None or d.get("source") == kind)
-            ]
-            return {"notes": filtered}
+            return {"notes": await service.list_notes(kind=kind)}
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
     @app.post("/api/notes", status_code=201)
     async def create_note(data: NoteCreate):
-        if data.kind not in ("note", "todo", "agenda"):
-            raise HTTPException(status_code=422, detail="kind must be note, todo or agenda")
         try:
-            from storage import DocumentRepository
-            label = {"note": "Nota", "todo": "TODO", "agenda": "Agenda"}[data.kind]
-            doc_id = await DocumentRepository().insert(label, data.text, data.kind)
+            result = await service.add_note(data.text, data.kind)
             logger.info("Note created via API: kind={} text={}", data.kind, data.text[:40])
-            return {"id": doc_id, "kind": data.kind, "text": data.text}
+            return result
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
@@ -374,42 +365,12 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     # ── Chat / Ask (Web UI) ──────────────────────────────────────────────
     @app.post("/api/ask")
     async def ask(data: AskRequest):
-        from runtime.ollama import (
-            OllamaError,
-            OllamaDiscoveryError,
-            discover_default_model,
-            discover_ollama_endpoint,
-            generate as ollama_generate,
-        )
+        from runtime.ollama import OllamaDiscoveryError, OllamaError
 
         try:
-            base_url = discover_ollama_endpoint()
-            model = discover_default_model()
+            answer, model = await service.ask(data.question, timeout=data.timeout)
         except OllamaDiscoveryError as e:
             raise HTTPException(status_code=503, detail=str(e))
-
-        try:
-            from storage import DocumentRepository
-            recent_docs = await DocumentRepository().list_recent(5)
-        except Exception:
-            recent_docs = []
-
-        context = ""
-        if recent_docs:
-            context = "Context from documents:\n"
-            for doc in recent_docs:
-                context += f"\n[{doc['title']}]\n{doc['content'][:300]}\n"
-
-        prompt = (
-            "You are a helpful AI assistant. Use the provided context to answer questions accurately.\n\n"
-            f"Context:\n{context}\n\nQuestion: {data.question}\n\nAnswer:"
-        )
-
-        kwargs = {"timeout": data.timeout} if data.timeout is not None else {}
-        try:
-            # generate() blocks (network I/O + warm-up polling); run off the
-            # event loop thread so other API requests stay responsive.
-            answer = await asyncio.to_thread(ollama_generate, base_url, model, prompt, **kwargs)
         except OllamaError as e:
             raise HTTPException(status_code=502, detail=str(e))
 

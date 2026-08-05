@@ -8,18 +8,12 @@ Started via: python3 flowcore.py mcp
 """
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
-from runtime.ollama import (
-    discover_default_model,
-    discover_ollama_endpoint,
-    generate as ollama_generate,
-    OllamaDiscoveryError,
-    OllamaError,
-)
+import service
+from runtime.ollama import OllamaError
 from storage import DocumentRepository, MemoryRepository
 
 ROOT = Path(__file__).resolve().parent
@@ -112,22 +106,22 @@ async def flowcore_stats() -> dict:
 @mcp.tool()
 async def flowcore_note(text: str) -> dict:
     """Add a quick note."""
-    doc_id = await _doc_repo.insert("Note", text, "note")
-    return {"id": doc_id, "saved": True}
+    result = await service.add_note(text, "note")
+    return {"id": result["id"], "saved": True}
 
 
 @mcp.tool()
 async def flowcore_todo(task: str) -> dict:
     """Add a TODO item."""
-    doc_id = await _doc_repo.insert("TODO", task, "todo")
-    return {"id": doc_id, "saved": True}
+    result = await service.add_note(task, "todo")
+    return {"id": result["id"], "saved": True}
 
 
 @mcp.tool()
 async def flowcore_agenda(event: str) -> dict:
     """Add an event to the agenda."""
-    doc_id = await _doc_repo.insert("Agenda", event, "agenda")
-    return {"id": doc_id, "saved": True}
+    result = await service.add_note(event, "agenda")
+    return {"id": result["id"], "saved": True}
 
 
 @mcp.tool()
@@ -139,28 +133,8 @@ async def flowcore_ask(question: str, timeout: float | None = None) -> str:
     (default 180s) for both the warm-up wait and the generate call.
     """
     try:
-        base_url = discover_ollama_endpoint()
-        model = discover_default_model()
-    except OllamaDiscoveryError as e:
-        raise RuntimeError(str(e)) from e
-
-    recent_docs = await _doc_repo.list_recent(5)
-    context = ""
-    if recent_docs:
-        context = "Context from documents:\n"
-        for doc in recent_docs:
-            context += f"\n[{doc['title']}]\n{doc['content'][:300]}\n"
-
-    prompt = (
-        "You are a helpful AI assistant. Use the provided context to answer questions accurately.\n\n"
-        f"Context:\n{context}\n\nQuestion: {question}\n\nAnswer:"
-    )
-
-    kwargs = {"timeout": timeout} if timeout is not None else {}
-    try:
-        # generate() blocks (network I/O + warm-up polling); run off the
-        # event loop thread so other MCP tool calls stay responsive.
-        return await asyncio.to_thread(ollama_generate, base_url, model, prompt, **kwargs)
+        answer, _model = await service.ask(question, timeout=timeout)
+        return answer
     except OllamaError as e:
         raise RuntimeError(str(e)) from e
 
