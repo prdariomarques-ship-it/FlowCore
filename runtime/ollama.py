@@ -257,7 +257,18 @@ def _is_cloud_model(model: str) -> bool:
 
 def _trigger_warmup(base_url: str, model: str, timeout: float) -> None:
     """Dispara /api/generate sem prompt — o Ollama apenas carrega o modelo em
-    memória e responde assim que terminar, sem gerar texto."""
+    memória e responde assim que terminar, sem gerar texto.
+
+    Um TimeoutError aqui não significa que o Ollama está inacessível: já
+    confirmamos isso via /api/ps em ensure_model_loaded logo antes desta
+    chamada. O /api/generate só responde depois que o modelo termina de
+    carregar, então um timeout de leitura aqui é sinal de "ainda
+    carregando", não de "servidor sumiu" — nesse caso não levantamos nada,
+    deixando o loop de polling em ensure_model_loaded decidir (e classificar
+    como OllamaModelLoadTimeoutError se o prazo total esgotar). Falhas de
+    conexão de verdade (recusada, DNS, etc.) continuam sendo
+    OllamaUnreachableError.
+    """
     payload = json.dumps({"model": model})
     request = urllib.request.Request(
         f"{base_url.rstrip('/')}/api/generate",
@@ -269,7 +280,9 @@ def _trigger_warmup(base_url: str, model: str, timeout: float) -> None:
             response.read()
     except urllib.error.HTTPError as e:
         raise _classify_http_error(e, base_url, model) from e
-    except (urllib.error.URLError, ConnectionRefusedError, TimeoutError, OSError) as e:
+    except TimeoutError:
+        return
+    except (urllib.error.URLError, ConnectionRefusedError, OSError) as e:
         raise OllamaUnreachableError(f"Ollama inacessível em {base_url} durante warm-up: {e}") from e
 
 
