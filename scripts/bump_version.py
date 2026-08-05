@@ -8,18 +8,18 @@ Usage:
     python3 scripts/bump_version.py set 1.2.0
     python3 scripts/bump_version.py show
 
-Updates VERSION file, config/default.yml, and appends to CHANGELOG.md.
+Updates VERSION file, config/default.json, and appends to CHANGELOG.md.
 """
 from __future__ import annotations
 
 import argparse
-import re
+import json
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 VERSION_FILE = ROOT / "VERSION"
-CONFIG_FILE = ROOT / "config" / "default.yml"
+CONFIG_FILE = ROOT / "config" / "default.json"
 CHANGELOG_FILE = ROOT / "CHANGELOG.md"
 
 
@@ -31,18 +31,14 @@ def read_version() -> tuple[int, int, int]:
 
 
 def write_version(major: int, minor: int, patch: int) -> str:
-    """Write new version to VERSION and config/default.yml."""
+    """Write new version to VERSION and config/default.json."""
     version_str = f"{major}.{minor}.{patch}"
     VERSION_FILE.write_text(f"{version_str}\n")
 
-    # Update config/default.yml
-    config = CONFIG_FILE.read_text()
-    config = re.sub(
-        r'version:\s*"[^"]*"',
-        f'version: "{version_str}"',
-        config,
-    )
-    CONFIG_FILE.write_text(config)
+    # Update config/default.json
+    config = json.loads(CONFIG_FILE.read_text())
+    config["app"]["version"] = version_str
+    CONFIG_FILE.write_text(json.dumps(config, indent=2) + "\n")
 
     return version_str
 
