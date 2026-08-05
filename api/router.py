@@ -32,6 +32,7 @@ Endpoints (Sprint 12 — Passport + expanded UI):
 
 Endpoints (Chat / Web UI):
   POST /api/ask             — RAG ask via Ollama (see runtime/ollama.py)
+  GET  /api/settings        — FlowCore version, platform, active Ollama endpoint/model
 """
 from __future__ import annotations
 
@@ -414,6 +415,29 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             raise HTTPException(status_code=502, detail=str(e))
 
         return {"answer": answer, "model": model}
+
+    # ── Settings (Web UI) ────────────────────────────────────────────────
+    @app.get("/api/settings")
+    async def get_settings():
+        from runtime.ollama import discover_default_model, discover_ollama_endpoint, OllamaDiscoveryError
+
+        ollama_info: dict = {"endpoint": None, "model": None, "error": None}
+        try:
+            ollama_info["endpoint"] = discover_ollama_endpoint()
+        except OllamaDiscoveryError as e:
+            ollama_info["error"] = str(e)
+
+        if ollama_info["endpoint"]:
+            try:
+                ollama_info["model"] = discover_default_model()
+            except OllamaDiscoveryError as e:
+                ollama_info["error"] = str(e)
+
+        return {
+            "version": version,
+            "platform": _platform,
+            "ollama": ollama_info,
+        }
 
     # ── Flows ───────────────────────────────────────────────────────────
     @app.get("/api/flows")

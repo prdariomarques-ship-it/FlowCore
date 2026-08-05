@@ -323,6 +323,24 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
     </div>
   </div>
 
+  <!-- ══ CONFIGURAÇÕES ══ -->
+  <div class="page" id="page-settings">
+    <div class="gap">
+      <div class="card">
+        <div class="ch"><span class="ct">FlowCore</span><span class="ci">⚙️</span></div>
+        <div class="row"><span class="rl">Versão</span><span class="rv" id="set-version">─</span></div>
+        <div class="row"><span class="rl">Plataforma</span><span class="rv" id="set-platform">─</span></div>
+        <div class="row"><span class="rl">Python</span><span class="rv" id="set-python">─</span></div>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="ct">Modelo local (Ollama)</span><span class="ci">🧠</span></div>
+        <div class="row"><span class="rl">Endpoint</span><span class="rv" id="set-ollama-host">─</span></div>
+        <div class="row"><span class="rl">Modelo ativo</span><span class="rv" id="set-ollama-model">─</span></div>
+        <div id="set-ollama-error"></div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- Bottom nav -->
@@ -333,6 +351,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
   <button class="ni" onclick="pg('mem',this)"><span class="ni-icon">🧠</span><span>Memórias</span></button>
   <button class="ni" onclick="pg('notes',this)"><span class="ni-icon">📝</span><span>Notas</span></button>
   <button class="ni" onclick="pg('chat',this)"><span class="ni-icon">💬</span><span>Chat</span></button>
+  <button class="ni" onclick="pg('settings',this)"><span class="ni-icon">⚙️</span><span>Config</span></button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -349,6 +368,7 @@ function pg(name,btn){
   btn.classList.add('active');
   if(name==='sys') loadSys();
   if(name==='notes') loadNotes();
+  if(name==='settings') loadSettings();
 }
 
 /* ── Toast ── */
@@ -616,6 +636,30 @@ async function sendNotify(){
   }catch(e){toast('Erro: '+e.message);}
 }
 document.getElementById('n-text').addEventListener('keydown',e=>{if(e.key==='Enter')sendNotify();});
+
+/* ── Settings ── */
+async function loadSettings(){
+  try{
+    const s=await api('/api/settings');
+    renderSettings(s);
+  }catch(e){
+    document.getElementById('set-ollama-error').innerHTML=`<div class="empty">Erro a carregar definições: ${e.message}</div>`;
+  }
+}
+
+function renderSettings(s){
+  document.getElementById('set-version').textContent=s.version||'─';
+  const p=s.platform||{};
+  const platName=p.termux?'Termux/Android':(p.os_name||'─');
+  document.getElementById('set-platform').textContent=platName;
+  document.getElementById('set-python').textContent=p.python_version||'─';
+
+  const o=s.ollama||{};
+  document.getElementById('set-ollama-host').textContent=o.endpoint||'Indisponível';
+  document.getElementById('set-ollama-model').innerHTML=o.model?o.model:'<span class="tag ty">─</span>';
+  const errEl=document.getElementById('set-ollama-error');
+  errEl.innerHTML=o.error?`<div class="empty">${o.error}</div>`:'';
+}
 
 /* ── Chat ── */
 let _chatHistory=[];
