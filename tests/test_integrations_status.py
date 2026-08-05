@@ -42,6 +42,7 @@ class TestCheckOutlook:
 
         result = asyncio.run(service._check_outlook())
         assert result["status"] == "not_configured"
+        assert result["error"] is None
 
     def test_configured_and_authenticated(self, monkeypatch):
         import asyncio
@@ -52,6 +53,7 @@ class TestCheckOutlook:
         with patch("runtime.microsoft_graph.is_authenticated", return_value=True):
             result = asyncio.run(service._check_outlook())
         assert result["status"] == "ok"
+        assert result["error"] is None
 
     def test_configured_but_not_authenticated(self, monkeypatch):
         import asyncio
@@ -62,6 +64,7 @@ class TestCheckOutlook:
         with patch("runtime.microsoft_graph.is_authenticated", return_value=False):
             result = asyncio.run(service._check_outlook())
         assert result["status"] == "not_authenticated"
+        assert result["error"] is None
 
 
 class TestCheckWhatsApp:
@@ -74,6 +77,7 @@ class TestCheckWhatsApp:
         with patch("runtime.whatsapp.check_health", side_effect=WhatsAppError("refused")):
             result = asyncio.run(service._check_whatsapp())
         assert result["status"] == "unreachable"
+        assert result["error"] == "refused"
 
     def test_reachable_not_configured(self):
         import asyncio
@@ -84,6 +88,7 @@ class TestCheckWhatsApp:
             result = asyncio.run(service._check_whatsapp())
         assert result["status"] == "not_configured"
         assert "2.2.3" in result["detail"]
+        assert result["error"] is None
 
     def test_reachable_configured_open(self, monkeypatch):
         import asyncio
@@ -98,6 +103,7 @@ class TestCheckWhatsApp:
         ):
             result = asyncio.run(service._check_whatsapp())
         assert result["status"] == "ok"
+        assert result["error"] is None
 
     def test_reachable_configured_closed(self, monkeypatch):
         import asyncio
@@ -112,6 +118,7 @@ class TestCheckWhatsApp:
         ):
             result = asyncio.run(service._check_whatsapp())
         assert result["status"] == "error"
+        assert result["error"] is not None
 
 
 class TestCheckOllama:
@@ -124,6 +131,7 @@ class TestCheckOllama:
         with patch("runtime.ollama.discover_ollama_endpoint", side_effect=OllamaDiscoveryError("no host")):
             result = asyncio.run(service._check_ollama())
         assert result["status"] == "unreachable"
+        assert result["error"] == "no host"
 
     def test_ok(self):
         import asyncio
@@ -137,6 +145,7 @@ class TestCheckOllama:
             result = asyncio.run(service._check_ollama())
         assert result["status"] == "ok"
         assert "qwen3:4b" in result["detail"]
+        assert result["error"] is None
 
 
 class TestIntegrationsStatus:
@@ -146,9 +155,17 @@ class TestIntegrationsStatus:
         import service
 
         with (
-            patch.object(service, "_check_outlook", new=AsyncMock(return_value={"status": "ok", "detail": "x"})),
-            patch.object(service, "_check_whatsapp", new=AsyncMock(return_value={"status": "ok", "detail": "y"})),
-            patch.object(service, "_check_ollama", new=AsyncMock(return_value={"status": "ok", "detail": "z"})),
+            patch.object(
+                service, "_check_outlook", new=AsyncMock(return_value={"status": "ok", "detail": "x", "error": None})
+            ),
+            patch.object(
+                service,
+                "_check_whatsapp",
+                new=AsyncMock(return_value={"status": "ok", "detail": "y", "error": None}),
+            ),
+            patch.object(
+                service, "_check_ollama", new=AsyncMock(return_value={"status": "ok", "detail": "z", "error": None})
+            ),
         ):
             results = asyncio.run(service.integrations_status())
         assert len(results) == 3
@@ -158,6 +175,7 @@ class TestIntegrationsStatus:
             assert "latency_ms" in r
             assert "checked_at" in r
             assert r["status"] == "ok"
+            assert r["error"] is None
 
     def test_one_check_raising_does_not_break_the_others(self):
         import asyncio
@@ -166,11 +184,16 @@ class TestIntegrationsStatus:
 
         with (
             patch.object(service, "_check_outlook", new=AsyncMock(side_effect=RuntimeError("boom"))),
-            patch.object(service, "_check_whatsapp", new=AsyncMock(return_value={"status": "ok", "detail": "y"})),
-            patch.object(service, "_check_ollama", new=AsyncMock(return_value={"status": "ok", "detail": "z"})),
+            patch.object(
+                service, "_check_whatsapp", new=AsyncMock(return_value={"status": "ok", "detail": "y", "error": None})
+            ),
+            patch.object(
+                service, "_check_ollama", new=AsyncMock(return_value={"status": "ok", "detail": "z", "error": None})
+            ),
         ):
             results = asyncio.run(service.integrations_status())
         assert len(results) == 3
         outlook_result = next(r for r in results if r["name"] == "Outlook / Calendar")
         assert outlook_result["status"] == "error"
         assert "boom" in outlook_result["detail"]
+        assert outlook_result["error"] == "boom"

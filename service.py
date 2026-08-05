@@ -384,11 +384,12 @@ async def _check_outlook() -> dict:
     from runtime.microsoft_graph import is_authenticated
 
     if not os.getenv("OUTLOOK_CLIENT_ID"):
-        return {"status": "not_configured", "detail": "OUTLOOK_CLIENT_ID not set"}
+        return {"status": "not_configured", "detail": "OUTLOOK_CLIENT_ID not set", "error": None}
     authed = await asyncio.to_thread(is_authenticated)
     if authed:
-        return {"status": "ok", "detail": "Authenticated"}
-    return {"status": "not_authenticated", "detail": "Configured, not authenticated yet — run `outlook auth`"}
+        return {"status": "ok", "detail": "Authenticated", "error": None}
+    detail = "Configured, not authenticated yet — run `outlook auth`"
+    return {"status": "not_authenticated", "detail": detail, "error": None}
 
 
 async def _check_whatsapp() -> dict:
@@ -397,19 +398,22 @@ async def _check_whatsapp() -> dict:
     try:
         health = await asyncio.to_thread(check_health)
     except WhatsAppError as e:
-        return {"status": "unreachable", "detail": str(e)}
+        return {"status": "unreachable", "detail": str(e), "error": str(e)}
     version = health.get("version", "?")
     if not os.getenv("EVOLUTION_API_KEY") or not os.getenv("EVOLUTION_INSTANCE_NAME"):
-        return {"status": "not_configured", "detail": f"Evolution API v{version} reachable, no instance configured"}
+        detail = f"Evolution API v{version} reachable, no instance configured"
+        return {"status": "not_configured", "detail": detail, "error": None}
     try:
         status = await asyncio.to_thread(get_status)
     except WhatsAppNotConfiguredError:
-        return {"status": "not_configured", "detail": f"Evolution API v{version} reachable, no instance configured"}
+        detail = f"Evolution API v{version} reachable, no instance configured"
+        return {"status": "not_configured", "detail": detail, "error": None}
     except WhatsAppError as e:
-        return {"status": "error", "detail": str(e)}
+        return {"status": "error", "detail": str(e), "error": str(e)}
     state = (status.get("instance") or {}).get("state", "unknown")
     ok = state == "open"
-    return {"status": "ok" if ok else "error", "detail": f"Evolution API v{version} — instance {state}"}
+    detail = f"Evolution API v{version} — instance {state}"
+    return {"status": "ok" if ok else "error", "detail": detail, "error": None if ok else detail}
 
 
 async def _check_ollama() -> dict:
@@ -419,8 +423,8 @@ async def _check_ollama() -> dict:
         endpoint = await asyncio.to_thread(discover_ollama_endpoint)
         model = await asyncio.to_thread(discover_default_model)
     except OllamaDiscoveryError as e:
-        return {"status": "unreachable", "detail": str(e)}
-    return {"status": "ok", "detail": f"{endpoint} — model {model}"}
+        return {"status": "unreachable", "detail": str(e), "error": str(e)}
+    return {"status": "ok", "detail": f"{endpoint} — model {model}", "error": None}
 
 
 async def integrations_status() -> list[dict]:
@@ -431,7 +435,7 @@ async def integrations_status() -> list[dict]:
         try:
             result = await fn()
         except Exception as e:
-            result = {"status": "error", "detail": str(e)}
+            result = {"status": "error", "detail": str(e), "error": str(e)}
         latency_ms = round((time.monotonic() - start) * 1000, 1)
         return {
             "name": name,
