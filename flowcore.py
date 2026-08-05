@@ -37,6 +37,7 @@ Usage:
     python3 flowcore.py calendar <auth|today|tomorrow|week|next|search|create|update|delete>
     python3 flowcore.py whatsapp <health|status|send>
     python3 flowcore.py integrations         Show live status of all integrations
+    python3 flowcore.py telegram <health|config|send>
 
 Env vars:
     FLOWCORE_MODEL=qwen3:8b              (default: llama2)
@@ -1823,6 +1824,43 @@ async def cmd_integrations() -> None:
     print()
 
 
+async def cmd_telegram(action: str, text: str = "", chat_id: str = "") -> None:
+    """Telegram (health, config, send) — reuses the spcx-monitor bot."""
+    from runtime.telegram import (
+        TelegramError,
+        TelegramNotConfiguredError,
+        check_health,
+        get_configuration,
+        send_message,
+    )
+
+    if action == "health":
+        try:
+            result = await asyncio.to_thread(check_health)
+            print(f"{GREEN}✓ Bot reachable{NC} (@{result.get('username', '?')})")
+        except (TelegramNotConfiguredError, TelegramError) as e:
+            print(f"{RED}✗ {e}{NC}")
+
+    elif action == "config":
+        result = await asyncio.to_thread(get_configuration)
+        mark = f"{GREEN}✓{NC}" if result["configured"] else f"{YELLOW}○{NC}"
+        print(f"{mark} token_set={result['token_set']} chat_id_set={result['chat_id_set']}")
+
+    elif action == "send":
+        if not text:
+            print(f'{RED}Usage: python3 flowcore.py telegram send --text "message" [--chat-id ID]{NC}')
+            return
+        try:
+            await asyncio.to_thread(send_message, text, chat_id or None)
+            print(f"{GREEN}✓ Message sent{NC}")
+        except (TelegramNotConfiguredError, TelegramError) as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    else:
+        print(f"{RED}Unknown telegram action: {action!r}{NC}")
+        print("  Usage: python3 flowcore.py telegram <health|config|send>")
+
+
 def main() -> None:
     """Main CLI handler."""
     parser = argparse.ArgumentParser(description="FlowCore CLI")
@@ -1993,6 +2031,14 @@ def main() -> None:
 
     subparsers.add_parser("integrations", help="Show live status of all connected integrations")
 
+    telegram_parser = subparsers.add_parser("telegram", help="Telegram (reuses the spcx-monitor bot)")
+    telegram_sub = telegram_parser.add_subparsers(dest="telegram_action")
+    telegram_sub.add_parser("health", help="Verify the bot token")
+    telegram_sub.add_parser("config", help="Show whether TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID are set")
+    telegram_send_p = telegram_sub.add_parser("send", help="Send a message")
+    telegram_send_p.add_argument("--text", required=True, help="Message text")
+    telegram_send_p.add_argument("--chat-id", default="", help="Override TELEGRAM_CHAT_ID for this message")
+
     args = parser.parse_args()
     cfg = get_config()
     platform = detect_platform()
@@ -2145,6 +2191,14 @@ def main() -> None:
         asyncio.run(cmd_whatsapp(action, number=number, text=text))
     elif args.command == "integrations":
         asyncio.run(cmd_integrations())
+    elif args.command == "telegram":
+        action = getattr(args, "telegram_action", None)
+        if not action:
+            print("Usage: python3 flowcore.py telegram <health|config|send>")
+            sys.exit(1)
+        text = getattr(args, "text", "")
+        chat_id = getattr(args, "chat_id", "")
+        asyncio.run(cmd_telegram(action, text=text, chat_id=chat_id))
     else:
         parser.print_help()
         sys.exit(1)

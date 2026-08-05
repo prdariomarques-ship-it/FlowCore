@@ -441,3 +441,28 @@ async def integrations_status() -> list[dict]:
         }
 
     return list(await asyncio.gather(*(_run(name, fn) for name, fn in checks)))
+
+
+# ── Telegram (Sprint 17, Milestone 4) ─────────────────────────────────────────
+# Not wired into integrations_status() above — that function is being actively
+# extended by a separate in-flight task (docs/JULES_TASKS_INTEGRATION_DASHBOARD.md,
+# GitHub issue #4), and touching it here risks a merge collision. Adding a
+# Telegram row to the dashboard is a natural, small follow-up once that work lands.
+
+
+async def telegram_health() -> dict:
+    from runtime.telegram import check_health
+
+    return await asyncio.to_thread(check_health)
+
+
+async def telegram_configuration() -> dict:
+    from runtime.telegram import get_configuration
+
+    return await asyncio.to_thread(get_configuration)
+
+
+async def telegram_send(text: str, chat_id: str | None = None) -> dict:
+    from runtime.telegram import send_message
+
+    return await asyncio.to_thread(send_message, text, chat_id)

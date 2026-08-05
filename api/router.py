@@ -67,6 +67,11 @@ Endpoints (Sprint 17, Milestone 4 — WhatsApp via Evolution API):
 Endpoints (Sprint 17, Milestone 6 — Integration Dashboard):
   GET  /api/integrations/status   — live health/latency for Outlook+Calendar,
                                       WhatsApp, Ollama (no history — probed fresh)
+
+Endpoints (Sprint 17, Milestone 4 — Telegram, reuses the spcx-monitor bot):
+  GET  /api/telegram/health   — verifies the bot token via Telegram's getMe
+  GET  /api/telegram/config   — static check: are the env vars set at all
+  POST /api/telegram/send     — send a message ({text, chat_id?})
 """
 
 from __future__ import annotations
@@ -148,6 +153,11 @@ class CalendarEventUpdate(BaseModel):
 class WhatsAppSend(BaseModel):
     number: str
     text: str
+
+
+class TelegramSend(BaseModel):
+    text: str
+    chat_id: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -571,6 +581,33 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     @app.get("/api/integrations/status")
     async def integrations_status():
         return {"integrations": await service.integrations_status()}
+
+    # ── Telegram (Sprint 17, Milestone 4) ─────────────────────────────────
+    @app.get("/api/telegram/health")
+    async def telegram_health():
+        from runtime.telegram import TelegramError, TelegramNotConfiguredError
+
+        try:
+            return await service.telegram_health()
+        except TelegramNotConfiguredError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except TelegramError as e:
+            raise HTTPException(status_code=502, detail=str(e))
+
+    @app.get("/api/telegram/config")
+    async def telegram_config():
+        return await service.telegram_configuration()
+
+    @app.post("/api/telegram/send")
+    async def telegram_send(data: TelegramSend):
+        from runtime.telegram import TelegramError, TelegramNotConfiguredError
+
+        try:
+            return await service.telegram_send(data.text, data.chat_id)
+        except TelegramNotConfiguredError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except TelegramError as e:
+            raise HTTPException(status_code=502, detail=str(e))
 
     # ── Search (Sprint 12) ───────────────────────────────────────────────
     @app.get("/api/search")

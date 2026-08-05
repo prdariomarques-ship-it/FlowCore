@@ -4,9 +4,10 @@ Exposes memory/document commands (remember, recall, note, todo, agenda,
 search, ...), flow commands (create, list, get, run, delete flows and
 their executions), Android device capabilities, Outlook (read-only),
 Calendar (shares Outlook's auth session), WhatsApp (via Evolution API,
-already-paired instance), and a live integration status aggregator as
-MCP tools so an MCP client (e.g. Claude Code) can call FlowCore directly
-instead of shelling out to the CLI.
+already-paired instance), Telegram (reuses the spcx-monitor bot), and a
+live integration status aggregator as MCP tools so an MCP client (e.g.
+Claude Code) can call FlowCore directly instead of shelling out to the
+CLI.
 
 Started via: python3 flowcore.py mcp
 """
@@ -452,6 +453,36 @@ async def flowcore_integrations_status() -> list[dict]:
     """Live health/latency for every connected integration (Outlook/Calendar,
     WhatsApp, Ollama). Probed fresh on every call — no history."""
     return await service.integrations_status()
+
+
+@mcp.tool()
+async def flowcore_telegram_health() -> dict:
+    """Verify the Telegram bot token is valid (calls getMe). Reuses the
+    spcx-monitor bot — not a separate FlowCore-dedicated bot."""
+    from runtime.telegram import TelegramError
+
+    try:
+        return await service.telegram_health()
+    except TelegramError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_telegram_config() -> dict:
+    """Static check: are TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID set. No network call."""
+    return await service.telegram_configuration()
+
+
+@mcp.tool()
+async def flowcore_telegram_send(text: str, chat_id: str | None = None) -> dict:
+    """Send a Telegram message via the spcx-monitor bot. chat_id overrides
+    TELEGRAM_CHAT_ID for this message only."""
+    from runtime.telegram import TelegramError
+
+    try:
+        return await service.telegram_send(text, chat_id)
+    except TelegramError as e:
+        raise RuntimeError(str(e)) from e
 
 
 def run() -> None:

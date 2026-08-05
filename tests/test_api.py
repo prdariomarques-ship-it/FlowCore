@@ -471,6 +471,70 @@ class TestWhatsAppEndpoints:
         assert r.status_code == 422
 
 
+class TestTelegramEndpoints:
+    # service.telegram_* is mocked directly — no real Telegram API calls
+    # (see tests/test_telegram.py for runtime.telegram's own coverage
+    # against mocked urllib).
+    def test_health_success(self):
+        c = _client()
+        payload = {"id": 123, "username": "spcx_monitor_bot"}
+        with patch("service.telegram_health", return_value=payload):
+            r = c.get("/api/telegram/health")
+        assert r.status_code == 200
+        assert r.json() == payload
+
+    def test_health_not_configured_returns_503(self):
+        from runtime.telegram import TelegramNotConfiguredError
+
+        c = _client()
+        with patch("service.telegram_health", side_effect=TelegramNotConfiguredError("no token")):
+            r = c.get("/api/telegram/health")
+        assert r.status_code == 503
+
+    def test_health_unreachable_returns_502(self):
+        from runtime.telegram import TelegramError
+
+        c = _client()
+        with patch("service.telegram_health", side_effect=TelegramError("unreachable")):
+            r = c.get("/api/telegram/health")
+        assert r.status_code == 502
+
+    def test_config_success(self):
+        c = _client()
+        payload = {"configured": False, "token_set": False, "chat_id_set": False}
+        with patch("service.telegram_configuration", return_value=payload):
+            r = c.get("/api/telegram/config")
+        assert r.status_code == 200
+        assert r.json() == payload
+
+    def test_send_not_configured_returns_503(self):
+        from runtime.telegram import TelegramNotConfiguredError
+
+        c = _client()
+        with patch("service.telegram_send", side_effect=TelegramNotConfiguredError("no token")):
+            r = c.post("/api/telegram/send", json={"text": "hi"})
+        assert r.status_code == 503
+
+    def test_send_success(self):
+        c = _client()
+        with patch("service.telegram_send", return_value={"message_id": 1}) as m:
+            r = c.post("/api/telegram/send", json={"text": "hi", "chat_id": "999"})
+        assert r.status_code == 200
+        m.assert_called_once_with("hi", "999")
+
+    def test_send_without_chat_id_defaults_to_none(self):
+        c = _client()
+        with patch("service.telegram_send", return_value={"message_id": 1}) as m:
+            r = c.post("/api/telegram/send", json={"text": "hi"})
+        assert r.status_code == 200
+        m.assert_called_once_with("hi", None)
+
+    def test_send_requires_text(self):
+        c = _client()
+        r = c.post("/api/telegram/send", json={})
+        assert r.status_code == 422
+
+
 class TestIntegrationsStatusEndpoint:
     def test_returns_all_integrations(self):
         c = _client()
