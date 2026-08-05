@@ -219,3 +219,66 @@ async def list_installed_apps() -> dict:
 
 async def get_android_info() -> dict:
     return (await asyncio.to_thread(_registry.call, "getAndroidInfo")).to_dict()
+
+
+# ── Outlook (Sprint 17, Milestone 2) ──────────────────────────────────────────
+# runtime.outlook is imported locally inside each function, not at module
+# level — msal/requests are an optional (requirements-api.txt) dependency,
+# and service.py is also used by the core-tier CLI. A top-level import here
+# would break `flowcore.py note "..."` etc. on an install without the API
+# extras, for a feature those callers never touch.
+
+_outlook_auth_task: dict = {"status": "idle"}  # idle | pending | complete | failed
+
+
+async def outlook_auth_start() -> dict:
+    """Begin the device code flow. Returns the code/URL to show the user
+    immediately; the blocking wait-for-authorization happens in the
+    background — poll outlook_auth_status() to see when it completes.
+    """
+    from runtime.outlook import complete_device_flow, start_device_flow
+
+    flow = await asyncio.to_thread(start_device_flow)
+    _outlook_auth_task["status"] = "pending"
+    _outlook_auth_task.pop("error", None)
+
+    async def _complete():
+        try:
+            await asyncio.to_thread(complete_device_flow, flow)
+            _outlook_auth_task["status"] = "complete"
+        except Exception as e:
+            _outlook_auth_task["status"] = "failed"
+            _outlook_auth_task["error"] = str(e)
+
+    asyncio.create_task(_complete())
+    return {
+        "user_code": flow["user_code"],
+        "verification_uri": flow["verification_uri"],
+        "expires_in": flow["expires_in"],
+        "message": flow.get("message", ""),
+    }
+
+
+async def outlook_auth_status() -> dict:
+    from runtime.outlook import is_authenticated
+
+    authenticated = await asyncio.to_thread(is_authenticated)
+    return {**_outlook_auth_task, "authenticated": authenticated}
+
+
+async def outlook_messages(limit: int = 10) -> list[dict]:
+    from runtime.outlook import list_messages
+
+    return await asyncio.to_thread(list_messages, limit)
+
+
+async def outlook_unread_count() -> int:
+    from runtime.outlook import get_unread_count
+
+    return await asyncio.to_thread(get_unread_count)
+
+
+async def outlook_search(query: str, limit: int = 10) -> list[dict]:
+    from runtime.outlook import search_messages
+
+    return await asyncio.to_thread(search_messages, query, limit)

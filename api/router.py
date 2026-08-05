@@ -40,6 +40,13 @@ Endpoints (Sprint 17, Milestone 1 — Android integration):
   GET  /api/clipboard       — read clipboard
   POST /api/clipboard       — set clipboard ({text})
   GET  /api/apps            — list installed apps (Termux/Android only)
+
+Endpoints (Sprint 17, Milestone 2 — Outlook integration, read-only):
+  POST /api/outlook/auth/start    — begin device code flow
+  GET  /api/outlook/auth/status   — poll auth status
+  GET  /api/outlook/messages      — latest messages (?limit=)
+  GET  /api/outlook/unread        — unread count
+  GET  /api/outlook/search        — search messages (?q=&limit=)
 """
 
 from __future__ import annotations
@@ -312,6 +319,61 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         if not result.get("success"):
             raise HTTPException(status_code=503, detail=result.get("error") or result.get("reason"))
         return result["data"]
+
+    # ── Outlook (Sprint 17, Milestone 2) ──────────────────────────────────
+    @app.post("/api/outlook/auth/start")
+    async def outlook_auth_start():
+        from runtime.outlook import OutlookError, OutlookNotConfiguredError
+
+        try:
+            return await service.outlook_auth_start()
+        except OutlookNotConfiguredError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except OutlookError as e:
+            raise HTTPException(status_code=502, detail=str(e))
+
+    @app.get("/api/outlook/auth/status")
+    async def outlook_auth_status():
+        return await service.outlook_auth_status()
+
+    @app.get("/api/outlook/messages")
+    async def outlook_messages(limit: int = Query(10, le=50)):
+        from runtime.outlook import OutlookAuthRequiredError, OutlookError, OutlookNotConfiguredError
+
+        try:
+            return {"messages": await service.outlook_messages(limit)}
+        except OutlookNotConfiguredError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except OutlookAuthRequiredError as e:
+            raise HTTPException(status_code=401, detail=str(e))
+        except OutlookError as e:
+            raise HTTPException(status_code=502, detail=str(e))
+
+    @app.get("/api/outlook/unread")
+    async def outlook_unread():
+        from runtime.outlook import OutlookAuthRequiredError, OutlookError, OutlookNotConfiguredError
+
+        try:
+            return {"unread": await service.outlook_unread_count()}
+        except OutlookNotConfiguredError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except OutlookAuthRequiredError as e:
+            raise HTTPException(status_code=401, detail=str(e))
+        except OutlookError as e:
+            raise HTTPException(status_code=502, detail=str(e))
+
+    @app.get("/api/outlook/search")
+    async def outlook_search(q: str = Query(..., min_length=1), limit: int = Query(10, le=50)):
+        from runtime.outlook import OutlookAuthRequiredError, OutlookError, OutlookNotConfiguredError
+
+        try:
+            return {"messages": await service.outlook_search(q, limit)}
+        except OutlookNotConfiguredError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except OutlookAuthRequiredError as e:
+            raise HTTPException(status_code=401, detail=str(e))
+        except OutlookError as e:
+            raise HTTPException(status_code=502, detail=str(e))
 
     # ── Search (Sprint 12) ───────────────────────────────────────────────
     @app.get("/api/search")

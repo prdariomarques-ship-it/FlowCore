@@ -219,6 +219,77 @@ class TestAppsEndpoint:
         assert r.json()["count"] == 2
 
 
+class TestOutlookEndpoints:
+    # service.outlook_* is mocked directly — no real network/Azure AD
+    # credentials needed (see tests/test_outlook.py for runtime.outlook's
+    # own coverage against mocked msal/requests).
+    def test_auth_start_not_configured_returns_503(self):
+        from runtime.outlook import OutlookNotConfiguredError
+
+        c = _client()
+        with patch("service.outlook_auth_start", side_effect=OutlookNotConfiguredError("no client id")):
+            r = c.post("/api/outlook/auth/start")
+        assert r.status_code == 503
+
+    def test_auth_start_success(self):
+        c = _client()
+        data = {"user_code": "ABC123", "verification_uri": "https://microsoft.com/devicelogin", "expires_in": 900}
+        with patch("service.outlook_auth_start", return_value=data):
+            r = c.post("/api/outlook/auth/start")
+        assert r.status_code == 200
+        assert r.json()["user_code"] == "ABC123"
+
+    def test_auth_status(self):
+        c = _client()
+        with patch("service.outlook_auth_status", return_value={"status": "idle", "authenticated": False}):
+            r = c.get("/api/outlook/auth/status")
+        assert r.status_code == 200
+        assert r.json()["authenticated"] is False
+
+    def test_messages_not_configured_returns_503(self):
+        from runtime.outlook import OutlookNotConfiguredError
+
+        c = _client()
+        with patch("service.outlook_messages", side_effect=OutlookNotConfiguredError("no client id")):
+            r = c.get("/api/outlook/messages")
+        assert r.status_code == 503
+
+    def test_messages_auth_required_returns_401(self):
+        from runtime.outlook import OutlookAuthRequiredError
+
+        c = _client()
+        with patch("service.outlook_messages", side_effect=OutlookAuthRequiredError("not authed")):
+            r = c.get("/api/outlook/messages")
+        assert r.status_code == 401
+
+    def test_messages_success(self):
+        c = _client()
+        msgs = [{"subject": "Hi", "from": "a@b.com", "received": "2026-08-05T00:00:00Z", "is_read": False}]
+        with patch("service.outlook_messages", return_value=msgs):
+            r = c.get("/api/outlook/messages", params={"limit": 5})
+        assert r.status_code == 200
+        assert r.json()["messages"] == msgs
+
+    def test_unread_success(self):
+        c = _client()
+        with patch("service.outlook_unread_count", return_value=3):
+            r = c.get("/api/outlook/unread")
+        assert r.status_code == 200
+        assert r.json()["unread"] == 3
+
+    def test_search_requires_query_param(self):
+        c = _client()
+        r = c.get("/api/outlook/search")
+        assert r.status_code == 422
+
+    def test_search_success(self):
+        c = _client()
+        with patch("service.outlook_search", return_value=[]) as m:
+            r = c.get("/api/outlook/search", params={"q": "invoice"})
+        assert r.status_code == 200
+        m.assert_called_once_with("invoice", 10)
+
+
 class TestDaemonEndpoints:
     def test_daemon_status_returns_200(self):
         r = _client().get("/api/daemon/status")

@@ -7,3 +7,10 @@ uvicorn>=0.24.0,<1.0.0
 pydantic>=2.5.0,<3.0.0
 httpx>=0.25.0,<1.0.0
 mcp>=1.9.0,<2.0.0
+
+# Outlook integration (Sprint 17, Milestone 2) — real OAuth2 token refresh,
+# using Microsoft's own library rather than hand-rolling it. requests is
+# already a transitive dependency of msal; pinned explicitly since
+# runtime/outlook.py imports it directly for Graph API calls.
+msal>=1.28.0,<2.0.0
+requests>=2.31.0,<3.0.0

@@ -1,9 +1,10 @@
 """FlowCore — MCP stdio server.
 
 Exposes memory/document commands (remember, recall, note, todo, agenda,
-search, ...) and flow commands (create, list, get, run, delete flows and
-their executions) as MCP tools so an MCP client (e.g. Claude Code) can
-call FlowCore directly instead of shelling out to the CLI.
+search, ...), flow commands (create, list, get, run, delete flows and
+their executions), Android device capabilities, and Outlook (read-only)
+as MCP tools so an MCP client (e.g. Claude Code) can call FlowCore
+directly instead of shelling out to the CLI.
 
 Started via: python3 flowcore.py mcp
 """
@@ -230,6 +231,60 @@ async def flowcore_apps() -> dict:
     """List installed apps (Termux/Android only). Package visibility may be
     restricted by Android's package-visibility filtering."""
     return await service.list_installed_apps()
+
+
+@mcp.tool()
+async def flowcore_outlook_auth_start() -> dict:
+    """Begin Outlook's device code flow. Returns a user_code and
+    verification_uri to show the user; authorization completes in the
+    background — poll flowcore_outlook_auth_status() to see when it's done.
+    """
+    from runtime.outlook import OutlookError
+
+    try:
+        return await service.outlook_auth_start()
+    except OutlookError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_outlook_auth_status() -> dict:
+    """Poll Outlook device code flow status (idle/pending/complete/failed) and
+    whether a valid authenticated session currently exists."""
+    return await service.outlook_auth_status()
+
+
+@mcp.tool()
+async def flowcore_outlook_messages(limit: int = 10) -> list[dict]:
+    """List the latest Outlook messages (read-only)."""
+    from runtime.outlook import OutlookError
+
+    try:
+        return await service.outlook_messages(limit)
+    except OutlookError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_outlook_unread() -> int:
+    """Get the Outlook inbox unread count."""
+    from runtime.outlook import OutlookError
+
+    try:
+        return await service.outlook_unread_count()
+    except OutlookError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_outlook_search(query: str, limit: int = 10) -> list[dict]:
+    """Search Outlook messages (read-only)."""
+    from runtime.outlook import OutlookError
+
+    try:
+        return await service.outlook_search(query, limit)
+    except OutlookError as e:
+        raise RuntimeError(str(e)) from e
 
 
 def run() -> None:

@@ -33,6 +33,7 @@ Usage:
     python3 flowcore.py agenda "<event>"      Add to agenda
     python3 flowcore.py flow <list|create|show|run|delete>   Manage flows
     python3 flowcore.py android <battery|wifi|storage|apps|clipboard-get|clipboard-set|notify>
+    python3 flowcore.py outlook <auth|messages|unread|search>
 
 Env vars:
     FLOWCORE_MODEL=qwen3:8b              (default: llama2)
@@ -51,6 +52,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+from dotenv import load_dotenv
+
+# Loads .env into the process environment before anything else reads it.
+# Single choke point — covers CLI, `serve` (FastAPI), and `mcp`
+# (mcp_server.py), since flowcore.py is the entry point for all three.
+load_dotenv()
 
 from config.loader import get_config
 from runtime.core import FlowCoreRuntime, detect_platform
@@ -1536,6 +1544,76 @@ async def cmd_android(action: str, text: str = "", title: str = "FlowCore") -> N
         print("  Usage: python3 flowcore.py android <battery|wifi|storage|apps|clipboard-get|clipboard-set|notify>")
 
 
+async def cmd_outlook(action: str, query: str = "", limit: int = 10) -> None:
+    """Outlook integration (read-only): auth, latest messages, unread count, search."""
+    from runtime.outlook import (
+        OutlookAuthRequiredError,
+        OutlookError,
+        OutlookNotConfiguredError,
+        complete_device_flow,
+        get_unread_count,
+        list_messages,
+        search_messages,
+        start_device_flow,
+    )
+
+    if action == "auth":
+        try:
+            flow = await asyncio.to_thread(start_device_flow)
+        except OutlookNotConfiguredError as e:
+            print(f"{RED}Error: {e}{NC}")
+            return
+        message = flow.get("message") or f"Go to {flow['verification_uri']} and enter code {flow['user_code']}"
+        print(f"\n{CYAN}{message}{NC}")
+        print(f"{YELLOW}Waiting for authorization...{NC}")
+        try:
+            await asyncio.to_thread(complete_device_flow, flow)
+            print(f"{GREEN}✓ Authenticated with Outlook{NC}\n")
+        except OutlookError as e:
+            print(f"{RED}✗ Authentication failed: {e}{NC}")
+
+    elif action == "messages":
+        try:
+            msgs = await asyncio.to_thread(list_messages, limit)
+            if not msgs:
+                print(f"{YELLOW}No messages found.{NC}")
+                return
+            print(f"\n{BOLD}{CYAN}Latest messages ({len(msgs)}){NC}\n")
+            for m in msgs:
+                mark = f"{CYAN}●{NC}" if not m["is_read"] else "○"
+                print(f"  {mark} {m['subject']} — {m['from']} ({m['received'][:10]})")
+            print()
+        except (OutlookNotConfiguredError, OutlookAuthRequiredError, OutlookError) as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    elif action == "unread":
+        try:
+            count = await asyncio.to_thread(get_unread_count)
+            print(f"{GREEN}✓ {count} unread message(s){NC}")
+        except (OutlookNotConfiguredError, OutlookAuthRequiredError, OutlookError) as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    elif action == "search":
+        if not query:
+            print(f'{RED}Usage: python3 flowcore.py outlook search "<query>"{NC}')
+            return
+        try:
+            msgs = await asyncio.to_thread(search_messages, query, limit)
+            if not msgs:
+                print(f"{YELLOW}No results for '{query}'.{NC}")
+                return
+            print(f"\n{BOLD}{CYAN}Search: '{query}' ({len(msgs)}){NC}\n")
+            for m in msgs:
+                print(f"  {m['subject']} — {m['from']} ({m['received'][:10]})")
+            print()
+        except (OutlookNotConfiguredError, OutlookAuthRequiredError, OutlookError) as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    else:
+        print(f"{RED}Unknown outlook action: {action!r}{NC}")
+        print("  Usage: python3 flowcore.py outlook <auth|messages|unread|search>")
+
+
 def main() -> None:
     """Main CLI handler."""
     parser = argparse.ArgumentParser(description="FlowCore CLI")
@@ -1653,6 +1731,16 @@ def main() -> None:
     android_notify.add_argument("text", help="Notification body")
     android_notify.add_argument("--title", default="FlowCore", help="Notification title (default: FlowCore)")
 
+    outlook_parser = subparsers.add_parser("outlook", help="Outlook integration (read-only)")
+    outlook_sub = outlook_parser.add_subparsers(dest="outlook_action")
+    outlook_sub.add_parser("auth", help="Authenticate via device code flow")
+    outlook_messages_p = outlook_sub.add_parser("messages", help="List latest messages")
+    outlook_messages_p.add_argument("--limit", type=int, default=10, help="Max results (default: 10)")
+    outlook_sub.add_parser("unread", help="Show unread count")
+    outlook_search_p = outlook_sub.add_parser("search", help="Search messages")
+    outlook_search_p.add_argument("query", help="Search query")
+    outlook_search_p.add_argument("--limit", type=int, default=10, help="Max results (default: 10)")
+
     args = parser.parse_args()
     cfg = get_config()
     platform = detect_platform()
@@ -1765,6 +1853,14 @@ def main() -> None:
         text = getattr(args, "text", "")
         title = getattr(args, "title", "FlowCore")
         asyncio.run(cmd_android(action, text=text, title=title))
+    elif args.command == "outlook":
+        action = getattr(args, "outlook_action", None)
+        if not action:
+            print("Usage: python3 flowcore.py outlook <auth|messages|unread|search>")
+            sys.exit(1)
+        query = getattr(args, "query", "")
+        limit = getattr(args, "limit", 10)
+        asyncio.run(cmd_outlook(action, query=query, limit=limit))
     else:
         parser.print_help()
         sys.exit(1)
