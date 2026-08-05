@@ -586,7 +586,24 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     # ── Integration Dashboard (Sprint 17, Milestone 6) ────────────────────
     @app.get("/api/integrations/status")
     async def integrations_status():
-        return {"integrations": await service.integrations_status()}
+        # FastAPI's own row isn't an external reachability probe — if this
+        # endpoint responds at all, FastAPI is definitionally up. Appended
+        # here directly rather than routed through service.py's aggregator.
+        from datetime import UTC, datetime
+
+        results = await service.integrations_status()
+        uptime = round(time.time() - _start_time, 1)
+        results.append(
+            {
+                "name": "FastAPI",
+                "status": "ok",
+                "detail": f"v{version}, {len(app.routes)} routes, {uptime}s uptime",
+                "error": None,
+                "latency_ms": 0.0,
+                "checked_at": datetime.now(UTC).isoformat(),
+            }
+        )
+        return {"integrations": results}
 
     # ── Telegram (Sprint 17, Milestone 4) ─────────────────────────────────
     @app.get("/api/telegram/health")

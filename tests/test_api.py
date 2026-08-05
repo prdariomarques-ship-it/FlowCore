@@ -650,7 +650,23 @@ class TestIntegrationsStatusEndpoint:
         with patch("service.integrations_status", return_value=fake):
             r = c.get("/api/integrations/status")
         assert r.status_code == 200
-        assert r.json()["integrations"] == fake
+        integrations = r.json()["integrations"]
+        assert integrations[: len(fake)] == fake
+        # api/router.py appends its own "FastAPI" row — not an external
+        # reachability probe, so it isn't routed through service.py.
+        fastapi_row = integrations[-1]
+        assert fastapi_row["name"] == "FastAPI"
+        assert fastapi_row["status"] == "ok"
+        assert fastapi_row["error"] is None
+
+    def test_fastapi_row_route_count_matches_app(self):
+        from api.router import create_app
+
+        app = create_app(version="test", platform_info={"os_name": "test"})
+        c = TestClient(app)
+        r = c.get("/api/integrations/status")
+        fastapi_row = next(row for row in r.json()["integrations"] if row["name"] == "FastAPI")
+        assert str(len(app.routes)) in fastapi_row["detail"]
 
 
 class TestDaemonEndpoints:
