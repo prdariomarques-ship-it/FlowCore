@@ -486,7 +486,11 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         if data.flow_id not in _flows:
             raise HTTPException(status_code=404, detail="Flow not found")
         exec_id = uuid.uuid4().hex
-        now = time.time()
+        # started_at/finished_at stay None: this endpoint only records a
+        # pending execution — nothing here actually runs it yet (no
+        # ExecutorEngine wired in, see ARCHITECTURE.md). Setting a "started"
+        # timestamp for work that never executes would misrepresent this as
+        # doing more than it does.
         execution = {
             "id": exec_id,
             "flow_id": data.flow_id,
