@@ -685,6 +685,46 @@ class TestMacroScoreEndpoints:
         assert r.status_code == 404
 
 
+class TestRegimeEndpoints:
+    # service.regime_* is mocked directly — no real storage/computation
+    # (see tests/regime/ for RegimeEngine's own coverage against a real
+    # tmp_path-backed EventRepository/MacroScoreEngine).
+    def test_signals_success(self):
+        c = _client()
+        payload = [
+            {
+                "dimension": "risk_sentiment",
+                "regime": "insufficient_data",
+                "score": None,
+                "threshold": 1.0,
+                "computed_at": "t",
+            }
+        ]
+        with patch("service.regime_classify_all", return_value=payload):
+            r = c.get("/api/regime/signals")
+        assert r.status_code == 200
+        assert r.json() == {"signals": payload}
+
+    def test_single_dimension_success(self):
+        c = _client()
+        payload = {
+            "dimension": "risk_sentiment",
+            "regime": "elevated",
+            "score": 2.05,
+            "threshold": 1.0,
+            "computed_at": "t",
+        }
+        with patch("service.regime_classify", return_value=payload):
+            r = c.get("/api/regime/signals/risk_sentiment")
+        assert r.status_code == 200
+        assert r.json() == payload
+
+    def test_unknown_dimension_returns_404(self):
+        c = _client()
+        r = c.get("/api/regime/signals/bogus")
+        assert r.status_code == 404
+
+
 class TestIntegrationsStatusEndpoint:
     def test_returns_all_integrations(self):
         c = _client()
