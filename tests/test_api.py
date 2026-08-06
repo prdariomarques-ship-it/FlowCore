@@ -725,6 +725,171 @@ class TestRegimeEndpoints:
         assert r.status_code == 404
 
 
+class TestPortfolioEndpoints:
+    # service.* is mocked directly — no real storage/yfinance calls (see
+    # tests/test_portfolio_repo.py and tests/portfolio/ for the repository
+    # and runtime layers' own coverage).
+    def test_create_portfolio(self):
+        c = _client()
+        payload = {"id": 1, "name": "Corretora XP", "created_at": "t"}
+        with patch("service.create_portfolio", return_value=payload):
+            r = c.post("/api/portfolios", json={"name": "Corretora XP"})
+        assert r.status_code == 201
+        assert r.json() == payload
+
+    def test_list_portfolios(self):
+        c = _client()
+        payload = [{"id": 1, "name": "X", "created_at": "t"}]
+        with patch("service.list_portfolios", return_value=payload):
+            r = c.get("/api/portfolios")
+        assert r.status_code == 200
+        assert r.json() == {"portfolios": payload}
+
+    def test_get_portfolio_success(self):
+        c = _client()
+        payload = {"id": 1, "name": "X", "created_at": "t"}
+        with patch("service.get_portfolio", return_value=payload):
+            r = c.get("/api/portfolios/1")
+        assert r.status_code == 200
+        assert r.json() == payload
+
+    def test_get_portfolio_missing_returns_404(self):
+        c = _client()
+        with patch("service.get_portfolio", side_effect=ValueError("Portfolio not found: 999")):
+            r = c.get("/api/portfolios/999")
+        assert r.status_code == 404
+
+    def test_delete_portfolio_success(self):
+        c = _client()
+        with patch("service.delete_portfolio", return_value=True):
+            r = c.delete("/api/portfolios/1")
+        assert r.status_code == 200
+        assert r.json() == {"deleted": True}
+
+    def test_delete_portfolio_missing_returns_404(self):
+        c = _client()
+        with patch("service.delete_portfolio", return_value=False):
+            r = c.delete("/api/portfolios/999")
+        assert r.status_code == 404
+
+    def test_summary_success(self):
+        c = _client()
+        payload = {
+            "portfolio_id": 1,
+            "holding_count": 1,
+            "valued_holding_count": 1,
+            "total_market_value": 100.0,
+            "total_cost_basis": 90.0,
+            "total_unrealized_gain": 10.0,
+            "total_unrealized_gain_pct": 11.11,
+        }
+        with patch("service.portfolio_summary", return_value=payload):
+            r = c.get("/api/portfolios/1/summary")
+        assert r.status_code == 200
+        assert r.json() == payload
+
+    def test_summary_missing_portfolio_returns_404(self):
+        c = _client()
+        with patch("service.portfolio_summary", side_effect=ValueError("Portfolio not found: 999")):
+            r = c.get("/api/portfolios/999/summary")
+        assert r.status_code == 404
+
+    def test_add_holding_success(self):
+        c = _client()
+        payload = {"id": 1, "portfolio_id": 1, "symbol": "AAPL", "quantity": 10.0, "average_cost": 150.0}
+        with patch("service.add_holding", return_value=payload) as m:
+            r = c.post("/api/portfolios/1/holdings", json={"symbol": "AAPL", "quantity": 10, "average_cost": 150.0})
+        assert r.status_code == 201
+        assert r.json() == payload
+        m.assert_called_once_with(1, "AAPL", 10.0, 150.0, "USD")
+
+    def test_add_holding_missing_portfolio_returns_404(self):
+        c = _client()
+        with patch("service.add_holding", side_effect=ValueError("Portfolio not found: 999")):
+            r = c.post("/api/portfolios/999/holdings", json={"symbol": "AAPL", "quantity": 1, "average_cost": 1.0})
+        assert r.status_code == 404
+
+    def test_list_holdings_success(self):
+        c = _client()
+        payload = [{"id": 1, "symbol": "AAPL", "market_value": 100.0}]
+        with patch("service.list_holdings", return_value=payload):
+            r = c.get("/api/portfolios/1/holdings")
+        assert r.status_code == 200
+        assert r.json() == {"holdings": payload}
+
+    def test_list_holdings_missing_portfolio_returns_404(self):
+        c = _client()
+        with patch("service.list_holdings", side_effect=ValueError("Portfolio not found: 999")):
+            r = c.get("/api/portfolios/999/holdings")
+        assert r.status_code == 404
+
+    def test_update_holding_success(self):
+        c = _client()
+        payload = {"id": 1, "symbol": "AAPL", "quantity": 20.0}
+        with patch("service.update_holding", return_value=payload):
+            r = c.put("/api/holdings/1", json={"quantity": 20})
+        assert r.status_code == 200
+        assert r.json() == payload
+
+    def test_update_holding_missing_returns_404(self):
+        c = _client()
+        with patch("service.update_holding", side_effect=ValueError("Holding not found: 999")):
+            r = c.put("/api/holdings/999", json={"quantity": 20})
+        assert r.status_code == 404
+
+    def test_delete_holding_success(self):
+        c = _client()
+        with patch("service.delete_holding", return_value=True):
+            r = c.delete("/api/holdings/1")
+        assert r.status_code == 200
+        assert r.json() == {"deleted": True}
+
+    def test_delete_holding_missing_returns_404(self):
+        c = _client()
+        with patch("service.delete_holding", return_value=False):
+            r = c.delete("/api/holdings/999")
+        assert r.status_code == 404
+
+
+class TestAssetEndpoints:
+    def test_get_asset_success(self):
+        c = _client()
+        payload = {"symbol": "AAPL", "name": "Apple Inc.", "attributes": {}}
+        with patch("service.get_asset", return_value=payload):
+            r = c.get("/api/assets/AAPL")
+        assert r.status_code == 200
+        assert r.json() == payload
+
+    def test_get_asset_missing_returns_404(self):
+        c = _client()
+        with patch("service.get_asset", side_effect=ValueError("Asset not found: BOGUS")):
+            r = c.get("/api/assets/BOGUS")
+        assert r.status_code == 404
+
+    def test_tag_asset_success(self):
+        c = _client()
+        payload = {"symbol": "AAPL", "attributes": {"theme": "AI"}}
+        with patch("service.tag_asset", return_value=payload) as m:
+            r = c.put("/api/assets/AAPL/attributes", json={"theme": "AI"})
+        assert r.status_code == 200
+        assert r.json() == payload
+        m.assert_called_once()
+        assert m.call_args.args[0] == "AAPL"
+        assert m.call_args.kwargs["theme"] == "AI"
+
+    def test_tag_asset_request_accepts_every_canonical_field(self):
+        """Regression: catches drift between AssetTagRequest and the
+        canonical schema at the HTTP layer, not just via introspection."""
+        from runtime.portfolio.attributes import ASSET_ATTRIBUTE_FIELDS
+
+        c = _client()
+        body = {field: f"v-{field}" for field in ASSET_ATTRIBUTE_FIELDS}
+        with patch("service.tag_asset", return_value={"symbol": "AAPL", "attributes": body}) as m:
+            r = c.put("/api/assets/AAPL/attributes", json=body)
+        assert r.status_code == 200
+        assert set(m.call_args.kwargs.keys()) == set(ASSET_ATTRIBUTE_FIELDS)
+
+
 class TestIntegrationsStatusEndpoint:
     def test_returns_all_integrations(self):
         c = _client()
