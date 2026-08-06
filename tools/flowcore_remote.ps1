@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# FlowCore Remote — controla FlowCore no Android via ADB + SSH
+# FlowCore Remote - controla FlowCore no Android via ADB + SSH
 #
 # Primeira execução: instala chave SSH (pede senha uma vez)
 # Execuções seguintes: sem senha
@@ -25,7 +25,7 @@ param(
     [string]$Device = "",
     [int]$Port = 8022,
     [string]$FlowCorePath = "~/FlowCore",
-    [switch]$Verbose
+    [switch]$VerboseOutput
 )
 
 Set-StrictMode -Off
@@ -129,7 +129,7 @@ function Install-SSHKey {
     $result = & ssh @sshOptsNoBatch "127.0.0.1" $setupCmd 2>&1
 
     if ($result -match "KEY_OK") {
-        Write-OK "Chave instalada — próximas conexões sem senha"
+        Write-OK "Chave instalada - próximas conexões sem senha"
         return $true
     } else {
         Write-FAIL "Falha ao instalar chave: $result"
@@ -198,7 +198,7 @@ switch ($Command.ToLower()) {
     }
 
     "shell" {
-        Write-HDR "Sessao interativa — Ctrl+D para sair"
+        Write-HDR "Sessao interativa - Ctrl+D para sair"
         Invoke-SSH -Interactive
     }
 
@@ -223,14 +223,14 @@ switch ($Command.ToLower()) {
         Write-WARN "Comando desconhecido: $Command"
         Write-Host ""
         Write-Host "Comandos disponíveis:"
-        Write-Host "  boot       — inicializa o Runtime Kernel"
-        Write-Host "  status     — mostra status completo"
-        Write-Host "  doctor     — health check dos 35 pontos"
-        Write-Host "  deploy     — git pull + boot"
-        Write-Host "  shell      — sessao SSH interativa"
-        Write-Host "  run <cmd>  — comando arbitrario no Termux"
-        Write-Host "  logs       — ultimas 50 linhas do log"
-        Write-Host "  setup-key  — instala chave SSH (sem senha)"
+        Write-Host "  boot       - inicializa o Runtime Kernel"
+        Write-Host "  status     - mostra status completo"
+        Write-Host "  doctor     - health check dos 35 pontos"
+        Write-Host "  deploy     - git pull + boot"
+        Write-Host "  shell      - sessao SSH interativa"
+        Write-Host "  run <cmd>  - comando arbitrario no Termux"
+        Write-Host "  logs       - ultimas 50 linhas do log"
+        Write-Host "  setup-key  - instala chave SSH (sem senha)"
         exit 1
     }
 }
