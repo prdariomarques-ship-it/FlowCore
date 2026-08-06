@@ -102,6 +102,11 @@ Endpoints (Sprint 21, Phase 1 — Portfolio Domain, manual CRUD):
   DELETE /api/holdings/{id}                       — delete a holding
   GET    /api/assets/{symbol}                     — an asset's classification
   PUT    /api/assets/{symbol}/attributes          — manually tag an asset (theme, duration, ...)
+
+Endpoints (Sprint 22, Phase 2 — Exposure Engine, weighted classification breakdowns):
+  GET  /api/portfolios/{id}/exposure              — full report (asset_class/sector/industry/country/currency)
+  GET  /api/portfolios/{id}/exposure/{dimension}  — one dimension (hard column or any canonical soft attribute)
+  GET  /api/portfolios/{id}/concentration         — HHI + top-1/top-5 weight
 """
 
 from __future__ import annotations
@@ -838,6 +843,34 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     @app.put("/api/assets/{symbol}/attributes")
     async def tag_asset(symbol: str, data: AssetTagRequest):
         return await service.tag_asset(symbol, **data.model_dump())
+
+    # ── SCPX Exposure Engine (Sprint 22, Phase 2) ──────────────────────────
+    # Deterministic weighted classification breakdowns — no LLM, no network
+    # (pure computation over list_holdings()'s already-enriched output).
+    @app.get("/api/portfolios/{portfolio_id}/exposure")
+    async def portfolio_exposure(portfolio_id: int):
+        try:
+            return await service.portfolio_exposure(portfolio_id)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+    @app.get("/api/portfolios/{portfolio_id}/exposure/{dimension}")
+    async def portfolio_exposure_dimension(portfolio_id: int, dimension: str):
+        from runtime.exposure import ExposureError
+
+        try:
+            return await service.portfolio_exposure(portfolio_id, dimension)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except ExposureError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+    @app.get("/api/portfolios/{portfolio_id}/concentration")
+    async def portfolio_concentration(portfolio_id: int):
+        try:
+            return await service.portfolio_concentration(portfolio_id)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
 
     # ── Search (Sprint 12) ───────────────────────────────────────────────
     @app.get("/api/search")

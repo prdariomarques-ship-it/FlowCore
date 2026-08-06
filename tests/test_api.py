@@ -851,6 +851,62 @@ class TestPortfolioEndpoints:
         assert r.status_code == 404
 
 
+class TestExposureEndpoints:
+    # service.* is mocked directly — ExposureEngine's own math is covered
+    # by tests/exposure/test_engine.py.
+    def test_full_report_success(self):
+        c = _client()
+        payload = {"sector": {"dimension": "sector", "buckets": []}}
+        with patch("service.portfolio_exposure", return_value=payload) as m:
+            r = c.get("/api/portfolios/1/exposure")
+        assert r.status_code == 200
+        assert r.json() == payload
+        m.assert_called_once_with(1)
+
+    def test_full_report_missing_portfolio_returns_404(self):
+        c = _client()
+        with patch("service.portfolio_exposure", side_effect=ValueError("Portfolio not found: 999")):
+            r = c.get("/api/portfolios/999/exposure")
+        assert r.status_code == 404
+
+    def test_single_dimension_success(self):
+        c = _client()
+        payload = {"dimension": "sector", "buckets": []}
+        with patch("service.portfolio_exposure", return_value=payload) as m:
+            r = c.get("/api/portfolios/1/exposure/sector")
+        assert r.status_code == 200
+        assert r.json() == payload
+        m.assert_called_once_with(1, "sector")
+
+    def test_single_dimension_missing_portfolio_returns_404(self):
+        c = _client()
+        with patch("service.portfolio_exposure", side_effect=ValueError("Portfolio not found: 999")):
+            r = c.get("/api/portfolios/999/exposure/sector")
+        assert r.status_code == 404
+
+    def test_single_dimension_unknown_returns_404(self):
+        from runtime.exposure import ExposureError
+
+        c = _client()
+        with patch("service.portfolio_exposure", side_effect=ExposureError("Unknown exposure dimension: 'bogus'")):
+            r = c.get("/api/portfolios/1/exposure/bogus")
+        assert r.status_code == 404
+
+    def test_concentration_success(self):
+        c = _client()
+        payload = {"hhi": 5331.7, "top_holding_weight_pct": 62.9}
+        with patch("service.portfolio_concentration", return_value=payload):
+            r = c.get("/api/portfolios/1/concentration")
+        assert r.status_code == 200
+        assert r.json() == payload
+
+    def test_concentration_missing_portfolio_returns_404(self):
+        c = _client()
+        with patch("service.portfolio_concentration", side_effect=ValueError("Portfolio not found: 999")):
+            r = c.get("/api/portfolios/999/concentration")
+        assert r.status_code == 404
+
+
 class TestAssetEndpoints:
     def test_get_asset_success(self):
         c = _client()

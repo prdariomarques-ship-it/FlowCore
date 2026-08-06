@@ -9,7 +9,9 @@ SCPX Observer Framework (normalized MarketEvents, no interpretation), the
 SCPX Macro Score Engine (deterministic per-dimension scores, no LLM), the
 SCPX Regime Engine (deterministic threshold classification, no LLM), the
 Portfolio Domain (manual portfolio/holding CRUD, live valuation, asset
-classification), and a live integration status aggregator as MCP tools
+classification), the SCPX Exposure Engine (weighted classification
+breakdowns, concentration/HHI), and a live integration status aggregator
+as MCP tools
 so an MCP client (e.g. Claude Code) can call FlowCore directly instead
 of shelling out to the CLI.
 
@@ -705,6 +707,34 @@ async def flowcore_asset_tag(
         growth_profile=growth_profile,
         correlation_group=correlation_group,
     )
+
+
+@mcp.tool()
+async def flowcore_portfolio_exposure(portfolio_id: int, dimension: str | None = None) -> dict:
+    """Weighted classification breakdown for a portfolio (Sprint 22
+    Exposure Engine) — live, recomputed every call. With no dimension,
+    returns the full report across the 5 hard columns (asset_class,
+    sector, industry, country, currency). With a dimension, returns just
+    that one (a hard column, or any soft attribute from
+    runtime.portfolio.attributes.ASSET_ATTRIBUTE_FIELDS)."""
+    from runtime.exposure import ExposureError
+
+    try:
+        return await service.portfolio_exposure(portfolio_id, dimension)
+    except ValueError as e:
+        raise RuntimeError(str(e)) from e
+    except ExposureError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_portfolio_concentration(portfolio_id: int) -> dict:
+    """Concentration report for a portfolio (Sprint 22) — HHI (0-10000),
+    top holding weight, top-5 weight. Live, recomputed every call."""
+    try:
+        return await service.portfolio_concentration(portfolio_id)
+    except ValueError as e:
+        raise RuntimeError(str(e)) from e
 
 
 def run() -> None:

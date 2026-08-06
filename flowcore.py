@@ -2015,6 +2015,14 @@ def _print_holding(h: dict) -> None:
         print(f"      {RED}⚠ {h['valuation_error']}{NC}")
 
 
+def _print_exposure_report(dim: str, report: dict) -> None:
+    print(f"  {CYAN}{dim}{NC}  total=${report['total_market_value']:.2f}  unvalued={report['unvalued_count']}")
+    for b in report["buckets"]:
+        print(
+            f"    {b['label']:<20} {b['weight_pct']:5.1f}%  ${b['market_value']:.2f}  ({b['holding_count']} holdings)"
+        )
+
+
 async def cmd_portfolio(
     action: str,
     portfolio_id: int = 0,
@@ -2024,6 +2032,7 @@ async def cmd_portfolio(
     average_cost: float = 0.0,
     currency: str = "USD",
     holding_id: int = 0,
+    dimension: str = "",
 ) -> None:
     """FlowCore Portfolio Domain (Sprint 21, Phase 1) — manual holdings CRUD."""
     import service
@@ -2097,9 +2106,39 @@ async def cmd_portfolio(
         else:
             print(f"{RED}Holding não encontrada: {holding_id}{NC}")
 
+    elif action == "exposure":
+        from runtime.exposure import ExposureError
+
+        try:
+            if dimension:
+                report = await service.portfolio_exposure(portfolio_id, dimension)
+                _print_exposure_report(dimension, report)
+            else:
+                full = await service.portfolio_exposure(portfolio_id)
+                for dim, report in full.items():
+                    _print_exposure_report(dim, report)
+        except ValueError as e:
+            print(f"{RED}Error: {e}{NC}")
+        except ExposureError as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    elif action == "concentration":
+        try:
+            c = await service.portfolio_concentration(portfolio_id)
+        except ValueError as e:
+            print(f"{RED}Error: {e}{NC}")
+            return
+        print(f"  HHI: {c['hhi']:.1f}  (0-10000, maior = mais concentrado)")
+        print(f"  Maior holding: {c['top_holding_weight_pct']:.1f}%")
+        print(f"  Top 5: {c['top_5_weight_pct']:.1f}%")
+        print(f"  Holdings: {c['holding_count']} ({c['unvalued_count']} não valuadas)")
+
     else:
         print(f"{RED}Unknown portfolio action: {action!r}{NC}")
-        print("  Usage: python3 flowcore.py portfolio <create|list|show|summary|delete|add-holding|remove-holding>")
+        print(
+            "  Usage: python3 flowcore.py portfolio "
+            "<create|list|show|summary|delete|add-holding|remove-holding|exposure [dimension]|concentration>"
+        )
 
 
 async def cmd_asset(action: str, symbol: str = "", **tags: str) -> None:
@@ -2364,6 +2403,19 @@ def main() -> None:
     portfolio_remove_holding_p = portfolio_sub.add_parser("remove-holding", help="Remove a holding")
     portfolio_remove_holding_p.add_argument("holding_id", type=int)
 
+    portfolio_exposure_p = portfolio_sub.add_parser(
+        "exposure", help="Weighted classification breakdown (Sprint 22, live)"
+    )
+    portfolio_exposure_p.add_argument("portfolio_id", type=int)
+    portfolio_exposure_p.add_argument(
+        "dimension", nargs="?", default="", help="asset_class|sector|industry|country|currency|<soft attribute>"
+    )
+
+    portfolio_concentration_p = portfolio_sub.add_parser(
+        "concentration", help="Concentration report — HHI, top holding, top 5 (Sprint 22, live)"
+    )
+    portfolio_concentration_p.add_argument("portfolio_id", type=int)
+
     asset_parser = subparsers.add_parser("asset", help="Asset classification lookup/tagging (Sprint 21)")
     asset_sub = asset_parser.add_subparsers(dest="asset_action")
 
@@ -2562,7 +2614,10 @@ def main() -> None:
     elif args.command == "portfolio":
         action = getattr(args, "portfolio_action", None)
         if not action:
-            print("Usage: python3 flowcore.py portfolio <create|list|show|summary|delete|add-holding|remove-holding>")
+            print(
+                "Usage: python3 flowcore.py portfolio "
+                "<create|list|show|summary|delete|add-holding|remove-holding|exposure [dimension]|concentration>"
+            )
             sys.exit(1)
         asyncio.run(
             cmd_portfolio(
@@ -2574,6 +2629,7 @@ def main() -> None:
                 average_cost=getattr(args, "average_cost", 0.0),
                 currency=getattr(args, "currency", "USD"),
                 holding_id=getattr(args, "holding_id", 0),
+                dimension=getattr(args, "dimension", ""),
             )
         )
     elif args.command == "asset":

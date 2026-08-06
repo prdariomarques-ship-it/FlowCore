@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from capability.registry import CapabilityRegistry
+from runtime.exposure import ExposureEngine, compute_concentration
 from runtime.macro_score import MacroScoreEngine
 from runtime.ollama import (
     discover_default_model,
@@ -38,6 +39,7 @@ _event_repo = EventRepository()
 _macro_score_engine = MacroScoreEngine(_event_repo)
 _regime_engine = RegimeEngine(_macro_score_engine)
 _portfolio_repo = PortfolioRepository()
+_exposure_engine = ExposureEngine()
 
 # Canonical note/todo/agenda title labels. Previously CLI/MCP used
 # "Note"/"TODO"/"Agenda" while api/router.py separately used
@@ -811,3 +813,26 @@ async def tag_asset(symbol: str, **attributes: Any) -> dict:
     attrs = {k: v for k, v in attributes.items() if v is not None}
     await _portfolio_repo.upsert_asset(symbol, attributes=attrs)
     return await _portfolio_repo.get_asset(symbol)
+
+
+# ── SCPX Exposure Engine (Sprint 22, Phase 2) ───────────────────────────────────
+# Deterministic, explainable weighted classification breakdowns — no LLM.
+# Pure computation over list_holdings()'s already-enriched output, so
+# there's nothing here that can fail from a network call.
+
+
+async def portfolio_exposure(portfolio_id: int, dimension: str | None = None) -> dict:
+    """Raises ValueError if the portfolio doesn't exist, ExposureError if
+    `dimension` is given and unrecognized. With no dimension, returns the
+    full report (the 5 hard classification columns)."""
+    holdings = await list_holdings(portfolio_id)
+    if dimension:
+        return _exposure_engine.by_dimension(holdings, dimension).to_dict()
+    full = _exposure_engine.full_report(holdings)
+    return {dim: report.to_dict() for dim, report in full.items()}
+
+
+async def portfolio_concentration(portfolio_id: int) -> dict:
+    """Raises ValueError if the portfolio doesn't exist."""
+    holdings = await list_holdings(portfolio_id)
+    return compute_concentration(holdings).to_dict()
