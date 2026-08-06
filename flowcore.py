@@ -3,7 +3,8 @@
 
 Usage:
     python3 flowcore.py serve            Start the API server
-    python3 flowcore.py run              Start the full application (API + scheduler + agents)
+    python3 flowcore.py mcp              Start the MCP stdio server
+    python3 flowcore.py run              Start the API server with full runtime lifecycle
     python3 flowcore.py health           Quick health check
     python3 flowcore.py version          Print version
     python3 flowcore.py selftest         Validate the entire installation
@@ -30,29 +31,44 @@ Usage:
     python3 flowcore.py note "<text>"         Add a note
     python3 flowcore.py todo "<task>"         Add a todo item
     python3 flowcore.py agenda "<event>"      Add to agenda
+    python3 flowcore.py flow <list|create|show|run|delete>   Manage flows
+    python3 flowcore.py android <battery|wifi|storage|apps|clipboard-get|clipboard-set|notify>
+    python3 flowcore.py outlook <auth|messages|unread|search>
+    python3 flowcore.py calendar <auth|today|tomorrow|week|next|search|create|update|delete>
+    python3 flowcore.py whatsapp <health|status|send>
+    python3 flowcore.py integrations         Show live status of all integrations
+    python3 flowcore.py telegram <health|config|send>
+    python3 flowcore.py observer <registry|events [source]|health|watch>
 
 Env vars:
     FLOWCORE_MODEL=qwen3:8b              (default: llama2)
     FLOWCORE_OLLAMA=http://127.0.0.1:11434  (default shown)
 """
+
 from __future__ import annotations
 
 import argparse
 import asyncio
-import importlib
 import json
 import os
 import sys
-from datetime import datetime
 from pathlib import Path
 
-# Add project root to Python path so imports work regardless of CWD.
 ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from dotenv import load_dotenv
+
+# Loads .env into the process environment before anything else reads it.
+# Single choke point — covers CLI, `serve` (FastAPI), and `mcp`
+# (mcp_server.py), since flowcore.py is the entry point for all three.
+load_dotenv()
+
 from config.loader import get_config
 from runtime.core import FlowCoreRuntime, detect_platform
+from runtime.ollama import discover_default_model, discover_ollama_endpoint, OllamaDiscoveryError
+from storage import DocumentRepository, MemoryRepository
 from loguru import logger
 
 # Colours
@@ -63,24 +79,21 @@ CYAN = "\033[0;36m"
 BOLD = "\033[1m"
 NC = "\033[0m"
 
-# Ollama config (from env or defaults)
-OLLAMA_HOST = os.getenv("FLOWCORE_OLLAMA", "http://127.0.0.1:11434")
-OLLAMA_MODEL = os.getenv("FLOWCORE_MODEL", "llama2")
+# Shared repositories (initialised on first use via their lazy path resolution)
+_doc_repo = DocumentRepository()
+_mem_repo = MemoryRepository()
 
 
 def _get_ollama_url(endpoint: str) -> str:
-    """Build Ollama API URL."""
-    return f"{OLLAMA_HOST.rstrip('/')}/api/{endpoint}"
+    """Build a full Ollama API URL, auto-discovering the host (see runtime/ollama.py)."""
+    return f"{discover_ollama_endpoint()}/api/{endpoint}"
 
 
 def _test_ollama_connection() -> bool:
-    """Test connection to Ollama."""
-    import urllib.request
-    import urllib.error
     try:
-        urllib.request.urlopen(f"{OLLAMA_HOST}/api/tags", timeout=5)
+        discover_ollama_endpoint()
         return True
-    except (urllib.error.URLError, ConnectionRefusedError, TimeoutError):
+    except OllamaDiscoveryError:
         return False
 
 
@@ -102,6 +115,7 @@ def selftest_check(name: str, fn, detail: str = "", skip: bool = False) -> str:
         print(f"         {str(e)[:80]}")
         return "FAIL"
 
+
 def cmd_selftest() -> None:
     """Validate the core FlowCore installation."""
     passed = 0
@@ -115,118 +129,105 @@ def cmd_selftest() -> None:
     print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}")
     print("")
 
-    # ── CORE ONLY ────────────────────────────────────────────────────────
     print(f"{BOLD}CORE{NC}")
 
-    # Config
     def _load_config():
         from config.loader import get_config
+
         cfg = get_config()
         assert cfg["app"]["name"] == "FlowCore"
         assert "api" in cfg
         assert cfg["api"]["host"] == "127.0.0.1"
-    
+
     result = selftest_check("CONFIG", _load_config, "JSON loaded")
     results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
 
-    # Executor
-    def _executor_test():
-        from executor.engine import ExecutorEngine
-        executor = ExecutorEngine()
-        assert executor is not None
-    
-    result = selftest_check("EXECUTOR", _executor_test, "Engine ready")
-    results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
-
-    # SQLite
     def _sqlite_test():
         import aiosqlite
+
         assert aiosqlite is not None
-    
+
     result = selftest_check("SQLITE", _sqlite_test, "aiosqlite available")
     results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
 
-    # Logging
     def _logging_test():
         from loguru import logger
+
         assert logger is not None
-    
+
     result = selftest_check("LOGGING", _logging_test, "loguru available")
     results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
 
-    # ── OPTIONAL ─────────────────────────────────────────────────────────
+    def _storage_test():
+        from storage import DocumentRepository, MemoryRepository
+
+        assert DocumentRepository is not None
+        assert MemoryRepository is not None
+
+    result = selftest_check("STORAGE", _storage_test, "Repository layer ready")
+    results.append(result)
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
+
     print(f"{BOLD}OPTIONAL{NC}")
 
-    # API (check if FastAPI is installed)
     def _api_test():
         try:
-            import fastapi
+            import fastapi  # noqa: F401 — availability probe
             from api.router import create_app
             from config.loader import get_config
+
             cfg = get_config()
             app = create_app(version=cfg["app"]["version"], platform_info={"os_name": "linux"})
             assert app is not None
         except ImportError:
             raise ImportError("FastAPI not installed. Run: bash install_api.sh")
-    
+
     try:
-        import fastapi
+        import fastapi  # noqa: F401 — availability probe
+
         result = selftest_check("API", _api_test, "FastAPI available")
         results.append(result)
-        if result == "PASS": passed += 1
-        elif result == "FAIL": failed += 1
+        if result == "PASS":
+            passed += 1
+        elif result == "FAIL":
+            failed += 1
     except ImportError:
         result = selftest_check("API", _api_test, "Install with: bash install_api.sh", skip=True)
         results.append(result)
         skipped += 1
 
-    # Scheduler (check if apscheduler is installed)
-    def _scheduler_test():
-        try:
-            from apscheduler.schedulers.asyncio import AsyncIOScheduler
-            from scheduler.service import SchedulerService
-            scheduler = SchedulerService(timezone="UTC")
-            assert scheduler is not None
-        except ImportError:
-            raise ImportError("apscheduler not installed. Run: bash install_api.sh")
-    
-    try:
-        import apscheduler
-        result = selftest_check("SCHEDULER", _scheduler_test, "apscheduler available")
-        results.append(result)
-        if result == "PASS": passed += 1
-        elif result == "FAIL": failed += 1
-    except ImportError:
-        result = selftest_check("SCHEDULER", _scheduler_test, "Install with: bash install_api.sh", skip=True)
-        results.append(result)
-        skipped += 1
-
-    # ── Storage ──────────────────────────────────────────────────────────
     print(f"{BOLD}STORAGE{NC}")
 
-    def _storage_test():
-        from pathlib import Path
+    def _storage_dir_test():
         Path("data").mkdir(parents=True, exist_ok=True)
 
-    result = selftest_check("DOCUMENTS", _storage_test, "SQLite ready")
+    result = selftest_check("DOCUMENTS", _storage_dir_test, "SQLite ready")
     results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
 
-    # ── Memory ──────────────────────────────────────────────────────────
     print(f"{BOLD}MEMORY{NC}")
 
     def _memory_recall_test():
         cmd_remember("Testing recall with #FlowCore and substring search")
-        memories = _load_memories()
+        memories = _mem_repo.list_all()
         assert len(memories) > 0, "No memories stored"
         last = memories[-1]
 
@@ -243,46 +244,53 @@ def cmd_selftest() -> None:
 
     result = selftest_check("RECALL", _memory_recall_test, "Remember & recall work")
     results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
 
-    # ── Documents ────────────────────────────────────────────────────────
     print(f"{BOLD}DOCUMENTS{NC}")
 
     def _import_test():
         import tempfile
+
         with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
             f.write("# Test Document\n\nThis is a test markdown file.")
             temp_file = f.name
         try:
-            cmd_import(temp_file)
+            asyncio.run(cmd_import(temp_file))
         finally:
             Path(temp_file).unlink()
 
     result = selftest_check("IMPORT", _import_test, "Markdown import works")
     results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
 
-    # ── AI ───────────────────────────────────────────────────────────────
     print(f"{BOLD}AI{NC}")
 
     def _ask_graceful_test():
         import io
+
         old_stdout = sys.stdout
         try:
             sys.stdout = io.StringIO()
-            cmd_ask("test question")
+            asyncio.run(cmd_ask("test question"))
         finally:
             sys.stdout = old_stdout
 
     result = selftest_check("ASK", _ask_graceful_test, "Ask handles missing Ollama")
     results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
 
     def _ping_test():
         import io
+
         old_stdout = sys.stdout
         try:
             sys.stdout = io.StringIO()
@@ -292,72 +300,85 @@ def cmd_selftest() -> None:
 
     result = selftest_check("PING", _ping_test, "Ollama connection check works")
     results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
 
     def _stats_test():
         import io
+
         old_stdout = sys.stdout
         try:
             sys.stdout = io.StringIO()
-            cmd_stats()
+            asyncio.run(cmd_stats())
         finally:
             sys.stdout = old_stdout
 
     result = selftest_check("STATS", _stats_test, "Statistics display works")
     results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
 
-    # ── Daily & Search ───────────────────────────────────────────────────
     print(f"{BOLD}DAILY/SEARCH{NC}")
 
     def _daily_test():
         import io
+
         old_stdout = sys.stdout
         try:
             sys.stdout = io.StringIO()
-            cmd_daily()
+            asyncio.run(cmd_daily())
         finally:
             sys.stdout = old_stdout
 
     result = selftest_check("DAILY", _daily_test, "Daily summary works")
     results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
 
     def _search_test():
         import io
+
         old_stdout = sys.stdout
         try:
             sys.stdout = io.StringIO()
-            cmd_search("test")
+            asyncio.run(cmd_search("test"))
         finally:
             sys.stdout = old_stdout
 
     result = selftest_check("SEARCH", _search_test, "Search works")
     results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
 
     def _sync_test():
         import tempfile
+
         with tempfile.TemporaryDirectory() as tmpdir:
             md_file = Path(tmpdir) / "test.md"
             md_file.write_text("# Test\nContent")
-            cmd_sync(tmpdir)
+            asyncio.run(cmd_sync(tmpdir))
 
     result = selftest_check("SYNC", _sync_test, "Sync folder works")
     results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
 
-    # ── Obsidian ─────────────────────────────────────────────────────────
     print(f"{BOLD}OBSIDIAN{NC}")
 
     def _obsidian_test():
         import tempfile
         import io
+
         with tempfile.TemporaryDirectory() as tmpdir:
             old_stdout = sys.stdout
             try:
@@ -369,11 +390,11 @@ def cmd_selftest() -> None:
 
     result = selftest_check("OBSIDIAN", _obsidian_test, "Obsidian init works")
     results.append(result)
-    if result == "PASS": passed += 1
-    elif result == "FAIL": failed += 1
+    if result == "PASS":
+        passed += 1
+    elif result == "FAIL":
+        failed += 1
 
-    # ── Summary ──────────────────────────────────────────────────────────
-    total = passed + failed + skipped
     print("")
     if failed == 0:
         print(f"{GREEN}{BOLD}══════════════════════════════════════════════════{NC}")
@@ -411,7 +432,7 @@ async def cmd_serve(cfg: dict, platform: dict) -> None:
 
 
 async def cmd_run(cfg: dict, platform: dict) -> None:
-    """Start the full application (API + scheduler + agents)."""
+    """Start the API server with full runtime lifecycle (FlowCoreRuntime start/stop)."""
     try:
         import uvicorn
         from api.router import create_app
@@ -447,18 +468,14 @@ def cmd_health(cfg: dict) -> None:
     print(f"  {GREEN}✓{NC} Core")
     print(f"  {GREEN}✓{NC} Config")
     print(f"  {GREEN}✓{NC} Runtime")
+    print(f"  {GREEN}✓{NC} Storage")
 
     try:
-        import fastapi
+        import fastapi  # noqa: F401 — availability probe
+
         print(f"  {GREEN}✓{NC} API")
     except ImportError:
         print(f"  {YELLOW}○{NC} API (not installed)")
-
-    try:
-        import apscheduler
-        print(f"  {GREEN}✓{NC} Scheduler")
-    except ImportError:
-        print(f"  {YELLOW}○{NC} Scheduler (not installed)")
 
     print("")
     print(f"{GREEN}{BOLD}Status: Healthy{NC}")
@@ -505,54 +522,9 @@ def cmd_chat(cfg: dict) -> None:
             print(f"{RED}Error: {e}{NC}")
 
 
-def _get_memories_file() -> Path:
-    """Get path to memories.json file."""
-    home = Path.home()
-    memories_dir = home / ".flowcore"
-    memories_dir.mkdir(exist_ok=True)
-    return memories_dir / "memories.json"
-
-
-def _load_memories() -> list:
-    """Load memories from JSON file."""
-    file_path = _get_memories_file()
-    if not file_path.exists():
-        return []
-    try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (json.JSONDecodeError, IOError) as e:
-        logger.error(f"Error loading memories: {e}")
-        return []
-
-
-def _save_memories(memories: list) -> None:
-    """Save memories to JSON file."""
-    file_path = _get_memories_file()
-    try:
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(memories, f, indent=2, ensure_ascii=False)
-    except IOError as e:
-        logger.error(f"Error saving memories: {e}")
-
-
 def cmd_remember(text: str) -> None:
     """Save a memory."""
-    memories = _load_memories()
-    memory = {
-        "text": text,
-        "timestamp": datetime.now().isoformat(),
-        "topics": []
-    }
-
-    # Extract topics (words starting with #)
-    for word in text.split():
-        if word.startswith("#") and len(word) > 1:
-            memory["topics"].append(word[1:].lower())
-
-    memories.append(memory)
-    _save_memories(memories)
-
+    memory = _mem_repo.add(text)
     print(f"{GREEN}✓ Memory saved{NC}")
     if memory["topics"]:
         print(f"  Topics: {', '.join(memory['topics'])}")
@@ -561,25 +533,12 @@ def cmd_remember(text: str) -> None:
 
 def cmd_recall(topic: str) -> None:
     """Recall memories by keyword or topic (substring, case-insensitive)."""
-    memories = _load_memories()
-
-    if not memories:
-        print(f"{YELLOW}No memories found{NC}")
-        return
-
-    topic_lower = topic.lower().lstrip("#")
-    matching = []
-
-    for m in memories:
-        text_lower = m.get("text", "").lower()
-        topics_lower = [t.lower() for t in m.get("topics", [])]
-        if topic_lower in text_lower or any(topic_lower in t for t in topics_lower):
-            matching.append(m)
-
+    matching = _mem_repo.search(topic)
     if not matching:
         print(f"{YELLOW}No memories found for '{topic}'{NC}")
         return
 
+    topic_lower = topic.lower().lstrip("#")
     print(f"\n{BOLD}{CYAN}Found {len(matching)} memory(ies) for: '{topic_lower}'{NC}\n")
     for i, memory in enumerate(matching, 1):
         timestamp = memory.get("timestamp", "Unknown")
@@ -594,10 +553,9 @@ def cmd_recall(topic: str) -> None:
 
 def cmd_memories() -> None:
     """List all memories."""
-    memories = _load_memories()
-
+    memories = _mem_repo.list_all()
     if not memories:
-        print(f"{YELLOW}No memories yet. Use: python3 flowcore.py remember \"<text>\"{NC}")
+        print(f'{YELLOW}No memories yet. Use: python3 flowcore.py remember "<text>"{NC}')
         return
 
     print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
@@ -608,7 +566,6 @@ def cmd_memories() -> None:
         text = memory.get("text", "")
         timestamp = memory.get("timestamp", "Unknown")
         topics = memory.get("topics", [])
-
         print(f"{GREEN}{i}.{NC} {text}")
         if topics:
             print(f"   {YELLOW}Topics:{NC} {', '.join([f'#{t}' for t in topics])}")
@@ -616,104 +573,29 @@ def cmd_memories() -> None:
         print()
 
 
-async def _init_sqlite_documents():
-    """Initialize SQLite documents table."""
-    try:
-        import aiosqlite
-        from config.loader import get_config
-        cfg = get_config()
-        db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
-        db_path = db_url.replace("sqlite+aiosqlite:///", "")
-
-        async with aiosqlite.connect(db_path) as db:
-            await db.execute("""
-                CREATE TABLE IF NOT EXISTS documents (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    title TEXT NOT NULL,
-                    content TEXT NOT NULL,
-                    source TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-            await db.commit()
-    except Exception as e:
-        logger.error(f"Error initializing documents table: {e}")
-
-
-def cmd_import(filepath: str) -> None:
+async def cmd_import(filepath: str) -> None:
     """Import Markdown file to SQLite with title extraction."""
+    import service
+
     try:
-        path = Path(filepath)
-        if not path.exists():
-            print(f"{RED}Error: File not found: {filepath}{NC}")
-            return
-
-        with open(path, "r", encoding="utf-8") as f:
-            content = f.read()
-
-        title = path.stem
-        for line in content.split("\n"):
-            if line.startswith("# "):
-                title = line[2:].strip()
-                break
-
-        line_count = len(content.split("\n"))
-        char_count = len(content)
-
-        asyncio.run(_init_sqlite_documents())
-
-        import aiosqlite
-        from config.loader import get_config
-
-        async def _import():
-            cfg = get_config()
-            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
-            db_path = db_url.replace("sqlite+aiosqlite:///", "")
-
-            async with aiosqlite.connect(db_path) as db:
-                cursor = await db.execute(
-                    "INSERT INTO documents (title, content, source) VALUES (?, ?, ?)",
-                    (title, content, str(path))
-                )
-                await db.commit()
-                return cursor.lastrowid
-
-        doc_id = asyncio.run(_import())
-
+        result = await service.import_markdown(filepath)
         print(f"\n{GREEN}✓ Document imported{NC}")
-        print(f"  {CYAN}Título:{NC} {title}")
-        print(f"  {CYAN}Linhas:{NC} {line_count}")
-        print(f"  {CYAN}Caracteres:{NC} {char_count}")
-        print(f"  {CYAN}ID:{NC} {doc_id}\n")
-        logger.info(f"Imported document: {filepath} (id={doc_id})")
-
+        print(f"  {CYAN}Título:{NC} {result['title']}")
+        print(f"  {CYAN}Linhas:{NC} {result['lines']}")
+        print(f"  {CYAN}Caracteres:{NC} {result['chars']}")
+        print(f"  {CYAN}ID:{NC} {result['id']}\n")
+        logger.info(f"Imported document: {filepath} (id={result['id']})")
+    except FileNotFoundError as e:
+        print(f"{RED}Error: {e}{NC}")
     except Exception as e:
         print(f"{RED}Error importing document: {e}{NC}")
         logger.error(f"Import error: {e}")
 
 
-def cmd_docs() -> None:
+async def cmd_docs() -> None:
     """List all imported documents."""
     try:
-        asyncio.run(_init_sqlite_documents())
-
-        import aiosqlite
-        from config.loader import get_config
-
-        async def _list_docs():
-            cfg = get_config()
-            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
-            db_path = db_url.replace("sqlite+aiosqlite:///", "")
-
-            async with aiosqlite.connect(db_path) as db:
-                cursor = await db.execute(
-                    "SELECT id, title, source, created_at FROM documents ORDER BY created_at DESC"
-                )
-                rows = await cursor.fetchall()
-                return rows
-
-        docs = asyncio.run(_list_docs())
-
+        docs = await _doc_repo.list_all()
         if not docs:
             print(f"{YELLOW}No documents found.{NC}")
             return
@@ -722,10 +604,10 @@ def cmd_docs() -> None:
         print(f"{BOLD}{CYAN}║         Documents                              ║{NC}")
         print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
 
-        for doc_id, title, source, created_at in docs:
-            print(f"{GREEN}[{doc_id}]{NC} {title}")
-            print(f"     {YELLOW}Source:{NC} {source}")
-            print(f"     {YELLOW}Date:{NC} {created_at[:10]}")
+        for doc in docs:
+            print(f"{GREEN}[{doc['id']}]{NC} {doc['title']}")
+            print(f"     {YELLOW}Source:{NC} {doc['source']}")
+            print(f"     {YELLOW}Date:{NC} {doc['created_at'][:10]}")
             print()
 
     except Exception as e:
@@ -733,41 +615,20 @@ def cmd_docs() -> None:
         logger.error(f"Docs error: {e}")
 
 
-def cmd_show(doc_id: str) -> None:
+async def cmd_show(doc_id: str) -> None:
     """Display a document by ID."""
     try:
-        asyncio.run(_init_sqlite_documents())
-
-        import aiosqlite
-        from config.loader import get_config
-
-        async def _get_doc():
-            cfg = get_config()
-            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
-            db_path = db_url.replace("sqlite+aiosqlite:///", "")
-
-            async with aiosqlite.connect(db_path) as db:
-                cursor = await db.execute(
-                    "SELECT id, title, content, created_at FROM documents WHERE id = ?",
-                    (int(doc_id),)
-                )
-                row = await cursor.fetchone()
-                return row
-
-        doc = asyncio.run(_get_doc())
-
+        doc = await _doc_repo.get_by_id(int(doc_id))
         if not doc:
             print(f"{RED}Document not found: {doc_id}{NC}")
             return
 
-        doc_id, title, content, created_at = doc
-
         print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
-        print(f"{BOLD}{CYAN}║  {title:<45} ║{NC}")
+        print(f"{BOLD}{CYAN}║  {doc['title']:<45} ║{NC}")
         print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
-        print(content)
+        print(doc["content"])
         print(f"\n{YELLOW}─────────────────────────────────────────────────{NC}")
-        print(f"{YELLOW}ID:{NC} {doc_id} | {YELLOW}Date:{NC} {created_at[:10]}\n")
+        print(f"{YELLOW}ID:{NC} {doc['id']} | {YELLOW}Date:{NC} {doc['created_at'][:10]}\n")
 
     except ValueError:
         print(f"{RED}Error: Invalid document ID (must be a number){NC}")
@@ -778,27 +639,31 @@ def cmd_show(doc_id: str) -> None:
 
 def cmd_ping() -> None:
     """Test Ollama connection."""
-    if _test_ollama_connection():
+    try:
+        host = discover_ollama_endpoint()
         print(f"{GREEN}✓ Ollama is running{NC}")
-        print(f"  Host: {OLLAMA_HOST}")
-        print(f"  Model: {OLLAMA_MODEL}")
-    else:
+        print(f"  Host: {host}")
+        try:
+            print(f"  Model: {discover_default_model()}")
+        except OllamaDiscoveryError as e:
+            print(f"  {YELLOW}Model: {e}{NC}")
+    except OllamaDiscoveryError as e:
         print(f"{RED}✗ Ollama not found{NC}")
-        print(f"  Expected: {OLLAMA_HOST}")
-        print(f"{YELLOW}Start Ollama: ollama serve{NC}")
+        print(f"  {e}")
 
 
 def cmd_models() -> None:
     """List available Ollama models."""
-    import json
     import urllib.request
     import urllib.error
 
     try:
-        request = urllib.request.Request(
-            _get_ollama_url("tags"),
-            headers={"Content-Type": "application/json"}
-        )
+        active_model = discover_default_model()
+    except OllamaDiscoveryError:
+        active_model = None
+
+    try:
+        request = urllib.request.Request(_get_ollama_url("tags"), headers={"Content-Type": "application/json"})
 
         with urllib.request.urlopen(request, timeout=10) as response:
             data = json.loads(response.read().decode("utf-8"))
@@ -817,66 +682,58 @@ def cmd_models() -> None:
                 size = model.get("size", 0)
                 size_gb = size / (1024**3)
                 modified = model.get("modified_at", "")[:10]
-
-                active = f" {GREEN}(active){NC}" if name == OLLAMA_MODEL else ""
+                active = f" {GREEN}(active){NC}" if name == active_model else ""
                 print(f"{GREEN}•{NC} {name:<30} {size_gb:>6.1f}GB  {modified}{active}")
             print()
 
-    except (urllib.error.URLError, ConnectionRefusedError, TimeoutError):
-        print(f"{RED}Cannot connect to Ollama at {OLLAMA_HOST}{NC}")
-        logger.warning(f"Ollama models not available")
+    except OllamaDiscoveryError as e:
+        print(f"{RED}{e}{NC}")
+    except (urllib.error.URLError, ConnectionRefusedError, TimeoutError) as e:
+        print(f"{RED}Cannot connect to Ollama: {e}{NC}")
     except Exception as e:
         print(f"{RED}Error: {e}{NC}")
         logger.error(f"Models error: {e}")
 
 
-def cmd_stats() -> None:
+async def cmd_stats() -> None:
     """Show FlowCore statistics."""
     try:
-        import aiosqlite
-        from config.loader import get_config
+        doc_count = await _doc_repo.count()
+        mem_count = _mem_repo.count()
+        try:
+            ollama_host = discover_ollama_endpoint()
+            ollama_status = "✓ Connected"
+        except OllamaDiscoveryError as e:
+            ollama_host = str(e)
+            ollama_status = "✗ Offline"
+        try:
+            ollama_model = discover_default_model()
+        except OllamaDiscoveryError:
+            ollama_model = "?"
+        cfg = get_config()
 
-        async def _stats():
-            cfg = get_config()
-            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
-            db_path = db_url.replace("sqlite+aiosqlite:///", "")
+        print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+        print(f"{BOLD}{CYAN}║         FlowCore Statistics                     ║{NC}")
+        print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
 
-            doc_count = 0
-            try:
-                async with aiosqlite.connect(db_path) as db:
-                    cursor = await db.execute("SELECT COUNT(*) FROM documents")
-                    row = await cursor.fetchone()
-                    doc_count = row[0] if row else 0
-            except Exception:
-                pass
+        print(f"{GREEN}Memories{NC}")
+        print(f"  Count: {mem_count}")
+        print()
 
-            mem_count = len(_load_memories())
-            ollama_status = "✓ Connected" if _test_ollama_connection() else "✗ Offline"
+        print(f"{GREEN}Documents{NC}")
+        print(f"  Count: {doc_count}")
+        print()
 
-            print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
-            print(f"{BOLD}{CYAN}║         FlowCore Statistics                     ║{NC}")
-            print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
+        print(f"{GREEN}AI Model{NC}")
+        print(f"  Model: {ollama_model}")
+        print(f"  Status: {ollama_status}")
+        print(f"  Host: {ollama_host}")
+        print()
 
-            print(f"{GREEN}Memories{NC}")
-            print(f"  Count: {mem_count}")
-            print()
-
-            print(f"{GREEN}Documents{NC}")
-            print(f"  Count: {doc_count}")
-            print()
-
-            print(f"{GREEN}AI Model{NC}")
-            print(f"  Model: {OLLAMA_MODEL}")
-            print(f"  Status: {ollama_status}")
-            print(f"  Host: {OLLAMA_HOST}")
-            print()
-
-            print(f"{GREEN}Version{NC}")
-            version = cfg.get("app", {}).get("version", "1.0.0")
-            print(f"  FlowCore: {version}")
-            print()
-
-        asyncio.run(_stats())
+        print(f"{GREEN}Version{NC}")
+        version = cfg.get("app", {}).get("version", "1.0.0")
+        print(f"  FlowCore: {version}")
+        print()
 
     except Exception as e:
         logger.error(f"Stats error: {e}")
@@ -891,7 +748,6 @@ def cmd_doctor() -> None:
     checks = {}
 
     try:
-        import sys
         version = sys.version.split()[0]
         print(f"{GREEN}✓{NC} Python: {version}")
         checks["python"] = "PASS"
@@ -900,7 +756,8 @@ def cmd_doctor() -> None:
         checks["python"] = "FAIL"
 
     try:
-        import aiosqlite
+        import aiosqlite  # noqa: F401 — availability probe
+
         print(f"{GREEN}✓{NC} SQLite (aiosqlite)")
         checks["sqlite"] = "PASS"
     except Exception as e:
@@ -908,13 +765,13 @@ def cmd_doctor() -> None:
         checks["sqlite"] = "FAIL"
 
     try:
-        import aiosqlite
-        from config.loader import get_config
-        cfg = get_config()
-        db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
-        db_path = db_url.replace("sqlite+aiosqlite:///", "")
+        from storage.database import get_db_path
+
+        db_path = get_db_path()
 
         async def _test_db():
+            import aiosqlite
+
             async with aiosqlite.connect(db_path) as db:
                 cursor = await db.execute("SELECT 1")
                 await cursor.fetchone()
@@ -927,8 +784,7 @@ def cmd_doctor() -> None:
         checks["database"] = "FAIL"
 
     try:
-        import json
-        test_json = json.dumps({"test": "data"})
+        json.dumps({"test": "data"})
         print(f"{GREEN}✓{NC} JSON")
         checks["json"] = "PASS"
     except Exception as e:
@@ -936,7 +792,6 @@ def cmd_doctor() -> None:
         checks["json"] = "FAIL"
 
     try:
-        from config.loader import get_config
         cfg = get_config()
         assert cfg["app"]["name"] == "FlowCore"
         print(f"{GREEN}✓{NC} Config: FlowCore")
@@ -945,28 +800,26 @@ def cmd_doctor() -> None:
         print(f"{RED}✗{NC} Config: {str(e)[:50]}")
         checks["config"] = "FAIL"
 
-    if _test_ollama_connection():
-        print(f"{GREEN}✓{NC} Ollama: {OLLAMA_MODEL} @ {OLLAMA_HOST}")
+    try:
+        ollama_host = discover_ollama_endpoint()
+        try:
+            ollama_model = discover_default_model()
+        except OllamaDiscoveryError:
+            ollama_model = "?"
+        print(f"{GREEN}✓{NC} Ollama: {ollama_model} @ {ollama_host}")
         checks["ollama"] = "PASS"
-    else:
+    except OllamaDiscoveryError:
         print(f"{YELLOW}⚠{NC} Ollama: Not available")
         checks["ollama"] = "WARN"
 
     try:
-        import fastapi
+        import fastapi  # noqa: F401 — availability probe
+
         print(f"{GREEN}✓{NC} FastAPI (optional)")
         checks["api"] = "PASS"
     except ImportError:
         print(f"{YELLOW}⚠{NC} FastAPI: Not installed")
         checks["api"] = "WARN"
-
-    try:
-        import apscheduler
-        print(f"{GREEN}✓{NC} APScheduler (optional)")
-        checks["scheduler"] = "PASS"
-    except ImportError:
-        print(f"{YELLOW}⚠{NC} APScheduler: Not installed")
-        checks["scheduler"] = "WARN"
 
     print()
     failures = [k for k, v in checks.items() if v == "FAIL"]
@@ -976,7 +829,163 @@ def cmd_doctor() -> None:
         print(f"{GREEN}All critical systems operational{NC}\n")
 
 
-def cmd_demo() -> None:
+def cmd_boot(verbose: bool = False) -> None:
+    """Boot the Runtime Kernel and emit the Runtime Passport."""
+    print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+    print(f"{BOLD}{CYAN}║         FlowCore Runtime Kernel — Boot          ║{NC}")
+    print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
+    try:
+        from runtime.kernel import RuntimeKernel
+
+        kernel = RuntimeKernel()
+        passport = kernel.boot(verbose=verbose)
+        print(f"{GREEN}✓{NC} Platform  : {passport.platform}")
+        print(f"{GREEN}✓{NC} Android   : {passport.is_android}")
+        print(f"{GREEN}✓{NC} Termux    : {passport.is_termux}")
+        print(f"{GREEN}✓{NC} Internet  : {passport.has_internet}")
+        caps = passport.capabilities
+        print(f"{GREEN}✓{NC} Capabilities ({len(caps)}): {', '.join(caps) or 'none'}")
+        print(f"\n{GREEN}Runtime Passport issued.{NC}  Saved to ~/.flowcore/flowcore.runtime.json\n")
+    except Exception as e:
+        print(f"{RED}✗{NC} Kernel boot failed: {e}\n")
+        sys.exit(1)
+
+
+def cmd_status() -> None:
+    """Show comprehensive FlowCore runtime status."""
+    print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+    print(f"{BOLD}{CYAN}║         FlowCore Runtime Status                 ║{NC}")
+    print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
+
+    # ── Kernel / Runtime Passport ─────────────────────────────────────────────
+    print(f"{BOLD}Kernel{NC}")
+    runtime_json = Path.home() / ".flowcore" / "flowcore.runtime.json"
+    if runtime_json.exists():
+        import json as _json
+
+        try:
+            data = _json.loads(runtime_json.read_text())
+            android = data.get("android", {})
+            termux = data.get("termux", {})
+            network = data.get("network", {})
+            print(f"  {GREEN}✓{NC} Runtime Passport  : {data.get('generated_at', 'unknown')}")
+            print(f"  {GREEN}✓{NC} Platform          : {data.get('platform_type', 'unknown')}")
+            print(f"  {GREEN}✓{NC} Android           : {android.get('detected', False)}")
+            print(f"  {GREEN}✓{NC} Termux            : {termux.get('detected', False)}")
+            print(f"  {GREEN}✓{NC} Internet          : {network.get('internet', False)}")
+        except Exception:
+            print(f"  {YELLOW}⚠{NC} Runtime Passport  : corrupt (run: python3 flowcore.py boot)")
+    else:
+        print(f"  {YELLOW}⚠{NC} Runtime Passport  : not found (run: python3 flowcore.py boot)")
+    print()
+
+    # ── Capabilities ──────────────────────────────────────────────────────────
+    print(f"{BOLD}Capabilities{NC}")
+    try:
+        from capability.registry import CapabilityRegistry
+
+        reg = CapabilityRegistry()
+        cap_map = reg.list_capabilities()
+        available = [(c, a) for c, a in cap_map.items() if a]
+        missing = [c for c, a in cap_map.items() if not a]
+        for cap, adapter in sorted(available):
+            print(f"  {GREEN}✓{NC} {cap:<25} {CYAN}({adapter}){NC}")
+        for cap in sorted(missing):
+            print(f"  {YELLOW}○{NC} {cap:<25} (no adapter)")
+        print(f"\n  Total: {len(available)}/{len(cap_map)} capabilities available")
+    except Exception as e:
+        print(f"  {RED}✗{NC} Could not load capability registry: {e}")
+    print()
+
+    # ── Doctor (quick run) ────────────────────────────────────────────────────
+    print(f"{BOLD}Health (Doctor){NC}")
+    try:
+        from doctor.service import DoctorService
+
+        doctor = DoctorService()
+        report = doctor.run(verbose=False)
+        icons = {"ok": f"{GREEN}✓{NC}", "warn": f"{YELLOW}⚠{NC}", "fail": f"{RED}✗{NC}", "skip": "─"}
+        for check in report.checks:
+            icon = icons.get(check.status.value, "?")
+            suffix = f"  → {check.fix}" if check.fix and check.status.value != "ok" else ""
+            print(f"  {icon} {check.name:<30} {check.message}{suffix}")
+        print()
+        if report.healthy:
+            print(f"  {GREEN}All checks passed ({report.passed}/{len(report.checks)}){NC}")
+        else:
+            print(f"  {RED}{report.failed} failure(s) | {report.warned} warning(s){NC}")
+    except Exception as e:
+        print(f"  {RED}✗{NC} Doctor failed: {e}")
+    print()
+
+
+def cmd_bootstrap() -> None:
+    """Bootstrap a fresh Termux environment from zero."""
+    print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+    print(f"{BOLD}{CYAN}║         FlowCore Bootstrap (Fresh Termux)       ║{NC}")
+    print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
+    try:
+        from installer.setup import FlowCoreInstaller
+
+        installer = FlowCoreInstaller()
+        report = installer.bootstrap(verbose=True)
+        print()
+        if report.ok:
+            print(f"{GREEN}Bootstrap complete — FlowCore ready.{NC}\n")
+        else:
+            failed = [s.name for s in report.failed_steps]
+            print(f"{YELLOW}Bootstrap finished with issues: {', '.join(failed)}{NC}\n")
+            sys.exit(1)
+    except Exception as e:
+        print(f"{RED}✗{NC} Bootstrap failed: {e}\n")
+        sys.exit(1)
+
+
+def cmd_repair() -> None:
+    """Detect and repair a corrupted FlowCore environment."""
+    print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+    print(f"{BOLD}{CYAN}║         FlowCore Repair                         ║{NC}")
+    print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
+    try:
+        from installer.setup import FlowCoreInstaller
+
+        installer = FlowCoreInstaller()
+        report = installer.repair(verbose=True)
+        print()
+        if report.ok:
+            print(f"{GREEN}Repair complete — all issues resolved.{NC}\n")
+        else:
+            failed = [s.name for s in report.failed_steps]
+            print(f"{YELLOW}Repair finished — some issues remain: {', '.join(failed)}{NC}\n")
+            print(f"{YELLOW}Run 'python3 flowcore.py status' to see current state.{NC}\n")
+    except Exception as e:
+        print(f"{RED}✗{NC} Repair failed: {e}\n")
+        sys.exit(1)
+
+
+def cmd_install() -> None:
+    """Set up the full FlowCore runtime environment."""
+    print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+    print(f"{BOLD}{CYAN}║         FlowCore Installer                      ║{NC}")
+    print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
+    try:
+        from installer.setup import FlowCoreInstaller
+
+        installer = FlowCoreInstaller()
+        report = installer.install(verbose=True)
+        print()
+        if report.ok:
+            print(f"{GREEN}Installation complete — all steps passed.{NC}\n")
+        else:
+            failed = [s.name for s in report.failed_steps]
+            print(f"{YELLOW}Installation finished with issues: {', '.join(failed)}{NC}\n")
+            sys.exit(1)
+    except Exception as e:
+        print(f"{RED}✗{NC} Installer failed: {e}\n")
+        sys.exit(1)
+
+
+async def cmd_demo() -> None:
     """Interactive demo: remember → recall → import → docs → show → stats."""
     print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
     print(f"{BOLD}{CYAN}║         FlowCore Demo                           ║{NC}")
@@ -991,22 +1000,23 @@ def cmd_demo() -> None:
 
         print(f"\n{BOLD}3. Import Markdown{NC}")
         import tempfile
+
         with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
             f.write("# FlowCore Demo\n\nThis is a demo markdown file for testing import functionality.")
             temp_file = f.name
         try:
-            cmd_import(temp_file)
+            await cmd_import(temp_file)
         finally:
             Path(temp_file).unlink()
 
         print(f"\n{BOLD}4. List Documents{NC}")
-        cmd_docs()
+        await cmd_docs()
 
         print(f"\n{BOLD}5. Show Document{NC}")
         print("(Display the first document)")
 
         print(f"\n{BOLD}6. Statistics{NC}")
-        cmd_stats()
+        await cmd_stats()
 
         print(f"\n{GREEN}{BOLD}FlowCore está operacional.{NC}\n")
 
@@ -1015,118 +1025,70 @@ def cmd_demo() -> None:
         logger.error(f"Demo error: {e}")
 
 
-def cmd_search(query: str) -> None:
+async def cmd_search(query: str) -> None:
     """Search in documents and memories."""
+    import service
+
     try:
-        import aiosqlite
-        from config.loader import get_config
+        results = await service.search(query)
+        docs = results["documents"]
+        memories = results["memories"]
 
-        async def _search():
-            cfg = get_config()
-            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
-            db_path = db_url.replace("sqlite+aiosqlite:///", "")
+        print(f"\n{BOLD}{CYAN}Search: '{query}'{NC}\n")
 
-            query_lower = query.lower()
-            results = {"documents": [], "memories": []}
+        if docs:
+            print(f"{BOLD}Documents ({len(docs)}){NC}")
+            for doc in docs[:5]:
+                print(f"  [{doc['id']}] {doc['title']}")
+                print(f"      {doc['content'][:100]}...")
+            print()
 
-            try:
-                async with aiosqlite.connect(db_path) as db:
-                    cursor = await db.execute(
-                        "SELECT id, title, content FROM documents WHERE title LIKE ? OR content LIKE ?",
-                        (f"%{query}%", f"%{query}%")
-                    )
-                    results["documents"] = await cursor.fetchall()
-            except Exception:
-                pass
+        if memories:
+            print(f"{BOLD}Memories ({len(memories)}){NC}")
+            for m in memories[:5]:
+                print(f"  • {m.get('text', '')[:80]}")
+            print()
 
-            memories = _load_memories()
-            for m in memories:
-                text_lower = m.get("text", "").lower()
-                if query_lower in text_lower:
-                    results["memories"].append(m)
-
-            print(f"\n{BOLD}{CYAN}Search: '{query}'{NC}\n")
-
-            if results["documents"]:
-                print(f"{BOLD}Documents ({len(results['documents'])}){NC}")
-                for doc_id, title, content in results["documents"][:5]:
-                    print(f"  [{doc_id}] {title}")
-                    print(f"      {content[:100]}...")
-                print()
-
-            if results["memories"]:
-                print(f"{BOLD}Memories ({len(results['memories'])}){NC}")
-                for m in results["memories"][:5]:
-                    print(f"  • {m.get('text', '')[:80]}")
-                print()
-
-            if not results["documents"] and not results["memories"]:
-                print(f"{YELLOW}No results found.{NC}\n")
-
-        asyncio.run(_search())
+        if not docs and not memories:
+            print(f"{YELLOW}No results found.{NC}\n")
 
     except Exception as e:
         print(f"{RED}Search error: {e}{NC}")
         logger.error(f"Search error: {e}")
 
 
-def cmd_daily() -> None:
+async def cmd_daily() -> None:
     """Show daily summary."""
     try:
-        import aiosqlite
-        from config.loader import get_config
+        doc_count = await _doc_repo.count()
+        task_count = await _doc_repo.count_by_source("note", "todo", "agenda")
+        recent_docs = await _doc_repo.list_recent(5)
+        mem_count = _mem_repo.count()
 
-        async def _daily():
-            cfg = get_config()
-            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
-            db_path = db_url.replace("sqlite+aiosqlite:///", "")
+        print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
+        print(f"{BOLD}{CYAN}║         Daily Summary                          ║{NC}")
+        print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
 
-            print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
-            print(f"{BOLD}{CYAN}║         Daily Summary                          ║{NC}")
-            print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
+        print(f"{BOLD}Statistics{NC}")
+        print(f"  Documents: {doc_count}")
+        print(f"  Memories: {mem_count}")
+        print(f"  Tasks: {task_count}")
+        print()
 
-            try:
-                async with aiosqlite.connect(db_path) as db:
-                    cursor = await db.execute("SELECT COUNT(*) FROM documents")
-                    doc_count = (await cursor.fetchone())[0]
-
-                    cursor = await db.execute(
-                        "SELECT COUNT(*) FROM documents WHERE source IN ('note', 'todo', 'agenda')"
-                    )
-                    task_count = (await cursor.fetchone())[0]
-
-                    cursor = await db.execute(
-                        "SELECT title, content, created_at FROM documents ORDER BY created_at DESC LIMIT 5"
-                    )
-                    recent_docs = await cursor.fetchall()
-            except Exception:
-                doc_count = task_count = 0
-                recent_docs = []
-
-            mem_count = len(_load_memories())
-
-            print(f"{BOLD}Statistics{NC}")
-            print(f"  Documents: {doc_count}")
-            print(f"  Memories: {mem_count}")
-            print(f"  Tasks: {task_count}")
+        if recent_docs:
+            print(f"{BOLD}Recent Documents{NC}")
+            for doc in recent_docs:
+                print(f"  • {doc['title']}")
+                print(f"    {doc['content'][:80]}...")
             print()
 
-            if recent_docs:
-                print(f"{BOLD}Recent Documents{NC}")
-                for title, content, created_at in recent_docs:
-                    print(f"  • {title}")
-                    print(f"    {content[:80]}...")
-                print()
-
-            print(f"{GREEN}Ready for the day ahead.{NC}\n")
-
-        asyncio.run(_daily())
+        print(f"{GREEN}Ready for the day ahead.{NC}\n")
 
     except Exception as e:
         logger.error(f"Daily error: {e}")
 
 
-def cmd_sync(folder: str) -> None:
+async def cmd_sync(folder: str) -> None:
     """Import all Markdown files from a folder."""
     try:
         path = Path(folder).expanduser()
@@ -1141,9 +1103,9 @@ def cmd_sync(folder: str) -> None:
 
         print(f"\n{BOLD}{CYAN}Syncing {len(md_files)} file(s)...{NC}\n")
 
-        for i, md_file in enumerate(md_files, 1):
+        for md_file in md_files:
             try:
-                cmd_import(str(md_file))
+                await cmd_import(str(md_file))
                 print()
             except Exception as e:
                 print(f"{RED}  Error: {md_file.name} — {str(e)[:50]}{NC}\n")
@@ -1155,10 +1117,9 @@ def cmd_sync(folder: str) -> None:
         logger.error(f"Sync error: {e}")
 
 
-def cmd_watch(folder: str, interval: int = 5) -> None:
+async def cmd_watch(folder: str, interval: int = 5) -> None:
     """Monitor a folder for new/modified Markdown files."""
     try:
-        import time
         path = Path(folder).expanduser()
         if not path.exists():
             print(f"{RED}Folder not found: {folder}{NC}")
@@ -1171,21 +1132,17 @@ def cmd_watch(folder: str, interval: int = 5) -> None:
         try:
             while True:
                 md_files = list(path.glob("**/*.md"))
-
                 for md_file in md_files:
                     mtime = md_file.stat().st_mtime
                     file_key = str(md_file)
-
                     if file_key not in tracked or tracked[file_key] != mtime:
                         print(f"{GREEN}→{NC} {md_file.name}")
                         try:
-                            cmd_import(str(md_file))
+                            await cmd_import(str(md_file))
                         except Exception as e:
                             print(f"  {RED}Error: {str(e)[:50]}{NC}")
                         tracked[file_key] = mtime
-
-                time.sleep(interval)
-
+                await asyncio.sleep(interval)
         except KeyboardInterrupt:
             print(f"\n{YELLOW}Watch stopped.{NC}\n")
 
@@ -1195,7 +1152,6 @@ def cmd_watch(folder: str, interval: int = 5) -> None:
 
 
 def _get_obsidian_path() -> Path:
-    """Get Obsidian vault path from config or env."""
     vault_path = os.getenv("FLOWCORE_OBSIDIAN")
     if vault_path:
         return Path(vault_path).expanduser()
@@ -1203,7 +1159,6 @@ def _get_obsidian_path() -> Path:
 
 
 def _save_obsidian_path(vault_path: Path) -> None:
-    """Save Obsidian vault path for future use."""
     config_file = Path.home() / ".flowcore" / "obsidian.path"
     config_file.parent.mkdir(parents=True, exist_ok=True)
     config_file.write_text(str(vault_path.expanduser()))
@@ -1212,11 +1167,7 @@ def _save_obsidian_path(vault_path: Path) -> None:
 def cmd_obsidian_init(vault_path: str = None) -> None:
     """Initialize Obsidian vault structure."""
     try:
-        if vault_path:
-            vault = Path(vault_path).expanduser()
-        else:
-            vault = _get_obsidian_path()
-
+        vault = Path(vault_path).expanduser() if vault_path else _get_obsidian_path()
         vault.mkdir(parents=True, exist_ok=True)
         _save_obsidian_path(vault)
 
@@ -1236,14 +1187,10 @@ def cmd_obsidian_init(vault_path: str = None) -> None:
         logger.error(f"Obsidian init error: {e}")
 
 
-def cmd_obsidian_sync(vault_path: str = None) -> None:
+async def cmd_obsidian_sync(vault_path: str = None) -> None:
     """Sync entire Obsidian vault to SQLite."""
     try:
-        if vault_path:
-            vault = Path(vault_path).expanduser()
-        else:
-            vault = _get_obsidian_path()
-
+        vault = Path(vault_path).expanduser() if vault_path else _get_obsidian_path()
         if not vault.exists():
             print(f"{RED}Vault not found: {vault}{NC}")
             return
@@ -1258,8 +1205,8 @@ def cmd_obsidian_sync(vault_path: str = None) -> None:
 
         for md_file in md_files:
             try:
-                cmd_import(str(md_file))
-            except Exception as e:
+                await cmd_import(str(md_file))
+            except Exception:
                 print(f"  {RED}Error: {md_file.name}{NC}")
 
         print(f"{GREEN}Sync complete: {len(md_files)} file(s) processed.{NC}\n")
@@ -1270,340 +1217,713 @@ def cmd_obsidian_sync(vault_path: str = None) -> None:
         logger.error(f"Obsidian sync error: {e}")
 
 
-def cmd_obsidian_watch(vault_path: str = None) -> None:
+async def cmd_obsidian_watch(vault_path: str = None) -> None:
     """Watch Obsidian vault for changes."""
     try:
-        if vault_path:
-            vault = Path(vault_path).expanduser()
-        else:
-            vault = _get_obsidian_path()
-
+        vault = Path(vault_path).expanduser() if vault_path else _get_obsidian_path()
         if not vault.exists():
             print(f"{RED}Vault not found: {vault}{NC}")
             return
-
         _save_obsidian_path(vault)
-        cmd_watch(str(vault))
-
+        await cmd_watch(str(vault))
     except Exception as e:
         print(f"{RED}Obsidian watch error: {e}{NC}")
         logger.error(f"Obsidian watch error: {e}")
 
 
-def cmd_ask(question: str) -> None:
+async def cmd_ask(question: str) -> None:
     """RAG: Ask AI using Ollama with document context."""
+    import service
+    from runtime.ollama import (
+        OllamaError,
+        OllamaModelLoadTimeoutError,
+        OllamaModelNotInstalledError,
+        OllamaSubscriptionRequiredError,
+        OllamaUnreachableError,
+    )
+
     try:
-        import aiosqlite
-        from config.loader import get_config
-
-        async def _ask():
-            cfg = get_config()
-            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
-            db_path = db_url.replace("sqlite+aiosqlite:///", "")
-
-            context = ""
-            try:
-                async with aiosqlite.connect(db_path) as db:
-                    cursor = await db.execute(
-                        "SELECT id, title, content FROM documents ORDER BY created_at DESC LIMIT 5"
-                    )
-                    rows = await cursor.fetchall()
-                    if rows:
-                        context = "Context from documents:\n"
-                        for doc_id, title, content in rows:
-                            context += f"\n[Doc {doc_id}] {title}\n{content[:300]}\n"
-            except Exception:
-                pass
-
-            import json
-            import urllib.request
-            import urllib.error
-
-            try:
-                system_prompt = "You are a helpful AI assistant. Use the provided context to answer questions accurately."
-                prompt = f"{system_prompt}\n\nContext:\n{context}\n\nQuestion: {question}\n\nAnswer:"
-
-                payload = json.dumps({
-                    "model": OLLAMA_MODEL,
-                    "prompt": prompt,
-                    "stream": False
-                })
-
-                request = urllib.request.Request(
-                    _get_ollama_url("generate"),
-                    data=payload.encode("utf-8"),
-                    headers={"Content-Type": "application/json"}
-                )
-
-                with urllib.request.urlopen(request, timeout=30) as response:
-                    data = json.loads(response.read().decode("utf-8"))
-                    result = data.get("response", "").strip()
-                    print(f"\n{BOLD}{CYAN}FlowCore AI ({OLLAMA_MODEL}):{NC}")
-                    print(result)
-
-            except (urllib.error.URLError, ConnectionRefusedError, TimeoutError):
-                print(f"{RED}Ollama não encontrado.{NC}")
-                print(f"{YELLOW}Instale o Ollama ou inicie o servidor.{NC}")
-                logger.warning(f"Ollama not available at {OLLAMA_HOST}")
-            except json.JSONDecodeError:
-                print(f"{RED}Ollama não encontrado.{NC}")
-                print(f"{YELLOW}Instale o Ollama ou inicie o servidor.{NC}")
-            except Exception as e:
-                logger.error(f"Ask error: {e}")
-
-        asyncio.run(_ask())
-
+        answer, model = await service.ask(question)
+        print(f"\n{BOLD}{CYAN}FlowCore AI ({model}):{NC}")
+        print(answer)
+    except OllamaSubscriptionRequiredError as e:
+        print(f"{RED}Modelo requer assinatura Ollama Cloud.{NC}")
+        print(f"{YELLOW}{e}{NC}")
+    except OllamaModelNotInstalledError as e:
+        print(f"{RED}Modelo não instalado.{NC}")
+        print(f"{YELLOW}{e}{NC}")
+    except OllamaModelLoadTimeoutError as e:
+        print(f"{RED}Tempo esgotado carregando o modelo.{NC}")
+        print(f"{YELLOW}{e}{NC}")
+    except OllamaUnreachableError as e:
+        print(f"{RED}Ollama não encontrado.{NC}")
+        print(f"{YELLOW}{e}{NC}")
+        logger.warning(f"Ollama not available: {e}")
+    except OllamaError as e:
+        # Covers OllamaDiscoveryError (endpoint/model resolution failed
+        # before generation even started) with the same "not found" framing.
+        print(f"{RED}Ollama não encontrado.{NC}")
+        print(f"{YELLOW}{e}{NC}")
+        logger.warning(f"Ollama discovery failed: {e}")
     except Exception as e:
         logger.error(f"Ask command error: {e}")
+        print(f"{RED}Erro: {e}{NC}")
 
 
-def cmd_note(text: str) -> None:
+async def cmd_note(text: str) -> None:
     """Add a note."""
+    import service
+
     try:
-        asyncio.run(_init_sqlite_documents())
-
-        import aiosqlite
-        from config.loader import get_config
-
-        async def _add_note():
-            cfg = get_config()
-            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
-            db_path = db_url.replace("sqlite+aiosqlite:///", "")
-
-            async with aiosqlite.connect(db_path) as db:
-                await db.execute(
-                    "INSERT INTO documents (title, content, source) VALUES (?, ?, ?)",
-                    ("Note", text, "note")
-                )
-                await db.commit()
-
-        asyncio.run(_add_note())
+        await service.add_note(text, "note")
         print(f"{GREEN}✓ Note saved{NC}")
         logger.info(f"Note added: {text}")
-
     except Exception as e:
         print(f"{RED}Error: {e}{NC}")
 
 
-def cmd_todo(task: str) -> None:
+async def cmd_todo(task: str) -> None:
     """Add a todo item."""
+    import service
+
     try:
-        asyncio.run(_init_sqlite_documents())
-
-        import aiosqlite
-        from config.loader import get_config
-
-        async def _add_todo():
-            cfg = get_config()
-            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
-            db_path = db_url.replace("sqlite+aiosqlite:///", "")
-
-            async with aiosqlite.connect(db_path) as db:
-                await db.execute(
-                    "INSERT INTO documents (title, content, source) VALUES (?, ?, ?)",
-                    ("TODO", task, "todo")
-                )
-                await db.commit()
-
-        asyncio.run(_add_todo())
+        await service.add_note(task, "todo")
         print(f"{GREEN}✓ Todo added{NC}")
         logger.info(f"Todo added: {task}")
-
     except Exception as e:
         print(f"{RED}Error: {e}{NC}")
 
 
-def cmd_agenda(event: str) -> None:
+async def cmd_agenda(event: str) -> None:
     """Add to agenda."""
+    import service
+
     try:
-        asyncio.run(_init_sqlite_documents())
-
-        import aiosqlite
-        from config.loader import get_config
-
-        async def _add_agenda():
-            cfg = get_config()
-            db_url = cfg.get("database", {}).get("url", "sqlite+aiosqlite:///data/flowcore.db")
-            db_path = db_url.replace("sqlite+aiosqlite:///", "")
-
-            async with aiosqlite.connect(db_path) as db:
-                await db.execute(
-                    "INSERT INTO documents (title, content, source) VALUES (?, ?, ?)",
-                    ("Agenda", event, "agenda")
-                )
-                await db.commit()
-
-        asyncio.run(_add_agenda())
+        await service.add_note(event, "agenda")
         print(f"{GREEN}✓ Event added to agenda{NC}")
         logger.info(f"Agenda event: {event}")
-
     except Exception as e:
         print(f"{RED}Error: {e}{NC}")
 
 
-def cmd_interactive_shell(cfg: dict, platform: dict) -> None:
-    """Launch the FlowCore Platform interactive shell (Bootloader + Console)."""
-    print(f"\n{BOLD}{CYAN}╔════════════════════════════════════════════════════════════╗{NC}")
-    print(f"{BOLD}{CYAN}║         FLOWCORE PLATFORM OPERATING ENVIRONMENT v4.0        ║{NC}")
-    print(f"{BOLD}{CYAN}╚════════════════════════════════════════════════════════════╝{NC}")
-    print(f"[*] Initializing Microkernel Services & Bootloader sychronously...")
+def cmd_ui() -> None:
+    """Open the FlowCore web dashboard in the Android browser."""
+    url = "http://localhost:8080"
+    try:
+        from runtime.shell import is_available, run
 
-    # 1. Initialize Context Engine & Runtime Bootloader
-    from flowcore.intelligence.context import ContextEngine, TripleContractManager
-    from flowcore.runtime import RuntimeBootloader
+        if is_available("termux-open-url"):
+            result = run(["termux-open-url", url], timeout=5)
+            if result.success:
+                print(f"{GREEN}✓ A abrir {url} no browser{NC}")
+                return
+    except Exception:
+        pass
+    # Fallback — just print the URL
+    print(f"{CYAN}Dashboard:{NC} {url}")
+    print(f"  Arranca o servidor com: {BOLD}python3 flowcore.py serve{NC}")
 
-    workspace_path = Path(".").resolve()
 
-    # Run context engine pipeline
-    engine = ContextEngine(workspace_path)
-    frame = engine.validate()
+def cmd_daemon(action: str, interval: int = 60) -> None:
+    """Manage the FlowCore background daemon."""
+    from runtime.daemon import FlowCoreDaemon
 
-    # Run runtime bootloader sequence
-    bootloader = RuntimeBootloader(workspace_path)
-    runtime_context = bootloader.boot()
+    d = FlowCoreDaemon()
 
-    # Generate triple contract files
-    triple_manager = TripleContractManager(workspace_path)
-    triple_manager.generate_all_contracts(frame)
+    if action == "start":
+        result = d.start(interval=interval)
+        if result.get("started"):
+            print(f"{GREEN}✓ Daemon started{NC}  pid={result['pid']}")
+            print(f"  Log: {result.get('log', '')}")
+        else:
+            print(f"{YELLOW}⚠ Daemon already running{NC}  pid={result['pid']}")
 
-    print(f"{GREEN}[+] Boot Sequence Complete. Platform STATUS = READY.{NC}")
-    print(f"[*] Active Runtime Switched to: {BOLD}{bootloader.manager.get_active_runtime().platform}{NC}")
-    print(f"Type '{YELLOW}help{NC}' to list capabilities or '{YELLOW}quit{NC}' to exit.\n")
+    elif action == "stop":
+        result = d.stop()
+        if result.get("stopped"):
+            print(f"{GREEN}✓ Daemon stopped{NC}  pid={result['pid']}")
+        else:
+            note = result.get("note") or result.get("error", "")
+            print(f"{YELLOW}⚠ {note}{NC}")
 
-    active_runtime = bootloader.manager.get_active_runtime()
+    elif action == "status":
+        result = d.status()
+        if result["running"]:
+            print(f"{GREEN}✓ Daemon running{NC}")
+            print(f"  PID   : {result['pid']}")
+            print(f"  Uptime: {result.get('uptime', 0):.0f}s")
+            print(f"  Cycle : {result.get('cycle', 0)}")
+            print(f"  Log   : {result.get('log', '')}")
+        else:
+            print(f"{YELLOW}○ Daemon not running{NC}")
+            print("  Start with: python3 flowcore.py daemon start")
 
-    while True:
+    else:
+        print(f"{RED}Unknown daemon action: {action!r}{NC}")
+        print("  Usage: python3 flowcore.py daemon <start|stop|status>")
+
+
+def cmd_jobs(action: str, name: str = "", script: str = "", schedule: str = "") -> None:
+    """Manage scheduled jobs."""
+    from runtime.job_scheduler import JobScheduler
+
+    sched = JobScheduler()
+
+    if action == "list":
+        jobs = sched.list_jobs()
+        if not jobs:
+            print(f"{YELLOW}No jobs scheduled.{NC}")
+            print("  Add one: python3 flowcore.py jobs add <name> <script> <schedule>")
+            return
+        print(f"\n{BOLD}{CYAN}Scheduled Jobs ({len(jobs)}){NC}\n")
+        for j in jobs:
+            status_mark = f"{GREEN}✓{NC}" if j["enabled"] else f"{YELLOW}○{NC}"
+            print(f"  {status_mark} {j['name']:<20} {j['schedule']:<15} {j['script']}")
+        print()
+
+    elif action == "add":
+        if not name or not script or not schedule:
+            print(f"{RED}Usage: python3 flowcore.py jobs add <name> <script> <schedule>{NC}")
+            return
         try:
-            user_input = input(f"{GREEN}You:{NC}\n> ").strip()
-            if not user_input:
-                continue
+            ok = sched.add_job(name, script, schedule)
+            mark = f"{GREEN}✓{NC}" if ok else f"{YELLOW}⚠{NC}"
+            label = "registered with system scheduler" if ok else "saved (no system scheduler)"
+            print(f"{mark} Job '{name}' added — {label}")
+        except (ValueError, FileNotFoundError) as e:
+            print(f"{RED}Error: {e}{NC}")
 
-            cmd = user_input.lower()
+    elif action == "remove":
+        if not name:
+            print(f"{RED}Usage: python3 flowcore.py jobs remove <name>{NC}")
+            return
+        if sched.remove_job(name):
+            print(f"{GREEN}✓ Job '{name}' removed{NC}")
+        else:
+            print(f"{YELLOW}Job '{name}' not found{NC}")
 
-            if cmd in ("exit", "quit", "q"):
-                print(f"{GREEN}Goodbye!{NC}")
-                break
-
-            elif cmd == "help":
-                print(f"\n{BOLD}Available Commands & Capabilities:{NC}")
-                print(f"  {CYAN}status{NC}               Show platform state")
-                print(f"  {CYAN}doctor{NC}               Execute system health diagnostics")
-                print(f"  {CYAN}battery{NC} / {CYAN}qual minha bateria?{NC}  Query device battery metrics")
-                print(f"  {CYAN}wifi{NC}                 Query device Wi-Fi connection metrics")
-                print(f"  {CYAN}storage{NC}              Query host storage information")
-                print(f"  {CYAN}listar arquivos{NC}      List all files in current workspace")
-                print(f"  {CYAN}context{NC} / {CYAN}mostrar contexto{NC}  Display the raw flowcore.context.json")
-                print(f"  {CYAN}runtime{NC}              Display the raw flowcore.runtime.json")
-                print(f"  {CYAN}passport{NC}             Display the raw flowcore.runtime.passport.json")
-                print(f"  {CYAN}help{NC}                 Display this help menu")
-                print()
-
-            elif cmd == "status":
-                print(f"\n{GREEN}STATUS: READY{NC}")
-                print(f"Platform: {platform['os_name']}")
-                print(f"Bootloader State: {bootloader.state.value}\n")
-
-            elif cmd == "doctor":
-                cmd_doctor()
-
-            elif cmd in ("battery", "qual minha bateria?"):
-                res = active_runtime.execute_capability("getBattery")
-                print(f"\n{GREEN}[+] Battery Status:{NC}")
-                if res.get("status") == "NOT_IMPLEMENTED":
-                    print(f"  {RED}STATUS: NOT_IMPLEMENTED{NC}")
-                    print(f"  {YELLOW}Causa:{NC} Termux API não instalada no dispositivo ou não rodando no Android.")
-                    print(f"  {YELLOW}Instalação Obrigatória:{NC}")
-                    print(f"    pkg install termux-api")
-                    print(f"  {YELLOW}Permissão necessária:{NC} Conceder permissões para o aplicativo Termux:API nas configurações do Android.")
-                    print()
-                else:
-                    print(f"  Percentage: {res.get('percentage')}%")
-                    print(f"  Status:     {res.get('status')}")
-                    print(f"  Provider:   {res.get('source')}\n")
-
-            elif cmd == "wifi":
-                res = active_runtime.execute_capability("getWifi")
-                print(f"\n{GREEN}[+] Wi-Fi Status:{NC}")
-                if res.get("status") == "NOT_IMPLEMENTED":
-                    print(f"  {RED}STATUS: NOT_IMPLEMENTED{NC}")
-                    print(f"  {YELLOW}Causa:{NC} Termux API não instalada no dispositivo ou não rodando no Android.")
-                    print(f"  {YELLOW}Instalação Obrigatória:{NC}")
-                    print(f"    pkg install termux-api")
-                    print(f"  {YELLOW}Permissão necessária:{NC} Conceder permissões de Localização/Rede nas configurações do Android.")
-                    print()
-                else:
-                    if "ssid" in res:
-                        print(f"  Connected:  {res.get('connected')}")
-                        print(f"  SSID:       {res.get('ssid')}")
-                    else:
-                        print(f"  Connected:  {res.get('connected')}")
-                    print(f"  Provider:   {res.get('source')}\n")
-
-            elif cmd == "storage":
-                from flowcore.runtime.runtime_health import RuntimeHealthChecker
-                health = RuntimeHealthChecker().check_health()
-                print(f"\n{GREEN}[+] Storage Status:{NC}")
-                print(f"  Disk Space: {health.get('disk')}")
-                print(f"  Memory:     {health.get('memory')}\n")
-
-            elif cmd == "listar arquivos":
-                print(f"\n{GREEN}[+] Files in workspace '{workspace_path.name}':{NC}")
-                for file_path in sorted(workspace_path.glob("*")):
-                    if file_path.is_file():
-                        print(f"  - {file_path.name}")
-                print()
-
-            elif cmd in ("context", "mostrar contexto"):
-                context_file = workspace_path / "flowcore.context.json"
-                if context_file.exists():
-                    print(f"\n{GREEN}--- flowcore.context.json ---{NC}")
-                    print(context_file.read_text(encoding="utf-8"))
-                else:
-                    print(f"{RED}Error: flowcore.context.json not found in workspace.{NC}")
-
-            elif cmd == "runtime":
-                runtime_file = workspace_path / "flowcore.runtime.json"
-                if runtime_file.exists():
-                    print(f"\n{GREEN}--- flowcore.runtime.json ---{NC}")
-                    print(runtime_file.read_text(encoding="utf-8"))
-                else:
-                    print(f"{RED}Error: flowcore.runtime.json not found in workspace.{NC}")
-
-            elif cmd == "passport":
-                passport_file = workspace_path / "flowcore.runtime.passport.json"
-                if passport_file.exists():
-                    print(f"\n{GREEN}--- flowcore.runtime.passport.json ---{NC}")
-                    print(passport_file.read_text(encoding="utf-8"))
-                else:
-                    print(f"{RED}Error: flowcore.runtime.passport.json not found in workspace.{NC}")
-
+    elif action == "run":
+        if not name:
+            print(f"{RED}Usage: python3 flowcore.py jobs run <name>{NC}")
+            return
+        try:
+            print(f"Running '{name}'...")
+            result = sched.run_now(name)
+            if result["success"]:
+                print(f"{GREEN}✓ Job '{name}' completed (rc={result['returncode']}){NC}")
             else:
-                # Custom graceful response
-                print(f"\n{YELLOW}Capability or command not recognized: '{user_input}'{NC}")
-                print(f"Type '{YELLOW}help{NC}' to view list of available capabilities.\n")
+                print(f"{RED}✗ Job '{name}' failed (rc={result['returncode']}){NC}")
+            if result.get("output"):
+                print(result["output"])
+            if result.get("error"):
+                print(f"{YELLOW}{result['error']}{NC}")
+        except KeyError as e:
+            print(f"{RED}Error: {e}{NC}")
 
-        except (KeyboardInterrupt, EOFError):
-            print(f"\n{GREEN}Goodbye!{NC}")
-            break
-        except Exception as e:
-            logger.error(f"Console error: {e}")
-            print(f"\n{RED}Error: {e}{NC}\n")
+    else:
+        print(f"{RED}Unknown jobs action: {action!r}{NC}")
+        print("  Usage: python3 flowcore.py jobs <list|add|remove|run>")
+
+
+async def cmd_flow(action: str, name: str = "", steps_json: str = "", flow_id: int = 0) -> None:
+    """Manage flows (named, ordered lists of steps run via the Executor)."""
+    import service
+
+    if action == "list":
+        flows = await service.list_flows()
+        if not flows:
+            print(f"{YELLOW}No flows defined.{NC}")
+            print("  Add one: python3 flowcore.py flow create <name> '<steps_json>'")
+            return
+        print(f"\n{BOLD}{CYAN}Flows ({len(flows)}){NC}\n")
+        for f in flows:
+            print(f"  [{f['id']}] {f['name']} — {len(f['steps'])} step(s)")
+        print()
+
+    elif action == "create":
+        if not name or not steps_json:
+            print(f"{RED}Usage: python3 flowcore.py flow create <name> '<steps_json>'{NC}")
+            print('  Example: flow create "Daily Note" \'[{"action":"note","params":{"text":"hi"}}]\'')
+            return
+        try:
+            steps = json.loads(steps_json)
+        except json.JSONDecodeError as e:
+            print(f"{RED}Invalid steps JSON: {e}{NC}")
+            return
+        try:
+            flow = await service.create_flow(name, steps)
+            print(f"{GREEN}✓ Flow '{name}' created (id={flow['id']}){NC}")
+        except ValueError as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    elif action == "show":
+        if not flow_id:
+            print(f"{RED}Usage: python3 flowcore.py flow show <id>{NC}")
+            return
+        try:
+            flow = await service.get_flow(flow_id)
+            print(f"\n{BOLD}{CYAN}Flow [{flow['id']}] {flow['name']}{NC}")
+            print(f"  Created: {flow['created_at']}")
+            for i, step in enumerate(flow["steps"], 1):
+                print(f"  {i}. {step['action']} {step.get('params', {})}")
+            print()
+        except ValueError as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    elif action == "run":
+        if not flow_id:
+            print(f"{RED}Usage: python3 flowcore.py flow run <id>{NC}")
+            return
+        try:
+            print(f"Running flow {flow_id}...")
+            execution = await service.run_flow(flow_id)
+            mark = f"{GREEN}✓{NC}" if execution["status"] == "completed" else f"{RED}✗{NC}"
+            print(f"{mark} Execution {execution['id']} — status={execution['status']}")
+            for r in execution["step_results"]:
+                step_mark = f"{GREEN}✓{NC}" if r["status"] == "completed" else f"{RED}✗{NC}"
+                detail = r.get("output", r.get("error"))
+                print(f"  {step_mark} {r['action']}: {detail}")
+        except ValueError as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    elif action == "delete":
+        if not flow_id:
+            print(f"{RED}Usage: python3 flowcore.py flow delete <id>{NC}")
+            return
+        if await service.delete_flow(flow_id):
+            print(f"{GREEN}✓ Flow {flow_id} deleted{NC}")
+        else:
+            print(f"{YELLOW}Flow {flow_id} not found{NC}")
+
+    else:
+        print(f"{RED}Unknown flow action: {action!r}{NC}")
+        print("  Usage: python3 flowcore.py flow <list|create|show|run|delete>")
+
+
+def _print_capability_result(result: dict, label: str) -> None:
+    if result.get("success"):
+        print(f"{GREEN}✓ {label}{NC}")
+        print(json.dumps(result.get("data"), indent=2, ensure_ascii=False))
+    else:
+        print(f"{RED}✗ {label} failed{NC}")
+        print(f"  {result.get('error') or result.get('reason')}")
+        if result.get("corrective_action"):
+            print(f"  {YELLOW}Fix:{NC} {result['corrective_action']}")
+
+
+async def cmd_android(action: str, text: str = "", title: str = "FlowCore") -> None:
+    """Android device capabilities (battery, wifi, storage, clipboard, notify, apps)."""
+    import service
+
+    if action == "battery":
+        _print_capability_result(await service.get_battery(), "Battery")
+    elif action == "wifi":
+        _print_capability_result(await service.get_wifi_info(), "Wifi")
+    elif action == "storage":
+        _print_capability_result(await service.get_disk_usage(), "Disk usage")
+    elif action == "apps":
+        result = await service.list_installed_apps()
+        if result.get("success"):
+            data = result["data"]
+            print(f"{GREEN}✓ {data['count']} installed app(s){NC}")
+            for pkg in data["packages"][:50]:
+                print(f"  {pkg}")
+            if data["count"] > 50:
+                print(f"  ... and {data['count'] - 50} more")
+        else:
+            _print_capability_result(result, "Installed apps")
+    elif action == "clipboard-get":
+        _print_capability_result(await service.get_clipboard(), "Clipboard")
+    elif action == "clipboard-set":
+        if not text:
+            print(f'{RED}Usage: python3 flowcore.py android clipboard-set "<text>"{NC}')
+            return
+        _print_capability_result(await service.set_clipboard(text), "Clipboard set")
+    elif action == "notify":
+        if not text:
+            print(f'{RED}Usage: python3 flowcore.py android notify "<text>" [--title TITLE]{NC}')
+            return
+        _print_capability_result(await service.send_notification(title, text), "Notification")
+    else:
+        print(f"{RED}Unknown android action: {action!r}{NC}")
+        print("  Usage: python3 flowcore.py android <battery|wifi|storage|apps|clipboard-get|clipboard-set|notify>")
+
+
+async def cmd_outlook(action: str, query: str = "", limit: int = 10) -> None:
+    """Outlook integration (read-only): auth, latest messages, unread count, search."""
+    from runtime.outlook import (
+        OutlookAuthRequiredError,
+        OutlookError,
+        OutlookNotConfiguredError,
+        complete_device_flow,
+        get_unread_count,
+        list_messages,
+        search_messages,
+        start_device_flow,
+    )
+
+    if action == "auth":
+        try:
+            flow = await asyncio.to_thread(start_device_flow)
+        except OutlookNotConfiguredError as e:
+            print(f"{RED}Error: {e}{NC}")
+            return
+        message = flow.get("message") or f"Go to {flow['verification_uri']} and enter code {flow['user_code']}"
+        print(f"\n{CYAN}{message}{NC}")
+        print(f"{YELLOW}Waiting for authorization...{NC}")
+        try:
+            await asyncio.to_thread(complete_device_flow, flow)
+            print(f"{GREEN}✓ Authenticated with Outlook{NC}\n")
+        except OutlookError as e:
+            print(f"{RED}✗ Authentication failed: {e}{NC}")
+
+    elif action == "messages":
+        try:
+            msgs = await asyncio.to_thread(list_messages, limit)
+            if not msgs:
+                print(f"{YELLOW}No messages found.{NC}")
+                return
+            print(f"\n{BOLD}{CYAN}Latest messages ({len(msgs)}){NC}\n")
+            for m in msgs:
+                mark = f"{CYAN}●{NC}" if not m["is_read"] else "○"
+                print(f"  {mark} {m['subject']} — {m['from']} ({m['received'][:10]})")
+            print()
+        except (OutlookNotConfiguredError, OutlookAuthRequiredError, OutlookError) as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    elif action == "unread":
+        try:
+            count = await asyncio.to_thread(get_unread_count)
+            print(f"{GREEN}✓ {count} unread message(s){NC}")
+        except (OutlookNotConfiguredError, OutlookAuthRequiredError, OutlookError) as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    elif action == "search":
+        if not query:
+            print(f'{RED}Usage: python3 flowcore.py outlook search "<query>"{NC}')
+            return
+        try:
+            msgs = await asyncio.to_thread(search_messages, query, limit)
+            if not msgs:
+                print(f"{YELLOW}No results for '{query}'.{NC}")
+                return
+            print(f"\n{BOLD}{CYAN}Search: '{query}' ({len(msgs)}){NC}\n")
+            for m in msgs:
+                print(f"  {m['subject']} — {m['from']} ({m['received'][:10]})")
+            print()
+        except (OutlookNotConfiguredError, OutlookAuthRequiredError, OutlookError) as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    else:
+        print(f"{RED}Unknown outlook action: {action!r}{NC}")
+        print("  Usage: python3 flowcore.py outlook <auth|messages|unread|search>")
+
+
+def _print_events(events: list, empty_msg: str) -> None:
+    if not events:
+        print(f"{YELLOW}{empty_msg}{NC}")
+        return
+    for e in events:
+        loc = f" @ {e['location']}" if e.get("location") else ""
+        print(f"  [{e['id'][:12]}...] {e['subject']}{loc}")
+        print(f"      {e['start']} — {e['end']} ({e.get('timezone', '')})")
+
+
+async def cmd_calendar(
+    action: str,
+    query: str = "",
+    limit: int = 10,
+    event_id: str = "",
+    subject: str = "",
+    start: str = "",
+    end: str = "",
+    timezone_: str = "UTC",
+    description: str = "",
+    location: str = "",
+    attendees: list[str] | None = None,
+) -> None:
+    """Microsoft Calendar: auth, today, tomorrow, week, next, search, create, update, delete.
+
+    Shares the same authenticated session as `outlook auth` — running either
+    one authenticates both (see runtime/microsoft_graph.py).
+    """
+    from runtime.calendar import (
+        CalendarAuthRequiredError,
+        CalendarError,
+        CalendarNotConfiguredError,
+        create_event,
+        delete_event,
+        get_next,
+        list_today,
+        list_tomorrow,
+        list_week,
+        search_events,
+        update_event,
+    )
+    from runtime.microsoft_graph import complete_device_flow, start_device_flow
+
+    if action == "auth":
+        try:
+            flow = await asyncio.to_thread(start_device_flow)
+        except CalendarNotConfiguredError as e:
+            print(f"{RED}Error: {e}{NC}")
+            return
+        message = flow.get("message") or f"Go to {flow['verification_uri']} and enter code {flow['user_code']}"
+        print(f"\n{CYAN}{message}{NC}")
+        print(f"{YELLOW}Waiting for authorization...{NC}")
+        try:
+            await asyncio.to_thread(complete_device_flow, flow)
+            print(f"{GREEN}✓ Authenticated with Microsoft Graph (Outlook + Calendar){NC}\n")
+        except CalendarError as e:
+            print(f"{RED}✗ Authentication failed: {e}{NC}")
+
+    elif action in ("today", "tomorrow", "week"):
+        fn = {"today": list_today, "tomorrow": list_tomorrow, "week": list_week}[action]
+        try:
+            events = await asyncio.to_thread(fn)
+            print(f"\n{BOLD}{CYAN}{action.capitalize()} ({len(events)}){NC}\n")
+            _print_events(events, f"No events {action}.")
+            print()
+        except (CalendarNotConfiguredError, CalendarAuthRequiredError, CalendarError) as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    elif action == "next":
+        try:
+            event = await asyncio.to_thread(get_next)
+            if not event:
+                print(f"{YELLOW}No upcoming events in the next 30 days.{NC}")
+                return
+            print(f"\n{BOLD}{CYAN}Next meeting{NC}\n")
+            _print_events([event], "")
+            print()
+        except (CalendarNotConfiguredError, CalendarAuthRequiredError, CalendarError) as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    elif action == "search":
+        if not query:
+            print(f'{RED}Usage: python3 flowcore.py calendar search "<query>"{NC}')
+            return
+        try:
+            events = await asyncio.to_thread(search_events, query, limit)
+            print(f"\n{BOLD}{CYAN}Search: '{query}' ({len(events)}){NC}\n")
+            _print_events(events, f"No results for '{query}'.")
+            print()
+        except (CalendarNotConfiguredError, CalendarAuthRequiredError, CalendarError) as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    elif action == "create":
+        if not subject or not start or not end:
+            print(f"{RED}Usage: python3 flowcore.py calendar create --subject S --start S --end S [options]{NC}")
+            return
+        try:
+            event = await asyncio.to_thread(
+                create_event, subject, start, end, timezone_, description, location, attendees
+            )
+            print(f"{GREEN}✓ Event created{NC}")
+            _print_events([event], "")
+        except (CalendarNotConfiguredError, CalendarAuthRequiredError, CalendarError) as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    elif action == "update":
+        if not event_id:
+            print(f"{RED}Usage: python3 flowcore.py calendar update <event_id> [--subject ...] ...{NC}")
+            return
+        fields = {}
+        if subject:
+            fields["subject"] = subject
+        if start:
+            fields["start"] = start
+        if end:
+            fields["end"] = end
+        if description:
+            fields["description"] = description
+        if location:
+            fields["location"] = location
+        if attendees:
+            fields["attendees"] = attendees
+        if "start" in fields or "end" in fields:
+            fields["timezone_"] = timezone_
+        if not fields:
+            print(f"{RED}Error: no fields given to update.{NC}")
+            return
+        try:
+            event = await asyncio.to_thread(update_event, event_id, **fields)
+            print(f"{GREEN}✓ Event updated{NC}")
+            _print_events([event], "")
+        except (CalendarNotConfiguredError, CalendarAuthRequiredError, CalendarError) as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    elif action == "delete":
+        if not event_id:
+            print(f"{RED}Usage: python3 flowcore.py calendar delete <event_id>{NC}")
+            return
+        try:
+            await asyncio.to_thread(delete_event, event_id)
+            print(f"{GREEN}✓ Event {event_id} deleted{NC}")
+        except (CalendarNotConfiguredError, CalendarAuthRequiredError, CalendarError) as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    else:
+        print(f"{RED}Unknown calendar action: {action!r}{NC}")
+        print("  Usage: python3 flowcore.py calendar <auth|today|tomorrow|week|next|search|create|update|delete>")
+
+
+async def cmd_whatsapp(action: str, number: str = "", text: str = "") -> None:
+    """WhatsApp via Evolution API (health, status, send) — reuses the already-paired instance."""
+    from runtime.whatsapp import WhatsAppError, WhatsAppNotConfiguredError, check_health, get_status, send_message
+
+    if action == "health":
+        try:
+            result = await asyncio.to_thread(check_health)
+            print(f"{GREEN}✓ Evolution API reachable{NC} (v{result.get('version', '?')})")
+        except WhatsAppError as e:
+            print(f"{RED}✗ Evolution API unreachable: {e}{NC}")
+
+    elif action == "status":
+        try:
+            result = await asyncio.to_thread(get_status)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+        except (WhatsAppNotConfiguredError, WhatsAppError) as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    elif action == "send":
+        if not number or not text:
+            print(f'{RED}Usage: python3 flowcore.py whatsapp send --number 5511999999999 --text "message"{NC}')
+            return
+        try:
+            await asyncio.to_thread(send_message, number, text)
+            print(f"{GREEN}✓ Message sent to {number}{NC}")
+        except (WhatsAppNotConfiguredError, WhatsAppError) as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    else:
+        print(f"{RED}Unknown whatsapp action: {action!r}{NC}")
+        print("  Usage: python3 flowcore.py whatsapp <health|status|send>")
+
+
+_STATUS_ICON = {"ok": "✓", "not_configured": "○", "not_authenticated": "△", "unreachable": "✗", "error": "✗"}
+
+
+async def cmd_integrations() -> None:
+    """Show live health/latency for every connected integration (Outlook/Calendar, WhatsApp, Ollama)."""
+    import service
+
+    results = await service.integrations_status()
+    status_color = {
+        "ok": GREEN,
+        "not_configured": YELLOW,
+        "not_authenticated": YELLOW,
+        "unreachable": RED,
+        "error": RED,
+    }
+    print(f"\n{BOLD}{CYAN}Integrations{NC}\n")
+    for r in results:
+        color = status_color.get(r["status"], RED)
+        icon = _STATUS_ICON.get(r["status"], "?")
+        print(f"  {color}{icon}{NC} {r['name']:<20} {r['detail']}")
+        print(f"      {r['latency_ms']}ms · checked {r['checked_at']}")
+    print()
+
+
+async def cmd_telegram(action: str, text: str = "", chat_id: str = "") -> None:
+    """Telegram (health, config, send) — reuses the spcx-monitor bot."""
+    from runtime.telegram import (
+        TelegramError,
+        TelegramNotConfiguredError,
+        check_health,
+        get_configuration,
+        send_message,
+    )
+
+    if action == "health":
+        try:
+            result = await asyncio.to_thread(check_health)
+            print(f"{GREEN}✓ Bot reachable{NC} (@{result.get('username', '?')})")
+        except (TelegramNotConfiguredError, TelegramError) as e:
+            print(f"{RED}✗ {e}{NC}")
+
+    elif action == "config":
+        result = await asyncio.to_thread(get_configuration)
+        mark = f"{GREEN}✓{NC}" if result["configured"] else f"{YELLOW}○{NC}"
+        print(f"{mark} token_set={result['token_set']} chat_id_set={result['chat_id_set']}")
+
+    elif action == "send":
+        if not text:
+            print(f'{RED}Usage: python3 flowcore.py telegram send --text "message" [--chat-id ID]{NC}')
+            return
+        try:
+            await asyncio.to_thread(send_message, text, chat_id or None)
+            print(f"{GREEN}✓ Message sent{NC}")
+        except (TelegramNotConfiguredError, TelegramError) as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    else:
+        print(f"{RED}Unknown telegram action: {action!r}{NC}")
+        print("  Usage: python3 flowcore.py telegram <health|config|send>")
+
+
+def _print_event(event: dict) -> None:
+    payload = event.get("payload", {})
+    delta = payload.get("delta_bps", payload.get("delta_pct"))
+    color = GREEN if (delta or 0) >= 0 else RED
+    delta_str = f"{delta:+.2f}" if delta is not None else "n/a"
+    print(f"  {event['source']:<10} {event['event']:<20} value={payload.get('value')}  {color}{delta_str}{NC}")
+
+
+async def cmd_observer(action: str, source: str = "", interval: float = 300) -> None:
+    """SCPX Observer Framework (Sprint 18) — normalized MarketEvents. No interpretation/scoring."""
+    import service
+    from runtime.observers.registry import registry
+    from runtime.observers.scheduler import scheduler
+    from runtime.observers.base import ObserverError
+
+    if action == "registry":
+        info = await service.observer_registry_info()
+        for o in info:
+            print(f"  {o['source']:<10} {o['category']:<12} {o['symbol']}")
+
+    elif action == "events":
+        try:
+            if source:
+                if source not in registry.names():
+                    print(f"{RED}Unknown observer: {source!r}{NC}")
+                    return
+                events = await service.observer_source_events(source)
+            else:
+                events = await service.observer_events()
+        except ObserverError as e:
+            print(f"{RED}Error: {e}{NC}")
+            return
+        for event in events:
+            _print_event(event)
+
+    elif action == "health":
+        try:
+            result = await service.observer_health()
+            print(f"{GREEN}✓ Reachable{NC} (vix={result['payload']['value']})")
+        except ObserverError as e:
+            print(f"{RED}✗ {e}{NC}")
+
+    elif action == "watch":
+        print(f"Watching {len(registry.names())} observer(s) every {interval}s (Ctrl-C to stop)...")
+        try:
+            await scheduler.run_forever(interval)
+        except (KeyboardInterrupt, asyncio.CancelledError):
+            print("\nStopped.")
+
+    else:
+        print(f"{RED}Unknown observer action: {action!r}{NC}")
+        print("  Usage: python3 flowcore.py observer <registry|events [source]|health|watch>")
 
 
 def main() -> None:
     """Main CLI handler."""
-    cfg = get_config()
-    platform = detect_platform()
-
-    if len(sys.argv) == 1:
-        cmd_interactive_shell(cfg, platform)
-        sys.exit(0)
-
     parser = argparse.ArgumentParser(description="FlowCore CLI")
     subparsers = parser.add_subparsers(dest="command")
 
     subparsers.add_parser("serve", help="Start the API server")
-    subparsers.add_parser("run", help="Start full application (API + scheduler + agents)")
+    subparsers.add_parser("mcp", help="Start the MCP stdio server (for Claude Code / MCP clients)")
+    subparsers.add_parser("run", help="Start the API server with full runtime lifecycle")
     subparsers.add_parser("health", help="Quick health check")
     subparsers.add_parser("version", help="Print version info")
     subparsers.add_parser("selftest", help="Validate the entire installation")
@@ -1629,6 +1949,12 @@ def main() -> None:
     subparsers.add_parser("models", help="List available Ollama models")
     subparsers.add_parser("stats", help="Show FlowCore statistics")
     subparsers.add_parser("doctor", help="System health check")
+    subparsers.add_parser("status", help="Comprehensive runtime status (capabilities, health, passport)")
+    boot_parser = subparsers.add_parser("boot", help="Boot Runtime Kernel and emit Runtime Passport")
+    boot_parser.add_argument("--verbose", "-v", action="store_true", help="Verbose boot output")
+    subparsers.add_parser("install", help="Set up the full FlowCore runtime environment")
+    subparsers.add_parser("bootstrap", help="Bootstrap a fresh Termux environment from zero")
+    subparsers.add_parser("repair", help="Detect and repair a corrupted FlowCore environment")
     subparsers.add_parser("demo", help="Interactive demo")
 
     search_parser = subparsers.add_parser("search", help="Search documents & memories")
@@ -1637,7 +1963,7 @@ def main() -> None:
     subparsers.add_parser("daily", help="Show daily summary")
 
     sync_parser = subparsers.add_parser("sync", help="Sync all .md from folder")
-    sync_parser.add_argument("folder", help="Folder path (e.g., ~/Documents/Obsidian)")
+    sync_parser.add_argument("folder", help="Folder path")
 
     watch_parser = subparsers.add_parser("watch", help="Monitor folder for changes")
     watch_parser.add_argument("folder", help="Folder path to watch")
@@ -1660,12 +1986,135 @@ def main() -> None:
     agenda_parser = subparsers.add_parser("agenda", help="Add to agenda")
     agenda_parser.add_argument("event", nargs="+", help="Event description")
 
+    subparsers.add_parser("ui", help="Open web dashboard in Android browser (http://localhost:8080)")
+
+    daemon_parser = subparsers.add_parser("daemon", help="Manage background daemon")
+    daemon_sub = daemon_parser.add_subparsers(dest="daemon_action")
+    daemon_start = daemon_sub.add_parser("start", help="Start the daemon")
+    daemon_start.add_argument("--interval", type=int, default=60, help="Heartbeat interval in seconds (default: 60)")
+    daemon_sub.add_parser("stop", help="Stop the daemon")
+    daemon_sub.add_parser("status", help="Show daemon status")
+
+    jobs_parser = subparsers.add_parser("jobs", help="Manage scheduled jobs")
+    jobs_sub = jobs_parser.add_subparsers(dest="jobs_action")
+    jobs_sub.add_parser("list", help="List all scheduled jobs")
+    jobs_add = jobs_sub.add_parser("add", help="Add a new job")
+    jobs_add.add_argument("name", help="Job name (letters, digits, _ and - only)")
+    jobs_add.add_argument("script", help="Path to Python script")
+    jobs_add.add_argument("schedule", help="Cron expression (e.g. '0 2 * * *')")
+    jobs_remove = jobs_sub.add_parser("remove", help="Remove a job")
+    jobs_remove.add_argument("name", help="Job name to remove")
+    jobs_run = jobs_sub.add_parser("run", help="Run a job immediately")
+    jobs_run.add_argument("name", help="Job name to run")
+
+    flow_parser = subparsers.add_parser("flow", help="Manage flows (named step pipelines)")
+    flow_sub = flow_parser.add_subparsers(dest="flow_action")
+    flow_sub.add_parser("list", help="List all flows")
+    flow_create = flow_sub.add_parser("create", help="Create a new flow")
+    flow_create.add_argument("name", help="Flow name")
+    flow_create.add_argument("steps_json", help='JSON list of steps, e.g. \'[{"action":"note","params":{...}}]\'')
+    flow_show = flow_sub.add_parser("show", help="Show a flow's definition")
+    flow_show.add_argument("flow_id", type=int, help="Flow ID")
+    flow_run = flow_sub.add_parser("run", help="Run a flow now")
+    flow_run.add_argument("flow_id", type=int, help="Flow ID")
+    flow_delete = flow_sub.add_parser("delete", help="Delete a flow")
+    flow_delete.add_argument("flow_id", type=int, help="Flow ID")
+
+    android_parser = subparsers.add_parser("android", help="Android device capabilities")
+    android_sub = android_parser.add_subparsers(dest="android_action")
+    android_sub.add_parser("battery", help="Show battery status")
+    android_sub.add_parser("wifi", help="Show wifi/network info")
+    android_sub.add_parser("storage", help="Show disk usage")
+    android_sub.add_parser("apps", help="List installed apps")
+    android_sub.add_parser("clipboard-get", help="Read clipboard")
+    android_clip_set = android_sub.add_parser("clipboard-set", help="Set clipboard")
+    android_clip_set.add_argument("text", help="Text to copy to clipboard")
+    android_notify = android_sub.add_parser("notify", help="Send an Android notification")
+    android_notify.add_argument("text", help="Notification body")
+    android_notify.add_argument("--title", default="FlowCore", help="Notification title (default: FlowCore)")
+
+    outlook_parser = subparsers.add_parser("outlook", help="Outlook integration (read-only)")
+    outlook_sub = outlook_parser.add_subparsers(dest="outlook_action")
+    outlook_sub.add_parser("auth", help="Authenticate via device code flow")
+    outlook_messages_p = outlook_sub.add_parser("messages", help="List latest messages")
+    outlook_messages_p.add_argument("--limit", type=int, default=10, help="Max results (default: 10)")
+    outlook_sub.add_parser("unread", help="Show unread count")
+    outlook_search_p = outlook_sub.add_parser("search", help="Search messages")
+    outlook_search_p.add_argument("query", help="Search query")
+    outlook_search_p.add_argument("--limit", type=int, default=10, help="Max results (default: 10)")
+
+    calendar_parser = subparsers.add_parser("calendar", help="Microsoft Calendar integration")
+    calendar_sub = calendar_parser.add_subparsers(dest="calendar_action")
+    calendar_sub.add_parser("auth", help="Authenticate via device code flow (shared with outlook auth)")
+    calendar_sub.add_parser("today", help="Show today's events")
+    calendar_sub.add_parser("tomorrow", help="Show tomorrow's events")
+    calendar_sub.add_parser("week", help="Show this week's events")
+    calendar_sub.add_parser("next", help="Show the next upcoming meeting")
+    calendar_search_p = calendar_sub.add_parser("search", help="Search events")
+    calendar_search_p.add_argument("query", help="Search query")
+    calendar_search_p.add_argument("--limit", type=int, default=10, help="Max results (default: 10)")
+
+    calendar_create_p = calendar_sub.add_parser("create", help="Create an event")
+    calendar_create_p.add_argument("--subject", required=True, help="Event title")
+    calendar_create_p.add_argument("--start", required=True, help="Start, ISO 8601 (e.g. 2026-08-10T10:00:00)")
+    calendar_create_p.add_argument("--end", required=True, help="End, ISO 8601")
+    calendar_create_p.add_argument("--timezone", default="UTC", help="Timezone (default: UTC)")
+    calendar_create_p.add_argument("--description", default="", help="Event description")
+    calendar_create_p.add_argument("--location", default="", help="Event location")
+    calendar_create_p.add_argument("--attendees", default="", help="Comma-separated email addresses")
+
+    calendar_update_p = calendar_sub.add_parser("update", help="Update an event")
+    calendar_update_p.add_argument("event_id", help="Event ID (from `calendar today`/`search` output)")
+    calendar_update_p.add_argument("--subject", default="", help="New title")
+    calendar_update_p.add_argument("--start", default="", help="New start, ISO 8601")
+    calendar_update_p.add_argument("--end", default="", help="New end, ISO 8601")
+    calendar_update_p.add_argument("--timezone", default="UTC", help="Timezone for start/end (default: UTC)")
+    calendar_update_p.add_argument("--description", default="", help="New description")
+    calendar_update_p.add_argument("--location", default="", help="New location")
+    calendar_update_p.add_argument("--attendees", default="", help="Comma-separated email addresses")
+
+    calendar_delete_p = calendar_sub.add_parser("delete", help="Delete an event")
+    calendar_delete_p.add_argument("event_id", help="Event ID")
+
+    whatsapp_parser = subparsers.add_parser("whatsapp", help="WhatsApp via Evolution API")
+    whatsapp_sub = whatsapp_parser.add_subparsers(dest="whatsapp_action")
+    whatsapp_sub.add_parser("health", help="Check Evolution API server reachability")
+    whatsapp_sub.add_parser("status", help="Show the configured instance's connection state")
+    whatsapp_send_p = whatsapp_sub.add_parser("send", help="Send a WhatsApp message")
+    whatsapp_send_p.add_argument("--number", required=True, help="Destination number (e.g. 5511999999999)")
+    whatsapp_send_p.add_argument("--text", required=True, help="Message text")
+
+    subparsers.add_parser("integrations", help="Show live status of all connected integrations")
+
+    telegram_parser = subparsers.add_parser("telegram", help="Telegram (reuses the spcx-monitor bot)")
+    telegram_sub = telegram_parser.add_subparsers(dest="telegram_action")
+    telegram_sub.add_parser("health", help="Verify the bot token")
+    telegram_sub.add_parser("config", help="Show whether TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID are set")
+    telegram_send_p = telegram_sub.add_parser("send", help="Send a message")
+    telegram_send_p.add_argument("--text", required=True, help="Message text")
+    telegram_send_p.add_argument("--chat-id", default="", help="Override TELEGRAM_CHAT_ID for this message")
+
+    observer_parser = subparsers.add_parser("observer", help="SCPX Observer Framework (normalized MarketEvents)")
+    observer_sub = observer_parser.add_subparsers(dest="observer_action")
+    observer_sub.add_parser("registry", help="List registered observers (no fetch)")
+    observer_events_p = observer_sub.add_parser("events", help="Run observers now and print MarketEvents")
+    observer_events_p.add_argument(
+        "source", nargs="?", default="", help="Run only this observer (treasury, dollar, vix, oil, gold)"
+    )
+    observer_sub.add_parser("health", help="Live reachability probe (runs the vix observer)")
+    observer_watch_p = observer_sub.add_parser("watch", help="Run the scheduler in the foreground (Ctrl-C to stop)")
+    observer_watch_p.add_argument("--interval", type=float, default=300, help="Seconds between cycles (default: 300)")
+
     args = parser.parse_args()
     cfg = get_config()
     platform = detect_platform()
 
     if args.command == "serve":
         asyncio.run(cmd_serve(cfg, platform))
+    elif args.command == "mcp":
+        from mcp_server import run as run_mcp_server
+
+        run_mcp_server()
     elif args.command == "run":
         asyncio.run(cmd_run(cfg, platform))
     elif args.command == "health":
@@ -1677,57 +2126,153 @@ def main() -> None:
     elif args.command == "chat":
         cmd_chat(cfg)
     elif args.command == "remember":
-        text = " ".join(args.text)
-        cmd_remember(text)
+        cmd_remember(" ".join(args.text))
     elif args.command == "recall":
         cmd_recall(args.topic)
     elif args.command == "memories":
         cmd_memories()
     elif args.command == "import":
-        cmd_import(args.file)
+        asyncio.run(cmd_import(args.file))
     elif args.command == "docs":
-        cmd_docs()
+        asyncio.run(cmd_docs())
     elif args.command == "show":
-        cmd_show(args.id)
+        asyncio.run(cmd_show(args.id))
     elif args.command == "ping":
         cmd_ping()
     elif args.command == "models":
         cmd_models()
     elif args.command == "stats":
-        cmd_stats()
+        asyncio.run(cmd_stats())
     elif args.command == "doctor":
         cmd_doctor()
+    elif args.command == "status":
+        cmd_status()
+    elif args.command == "boot":
+        cmd_boot(verbose=getattr(args, "verbose", False))
+    elif args.command == "install":
+        cmd_install()
+    elif args.command == "bootstrap":
+        cmd_bootstrap()
+    elif args.command == "repair":
+        cmd_repair()
     elif args.command == "demo":
-        cmd_demo()
+        asyncio.run(cmd_demo())
     elif args.command == "search":
-        cmd_search(args.query)
+        asyncio.run(cmd_search(args.query))
     elif args.command == "daily":
-        cmd_daily()
+        asyncio.run(cmd_daily())
     elif args.command == "sync":
-        cmd_sync(args.folder)
+        asyncio.run(cmd_sync(args.folder))
     elif args.command == "watch":
-        cmd_watch(args.folder)
+        asyncio.run(cmd_watch(args.folder))
     elif args.command == "ask":
-        question = " ".join(args.question)
-        cmd_ask(question)
+        asyncio.run(cmd_ask(" ".join(args.question)))
     elif args.command == "note":
-        text = " ".join(args.text)
-        cmd_note(text)
+        asyncio.run(cmd_note(" ".join(args.text)))
     elif args.command == "todo":
-        task = " ".join(args.task)
-        cmd_todo(task)
+        asyncio.run(cmd_todo(" ".join(args.task)))
     elif args.command == "agenda":
-        event = " ".join(args.event)
-        cmd_agenda(event)
+        asyncio.run(cmd_agenda(" ".join(args.event)))
     elif args.command == "obsidian":
         if args.obsidian_command == "init":
             cmd_obsidian_init()
         elif args.obsidian_command == "sync":
-            cmd_obsidian_sync()
+            asyncio.run(cmd_obsidian_sync())
         elif args.obsidian_command == "watch":
-            cmd_obsidian_watch()
+            asyncio.run(cmd_obsidian_watch())
         else:
             parser.print_help()
+    elif args.command == "ui":
+        cmd_ui()
+    elif args.command == "daemon":
+        action = getattr(args, "daemon_action", None)
+        if not action:
+            print("Usage: python3 flowcore.py daemon <start|stop|status>")
+            sys.exit(1)
+        interval = getattr(args, "interval", 60)
+        cmd_daemon(action, interval=interval)
+    elif args.command == "jobs":
+        action = getattr(args, "jobs_action", None)
+        if not action:
+            print("Usage: python3 flowcore.py jobs <list|add|remove|run>")
+            sys.exit(1)
+        name = getattr(args, "name", "")
+        script = getattr(args, "script", "")
+        schedule = getattr(args, "schedule", "")
+        cmd_jobs(action, name=name, script=script, schedule=schedule)
+    elif args.command == "flow":
+        action = getattr(args, "flow_action", None)
+        if not action:
+            print("Usage: python3 flowcore.py flow <list|create|show|run|delete>")
+            sys.exit(1)
+        name = getattr(args, "name", "")
+        steps_json = getattr(args, "steps_json", "")
+        flow_id = getattr(args, "flow_id", 0)
+        asyncio.run(cmd_flow(action, name=name, steps_json=steps_json, flow_id=flow_id))
+    elif args.command == "android":
+        action = getattr(args, "android_action", None)
+        if not action:
+            print("Usage: python3 flowcore.py android <battery|wifi|storage|apps|clipboard-get|clipboard-set|notify>")
+            sys.exit(1)
+        text = getattr(args, "text", "")
+        title = getattr(args, "title", "FlowCore")
+        asyncio.run(cmd_android(action, text=text, title=title))
+    elif args.command == "outlook":
+        action = getattr(args, "outlook_action", None)
+        if not action:
+            print("Usage: python3 flowcore.py outlook <auth|messages|unread|search>")
+            sys.exit(1)
+        query = getattr(args, "query", "")
+        limit = getattr(args, "limit", 10)
+        asyncio.run(cmd_outlook(action, query=query, limit=limit))
+    elif args.command == "calendar":
+        action = getattr(args, "calendar_action", None)
+        if not action:
+            print("Usage: python3 flowcore.py calendar <auth|today|tomorrow|week|next|search|create|update|delete>")
+            sys.exit(1)
+        attendees_raw = getattr(args, "attendees", "")
+        attendees = [a.strip() for a in attendees_raw.split(",") if a.strip()] if attendees_raw else None
+        asyncio.run(
+            cmd_calendar(
+                action,
+                query=getattr(args, "query", ""),
+                limit=getattr(args, "limit", 10),
+                event_id=getattr(args, "event_id", ""),
+                subject=getattr(args, "subject", ""),
+                start=getattr(args, "start", ""),
+                end=getattr(args, "end", ""),
+                timezone_=getattr(args, "timezone", "UTC"),
+                description=getattr(args, "description", ""),
+                location=getattr(args, "location", ""),
+                attendees=attendees,
+            )
+        )
+    elif args.command == "whatsapp":
+        action = getattr(args, "whatsapp_action", None)
+        if not action:
+            print("Usage: python3 flowcore.py whatsapp <health|status|send>")
+            sys.exit(1)
+        number = getattr(args, "number", "")
+        text = getattr(args, "text", "")
+        asyncio.run(cmd_whatsapp(action, number=number, text=text))
+    elif args.command == "integrations":
+        asyncio.run(cmd_integrations())
+    elif args.command == "telegram":
+        action = getattr(args, "telegram_action", None)
+        if not action:
+            print("Usage: python3 flowcore.py telegram <health|config|send>")
+            sys.exit(1)
+        text = getattr(args, "text", "")
+        chat_id = getattr(args, "chat_id", "")
+        asyncio.run(cmd_telegram(action, text=text, chat_id=chat_id))
+    elif args.command == "observer":
+        action = getattr(args, "observer_action", None)
+        if not action:
+            print("Usage: python3 flowcore.py observer <registry|events [source]|health|watch>")
+            sys.exit(1)
+        source = getattr(args, "source", "")
+        interval = getattr(args, "interval", 300)
+        asyncio.run(cmd_observer(action, source=source, interval=interval))
     else:
         parser.print_help()
         sys.exit(1)

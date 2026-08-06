@@ -1,125 +1,121 @@
+"""Tests for runtime.discovery and runtime.kernel."""
+
 from __future__ import annotations
 
+import os
+import sys
 import json
-import tempfile
-import unittest
 from pathlib import Path
 
-from flowcore.runtime import (
-    RuntimeManager,
-    RuntimeState,
-    RuntimeContext,
-    RuntimeBootloader,
-    RuntimeHealthChecker,
-)
-from flowcore.runtime.runtime_logger import RuntimeLogger
-from flowcore.runtime.android.battery import AndroidBatteryProvider
-from flowcore.runtime.android.wifi import AndroidWifiProvider
-from flowcore.runtime.android.clipboard import AndroidClipboardProvider
-from flowcore.runtime.termux.termux_api import TermuxApiProvider
-from flowcore.runtime.termux.shell import TermuxShellProvider
-from flowcore.runtime.termux.python import TermuxPythonProvider
+import pytest
+
+# Ensure project root is importable
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 
-class TestFlowCoreRuntime(unittest.TestCase):
-
-    def setUp(self):
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.temp_path = Path(self.temp_dir.name).resolve()
-
-    def test_runtime_states(self):
-        self.assertEqual(RuntimeState.NOT_READY.value, "NOT_READY")
-        self.assertEqual(RuntimeState.BOOTING.value, "BOOTING")
-        self.assertEqual(RuntimeState.READY.value, "READY")
-
-    def test_runtime_context_and_passport(self):
-        context = RuntimeContext(self.temp_path)
-        self.assertEqual(context.platform, "Android/Termux")
-        self.assertEqual(context.status, "NOT_READY")
-
-        passport_path = context.write_passport()
-        self.assertTrue(passport_path.exists())
-
-        with open(passport_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-
-        self.assertEqual(data["runtime_id"], "termux_runtime_01")
-        self.assertEqual(data["status"], "NOT_READY")
-        self.assertIn("battery", data["providers"])
-
-    def test_runtime_logger(self):
-        logger = RuntimeLogger()
-        entry = logger.log_execution("getBattery", {"percentage": 88}, None)
-
-        self.assertEqual(entry["capability"], "getBattery")
-        self.assertEqual(entry["rollback_status"], "NONE")
-        self.assertEqual(len(logger.logs), 1)
-
-    def test_runtime_health_checker(self):
-        checker = RuntimeHealthChecker()
-        health = checker.check_health()
-        self.assertEqual(health["status"], "HEALTHY")
-        self.assertEqual(health["disk"], "OK")
-
-    def test_runtime_manager_and_capability_execution(self):
-        manager = RuntimeManager(self.temp_path)
-
-        # Check automatic selection
-        best_runtime = manager.get_active_runtime()
-        self.assertIsNotNone(best_runtime)
-
-        # Test switching
-        manager.switch_runtime("android")
-        active = manager.get_active_runtime()
-        self.assertEqual(active.platform, "Android")
-
-        # Since we are in a headless sandbox, termux-battery-status does not exist in the path.
-        # It must successfully auto-detect this and return status NOT_IMPLEMENTED!
-        res_battery = active.execute_capability("getBattery")
-        self.assertEqual(res_battery["status"], "NOT_IMPLEMENTED")
-
-        # Switch to termux
-        manager.switch_runtime("termux")
-        active = manager.get_active_runtime()
-        self.assertEqual(active.platform, "Termux")
-
-        # Test termux execution (returns NOT_IMPLEMENTED because of missing binaries on sandbox container)
-        res_pkg = active.execute_capability("getBattery")
-        self.assertEqual(res_pkg["status"], "NOT_IMPLEMENTED")
-
-    def test_runtime_boot_sequence(self):
-        bootloader = RuntimeBootloader(self.temp_path)
-        context = bootloader.boot()
-
-        self.assertEqual(bootloader.state, RuntimeState.READY)
-        self.assertEqual(context.status, "READY")
-
-        # Verify physical passport creation on root
-        passport_file = self.temp_path / "flowcore.runtime.passport.json"
-        self.assertTrue(passport_file.exists())
-
-        with open(passport_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        self.assertEqual(data["status"], "READY")
-
-    def test_individual_providers(self):
-        # Android providers
-        bat = AndroidBatteryProvider().get_battery()
-        self.assertEqual(bat["source"], "Android SDK BatteryManager")
-        wifi = AndroidWifiProvider().get_wifi()
-        self.assertEqual(wifi["source"], "Android SDK WifiManager")
-        clip = AndroidClipboardProvider().get_clipboard()
-        self.assertIn("Android SDK", clip)
-
-        # Termux providers (real binaries missing on container, must return NOT_IMPLEMENTED)
-        t_api = TermuxApiProvider().get_battery()
-        self.assertEqual(t_api["status"], "NOT_IMPLEMENTED")
-
-        t_shell = TermuxShellProvider().run_command("ls")
-        self.assertIn("ls", t_shell)
-        t_py = TermuxPythonProvider().install_package("numpy")
-        self.assertEqual(t_py["source"], "pip")
+# ── RuntimeDiscovery ──────────────────────────────────────────────────────────
 
 
-if __name__ == "__main__":
-    unittest.main()
+class TestRuntimeDiscovery:
+    def _discovery(self):
+        from runtime.discovery import RuntimeDiscovery
+
+        return RuntimeDiscovery()
+
+    def test_run_returns_snapshot(self):
+        from runtime.discovery import RuntimeSnapshot
+
+        snap = self._discovery().run()
+        assert isinstance(snap, RuntimeSnapshot)
+
+    def test_platform_type_is_string(self):
+        snap = self._discovery().run()
+        assert snap.platform_type in ("termux", "android", "docker", "linux", "macos", "windows")
+
+    def test_python_version_present(self):
+        snap = self._discovery().run()
+        assert snap.python_version
+        assert "." in snap.python_version
+
+    def test_python_path_is_executable(self):
+        snap = self._discovery().run()
+        assert snap.python_path
+        assert os.path.exists(snap.python_path)
+
+    def test_env_home_is_set(self):
+        snap = self._discovery().run()
+        assert snap.env.home
+
+    def test_tools_are_dict(self):
+        snap = self._discovery().run()
+        assert isinstance(snap.tools, dict)
+        assert "python3" in snap.tools or "python" in snap.tools
+
+    def test_to_dict_serialisable(self):
+        snap = self._discovery().run()
+        d = snap.to_dict()
+        # Must be JSON-serialisable
+        json.dumps(d)
+
+    def test_capabilities_is_list_of_strings(self):
+        snap = self._discovery().run()
+        assert isinstance(snap.capabilities, list)
+        assert all(isinstance(c, str) for c in snap.capabilities)
+
+    def test_read_file_cap_on_non_windows(self):
+        if sys.platform == "win32":
+            pytest.skip("Linux-only")
+        snap = self._discovery().run()
+        assert "readFile" in snap.capabilities
+        assert "writeFile" in snap.capabilities
+        assert "listDirectory" in snap.capabilities
+
+    def test_run_shell_cap_on_non_windows(self):
+        if sys.platform == "win32":
+            pytest.skip("Linux-only")
+        snap = self._discovery().run()
+        assert "runShell" in snap.capabilities
+
+
+# ── RuntimeKernel ─────────────────────────────────────────────────────────────
+
+
+class TestRuntimeKernel:
+    def test_boot_returns_passport(self):
+        from runtime.kernel import RuntimeKernel, RuntimePassport
+
+        kernel = RuntimeKernel()
+        passport = kernel.boot()
+        assert isinstance(passport, RuntimePassport)
+
+    def test_passport_has_platform(self):
+        from runtime.kernel import RuntimeKernel
+
+        passport = RuntimeKernel().boot()
+        assert passport.platform in ("termux", "android", "docker", "linux", "macos", "windows")
+
+    def test_passport_capabilities_list(self):
+        from runtime.kernel import RuntimeKernel
+
+        passport = RuntimeKernel().boot()
+        assert isinstance(passport.capabilities, list)
+
+    def test_passport_written_to_disk(self):
+        from runtime.kernel import RuntimeKernel
+
+        RuntimeKernel().boot()
+        runtime_json = Path.home() / ".flowcore" / "flowcore.runtime.json"
+        assert runtime_json.exists()
+        data = json.loads(runtime_json.read_text())
+        assert "platform_type" in data
+        assert "generated_at" in data
+
+    def test_boot_twice_is_idempotent(self):
+        from runtime.kernel import RuntimeKernel
+
+        p1 = RuntimeKernel().boot()
+        p2 = RuntimeKernel().boot()
+        assert p1.platform == p2.platform
+        assert set(p1.capabilities) == set(p2.capabilities)

@@ -1,1 +1,0 @@
-# Android Provider submodule

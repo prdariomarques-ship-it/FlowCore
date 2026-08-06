@@ -9,21 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.2.0] — 2026-08-05
 
+Sprint 13. Full details in `RELEASE_NOTES.md`. Note: this entry follows directly
+from [1.1.0] below in this file, but the codebase moved through Sprints 5–12
+in between without corresponding CHANGELOG entries — see `git log` for that
+history.
+
 ### Added
 
-- **Sprint 18 — Premium Web UI Refresh**: This release transforms the embedded FlowCore Single Page Application (SPA), served directly by `api/router.py`, into a polished, fully responsive, premium productivity console built around a cohesive Zinc and Deep Slate design system.
-  - Premium dark theme using a unified Zinc / Deep Slate design language.
-  - Improved responsive layout for desktop and mobile.
-  - Consistent reusable UI components across all pages (Dashboard, System, Capabilities, Memories, Notes, Search, Chat, Settings, Doctor).
-  - Enhanced navigation and information hierarchy.
-  - Better loading, empty, and error states.
-  - Accessibility improvements.
-  - Zero backend API changes.
-  - Zero regressions.
-  - 100% compatibility with the existing FlowCore architecture.
-  - Full automated test suite passing.
+- MCP stdio server (`flowcore.py mcp` / `mcp_server.py`) — 12 tools for external MCP clients
+- Ollama endpoint/model auto-discovery (`runtime/ollama.py`), replacing the previous hardcoded `127.0.0.1:11434` + `llama2` assumption
+- Generation pipeline: warm-up, `/api/ps` polling, configurable timeout, 4 classified error types
+- Model benchmark framework (`scripts/benchmark_models.py`)
+- Web UI: Chat page (`POST /api/ask`) and Settings page (`GET /api/settings`) — first usable Web UI version
 
----
+### Fixed
+
+- `asyncio.run()` crash inside an already-running event loop, at two independent call sites (`mcp_server.py` document tools, `api/router.py`'s `/api/notes` and `/api/search`)
+- Model-load timeout misclassified as "unreachable"
+- Cloud-only Ollama models masked as load-timeout instead of surfacing the real subscription error
+- Windows↔WSL2 Ollama reachability (environment fix, not code)
+
+### Changed
+
+- Repo-wide dead-code and unused-import cleanup (24 files, no logic changes)
+- `ARCHITECTURE.md` and `ROADMAP.md` rewritten to match current, verified reality (previous versions described aspirational/stale state, including a false "CI/CD: Done" claim)
 
 ## [1.1.0] — 2026-07-27
 
