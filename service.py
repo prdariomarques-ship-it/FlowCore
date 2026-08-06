@@ -22,6 +22,7 @@ from typing import Any
 
 from capability.registry import CapabilityRegistry
 from runtime.exposure import ExposureEngine, compute_concentration
+from runtime.decision import DecisionEngine
 from runtime.impact import ImpactEngine
 from runtime.macro_score import MacroScoreEngine
 from runtime.product_mapping import DEFAULT_SHELF, list_shelves, load_shelf, map_action
@@ -43,6 +44,7 @@ _regime_engine = RegimeEngine(_macro_score_engine)
 _portfolio_repo = PortfolioRepository()
 _exposure_engine = ExposureEngine()
 _impact_engine = ImpactEngine(_regime_engine)
+_decision_engine = DecisionEngine(_impact_engine, _exposure_engine)
 
 # Canonical note/todo/agenda title labels. Previously CLI/MCP used
 # "Note"/"TODO"/"Agenda" while api/router.py separately used
@@ -878,3 +880,44 @@ async def portfolio_recommendations(portfolio_id: int, shelf: str = DEFAULT_SHEL
 
 async def product_shelves() -> list[str]:
     return list_shelves()
+
+
+# ── SCPX Decision Engine (Sprint 24, Layer 5) ───────────────────────────────────
+# Transforms the generic recommendations from portfolio_recommendations() into
+# an ordered, explainable decision queue. Deterministic, no LLM. See
+# runtime/decision/ for the full rule set.
+
+
+async def portfolio_decision(portfolio_id: int, shelf: str = DEFAULT_SHELF) -> dict:
+    """Raises ValueError if the portfolio doesn't exist, ProductMappingError
+    if `shelf` is unknown."""
+    holdings = await list_holdings(portfolio_id)
+    load_shelf(shelf)  # validate even when there will be zero decisions
+    report = await _decision_engine.compute(portfolio_id, holdings, shelf)
+    return report.to_dict()
+
+
+async def portfolio_decision_queue(portfolio_id: int, shelf: str = DEFAULT_SHELF) -> list[dict]:
+    report = await portfolio_decision(portfolio_id, shelf)
+    return report["decisions"]
+
+
+async def portfolio_score(portfolio_id: int) -> dict:
+    report = await portfolio_decision(portfolio_id)
+    return report["portfolio_score"]
+
+
+async def portfolio_reason_chain(portfolio_id: int, decision_id: str = "", shelf: str = DEFAULT_SHELF) -> dict:
+    """With `decision_id`, returns just that decision's reason chain
+    (raises ValueError if no current decision has that id). Without it,
+    returns every current decision's reason chain, keyed by id."""
+    report = await portfolio_decision(portfolio_id, shelf)
+    if decision_id:
+        match = next((d for d in report["decisions"] if d["id"] == decision_id), None)
+        if match is None:
+            raise ValueError(f"Decision not found: {decision_id!r}")
+        return {"portfolio_id": portfolio_id, "decision_id": decision_id, "reason_chain": match["reason_chain"]}
+    return {
+        "portfolio_id": portfolio_id,
+        "reason_chains": {d["id"]: d["reason_chain"] for d in report["decisions"]},
+    }

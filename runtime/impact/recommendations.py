@@ -50,6 +50,7 @@ def _driver_to_recommendation(driver: DriverImpact, action_map: dict[str, tuple[
         confidence=driver.confidence_score,
         affected_holdings=driver.affected_symbols,
         affected_asset_classes=driver.affected_asset_classes,
+        dimension=driver.dimension,
     )
 
 

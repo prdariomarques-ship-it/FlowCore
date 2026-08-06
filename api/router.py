@@ -112,6 +112,12 @@ Endpoints (Sprint 23, Phase 3 — Portfolio Impact Engine, macro regime -> portf
   GET  /api/portfolios/{id}/impact                     — impact, drivers, risk score, generic recs (product-agnostic)
   GET  /api/portfolios/{id}/recommendations?shelf=...  — same recs, enriched with products for `shelf` (default us_etf)
   GET  /api/product-shelves                            — list available shelves (config/product_shelves/*.json)
+
+Endpoints (Sprint 24, Layer 5 — Decision Engine, ordered/explainable decision queue):
+  GET  /api/portfolios/{id}/decision?shelf=...        — full DecisionReport (queue, score, top risks/opportunities)
+  GET  /api/portfolios/{id}/decision/queue?shelf=...  — just the ordered decisions list
+  GET  /api/portfolios/{id}/decision/score            — just the Decision Readiness Score (no shelf/products involved)
+  GET  /api/portfolios/{id}/reason-chain?decision=...  — one decision's reason chain, or all of them if omitted
 """
 
 from __future__ import annotations
@@ -897,6 +903,40 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     @app.get("/api/product-shelves")
     async def product_shelves():
         return {"shelves": await service.product_shelves()}
+
+    @app.get("/api/portfolios/{portfolio_id}/decision")
+    async def portfolio_decision(portfolio_id: int, shelf: str = DEFAULT_SHELF):
+        try:
+            return await service.portfolio_decision(portfolio_id, shelf)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except ProductMappingError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+    @app.get("/api/portfolios/{portfolio_id}/decision/queue")
+    async def portfolio_decision_queue(portfolio_id: int, shelf: str = DEFAULT_SHELF):
+        try:
+            return {"decisions": await service.portfolio_decision_queue(portfolio_id, shelf)}
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except ProductMappingError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+    @app.get("/api/portfolios/{portfolio_id}/decision/score")
+    async def portfolio_score(portfolio_id: int):
+        try:
+            return await service.portfolio_score(portfolio_id)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+    @app.get("/api/portfolios/{portfolio_id}/reason-chain")
+    async def portfolio_reason_chain(portfolio_id: int, decision: str = "", shelf: str = DEFAULT_SHELF):
+        try:
+            return await service.portfolio_reason_chain(portfolio_id, decision, shelf)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except ProductMappingError as e:
+            raise HTTPException(status_code=404, detail=str(e))
 
     # ── Search (Sprint 12) ───────────────────────────────────────────────
     @app.get("/api/search")

@@ -12,8 +12,9 @@ Portfolio Domain (manual portfolio/holding CRUD, live valuation, asset
 classification), the SCPX Exposure Engine (weighted classification
 breakdowns, concentration/HHI), the SCPX Portfolio Impact Engine (macro
 regime vs. portfolio, deterministic recommendations) plus its Product
-Mapping layer (config-driven, swappable product shelves), and a live
-integration status aggregator as MCP tools
+Mapping layer (config-driven, swappable product shelves), the SCPX
+Decision Engine (ordered, explainable decision queue + Decision
+Readiness Score), and a live integration status aggregator as MCP tools
 so an MCP client (e.g. Claude Code) can call FlowCore directly instead
 of shelling out to the CLI.
 
@@ -779,6 +780,60 @@ async def flowcore_product_shelves() -> list[str]:
     ...). Add a shelf by dropping a JSON file in config/product_shelves/,
     no code change required."""
     return await service.product_shelves()
+
+
+@mcp.tool()
+async def flowcore_portfolio_decision(portfolio_id: int, shelf: str = "us_etf") -> dict:
+    """Decision Engine (Sprint 24, Layer 5) — the full Decision Report:
+    overall_priority, overall_confidence, an ordered decision queue
+    (each with priority/urgency/confidence/expected_impact/reason_chain/
+    recommended_products), the Decision Readiness Score, and top risks/
+    opportunities. Deterministic, no LLM. Live, recomputed every call."""
+    try:
+        return await service.portfolio_decision(portfolio_id, shelf)
+    except ValueError as e:
+        raise RuntimeError(str(e)) from e
+    except ProductMappingError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_portfolio_decision_queue(portfolio_id: int, shelf: str = "us_etf") -> list[dict]:
+    """Just the ordered decision queue from the Decision Engine (same
+    computation as flowcore_portfolio_decision, narrower response)."""
+    try:
+        return await service.portfolio_decision_queue(portfolio_id, shelf)
+    except ValueError as e:
+        raise RuntimeError(str(e)) from e
+    except ProductMappingError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_portfolio_score(portfolio_id: int) -> dict:
+    """Decision Readiness Score — concentration, diversification,
+    inflation_hedge, currency_protection, duration, liquidity,
+    macro_alignment, protection sub-scores plus an overall score. A
+    sub-score is "insufficient_data" (never a fabricated number) when
+    FlowCore has no real signal for it yet."""
+    try:
+        return await service.portfolio_score(portfolio_id)
+    except ValueError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_portfolio_explain(portfolio_id: int, decision_id: str = "", shelf: str = "us_etf") -> dict:
+    """Explain one decision's full reason chain (or every current
+    decision's, if `decision_id` is omitted) — the step-by-step,
+    plain-language causal chain from macro signal to recommendation,
+    built entirely from data already computed upstream, no LLM."""
+    try:
+        return await service.portfolio_reason_chain(portfolio_id, decision_id, shelf)
+    except ValueError as e:
+        raise RuntimeError(str(e)) from e
+    except ProductMappingError as e:
+        raise RuntimeError(str(e)) from e
 
 
 def run() -> None:

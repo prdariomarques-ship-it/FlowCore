@@ -2040,6 +2040,35 @@ def _print_recommendation(r: dict) -> None:
         print(f"    {GREEN}Produtos:{NC} {names}")
 
 
+_URGENCY_COLOR = {"CRITICAL": RED, "HIGH": RED, "MEDIUM": YELLOW, "LOW": CYAN}
+
+
+def _print_decision(d: dict) -> None:
+    color = _URGENCY_COLOR.get(d["urgency"], YELLOW)
+    kind_icon = "⚠" if d["kind"] == "risk" else "✦"
+    print(f"  #{d['priority']} {kind_icon} {d['action']}  {color}[{d['urgency']}]{NC}")
+    print(
+        f"      confiança={d['confidence']:.2f}  impacto={d['expected_impact']}  "
+        f"benefício={d['estimated_risk_reduction']}  score={d['priority_score']}"
+    )
+    if d["affected_holdings"]:
+        print(f"      Holdings: {', '.join(d['affected_holdings'])}")
+    products = d.get("recommended_products")
+    if products:
+        names = ", ".join(f"{p['symbol']} ({p['name']})" for p in products)
+        print(f"      {GREEN}Produtos:{NC} {names}")
+
+
+def _print_portfolio_score(s: dict) -> None:
+    overall = f"{s['overall']:.1f}/100" if s["overall"] is not None else f"{YELLOW}insufficient_data{NC}"
+    print(f"Score geral: {CYAN}{overall}{NC}")
+    for sub in s["sub_scores"]:
+        if sub["status"] == "computed":
+            print(f"  {sub['name']:<20} {sub['score']:5.1f}/100  {sub['detail']}")
+        else:
+            print(f"  {sub['name']:<20} {YELLOW}insufficient_data{NC}  {sub['detail']}")
+
+
 def _print_impact_report(report: dict) -> None:
     color = _DIRECTION_COLOR.get(report["overall_impact"], YELLOW)
     print(f"Impacto geral: {color}{report['overall_impact']}{NC}  (confiança={report['confidence']:.2f})")
@@ -2077,6 +2106,7 @@ async def cmd_portfolio(
     holding_id: int = 0,
     dimension: str = "",
     shelf: str = "",
+    decision_id: str = "",
 ) -> None:
     """FlowCore Portfolio Domain (Sprint 21, Phase 1) — manual holdings CRUD."""
     import service
@@ -2207,11 +2237,77 @@ async def cmd_portfolio(
         if not r["recommendations"] and not r["opportunities"]:
             print("Nenhuma recomendação ou oportunidade no momento.")
 
+    elif action == "decision":
+        try:
+            report = await service.portfolio_decision(portfolio_id, shelf or DEFAULT_SHELF)
+        except ValueError as e:
+            print(f"{RED}Error: {e}{NC}")
+            return
+        except ProductMappingError as e:
+            print(f"{RED}Error: {e}{NC}")
+            return
+        color = _URGENCY_COLOR.get(report["overall_priority"], YELLOW)
+        conf = report["overall_confidence"]
+        print(f"Prioridade geral: {color}{report['overall_priority']}{NC}  (confiança={conf:.2f})")
+        print(f"Top riscos: {', '.join(report['top_risks']) or 'nenhum'}")
+        print(f"Top oportunidades: {', '.join(report['top_opportunities']) or 'nenhuma'}")
+        print(f"\n{CYAN}Fila de decisões:{NC}")
+        if not report["decisions"]:
+            print("  Nenhuma decisão material no momento.")
+        for d in report["decisions"]:
+            _print_decision(d)
+
+    elif action == "queue":
+        try:
+            decisions = await service.portfolio_decision_queue(portfolio_id, shelf or DEFAULT_SHELF)
+        except ValueError as e:
+            print(f"{RED}Error: {e}{NC}")
+            return
+        except ProductMappingError as e:
+            print(f"{RED}Error: {e}{NC}")
+            return
+        if not decisions:
+            print("Nenhuma decisão material no momento.")
+        for d in decisions:
+            _print_decision(d)
+
+    elif action == "score":
+        try:
+            s = await service.portfolio_score(portfolio_id)
+        except ValueError as e:
+            print(f"{RED}Error: {e}{NC}")
+            return
+        _print_portfolio_score(s)
+
+    elif action == "explain":
+        try:
+            r = await service.portfolio_reason_chain(portfolio_id, decision_id, shelf or DEFAULT_SHELF)
+        except ValueError as e:
+            print(f"{RED}Error: {e}{NC}")
+            return
+        except ProductMappingError as e:
+            print(f"{RED}Error: {e}{NC}")
+            return
+        if "reason_chain" in r:
+            print(f"{CYAN}{r['decision_id']}{NC}")
+            for i, step in enumerate(r["reason_chain"], 1):
+                print(f"  {i}. {step}")
+        else:
+            chains = r["reason_chains"]
+            if not chains:
+                print("Nenhuma decisão material no momento.")
+            for did, chain in chains.items():
+                print(f"{CYAN}{did}{NC}")
+                for i, step in enumerate(chain, 1):
+                    print(f"  {i}. {step}")
+                print()
+
     else:
         print(f"{RED}Unknown portfolio action: {action!r}{NC}")
         print(
             "  Usage: python3 flowcore.py portfolio <create|list|show|summary|delete|"
-            "add-holding|remove-holding|exposure [dimension]|concentration|impact|recommendations>"
+            "add-holding|remove-holding|exposure [dimension]|concentration|impact|recommendations|"
+            "decision|queue|score|explain>"
         )
 
 
@@ -2505,6 +2601,26 @@ def main() -> None:
 
     subparsers.add_parser("product-shelves", help="List available product shelves (Sprint 23)")
 
+    portfolio_decision_p = portfolio_sub.add_parser(
+        "decision", help="Full Decision Report — queue, score, top risks/opportunities (Sprint 24, live)"
+    )
+    portfolio_decision_p.add_argument("portfolio_id", type=int)
+    portfolio_decision_p.add_argument("--shelf", default="", help="Product shelf (default: us_etf)")
+
+    portfolio_queue_p = portfolio_sub.add_parser("queue", help="Just the ordered decision queue (Sprint 24, live)")
+    portfolio_queue_p.add_argument("portfolio_id", type=int)
+    portfolio_queue_p.add_argument("--shelf", default="", help="Product shelf (default: us_etf)")
+
+    portfolio_score_p = portfolio_sub.add_parser("score", help="Decision Readiness Score (Sprint 24, live)")
+    portfolio_score_p.add_argument("portfolio_id", type=int)
+
+    portfolio_explain_p = portfolio_sub.add_parser(
+        "explain", help="Reason chain for one decision, or all of them (Sprint 24, live)"
+    )
+    portfolio_explain_p.add_argument("portfolio_id", type=int)
+    portfolio_explain_p.add_argument("decision_id", nargs="?", default="", help="e.g. reduce_duration")
+    portfolio_explain_p.add_argument("--shelf", default="", help="Product shelf (default: us_etf)")
+
     asset_parser = subparsers.add_parser("asset", help="Asset classification lookup/tagging (Sprint 21)")
     asset_sub = asset_parser.add_subparsers(dest="asset_action")
 
@@ -2705,7 +2821,8 @@ def main() -> None:
         if not action:
             print(
                 "Usage: python3 flowcore.py portfolio <create|list|show|summary|delete|"
-                "add-holding|remove-holding|exposure [dimension]|concentration|impact|recommendations>"
+                "add-holding|remove-holding|exposure [dimension]|concentration|impact|recommendations|"
+                "decision|queue|score|explain>"
             )
             sys.exit(1)
         asyncio.run(
@@ -2720,6 +2837,7 @@ def main() -> None:
                 holding_id=getattr(args, "holding_id", 0),
                 dimension=getattr(args, "dimension", ""),
                 shelf=getattr(args, "shelf", ""),
+                decision_id=getattr(args, "decision_id", ""),
             )
         )
     elif args.command == "product-shelves":

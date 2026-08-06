@@ -83,7 +83,11 @@ class Recommendation:
     stable machine slug (e.g. "reduce_duration", "increase_usd_liquidity")
     that runtime/product_mapping/ (Layer 4) uses to look up concrete,
     shelf-specific products -- this dataclass itself never names a
-    ticker or fund."""
+    ticker or fund. `dimension` (Sprint 24, additive) is the originating
+    macro dimension -- "" for portfolio-structural recommendations (e.g.
+    concentration) not tied to one dimension -- letting runtime/decision/
+    trace a recommendation back to its DriverImpact without re-deriving
+    the mapping."""
 
     action_key: str
     action: str
@@ -91,12 +95,14 @@ class Recommendation:
     confidence: float
     affected_holdings: list[str] = field(default_factory=list)
     affected_asset_classes: list[str] = field(default_factory=list)
+    dimension: str = ""
 
     def to_dict(self) -> dict:
         return {
             "action_key": self.action_key,
             "action": self.action,
             "reason": self.reason,
+            "dimension": self.dimension,
             "confidence": self.confidence,
             "affected_holdings": self.affected_holdings,
             "affected_asset_classes": self.affected_asset_classes,
