@@ -964,6 +964,100 @@ class TestImpactEndpoints:
         assert r.json() == {"shelves": ["us_etf", "br_renda_fixa"]}
 
 
+class TestDecisionEndpoints:
+    # service.* is mocked directly — DecisionEngine's own logic is
+    # covered by tests/decision/.
+    def test_decision_success_default_shelf(self):
+        c = _client()
+        payload = {"portfolio_id": 1, "overall_priority": "HIGH", "decisions": []}
+        with patch("service.portfolio_decision", return_value=payload) as m:
+            r = c.get("/api/portfolios/1/decision")
+        assert r.status_code == 200
+        assert r.json() == payload
+        m.assert_called_once_with(1, "us_etf")
+
+    def test_decision_honors_shelf_query_param(self):
+        c = _client()
+        payload = {"portfolio_id": 1, "overall_priority": "LOW", "decisions": []}
+        with patch("service.portfolio_decision", return_value=payload) as m:
+            r = c.get("/api/portfolios/1/decision?shelf=br_renda_fixa")
+        assert r.status_code == 200
+        m.assert_called_once_with(1, "br_renda_fixa")
+
+    def test_decision_missing_portfolio_returns_404(self):
+        c = _client()
+        with patch("service.portfolio_decision", side_effect=ValueError("Portfolio not found: 999")):
+            r = c.get("/api/portfolios/999/decision")
+        assert r.status_code == 404
+
+    def test_decision_unknown_shelf_returns_404(self):
+        from runtime.product_mapping import ProductMappingError
+
+        c = _client()
+        with patch("service.portfolio_decision", side_effect=ProductMappingError("Unknown product shelf: 'x'")):
+            r = c.get("/api/portfolios/1/decision?shelf=x")
+        assert r.status_code == 404
+
+    def test_decision_queue_success(self):
+        c = _client()
+        with patch("service.portfolio_decision_queue", return_value=[{"id": "reduce_duration"}]) as m:
+            r = c.get("/api/portfolios/1/decision/queue")
+        assert r.status_code == 200
+        assert r.json() == {"decisions": [{"id": "reduce_duration"}]}
+        m.assert_called_once_with(1, "us_etf")
+
+    def test_decision_queue_missing_portfolio_returns_404(self):
+        c = _client()
+        with patch("service.portfolio_decision_queue", side_effect=ValueError("Portfolio not found: 999")):
+            r = c.get("/api/portfolios/999/decision/queue")
+        assert r.status_code == 404
+
+    def test_decision_score_success(self):
+        c = _client()
+        payload = {"overall": 60.0, "overall_status": "computed", "sub_scores": []}
+        with patch("service.portfolio_score", return_value=payload) as m:
+            r = c.get("/api/portfolios/1/decision/score")
+        assert r.status_code == 200
+        assert r.json() == payload
+        m.assert_called_once_with(1)
+
+    def test_decision_score_missing_portfolio_returns_404(self):
+        c = _client()
+        with patch("service.portfolio_score", side_effect=ValueError("Portfolio not found: 999")):
+            r = c.get("/api/portfolios/999/decision/score")
+        assert r.status_code == 404
+
+    def test_reason_chain_all_decisions(self):
+        c = _client()
+        payload = {"portfolio_id": 1, "reason_chains": {"reduce_duration": ["step1", "step2"]}}
+        with patch("service.portfolio_reason_chain", return_value=payload) as m:
+            r = c.get("/api/portfolios/1/reason-chain")
+        assert r.status_code == 200
+        assert r.json() == payload
+        m.assert_called_once_with(1, "", "us_etf")
+
+    def test_reason_chain_single_decision(self):
+        c = _client()
+        payload = {"portfolio_id": 1, "decision_id": "reduce_duration", "reason_chain": ["step1"]}
+        with patch("service.portfolio_reason_chain", return_value=payload) as m:
+            r = c.get("/api/portfolios/1/reason-chain?decision=reduce_duration")
+        assert r.status_code == 200
+        assert r.json() == payload
+        m.assert_called_once_with(1, "reduce_duration", "us_etf")
+
+    def test_reason_chain_unknown_decision_returns_404(self):
+        c = _client()
+        with patch("service.portfolio_reason_chain", side_effect=ValueError("Decision not found: 'bogus'")):
+            r = c.get("/api/portfolios/1/reason-chain?decision=bogus")
+        assert r.status_code == 404
+
+    def test_reason_chain_missing_portfolio_returns_404(self):
+        c = _client()
+        with patch("service.portfolio_reason_chain", side_effect=ValueError("Portfolio not found: 999")):
+            r = c.get("/api/portfolios/999/reason-chain")
+        assert r.status_code == 404
+
+
 class TestAssetEndpoints:
     def test_get_asset_success(self):
         c = _client()

@@ -289,8 +289,23 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
       </div>
 
       <div class="card">
+        <div class="ch"><span class="ct">Decisão</span><span class="ci">🎯</span></div>
+        <div class="ir"><select class="if" id="pf-shelf" onchange="onShelfChange()"></select></div>
+        <div id="pf-decision-summary"><div class="sk"></div></div>
+      </div>
+
+      <div class="card">
+        <div class="ch"><span class="ct">Score do Portfólio</span><span class="ci">🧮</span></div>
+        <div id="pf-score"><div class="sk"></div></div>
+      </div>
+
+      <div class="card">
+        <div class="ch"><span class="ct">Fila de Decisões</span><span class="ci">📋</span></div>
+        <div id="pf-decision-queue"><div class="sk"></div></div>
+      </div>
+
+      <div class="card">
         <div class="ch"><span class="ct">Recomendações</span><span class="ci">💡</span></div>
-        <div class="ir"><select class="if" id="pf-shelf" onchange="loadPortfolioRecommendations()"></select></div>
         <div id="pf-recs"><div class="sk"></div></div>
       </div>
 
@@ -872,8 +887,15 @@ function onPortfolioSelect(){
   if(!_pfId)return;
   loadPortfolioSummary();
   loadPortfolioImpact();
+  loadPortfolioDecision();
+  loadPortfolioScore();
   loadPortfolioRecommendations();
   loadPortfolioHoldings();
+}
+
+function onShelfChange(){
+  loadPortfolioDecision();
+  loadPortfolioRecommendations();
 }
 
 async function loadShelves(){
@@ -933,6 +955,75 @@ function renderDriverCard(d){
     <div class="row" style="border:none"><span class="rl">Impacto esperado</span><span class="rv">${d.expected_impact}</span></div>
     ${buckets}
   </div>`;
+}
+
+/* ── Decision Engine (Sprint 24) ── */
+const PRIORITY_TAG={CRITICAL:'tr',HIGH:'tr',MEDIUM:'ty',LOW:'tg'};
+
+async function loadPortfolioDecision(){
+  const el=document.getElementById('pf-decision-summary');
+  const queueEl=document.getElementById('pf-decision-queue');
+  el.innerHTML='<div class="sk"></div>';
+  queueEl.innerHTML='<div class="sk"></div>';
+  const shelf=document.getElementById('pf-shelf').value||'us_etf';
+  try{
+    const r=await api(`/api/portfolios/${_pfId}/decision?shelf=${encodeURIComponent(shelf)}`);
+    const tag=PRIORITY_TAG[r.overall_priority]||'ty';
+    el.innerHTML=`<div class="sg">
+      <div class="st"><div class="sv"><span class="tag ${tag}">${r.overall_priority}</span></div><div class="sl">Prioridade Geral</div></div>
+      <div class="st"><div class="sv">${Math.round(r.overall_confidence*100)}%</div><div class="sl">Confiança</div></div>
+      <div class="st"><div class="sv">${r.decisions.length}</div><div class="sl">Decisões</div></div>
+    </div>
+    <div class="row"><span class="rl">Top riscos</span><span class="rv" style="text-align:right;max-width:220px">${(r.top_risks||[]).join(', ')||'nenhum'}</span></div>
+    <div class="row" style="border:none"><span class="rl">Top oportunidades</span><span class="rv" style="text-align:right;max-width:220px">${(r.top_opportunities||[]).join(', ')||'nenhuma'}</span></div>`;
+
+    if(!r.decisions.length){
+      queueEl.innerHTML='<div class="empty">Nenhuma decisão material no momento.</div>';
+    }else{
+      queueEl.innerHTML='<div class="gap">'+r.decisions.map(renderDecisionCard).join('')+'</div>';
+    }
+  }catch(e){
+    el.innerHTML='<div class="empty">Erro ao carregar decisão</div>';
+    queueEl.innerHTML='';
+  }
+}
+
+function renderDecisionCard(d){
+  const tag=PRIORITY_TAG[d.urgency]||'ty';
+  const products=(d.recommended_products||[]).map(p=>`<span class="int-cap-chip">${p.symbol}</span>`).join('');
+  const reasonId='reason-'+d.id+'-'+d.priority;
+  const reasonSteps=(d.reason_chain||[]).map((step,i)=>`<div class="bs" style="margin-top:3px">${i+1}. ${step}</div>`).join('');
+  return `<div class="card int-card">
+    <div class="ch"><span class="ct">#${d.priority} ${d.action}</span><span class="tag ${tag}">${d.urgency}</span></div>
+    <div class="row"><span class="rl">Confiança</span><span class="rv">${Math.round(d.confidence*100)}%</span></div>
+    <div class="row"><span class="rl">Impacto esperado</span><span class="rv">${d.expected_impact}</span></div>
+    <div class="row" style="border:none"><span class="rl">Benefício estimado</span><span class="rv">${d.estimated_risk_reduction}</span></div>
+    ${products?`<div class="int-caps">${products}</div>`:''}
+    <button class="btn-sm" style="margin-top:8px" onclick="toggleReasonChain('${reasonId}')">Ver motivo</button>
+    <div id="${reasonId}" style="display:none;margin-top:8px">${reasonSteps}</div>
+  </div>`;
+}
+
+function toggleReasonChain(id){
+  const el=document.getElementById(id);
+  if(el)el.style.display=(el.style.display==='none')?'block':'none';
+}
+
+async function loadPortfolioScore(){
+  const el=document.getElementById('pf-score');
+  el.innerHTML='<div class="sk"></div>';
+  try{
+    const s=await api(`/api/portfolios/${_pfId}/decision/score`);
+    const overall=s.overall!=null?`${s.overall.toFixed(1)}/100`:'insufficient_data';
+    let html=`<div class="row"><span class="rl">Score geral</span><span class="rv">${overall}</span></div>`;
+    html+=(s.sub_scores||[]).map(sub=>{
+      const val=sub.status==='computed'?`${sub.score.toFixed(1)}/100`:'<span class="tag ty">insuf. dados</span>';
+      return `<div class="row" style="border:none;padding:4px 0"><span class="rl">${sub.name}</span><span class="rv">${val}</span></div>`;
+    }).join('');
+    el.innerHTML=html;
+  }catch(e){
+    el.innerHTML='<div class="empty">Erro ao carregar score</div>';
+  }
 }
 
 async function loadPortfolioRecommendations(){
