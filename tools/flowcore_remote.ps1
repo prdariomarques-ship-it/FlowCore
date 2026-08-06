@@ -70,7 +70,17 @@ if (-not $script:ADB) {
 Write-OK "ADB: $script:ADB"
 
 # Encontra dispositivo
-$devices = (Invoke-ADB @("devices")) -match "\bdevice$" | ForEach-Object { ($_ -split "\s+")[0] }
+# Regex ancorada (^...$) em vez de só "\bdevice$" — mais robusta contra
+# linhas soltas do daemon do adb ("* daemon not running...") e contra \r
+# residual em saída nativa capturada via 2>&1 no Windows, que fazia a
+# extração anterior devolver entradas vazias em vez do serial real.
+$devices = @(
+    (Invoke-ADB @("devices")) |
+        ForEach-Object { $_.Trim() } |
+        Where-Object { $_ -match '^(\S+)\s+device$' } |
+        ForEach-Object { ($_ -split '\s+')[0] } |
+        Where-Object { $_ }
+)
 if (-not $devices) {
     Write-FAIL "Nenhum dispositivo ADB conectado. Verifica o cabo e USB Debugging."
     exit 1
