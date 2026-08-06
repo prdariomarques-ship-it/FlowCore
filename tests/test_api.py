@@ -633,6 +633,58 @@ class TestObserverEndpoints:
         assert r.status_code == 502
 
 
+class TestMacroScoreEndpoints:
+    # service.macro_score_* is mocked directly — no real storage/computation
+    # (see tests/macro_score/ for MacroScoreEngine's own coverage against a
+    # real tmp_path-backed EventRepository).
+    def test_dimensions_success(self):
+        c = _client()
+        payload = {"commodities": ["oil", "gold"], "liquidity": ["treasury", "dollar"], "risk_sentiment": ["vix"]}
+        with patch("service.macro_score_dimensions", return_value=payload):
+            r = c.get("/api/macro-score/dimensions")
+        assert r.status_code == 200
+        assert r.json() == {"dimensions": payload}
+
+    def test_scores_success(self):
+        c = _client()
+        payload = [
+            {
+                "dimension": "risk_sentiment",
+                "status": "insufficient_data",
+                "score": None,
+                "window_days": 30,
+                "z_scores": {},
+                "sample_counts": {"vix": 0},
+                "computed_at": "t",
+            }
+        ]
+        with patch("service.macro_score_compute_all", return_value=payload):
+            r = c.get("/api/macro-score/scores")
+        assert r.status_code == 200
+        assert r.json() == {"scores": payload}
+
+    def test_single_dimension_success(self):
+        c = _client()
+        payload = {
+            "dimension": "risk_sentiment",
+            "status": "scored",
+            "score": 1.23,
+            "window_days": 30,
+            "z_scores": {"vix": 1.23},
+            "sample_counts": {"vix": 6},
+            "computed_at": "t",
+        }
+        with patch("service.macro_score_compute", return_value=payload):
+            r = c.get("/api/macro-score/scores/risk_sentiment")
+        assert r.status_code == 200
+        assert r.json() == payload
+
+    def test_unknown_dimension_returns_404(self):
+        c = _client()
+        r = c.get("/api/macro-score/scores/bogus")
+        assert r.status_code == 404
+
+
 class TestIntegrationsStatusEndpoint:
     def test_returns_all_integrations(self):
         c = _client()
