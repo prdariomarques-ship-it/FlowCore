@@ -59,7 +59,7 @@ the full architecture; summarized here for roadmap tracking:
 | 22 | Exposure Engine (weighted classification breakdowns, concentration/HHI) | Done |
 | 23 | Portfolio Impact Engine + Recommendation + Product Mapping (4 cleanly separated layers) | Done |
 | 24 | Decision Engine (ranked, explainable decision queue + Decision Readiness Score) | Done |
-| 25 | Narrative Engine (LLM as presentation layer only, never inside the decision pipeline) | Planned |
+| 25 | Narrative Engine (LLM as presentation layer only, never inside the decision pipeline) | Done |
 | 26 | Alert Engine (push notifications on material decision changes) | Planned |
 | 27 | Portfolio Watchlist | Planned |
 | 28 | Historical Validation / Backtesting | Planned |

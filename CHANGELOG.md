@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.0] — 2026-08-06
+
+Sprint 25.
+
+### Added
+
+- **SCPX Narrative Engine** (`runtime/narrative/`, Layer 6) — translates the
+  Decision Report (Layer 5) into natural-language prose via the existing
+  local Ollama integration. The only layer in the whole SCPX pipeline allowed
+  to call an LLM, and strictly as presentation: it narrates an already-final
+  decision, never influences one. Degrades to a deterministic, LLM-free
+  fallback narrative (built from the same reason chains) if Ollama is
+  unavailable — the feature always returns something usable, never errors.
+  `GET /api/portfolios/{id}/narrative?shelf=...`, `flowcore.py portfolio
+  narrative`, `flowcore_portfolio_narrative` MCP tool, a "Narrativa" card
+  in the Web UI's Portfólio tab (manual "Gerar narrativa" trigger, same
+  click-to-generate pattern as the Chat tab).
+
 ## [1.3.0] — 2026-08-06
 
 Sprint 24. Note: this entry follows directly from [1.2.0] below in this file,

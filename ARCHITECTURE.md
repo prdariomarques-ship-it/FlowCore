@@ -123,11 +123,20 @@ Decision Engine        runtime/decision/          ranked Decision Queue (priorit
 (Layer 5)                                        reason_chain/recommended_products) + Decision
                                                 Readiness Score (8 sub-scores) — "what should I do first,"
                                                 not just "what happened"
+   │
+   ▼ (presentation only — never feeds back into any layer above)
+Narrative Engine        runtime/narrative/         DecisionReport -> natural-language prose via the
+(Layer 6)                                        existing local Ollama integration (runtime/ollama.py,
+                                                same one service.ask()/Chat already use). Degrades to a
+                                                deterministic, LLM-free fallback narrative (built from
+                                                the same reason chains) if Ollama is unavailable
 ```
 
 **Storage**: `storage/event_repo.py`'s `EventRepository` (persisted `MarketEvent` history, same `data/flowcore.db`/`aiosqlite` shape as every other repository) and `storage/portfolio_repo.py`'s `PortfolioRepository` (portfolios/holdings/assets) are the only two new tables this pipeline added — everything downstream of them (scores, regimes, exposure, impact, decisions) is computed live, never persisted, mirroring the platform's existing "recompute, don't cache" philosophy (e.g. holdings' `market_value`).
 
-**Core-tier discipline**: every one of these packages (`observers`, `macro_score`, `regime`, `portfolio`, `exposure`, `impact`, `product_mapping`, `decision`) is importable with only `requirements-core.txt` installed — verified after every sprint against a disposable venv. The one recurring bug class this pipeline hit twice (Sprints 18 and 21): a package's `__init__.py` re-exporting a name from a submodule that imports `yfinance` transitively breaks importability of *every* other submodule in that package, even ones with zero yfinance dependency, because Python always executes `__init__.py` first. Fix, now a standing check for every new `runtime/<domain>/__init__.py`: re-export only dependency-free names; callers import yfinance-dependent pieces directly from their submodule.
+**Core-tier discipline**: every one of these packages (`observers`, `macro_score`, `regime`, `portfolio`, `exposure`, `impact`, `product_mapping`, `decision`, `narrative`) is importable with only `requirements-core.txt` installed — verified after every sprint against a disposable venv (`runtime/narrative/` imports `runtime/ollama.py`, which is stdlib-only — `urllib`, no `requests`/`yfinance`). The one recurring bug class this pipeline hit twice (Sprints 18 and 21): a package's `__init__.py` re-exporting a name from a submodule that imports `yfinance` transitively breaks importability of *every* other submodule in that package, even ones with zero yfinance dependency, because Python always executes `__init__.py` first. Fix, now a standing check for every new `runtime/<domain>/__init__.py`: re-export only dependency-free names; callers import yfinance-dependent pieces directly from their submodule.
+
+**LLM boundary (Sprint 25, standing rule)**: `runtime/narrative/` is the *only* package in this entire pipeline allowed to call an LLM, and even then strictly as presentation over an already-final `DecisionReport` — it is never consulted by, and never feeds back into, Layers 1–5. Every other engine (Observer through Decision) remains 100% deterministic. This mirrors — and is enforced the same way as — the product-hardcoding boundary from Sprint 23 (Layer 4 is the only place a ticker may appear): one layer, one privilege, everything else stays pure.
 
 **Insufficient-data-over-fabrication discipline**: every layer returns an explicit "insufficient_data" / `None`-score / empty-bucket result rather than inventing a number when there isn't enough real information — the Macro Score Engine won't score a dimension with no history, the Decision Engine's Portfolio Score excludes (never zero-fills) sub-scores with no real signal. This is the single most consistently enforced rule across the whole pipeline, checked in tests at every layer.
 
@@ -137,7 +146,7 @@ Decision Engine        runtime/decision/          ranked Decision Queue (priorit
 
 ## Web UI (`web/index.html`)
 
-Single-file, single-page app (no build step, no framework) served by FastAPI's `GET /`. Eleven tabs: Início (dashboard), Dashboard (Flows/Executions), Portfólio (Sprint 21–24 — portfolio selector, live summary, macro impact, decision queue, portfolio score, shelf-aware recommendations, holdings), Calendário, Integrações, Sistema (battery/storage/passport), Caps (capabilities + doctor), Memórias, Notas (notes/todo/agenda + global search), Chat (RAG via `/api/ask`), Config (`/api/settings`). Talks to the backend via relative-path `fetch()` calls (`const API=''`), so it's portable across whatever host/port FastAPI actually binds to.
+Single-file, single-page app (no build step, no framework) served by FastAPI's `GET /`. Eleven tabs: Início (dashboard), Dashboard (Flows/Executions), Portfólio (Sprint 21–25 — portfolio selector, live summary, macro impact, decision queue, portfolio score, LLM narrative, shelf-aware recommendations, holdings), Calendário, Integrações, Sistema (battery/storage/passport), Caps (capabilities + doctor), Memórias, Notas (notes/todo/agenda + global search), Chat (RAG via `/api/ask`), Config (`/api/settings`). Talks to the backend via relative-path `fetch()` calls (`const API=''`), so it's portable across whatever host/port FastAPI actually binds to.
 
 ## Runtime (`runtime/`)
 
