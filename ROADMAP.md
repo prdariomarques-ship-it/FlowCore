@@ -42,6 +42,34 @@ Explicitly scoped as "no new features, no UI redesign, no new providers, no new 
 - `PassportValidator`/`ValidationResult` given a real caller: `GET /api/passport` now validates every issued passport and returns the result, instead of sitting fully tested but never invoked.
 - Added CI (`.github/workflows/ci.yml`): lint + format check (`ruff`, first run against the whole repo — 49/51 files had never been formatted), a `test-core` job (Termux/Android-safe dependency tier in isolation), a `test-api` job (API tier, explicitly running `tests/test_api.py`). No deployment step — validation only, as scoped.
 
+## SCPX — Wealth Copilot pipeline (shipped through Sprint 24, active development)
+
+A second major track, running in parallel with the AI-provider roadmap below.
+Not originally part of Version 1.x's scope — added when the user redirected
+priority toward turning FlowCore into a deterministic portfolio decision
+engine. See `ARCHITECTURE.md`'s "SCPX Wealth Copilot pipeline" section for
+the full architecture; summarized here for roadmap tracking:
+
+| Sprint | Layer | Status |
+|---|---|---|
+| 18 | Observer (market data collection, `MarketEvent`) | Done |
+| 19 | Macro Score Engine (persisted history, z-scores) | Done |
+| 20 | Regime Engine (elevated/depressed/neutral classification) | Done |
+| 21 | Portfolio Domain (portfolios/holdings/assets, canonical attribute schema) | Done |
+| 22 | Exposure Engine (weighted classification breakdowns, concentration/HHI) | Done |
+| 23 | Portfolio Impact Engine + Recommendation + Product Mapping (4 cleanly separated layers) | Done |
+| 24 | Decision Engine (ranked, explainable decision queue + Decision Readiness Score) | Done |
+| 25 | Narrative Engine (LLM as presentation layer only, never inside the decision pipeline) | Planned |
+| 26 | Alert Engine (push notifications on material decision changes) | Planned |
+| 27 | Portfolio Watchlist | Planned |
+| 28 | Historical Validation / Backtesting | Planned |
+
+Standing architectural rules for this track (unchanged since Sprint 23's
+correction, reaffirmed for every future sprint): every engine deterministic,
+no LLM anywhere in the decision pipeline itself; never hardcode a specific
+product/ticker/bank/provider outside `runtime/product_mapping/`'s config-driven
+shelves; never duplicate an upstream engine's computation — always compose it.
+
 ## Version 1.3 — Hybrid AI provider architecture
 
 **Provider abstraction** (local stays default and mandatory for anything unattended/financial/cost-sensitive; Claude becomes available opt-in for interactive, quality-sensitive work — never silent fallback):

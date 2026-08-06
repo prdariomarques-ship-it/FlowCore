@@ -1,6 +1,6 @@
 # FlowCore Architecture
 
-This document describes what's actually built and wired together, as of Sprint 15 ("Fluxos Inteligentes"). Where a component is real but unconnected, or where two components appear to overlap but don't, that's called out explicitly.
+This document describes what's actually built and wired together. The base platform sections below (entry points/service layer/storage/capability/passport/scheduling/flows/doctor/config/web UI/runtime/security) describe the state as of Sprint 15 ("Fluxos Inteligentes") and haven't needed structural changes since. The "SCPX Wealth Copilot pipeline" section covers Sprints 18–24, added on top without modifying anything above it. Where a component is real but unconnected, or where two components appear to overlap but don't, that's called out explicitly.
 
 ## Three entry points, one service layer, one storage layer, no shared process
 
@@ -85,9 +85,59 @@ Health-check aggregator consumed by `flowcore.py doctor`, `GET /api/status`, and
 
 `config/loader.py` deep-merges `config/default.json` with an optional `config/local.json` (git-ignored, per-machine overrides — e.g. this dev machine's API port had to move off `8080` due to an unrelated Docker service), then applies `FLOWCORE__SECTION__KEY`-style environment variable overrides on top. Cached after first load (`get_config()`); `reload_config()` clears the cache.
 
+## SCPX Wealth Copilot pipeline (`runtime/observers/`, `runtime/macro_score/`, `runtime/regime/`, `runtime/portfolio/`, `runtime/exposure/`, `runtime/impact/`, `runtime/product_mapping/`, `runtime/decision/`)
+
+A second, parallel pipeline on top of the base platform above — turns raw market data into ranked, explainable portfolio decisions. Deterministic end to end: **no LLM inside any of these layers**, ever (an LLM may only ever sit downstream as a presentation/narrative layer over already-computed output — see Sprint 25 in `ROADMAP.md`). Each layer only calls the one below it directly; nothing skips a layer, nothing duplicates a layer's computation.
+
+```
+Observer            runtime/observers/        MarketEvent (per source: treasury, dollar, vix, oil, gold)
+   │                                           persisted via storage/event_repo.py's EventRepository
+   ▼
+Macro Score Engine   runtime/macro_score/       DimensionScore (z-score per dimension: liquidity, commodities, risk_sentiment)
+   │                                           reads only persisted history — zero network calls itself
+   ▼
+Regime Engine        runtime/regime/            RegimeSignal (elevated/depressed/neutral/insufficient_data + threshold)
+   │
+   ├── Portfolio Domain   runtime/portfolio/     storage/portfolio_repo.py (portfolios/holdings/assets),
+   │                                           ASSET_ATTRIBUTE_FIELDS canonical schema (12 soft attributes)
+   │                                           every interface (API/CLI/MCP) derives from
+   │
+   ▼ (Regime + Portfolio holdings)
+Exposure Engine       runtime/exposure/          weighted classification breakdowns (sector/asset_class/
+   │                                           country/currency/any soft attribute) + concentration (HHI)
+   ▼
+Portfolio Impact      runtime/impact/            DriverImpact per macro dimension — category-only
+Engine (Layer 2)                                (sector/asset_class/country/soft attribute), NEVER a
+   │                                           specific ticker/fund (architectural rule, enforced by a
+   │                                           regression test pinning DriverRule's field shape)
+   ▼
+Recommendation        runtime/impact/            generic Recommendation (action_key + human text,
+Engine (Layer 3)      recommendations.py         e.g. "reduce_duration") — still zero product knowledge
+   │
+   ▼
+Product Mapping       runtime/product_mapping/   action_key -> concrete products, entirely via external,
+(Layer 4)                                       swappable config/product_shelves/*.json — the ONLY
+   │                                           layer allowed to know a ticker/fund/bank name
+   ▼
+Decision Engine        runtime/decision/          ranked Decision Queue (priority/urgency/confidence/
+(Layer 5)                                        reason_chain/recommended_products) + Decision
+                                                Readiness Score (8 sub-scores) — "what should I do first,"
+                                                not just "what happened"
+```
+
+**Storage**: `storage/event_repo.py`'s `EventRepository` (persisted `MarketEvent` history, same `data/flowcore.db`/`aiosqlite` shape as every other repository) and `storage/portfolio_repo.py`'s `PortfolioRepository` (portfolios/holdings/assets) are the only two new tables this pipeline added — everything downstream of them (scores, regimes, exposure, impact, decisions) is computed live, never persisted, mirroring the platform's existing "recompute, don't cache" philosophy (e.g. holdings' `market_value`).
+
+**Core-tier discipline**: every one of these packages (`observers`, `macro_score`, `regime`, `portfolio`, `exposure`, `impact`, `product_mapping`, `decision`) is importable with only `requirements-core.txt` installed — verified after every sprint against a disposable venv. The one recurring bug class this pipeline hit twice (Sprints 18 and 21): a package's `__init__.py` re-exporting a name from a submodule that imports `yfinance` transitively breaks importability of *every* other submodule in that package, even ones with zero yfinance dependency, because Python always executes `__init__.py` first. Fix, now a standing check for every new `runtime/<domain>/__init__.py`: re-export only dependency-free names; callers import yfinance-dependent pieces directly from their submodule.
+
+**Insufficient-data-over-fabrication discipline**: every layer returns an explicit "insufficient_data" / `None`-score / empty-bucket result rather than inventing a number when there isn't enough real information — the Macro Score Engine won't score a dimension with no history, the Decision Engine's Portfolio Score excludes (never zero-fills) sub-scores with no real signal. This is the single most consistently enforced rule across the whole pipeline, checked in tests at every layer.
+
+**Architecture correction (Sprint 23, worth remembering as precedent)**: the Portfolio Impact Engine's first draft held a hardcoded product-ticker allowlist (SGOV, GLD, ...) directly in its classification rules — caught before it shipped further, and split into the clean Layer 2/3/4 separation shown above. The lesson generalizes: a layer that turns "what's happening" into "what to do" must stay one step removed from a layer that turns "what to do" into "which specific product" — collapsing them creates exactly the tight coupling (`if treasury_up: recommend("SGOV")`) that makes an engine unreusable across different product shelves (US ETFs vs. Brazilian renda fixa vs. a private bank's own shelf, today's two shipped examples).
+
+**Test coverage**: `tests/observers/`, `tests/macro_score/`, `tests/regime/`, `tests/portfolio/` + `test_portfolio_repo.py`, `tests/exposure/`, `tests/impact/`, `tests/product_mapping/`, `tests/decision/` — all run in CI (`test-core` and `test-api` jobs), all with the same insufficient-data/edge-case discipline as their production code (empty portfolio, missing prices, unknown dimension/shelf/decision, conflicting-signal scenarios where applicable).
+
 ## Web UI (`web/index.html`)
 
-Single-file, single-page app (no build step, no framework) served by FastAPI's `GET /`. Seven tabs: Início (dashboard), Sistema (battery/storage/passport), Caps (capabilities + doctor), Memórias, Notas (notes/todo/agenda + global search), Chat (RAG via `/api/ask`), Config (`/api/settings`). Talks to the backend via relative-path `fetch()` calls (`const API=''`), so it's portable across whatever host/port FastAPI actually binds to.
+Single-file, single-page app (no build step, no framework) served by FastAPI's `GET /`. Eleven tabs: Início (dashboard), Dashboard (Flows/Executions), Portfólio (Sprint 21–24 — portfolio selector, live summary, macro impact, decision queue, portfolio score, shelf-aware recommendations, holdings), Calendário, Integrações, Sistema (battery/storage/passport), Caps (capabilities + doctor), Memórias, Notas (notes/todo/agenda + global search), Chat (RAG via `/api/ask`), Config (`/api/settings`). Talks to the backend via relative-path `fetch()` calls (`const API=''`), so it's portable across whatever host/port FastAPI actually binds to.
 
 ## Runtime (`runtime/`)
 

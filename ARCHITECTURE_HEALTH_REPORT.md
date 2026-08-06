@@ -93,3 +93,18 @@ Debt remaining, ranked by what would move the needle most next:
 ## Recommendation for what comes next
 
 Given the remaining debt list above, the highest-leverage next step is small and targeted: fix `doctor/service.py`'s Ollama check to use `discover_ollama_endpoint()` (item 2) — it's the one piece of remaining debt that's an actual behavioral gap rather than cosmetic, and it's a low-risk, single-function change. Everything else on the list (the `flowcore.py` split, the `api/router.py` repo-instantiation cleanup, test coverage for `runtime/ollama.py`/the Web UI) is real but lower-urgency, and better tackled when there's a substantive reason to be in those files anyway rather than as standalone busywork.
+
+---
+
+## Addendum — SCPX pipeline (Sprints 18–24), light-touch update
+
+Not a full re-score (that would need its own dedicated pass across ~8 sprints of new code); this note exists because the standing instruction is to touch this report at the end of every sprint "if needed" — here's what changed and why it doesn't move the scorecard above.
+
+The SCPX pipeline (`runtime/observers/`, `macro_score/`, `regime/`, `portfolio/`, `exposure/`, `impact/`, `product_mapping/`, `decision/`) was built as a genuinely separate, additive track — it does not touch `flowcore.py`'s size problem (item 1 above), does not touch `doctor/service.py` (item 2), does not touch `api/router.py`'s repo-instantiation pattern (item 3). Its own internal health, judged the same way as the rest of this report:
+
+- **Duplication**: consistently avoided by composition — `ExposureEngine.compute_concentration()` is reused as-is by `ImpactEngine`, `ImpactEngine` is reused as-is by `DecisionEngine`, `runtime/product_mapping/` is called, never reimplemented, by both `service.py` and `runtime/decision/engine.py`. No engine recomputes a number an upstream layer already produced.
+- **Cohesion**: each package is single-purpose and small (the largest, `runtime/decision/`, is 8 files each under ~120 lines) — the opposite of `flowcore.py`'s problem.
+- **Test coverage**: every layer has dedicated unit tests plus API endpoint tests, all core-tier-verified (no hidden `requirements-api.txt` dependency) except where a layer genuinely needs `yfinance` (`observers`, `portfolio.asset_provider`/`valuation`) — those are `pytest.importorskip`-gated, consistent with the rest of the codebase's core/API tier split.
+- **One real recurring bug class**: the `__init__.py` eager-import trap (see `ARCHITECTURE.md`'s SCPX section) — caught and fixed twice (Sprints 18, 21), now a standing checklist item for any new `runtime/<domain>/__init__.py`. Worth naming here because it's exactly the kind of pattern this report exists to track over time.
+
+No change to the overall 7.3/10 scorecard — the new code doesn't touch any of the four items still open above, and its own quality is high enough not to introduce new debt.

@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.0] — 2026-08-06
+
+Sprint 24. Note: this entry follows directly from [1.2.0] below in this file,
+but the codebase moved through Sprints 14–23 in between without corresponding
+CHANGELOG entries — see `git log` and `ARCHITECTURE.md`'s new "SCPX Wealth
+Copilot pipeline" section for that history. Catching up from here forward,
+per standing instruction to update this file at the end of every sprint.
+
+### Added
+
+- **SCPX Decision Engine** (`runtime/decision/`, Layer 5 of the SCPX pipeline) — turns
+  the generic recommendations from the Recommendation Engine into an ordered,
+  explainable Decision Queue: priority ranking (`priority.py`, a documented
+  5-term weighted formula), urgency classification (`urgency.py`), confidence
+  scaled by materiality (`confidence.py`), an 8-question reason chain per
+  decision (`reason_chain.py`), and an 8-sub-score Decision Readiness Score
+  (`portfolio_score.py` — concentration, diversification, inflation hedge,
+  currency protection, duration, liquidity, macro alignment, protection).
+  Deterministic only, no LLM. `GET /api/portfolios/{id}/decision[/queue|/score]`,
+  `GET /api/portfolios/{id}/reason-chain`, `flowcore.py portfolio
+  decision|queue|score|explain`, 4 MCP tools. Web UI: 3 new cards in the
+  existing Portfólio tab (Decisão, Score do Portfólio, Fila de Decisões).
+- **Architecture correction mid-sprint**: the Impact Engine had drifted into
+  holding product knowledge (hardcoded ETF tickers). Split cleanly into
+  Layer 2 (Portfolio Impact, category-only), Layer 3 (Recommendation, generic
+  `action_key`), and a new Layer 4 (`runtime/product_mapping/`) — the only
+  layer allowed to know concrete products, entirely via swappable
+  `config/product_shelves/*.json` (`us_etf`, `br_renda_fixa` shipped as
+  reference shelves).
+
 ## [1.2.0] — 2026-08-05
 
 Sprint 13. Full details in `RELEASE_NOTES.md`. Note: this entry follows directly
