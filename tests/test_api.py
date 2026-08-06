@@ -1105,6 +1105,16 @@ class TestNarrativeEndpoints:
         assert r.status_code == 404
 
 
+class TestLlmStatusEndpoint:
+    def test_llm_status_success(self):
+        c = _client()
+        payload = {"providers": ["ollama", "openrouter"], "available": ["ollama"], "metrics": []}
+        with patch("service.llm_status", return_value=payload):
+            r = c.get("/api/llm/status")
+        assert r.status_code == 200
+        assert r.json() == payload
+
+
 class TestAssetEndpoints:
     def test_get_asset_success(self):
         c = _client()

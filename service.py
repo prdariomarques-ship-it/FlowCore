@@ -24,6 +24,8 @@ from capability.registry import CapabilityRegistry
 from runtime.exposure import ExposureEngine, compute_concentration
 from runtime.decision import DecisionEngine
 from runtime.impact import ImpactEngine
+from runtime.llm import InMemoryMetrics, LLMRouter, LocalFirstPolicy, ProviderRegistry
+from runtime.llm.providers import OllamaProvider, OpenRouterProvider
 from runtime.narrative import NarrativeEngine
 from runtime.macro_score import MacroScoreEngine
 from runtime.product_mapping import DEFAULT_SHELF, list_shelves, load_shelf, map_action
@@ -46,7 +48,16 @@ _portfolio_repo = PortfolioRepository()
 _exposure_engine = ExposureEngine()
 _impact_engine = ImpactEngine(_regime_engine)
 _decision_engine = DecisionEngine(_impact_engine, _exposure_engine)
-_narrative_engine = NarrativeEngine()
+# LLM Router -- the single composition root for every LLM-backed
+# feature. LocalFirstPolicy means cloud (OpenRouter) is only ever used
+# when a caller explicitly opts in via request.metadata["allow_cloud"]
+# -- see runtime/llm/policy.py. Ollama stays the always-on default,
+# matching this project's existing "local-first" AI Philosophy.
+_llm_registry = ProviderRegistry()
+_llm_registry.register(OllamaProvider())
+_llm_registry.register(OpenRouterProvider())
+_llm_router = LLMRouter(_llm_registry, LocalFirstPolicy(), metrics=InMemoryMetrics())
+_narrative_engine = NarrativeEngine(_llm_router)
 
 # Canonical note/todo/agenda title labels. Previously CLI/MCP used
 # "Note"/"TODO"/"Agenda" while api/router.py separately used
@@ -92,6 +103,13 @@ async def ask(question: str, timeout: float | None = None) -> tuple[str, str]:
     generate. Returns (answer, model). Raises OllamaDiscoveryError (endpoint/
     model resolution) or an OllamaError subclass (generation) on failure —
     callers decide how to present it.
+
+    Deliberately NOT migrated to the LLM Router (_llm_router) yet: doing so
+    would change the exception types this raises (OllamaError family ->
+    LLMError family), which flowcore.py/api/router.py/mcp_server.py all
+    catch specifically today — a real backward-compatibility break, not
+    just an internal refactor. Flagged here as the natural next migration
+    once those three call sites are updated together, not done silently.
     """
     base_url = discover_ollama_endpoint()
     model = discover_default_model()
@@ -106,6 +124,12 @@ async def ask(question: str, timeout: float | None = None) -> tuple[str, str]:
     # for the CLI's single-coroutine asyncio.run() too.
     answer = await asyncio.to_thread(ollama_generate, base_url, model, prompt, **kwargs)
     return answer, model
+
+
+async def llm_status() -> dict:
+    """Introspection for the LLM Router: registered providers, which are
+    currently available, and per-provider call metrics."""
+    return _llm_router.status()
 
 
 async def search(query: str) -> dict:

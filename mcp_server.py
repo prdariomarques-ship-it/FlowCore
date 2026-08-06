@@ -15,8 +15,9 @@ regime vs. portfolio, deterministic recommendations) plus its Product
 Mapping layer (config-driven, swappable product shelves), the SCPX
 Decision Engine (ordered, explainable decision queue + Decision
 Readiness Score), the SCPX Narrative Engine (LLM as presentation layer
-only, never inside the decision pipeline), and a live integration
-status aggregator as MCP tools
+only, never inside the decision pipeline), the LLM Router (provider-
+agnostic access to any LLM backend — see runtime/llm/), and a live
+integration status aggregator as MCP tools
 so an MCP client (e.g. Claude Code) can call FlowCore directly instead
 of shelling out to the CLI.
 
@@ -841,19 +842,29 @@ async def flowcore_portfolio_explain(portfolio_id: int, decision_id: str = "", s
 @mcp.tool()
 async def flowcore_portfolio_narrative(portfolio_id: int, shelf: str = "us_etf") -> dict:
     """Narrative Engine (Sprint 25) — translates the Decision Report into
-    natural-language prose via the local LLM (runtime/ollama.py, same one
-    flowcore_ask uses). The ONLY tool in the whole SCPX pipeline backed
-    by an LLM, and strictly as presentation: it narrates an already-final
-    decision, never influences one. Degrades to a deterministic fallback
-    narrative (built from the same reason chains, no LLM) if Ollama is
-    unavailable — check the response's "source" field ("llm" vs
-    "fallback") and "fallback_reason" when present."""
+    natural-language prose via the LLM Router (runtime/llm/ — provider-
+    agnostic, local-first by default, never a silent cloud fallback). The
+    ONLY tool in the whole SCPX pipeline backed by an LLM, and strictly
+    as presentation: it narrates an already-final decision, never
+    influences one. Degrades to a deterministic fallback narrative (built
+    from the same reason chains, no LLM) if no provider is available —
+    check the response's "source" field ("llm" vs "fallback") and
+    "fallback_reason" when present."""
     try:
         return await service.portfolio_narrative(portfolio_id, shelf)
     except ValueError as e:
         raise RuntimeError(str(e)) from e
     except ProductMappingError as e:
         raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_llm_status() -> dict:
+    """LLM Router introspection — registered providers (e.g. ollama,
+    openrouter), which are currently available, and per-provider call
+    metrics (calls/successes/failures/avg latency/last error). Useful to
+    diagnose why a narrative fell back to the deterministic path."""
+    return await service.llm_status()
 
 
 def run() -> None:

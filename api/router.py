@@ -121,6 +121,9 @@ Endpoints (Sprint 24, Layer 5 — Decision Engine, ordered/explainable decision 
 
 Endpoints (Sprint 25, Narrative Engine — LLM as presentation layer only, never in decisions):
   GET  /api/portfolios/{id}/narrative?shelf=...  — DecisionReport as prose (falls back if LLM unavailable)
+
+Endpoints (LLM Router — provider-agnostic LLM access, added after Sprint 25):
+  GET  /api/llm/status  — registered providers, availability, per-provider call metrics
 """
 
 from __future__ import annotations
@@ -949,6 +952,10 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             raise HTTPException(status_code=404, detail=str(e))
         except ProductMappingError as e:
             raise HTTPException(status_code=404, detail=str(e))
+
+    @app.get("/api/llm/status")
+    async def llm_status():
+        return await service.llm_status()
 
     # ── Search (Sprint 12) ───────────────────────────────────────────────
     @app.get("/api/search")

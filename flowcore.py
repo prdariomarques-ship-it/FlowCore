@@ -2620,6 +2620,10 @@ def main() -> None:
 
     subparsers.add_parser("product-shelves", help="List available product shelves (Sprint 23)")
 
+    llm_parser = subparsers.add_parser("llm", help="LLM Router — providers, availability, metrics")
+    llm_sub = llm_parser.add_subparsers(dest="llm_action")
+    llm_sub.add_parser("status", help="Registered providers, availability, per-provider call metrics")
+
     portfolio_decision_p = portfolio_sub.add_parser(
         "decision", help="Full Decision Report — queue, score, top risks/opportunities (Sprint 24, live)"
     )
@@ -2873,6 +2877,23 @@ def main() -> None:
             print("Nenhum shelf configurado em config/product_shelves/.")
         for s in shelves:
             print(f"  {s}")
+    elif args.command == "llm":
+        action = getattr(args, "llm_action", None)
+        if action != "status":
+            print("Usage: python3 flowcore.py llm status")
+            sys.exit(1)
+        import service
+
+        status = asyncio.run(service.llm_status())
+        print(f"Providers registrados: {', '.join(status['providers'])}")
+        print(f"Disponíveis agora: {', '.join(status['available']) or 'nenhum'}")
+        if status["metrics"]:
+            print(f"\n{CYAN}Métricas:{NC}")
+            for m in status["metrics"]:
+                avg = f"{m['avg_latency_ms']:.0f}ms" if m["avg_latency_ms"] is not None else "n/a"
+                print(f"  {m['provider']}: {m['successes']}/{m['calls']} sucesso  latência média={avg}")
+                if m["last_error"]:
+                    print(f"    {RED}último erro:{NC} {m['last_error']}")
     elif args.command == "asset":
         action = getattr(args, "asset_action", None)
         if not action:
