@@ -24,6 +24,7 @@ from capability.registry import CapabilityRegistry
 from runtime.exposure import ExposureEngine, compute_concentration
 from runtime.impact import ImpactEngine
 from runtime.macro_score import MacroScoreEngine
+from runtime.product_mapping import DEFAULT_SHELF, list_shelves, load_shelf, map_action
 from runtime.ollama import (
     discover_default_model,
     discover_ollama_endpoint,
@@ -853,15 +854,27 @@ async def portfolio_impact(portfolio_id: int) -> dict:
     return report.to_dict()
 
 
-async def portfolio_recommendations(portfolio_id: int) -> dict:
-    """Convenience view over portfolio_impact() exposing just the
-    actionable lists (recommendations + opportunities) — same
-    computation, no duplicated logic. Raises ValueError if the portfolio
-    doesn't exist."""
+def _enrich_with_products(rec: dict, shelf: str) -> dict:
+    return {**rec, "products": map_action(rec["action_key"], shelf)}
+
+
+async def portfolio_recommendations(portfolio_id: int, shelf: str = DEFAULT_SHELF) -> dict:
+    """Layer 3 (generic recommendations, from portfolio_impact()) + Layer
+    4 (concrete products for `shelf`, runtime/product_mapping/) combined
+    into one convenience view. portfolio_impact() itself never sees
+    `shelf` or product data — the separation is structural, not just
+    documentation. Raises ValueError if the portfolio doesn't exist,
+    ProductMappingError if `shelf` is unknown."""
     report = await portfolio_impact(portfolio_id)
+    load_shelf(shelf)  # validate even when there are zero recommendations to enrich
     return {
         "portfolio_id": report["portfolio_id"],
-        "recommendations": report["recommendations"],
-        "opportunities": report["opportunities"],
+        "shelf": shelf,
+        "recommendations": [_enrich_with_products(r, shelf) for r in report["recommendations"]],
+        "opportunities": [_enrich_with_products(r, shelf) for r in report["opportunities"]],
         "computed_at": report["computed_at"],
     }
+
+
+async def product_shelves() -> list[str]:
+    return list_shelves()

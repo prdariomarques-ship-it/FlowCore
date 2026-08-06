@@ -11,7 +11,8 @@ SCPX Regime Engine (deterministic threshold classification, no LLM), the
 Portfolio Domain (manual portfolio/holding CRUD, live valuation, asset
 classification), the SCPX Exposure Engine (weighted classification
 breakdowns, concentration/HHI), the SCPX Portfolio Impact Engine (macro
-regime vs. portfolio, deterministic recommendations), and a live
+regime vs. portfolio, deterministic recommendations) plus its Product
+Mapping layer (config-driven, swappable product shelves), and a live
 integration status aggregator as MCP tools
 so an MCP client (e.g. Claude Code) can call FlowCore directly instead
 of shelling out to the CLI.
@@ -27,6 +28,7 @@ from mcp.server.fastmcp import FastMCP
 
 import service
 from runtime.ollama import OllamaError
+from runtime.product_mapping import ProductMappingError
 from storage import DocumentRepository, MemoryRepository
 
 ROOT = Path(__file__).resolve().parent
@@ -745,7 +747,10 @@ async def flowcore_portfolio_impact(portfolio_id: int) -> dict:
     actual holdings: overall_impact, confidence, portfolio_risk_score,
     per-dimension drivers (with affected sectors/holdings), deterministic
     recommendations and opportunities. No LLM — explainable rules only.
-    Live, recomputed every call."""
+    Product-agnostic by design: recommendations here are generic action
+    categories (e.g. "reduce_duration"), never a specific ticker or fund
+    — use flowcore_portfolio_recommendations with a shelf for concrete
+    products. Live, recomputed every call."""
     try:
         return await service.portfolio_impact(portfolio_id)
     except ValueError as e:
@@ -753,14 +758,27 @@ async def flowcore_portfolio_impact(portfolio_id: int) -> dict:
 
 
 @mcp.tool()
-async def flowcore_portfolio_recommendations(portfolio_id: int) -> dict:
-    """Just the actionable lists (recommendations + opportunities) from
-    the Portfolio Impact Engine (Sprint 23) — same computation as
-    flowcore_portfolio_impact, narrower response."""
+async def flowcore_portfolio_recommendations(portfolio_id: int, shelf: str = "us_etf") -> dict:
+    """The actionable lists (recommendations + opportunities) from the
+    Portfolio Impact Engine, each enriched with concrete products for
+    `shelf` (runtime/product_mapping/ — Layer 4, config/product_shelves/
+    *.json). Call flowcore_product_shelves to see available shelves."""
     try:
-        return await service.portfolio_recommendations(portfolio_id)
+        return await service.portfolio_recommendations(portfolio_id, shelf)
     except ValueError as e:
         raise RuntimeError(str(e)) from e
+    except ProductMappingError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_product_shelves() -> list[str]:
+    """List available product shelves (runtime/product_mapping/) — each
+    a swappable, config-driven mapping of generic recommendation
+    action_keys to concrete products (US ETFs, Brazilian renda fixa,
+    ...). Add a shelf by dropping a JSON file in config/product_shelves/,
+    no code change required."""
+    return await service.product_shelves()
 
 
 def run() -> None:

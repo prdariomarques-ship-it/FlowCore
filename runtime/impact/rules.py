@@ -21,16 +21,26 @@ asset_provider.py, zero manual tagging required):
     Technology, Energy, Real Estate, Financial Services, ...).
   - `asset_class` (runtime/portfolio/asset_provider.py's
     _QUOTE_TYPE_TO_ASSET_CLASS vocabulary: equity/etf/mutual_fund/crypto/
-    index/currency/future/bond) — only "future" is used here (commodity
-    futures like GC=F/CL=F are unambiguous), since ETF wrappers (SGOV,
-    GLD, ...) all classify as the generic "etf" and don't distinguish
-    cash-proxy from growth fund. Well-known ETF/ticker proxies are
-    instead handled via an explicit small symbol allowlist below —
-    honest about what's actually derivable from yfinance vs guessed.
+    index/currency/future/bond) — only "future" is used here (a
+    commodity future contract is unambiguously commodity-class by
+    definition, unlike an ETF wrapper, which could hold anything).
   - `country != "United States"` as a deliberately crude Emerging
     Markets proxy for risk_sentiment only (will misclassify developed
     non-US markets like Japan/Germany as EM — a known v1 limitation, not
     silently hidden).
+
+**Architectural boundary (critical, corrected after initial v1 draft):**
+this module — and all of runtime/impact/ — must NEVER know about
+specific tickers, funds, or products (no "SGOV", no "GLD", no "Tesouro
+IPCA+"). It only classifies exposure by *category* (sector, asset class,
+country, canonical soft attribute) and, downstream in
+runtime/impact/recommendations.py, emits *generic* action keys ("reduce
+duration", "increase inflation protection"). Turning a generic action key
+into concrete, shelf-specific products (US ETFs, Brazilian renda fixa, a
+private bank's shelf, ...) is runtime/product_mapping/'s job, driven
+entirely by external, swappable JSON config — never hardcoded here. This
+keeps the same Impact/Recommendation Engine reusable across completely
+different product shelves without touching this file.
 
 Every rule is defined for the "elevated" regime state only; "depressed"
 is always its exact inverse (positive/negative sets swap) rather than a
@@ -64,8 +74,6 @@ class DriverRule:
     positive_sectors_when_elevated: frozenset[str] = frozenset()
     negative_asset_classes_when_elevated: frozenset[str] = frozenset()
     positive_asset_classes_when_elevated: frozenset[str] = frozenset()
-    negative_symbols_when_elevated: frozenset[str] = frozenset()
-    positive_symbols_when_elevated: frozenset[str] = frozenset()
     em_proxy_negative_when_elevated: bool = False
     soft_attribute: str | None = None
     soft_attribute_positive_values: frozenset[str] = field(default_factory=frozenset)
@@ -89,7 +97,6 @@ RULES: dict[str, DriverRule] = {
             {"Technology", "Real Estate", "Communication Services", "Consumer Cyclical"}
         ),
         positive_sectors_when_elevated=frozenset({"Financial Services"}),
-        positive_symbols_when_elevated=frozenset({"SGOV", "TFLO", "BIL", "SHV", "ICSH"}),
         soft_attribute="interest_rate_sensitivity",
         soft_attribute_negative_values=frozenset({"high"}),
         soft_attribute_positive_values=frozenset({"low"}),
@@ -108,7 +115,6 @@ RULES: dict[str, DriverRule] = {
         ),
         positive_sectors_when_elevated=frozenset({"Energy", "Basic Materials"}),
         positive_asset_classes_when_elevated=frozenset({"future"}),
-        positive_symbols_when_elevated=frozenset({"GLD", "IAU", "SLV", "USO", "GC=F", "CL=F", "BZ=F"}),
         soft_attribute="inflation_protection",
         soft_attribute_positive_values=frozenset({"high"}),
         soft_attribute_negative_values=frozenset({"low"}),
@@ -126,7 +132,6 @@ RULES: dict[str, DriverRule] = {
         ),
         negative_sectors_when_elevated=frozenset({"Technology", "Consumer Cyclical", "Communication Services"}),
         positive_sectors_when_elevated=frozenset({"Utilities", "Consumer Defensive"}),
-        positive_symbols_when_elevated=frozenset({"SGOV", "TFLO", "GLD", "IAU", "UUP"}),
         em_proxy_negative_when_elevated=True,
         soft_attribute="risk_attributes",
         soft_attribute_negative_values=frozenset({"high"}),

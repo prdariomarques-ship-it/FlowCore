@@ -87,16 +87,15 @@ def _soft_attribute_side(holding: dict, rule: DriverRule) -> str | None:
 
 
 def _hard_baseline_side(holding: dict, rule: DriverRule) -> str | None:
+    """Category-only classification (sector / asset_class / country) —
+    never a specific ticker or product. See rules.py's module docstring
+    for why: turning a generic exposure signal into a concrete product is
+    runtime/product_mapping/'s job, not this engine's."""
     asset = holding.get("asset") or {}
-    symbol = holding.get("symbol")
     sector = asset.get("sector")
     asset_class = asset.get("asset_class")
     country = asset.get("country")
 
-    if symbol in rule.positive_symbols_when_elevated:
-        return "positive"
-    if symbol in rule.negative_symbols_when_elevated:
-        return "negative"
     if sector in rule.negative_sectors_when_elevated:
         return "negative"
     if sector in rule.positive_sectors_when_elevated:
@@ -135,9 +134,6 @@ def _bucket_label(holding: dict, rule: DriverRule, source: str) -> str:
         country = asset.get("country")
         if rule.em_proxy_negative_when_elevated and country:
             return f"{country} (nao-EUA)"
-        symbol = holding.get("symbol")
-        if symbol in rule.positive_symbols_when_elevated or symbol in rule.negative_symbols_when_elevated:
-            return f"{symbol} (proxy)"
     return "Unclassified"
 
 

@@ -79,6 +79,13 @@ class DriverImpact:
 
 @dataclass
 class Recommendation:
+    """Generic, product-agnostic action (Layer 3). `action_key` is the
+    stable machine slug (e.g. "reduce_duration", "increase_usd_liquidity")
+    that runtime/product_mapping/ (Layer 4) uses to look up concrete,
+    shelf-specific products -- this dataclass itself never names a
+    ticker or fund."""
+
+    action_key: str
     action: str
     reason: str
     confidence: float
@@ -87,6 +94,7 @@ class Recommendation:
 
     def to_dict(self) -> dict:
         return {
+            "action_key": self.action_key,
             "action": self.action,
             "reason": self.reason,
             "confidence": self.confidence,

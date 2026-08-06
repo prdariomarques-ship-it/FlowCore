@@ -274,6 +274,33 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
     </div>
   </div>
 
+  <!-- ══ PORTFÓLIO (Sprint 21-23 — Portfolio Domain / Exposure / Impact Engine) ══ -->
+  <div class="page" id="page-portfolio">
+    <div class="gap">
+      <div class="card">
+        <div class="ch"><span class="ct">Portfólio</span><span class="ci">💼</span></div>
+        <div class="ir"><select class="if" id="pf-select" onchange="onPortfolioSelect()"></select></div>
+        <div class="sg" id="pf-summary"></div>
+      </div>
+
+      <div class="card">
+        <div class="ch"><span class="ct">Impacto Macro</span><span class="ci">🌎</span></div>
+        <div id="pf-impact"><div class="sk"></div><div class="sk"></div></div>
+      </div>
+
+      <div class="card">
+        <div class="ch"><span class="ct">Recomendações</span><span class="ci">💡</span></div>
+        <div class="ir"><select class="if" id="pf-shelf" onchange="loadPortfolioRecommendations()"></select></div>
+        <div id="pf-recs"><div class="sk"></div></div>
+      </div>
+
+      <div class="card">
+        <div class="ch"><span class="ct">Holdings</span><span class="ci">📄</span></div>
+        <div id="pf-holdings"><div class="sk"></div></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ══ CALENDÁRIO ══ -->
   <div class="page" id="page-calendar">
     <div class="gap">
@@ -474,6 +501,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 <div class="nav">
   <button class="ni active" onclick="pg('home',this)"><span class="ni-icon">🏠</span><span>Início</span></button>
   <button class="ni" onclick="pg('dashboard',this)"><span class="ni-icon">📈</span><span>Dashboard</span></button>
+  <button class="ni" onclick="pg('portfolio',this)"><span class="ni-icon">💼</span><span>Portfólio</span></button>
   <button class="ni" onclick="pg('calendar',this)"><span class="ni-icon">📅</span><span>Calendário</span></button>
   <button class="ni" onclick="pg('integrations',this)"><span class="ni-icon">🔌</span><span>Integrações</span></button>
   <button class="ni" onclick="pg('sys',this)"><span class="ni-icon">📊</span><span>Sistema</span></button>
@@ -497,6 +525,7 @@ function pg(name,btn){
   document.getElementById('page-'+name).classList.add('active');
   btn.classList.add('active');
   if(name==='dashboard') loadDashboard();
+  if(name==='portfolio') loadPortfolios();
   if(name==='calendar') loadCalendar();
   if(name==='integrations') loadIntegrations();
   if(name==='sys') loadSys();
@@ -808,6 +837,152 @@ function execDuration(start,finish){
   const f=new Date(finish.replace(' ','T')+'Z');
   const secs=Math.max(0,(f-s)/1000);
   return fup(secs);
+}
+
+/* ── Portfólio (Sprint 21-23) ── */
+let _pfId=null;
+const IMPACT_TAG={positive:'tg',negative:'tr',neutral:'ty',insufficient_data:'ty'};
+const IMPACT_LABEL={positive:'Positivo',negative:'Negativo',neutral:'Neutro',insufficient_data:'Dados insuficientes'};
+
+async function loadPortfolios(){
+  const sel=document.getElementById('pf-select');
+  try{
+    const r=await api('/api/portfolios');
+    const portfolios=r.portfolios||[];
+    if(!portfolios.length){
+      sel.innerHTML='<option value="">Nenhum portfólio</option>';
+      document.getElementById('pf-summary').innerHTML='';
+      document.getElementById('pf-impact').innerHTML='<div class="empty">Sem portfólios ainda.<br>Cria um via CLI: flowcore.py portfolio create "Nome"</div>';
+      document.getElementById('pf-recs').innerHTML='';
+      document.getElementById('pf-holdings').innerHTML='';
+      return;
+    }
+    sel.innerHTML=portfolios.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+    if(!_pfId||!portfolios.some(p=>p.id===_pfId)) _pfId=portfolios[0].id;
+    sel.value=_pfId;
+    await loadShelves();
+    onPortfolioSelect();
+  }catch(e){
+    sel.innerHTML='<option value="">Erro</option>';
+  }
+}
+
+function onPortfolioSelect(){
+  _pfId=parseInt(document.getElementById('pf-select').value,10);
+  if(!_pfId)return;
+  loadPortfolioSummary();
+  loadPortfolioImpact();
+  loadPortfolioRecommendations();
+  loadPortfolioHoldings();
+}
+
+async function loadShelves(){
+  const sel=document.getElementById('pf-shelf');
+  if(sel.dataset.loaded)return;
+  try{
+    const r=await api('/api/product-shelves');
+    sel.innerHTML=(r.shelves||[]).map(s=>`<option value="${s}">${s}</option>`).join('');
+    sel.dataset.loaded='1';
+  }catch(e){}
+}
+
+async function loadPortfolioSummary(){
+  const el=document.getElementById('pf-summary');
+  el.innerHTML='<div class="sk"></div>';
+  try{
+    const s=await api(`/api/portfolios/${_pfId}/summary`);
+    const gain=s.total_unrealized_gain;
+    el.innerHTML=`
+      <div class="st"><div class="sv">$${gain==null?'─':s.total_market_value.toFixed(0)}</div><div class="sl">Valor</div></div>
+      <div class="st"><div class="sv">${s.valued_holding_count}/${s.holding_count}</div><div class="sl">Holdings</div></div>
+      <div class="st"><div class="sv">${gain>=0?'+':''}${gain.toFixed(0)}</div><div class="sl">Ganho/Perda</div></div>`;
+  }catch(e){
+    el.innerHTML='<div class="empty">Erro ao carregar resumo</div>';
+  }
+}
+
+async function loadPortfolioImpact(){
+  const el=document.getElementById('pf-impact');
+  el.innerHTML='<div class="sk"></div><div class="sk"></div>';
+  try{
+    const r=await api(`/api/portfolios/${_pfId}/impact`);
+    const tag=IMPACT_TAG[r.overall_impact]||'ty';
+    const label=IMPACT_LABEL[r.overall_impact]||r.overall_impact;
+    let html=`<div class="sg">
+      <div class="st"><div class="sv"><span class="tag ${tag}">${label}</span></div><div class="sl">Impacto Geral</div></div>
+      <div class="st"><div class="sv">${r.portfolio_risk_score.toFixed(0)}</div><div class="sl">Risk Score</div></div>
+      <div class="st"><div class="sv">${Math.round(r.confidence*100)}%</div><div class="sl">Confiança</div></div>
+    </div>`;
+    html+='<div class="gap" style="margin-top:12px">'+r.drivers.map(renderDriverCard).join('')+'</div>';
+    el.innerHTML=html;
+  }catch(e){
+    el.innerHTML='<div class="empty">Erro ao carregar impacto</div>';
+  }
+}
+
+function renderDriverCard(d){
+  const tag=IMPACT_TAG[d.direction]||'ty';
+  const label=IMPACT_LABEL[d.direction]||d.direction;
+  const buckets=(d.buckets||[]).slice(0,4).map(b=>
+    `<div class="row" style="border:none;padding:3px 0"><span class="rl">${b.label}</span><span class="rv">${b.weight_pct.toFixed(1)}%</span></div>`
+  ).join('');
+  return `<div class="card int-card">
+    <div class="ch"><span class="ct">${d.dimension}</span><span class="tag ${tag}">${label}</span></div>
+    <div class="bs" style="margin-bottom:6px">${d.driver}</div>
+    <div class="row"><span class="rl">Regime</span><span class="rv">${d.regime}</span></div>
+    <div class="row" style="border:none"><span class="rl">Impacto esperado</span><span class="rv">${d.expected_impact}</span></div>
+    ${buckets}
+  </div>`;
+}
+
+async function loadPortfolioRecommendations(){
+  const el=document.getElementById('pf-recs');
+  el.innerHTML='<div class="sk"></div>';
+  const shelf=document.getElementById('pf-shelf').value||'us_etf';
+  try{
+    const r=await api(`/api/portfolios/${_pfId}/recommendations?shelf=${encodeURIComponent(shelf)}`);
+    let html='';
+    if((r.recommendations||[]).length){
+      html+='<div class="sr-title">Recomendações</div>';
+      html+='<div class="gap">'+r.recommendations.map(renderRecCard).join('')+'</div>';
+    }
+    if((r.opportunities||[]).length){
+      html+='<div class="sr-title" style="margin-top:12px">Oportunidades</div>';
+      html+='<div class="gap">'+r.opportunities.map(renderRecCard).join('')+'</div>';
+    }
+    el.innerHTML=html||'<div class="empty">Nenhuma recomendação no momento.</div>';
+  }catch(e){
+    el.innerHTML='<div class="empty">Erro ao carregar recomendações</div>';
+  }
+}
+
+function renderRecCard(r){
+  const products=(r.products||[]).map(p=>`<span class="int-cap-chip">${p.symbol}</span>`).join('');
+  const holdings=(r.affected_holdings||[]).length?`<div class="bs" style="margin-top:4px">Holdings: ${r.affected_holdings.join(', ')}</div>`:'';
+  return `<div class="card int-card">
+    <div class="ch"><span class="ct">${r.action}</span><span class="tag ty">${Math.round(r.confidence*100)}%</span></div>
+    <div class="bs">${r.reason}</div>
+    ${holdings}
+    ${products?`<div class="int-caps">${products}</div>`:''}
+  </div>`;
+}
+
+async function loadPortfolioHoldings(){
+  const el=document.getElementById('pf-holdings');
+  el.innerHTML='<div class="sk"></div>';
+  try{
+    const r=await api(`/api/portfolios/${_pfId}/holdings`);
+    const holdings=r.holdings||[];
+    if(!holdings.length){el.innerHTML='<div class="empty">Sem holdings ainda.</div>';return;}
+    el.innerHTML=holdings.map(h=>{
+      const gain=h.unrealized_gain;
+      const tag=gain==null?'ty':(gain>=0?'tg':'tr');
+      const gainStr=gain==null?'n/a':`${gain>=0?'+':''}${gain.toFixed(2)}`;
+      return `<div class="row"><span class="rl">${h.symbol} · ${h.quantity}</span><span class="rv"><span class="tag ${tag}">${gainStr}</span></span></div>`;
+    }).join('');
+  }catch(e){
+    el.innerHTML='<div class="empty">Erro ao carregar holdings</div>';
+  }
 }
 
 /* ── Calendar ── */

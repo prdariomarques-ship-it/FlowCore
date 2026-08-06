@@ -109,8 +109,9 @@ Endpoints (Sprint 22, Phase 2 — Exposure Engine, weighted classification break
   GET  /api/portfolios/{id}/concentration         — HHI + top-1/top-5 weight
 
 Endpoints (Sprint 23, Phase 3 — Portfolio Impact Engine, macro regime -> portfolio):
-  GET  /api/portfolios/{id}/impact                — overall impact, drivers, risk score, recommendations, opportunities
-  GET  /api/portfolios/{id}/recommendations       — just the actionable lists (same computation as /impact)
+  GET  /api/portfolios/{id}/impact                     — impact, drivers, risk score, generic recs (product-agnostic)
+  GET  /api/portfolios/{id}/recommendations?shelf=...  — same recs, enriched with products for `shelf` (default us_etf)
+  GET  /api/product-shelves                            — list available shelves (config/product_shelves/*.json)
 """
 
 from __future__ import annotations
@@ -126,6 +127,7 @@ from pydantic import BaseModel, create_model
 
 import service
 from runtime.portfolio.attributes import ASSET_ATTRIBUTE_FIELDS
+from runtime.product_mapping import DEFAULT_SHELF, ProductMappingError
 
 _WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
@@ -884,11 +886,17 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             raise HTTPException(status_code=404, detail=str(e))
 
     @app.get("/api/portfolios/{portfolio_id}/recommendations")
-    async def portfolio_recommendations(portfolio_id: int):
+    async def portfolio_recommendations(portfolio_id: int, shelf: str = DEFAULT_SHELF):
         try:
-            return await service.portfolio_recommendations(portfolio_id)
+            return await service.portfolio_recommendations(portfolio_id, shelf)
         except ValueError as e:
             raise HTTPException(status_code=404, detail=str(e))
+        except ProductMappingError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+    @app.get("/api/product-shelves")
+    async def product_shelves():
+        return {"shelves": await service.product_shelves()}
 
     # ── Search (Sprint 12) ───────────────────────────────────────────────
     @app.get("/api/search")

@@ -1,7 +1,16 @@
 """Deterministic recommendation/opportunity generation from DriverImpacts
-+ portfolio concentration (Sprint 23).
++ portfolio concentration (Sprint 23) -- Layer 3 of the SCPX Impact
+architecture (Regime -> Portfolio Impact -> Recommendation -> Product
+Mapping).
 
-One action text per macro dimension (a fixed, documented lookup — not
+Every recommendation carries a generic `action_key` ("reduce_duration",
+"increase_usd_liquidity", ...) and human-readable text describing a
+*category* of action -- never a specific ticker or fund. Turning
+`action_key` into concrete, shelf-specific products is entirely
+runtime/product_mapping/'s job (Layer 4); this module must never import
+from or know about it, keeping the two layers swappable independently.
+
+One action per macro dimension (a fixed, documented lookup — not
 inferred), reused for every negative-direction driver (recommendations)
 or positive-direction driver (opportunities), plus a concentration-based
 recommendation reusing Sprint 22's compute_concentration() output
@@ -15,23 +24,27 @@ from runtime.impact.models import DriverImpact, Recommendation
 
 __all__ = ["build_recommendations", "build_opportunities"]
 
+# dimension -> (action_key, human-readable generic action)
 _ACTION_FOR_NEGATIVE_DRIVER = {
-    "liquidity": "Reduzir duracao / aumentar caixa e ativos de taxa flutuante",
-    "commodities": "Aumentar protecao contra inflacao (ouro, ativos indexados a IPCA)",
-    "risk_sentiment": "Aumentar caixa em USD / reduzir exposicao a alto beta e small caps",
+    "liquidity": ("reduce_duration", "Reduzir duracao / aumentar liquidez de curto prazo"),
+    "commodities": ("increase_inflation_protection", "Aumentar protecao contra inflacao"),
+    "risk_sentiment": ("increase_usd_liquidity", "Aumentar liquidez em USD / reduzir exposicao a alto beta"),
 }
 _ACTION_FOR_POSITIVE_DRIVER = {
-    "liquidity": "Considerar aumentar exposicao a ativos de crescimento e duracao longa",
-    "commodities": "Considerar aumentar exposicao a ouro/energia/commodities",
-    "risk_sentiment": "Considerar aumentar exposicao a ativos de maior beta",
+    "liquidity": ("increase_duration_exposure", "Considerar aumentar exposicao a duracao longa/crescimento"),
+    "commodities": ("increase_commodities_exposure", "Considerar aumentar exposicao a protecao contra inflacao"),
+    "risk_sentiment": ("increase_risk_exposure", "Considerar aumentar exposicao a ativos de maior risco/beta"),
 }
 
 _CONCENTRATION_HHI_THRESHOLD = 2500.0  # equivalent to <=4 equally-weighted holdings
 
 
-def _driver_to_recommendation(driver: DriverImpact, action_map: dict[str, str]) -> Recommendation:
-    action = action_map.get(driver.dimension, f"Revisar exposicao ao dimensao {driver.dimension}")
+def _driver_to_recommendation(driver: DriverImpact, action_map: dict[str, tuple[str, str]]) -> Recommendation:
+    action_key, action = action_map.get(
+        driver.dimension, ("review_exposure", f"Revisar exposicao a {driver.dimension}")
+    )
     return Recommendation(
+        action_key=action_key,
         action=action,
         reason=f"{driver.driver}. {driver.reason}",
         confidence=driver.confidence_score,
@@ -58,6 +71,7 @@ def build_recommendations(
         top_symbols = [h["symbol"] for h in valued[:5]]
         recs.append(
             Recommendation(
+                action_key="reduce_concentration",
                 action="Reduzir concentracao / aumentar diversificacao",
                 reason=(
                     f"HHI atual de {concentration.hhi:.0f} (0-10000) indica concentracao elevada - "

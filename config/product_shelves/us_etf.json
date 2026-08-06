@@ -1,0 +1,36 @@
+{
+  "name": "US ETFs",
+  "description": "Reference US-listed ETF shelf. Illustrative examples, not investment advice -- edit freely, this file is the only place product tickers appear in the whole Impact/Recommendation/Product Mapping stack.",
+  "products": {
+    "reduce_duration": [
+      {"symbol": "SGOV", "name": "iShares 0-3 Month Treasury Bond ETF", "type": "etf"},
+      {"symbol": "TFLO", "name": "iShares Treasury Floating Rate Bond ETF", "type": "etf"},
+      {"symbol": "BIL", "name": "SPDR Bloomberg 1-3 Month T-Bill ETF", "type": "etf"}
+    ],
+    "increase_duration_exposure": [
+      {"symbol": "TLT", "name": "iShares 20+ Year Treasury Bond ETF", "type": "etf"},
+      {"symbol": "VUG", "name": "Vanguard Growth ETF", "type": "etf"}
+    ],
+    "increase_inflation_protection": [
+      {"symbol": "TIP", "name": "iShares TIPS Bond ETF", "type": "etf"},
+      {"symbol": "GLD", "name": "SPDR Gold Shares", "type": "etf"},
+      {"symbol": "IAU", "name": "iShares Gold Trust", "type": "etf"}
+    ],
+    "increase_commodities_exposure": [
+      {"symbol": "DBC", "name": "Invesco DB Commodity Index Tracking Fund", "type": "etf"},
+      {"symbol": "GLD", "name": "SPDR Gold Shares", "type": "etf"}
+    ],
+    "increase_usd_liquidity": [
+      {"symbol": "SGOV", "name": "iShares 0-3 Month Treasury Bond ETF", "type": "etf"},
+      {"symbol": "TFLO", "name": "iShares Treasury Floating Rate Bond ETF", "type": "etf"},
+      {"symbol": "UUP", "name": "Invesco DB US Dollar Index Bullish Fund", "type": "etf"}
+    ],
+    "increase_risk_exposure": [
+      {"symbol": "QQQ", "name": "Invesco QQQ Trust", "type": "etf"},
+      {"symbol": "IWM", "name": "iShares Russell 2000 ETF", "type": "etf"}
+    ],
+    "reduce_concentration": [
+      {"symbol": "VTI", "name": "Vanguard Total Stock Market ETF", "type": "etf"}
+    ]
+  }
+}

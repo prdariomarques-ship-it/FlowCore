@@ -2034,6 +2034,10 @@ def _print_recommendation(r: dict) -> None:
     print(f"    {r['reason']}")
     if r["affected_holdings"]:
         print(f"    Holdings: {', '.join(r['affected_holdings'])}")
+    products = r.get("products")
+    if products:
+        names = ", ".join(f"{p['symbol']} ({p['name']})" for p in products)
+        print(f"    {GREEN}Produtos:{NC} {names}")
 
 
 def _print_impact_report(report: dict) -> None:
@@ -2072,9 +2076,11 @@ async def cmd_portfolio(
     currency: str = "USD",
     holding_id: int = 0,
     dimension: str = "",
+    shelf: str = "",
 ) -> None:
     """FlowCore Portfolio Domain (Sprint 21, Phase 1) — manual holdings CRUD."""
     import service
+    from runtime.product_mapping import DEFAULT_SHELF, ProductMappingError
 
     if action == "create":
         if not name:
@@ -2182,10 +2188,14 @@ async def cmd_portfolio(
 
     elif action == "recommendations":
         try:
-            r = await service.portfolio_recommendations(portfolio_id)
+            r = await service.portfolio_recommendations(portfolio_id, shelf or DEFAULT_SHELF)
         except ValueError as e:
             print(f"{RED}Error: {e}{NC}")
             return
+        except ProductMappingError as e:
+            print(f"{RED}Error: {e}{NC}")
+            return
+        print(f"Shelf: {CYAN}{r['shelf']}{NC}")
         if r["recommendations"]:
             print(f"{CYAN}Recomendações:{NC}")
             for rec in r["recommendations"]:
@@ -2489,6 +2499,11 @@ def main() -> None:
         "recommendations", help="Deterministic recommendations/opportunities (Sprint 23, live)"
     )
     portfolio_recommendations_p.add_argument("portfolio_id", type=int)
+    portfolio_recommendations_p.add_argument(
+        "--shelf", default="", help="Product shelf (default: us_etf) — see 'product-shelves'"
+    )
+
+    subparsers.add_parser("product-shelves", help="List available product shelves (Sprint 23)")
 
     asset_parser = subparsers.add_parser("asset", help="Asset classification lookup/tagging (Sprint 21)")
     asset_sub = asset_parser.add_subparsers(dest="asset_action")
@@ -2704,8 +2719,17 @@ def main() -> None:
                 currency=getattr(args, "currency", "USD"),
                 holding_id=getattr(args, "holding_id", 0),
                 dimension=getattr(args, "dimension", ""),
+                shelf=getattr(args, "shelf", ""),
             )
         )
+    elif args.command == "product-shelves":
+        import service
+
+        shelves = asyncio.run(service.product_shelves())
+        if not shelves:
+            print("Nenhum shelf configurado em config/product_shelves/.")
+        for s in shelves:
+            print(f"  {s}")
     elif args.command == "asset":
         action = getattr(args, "asset_action", None)
         if not action:
