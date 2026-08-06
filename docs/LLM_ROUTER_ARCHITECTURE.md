@@ -248,7 +248,7 @@ never need to know or catch a provider-specific exception type.
 ```python
 _llm_registry = ProviderRegistry()
 _llm_registry.register(OllamaProvider())
-_llm_registry.register(OpenRouterProvider())      # reads OPENROUTER_API_KEY from env; is_available()==False if unset
+_llm_registry.register(OpenRouterProvider())      # reads OPENROUTER_API_KEY / OPENROUTER_MODEL from env
 _llm_router = LLMRouter(_llm_registry, LocalFirstPolicy(), metrics=InMemoryMetrics())
 _narrative_engine = NarrativeEngine(_llm_router)  # dependency-injected, like every other engine
 ```
@@ -257,6 +257,29 @@ This is the *only* place in the codebase a provider class
 (`OllamaProvider`, `OpenRouterProvider`) is instantiated. Everything else
 depends only on the `LLMRouter`/`LLMRequest`/`LLMResponse`/`LLMError`
 contracts from `runtime.llm`'s package root.
+
+**Switching the cloud model is a config change, not a code change.**
+`OpenRouterProvider` reads `OPENROUTER_MODEL` from the environment
+(falling back to `"openrouter/auto"`, OpenRouter's own cost/quality
+auto-router, when unset). Enabling DeepSeek — or any other model
+OpenRouter proxies — is exactly:
+
+```env
+OPENROUTER_MODEL=deepseek/deepseek-v4-flash
+```
+
+or
+
+```env
+OPENROUTER_MODEL=anthropic/claude-sonnet-4
+OPENROUTER_MODEL=openai/gpt-5.5
+OPENROUTER_MODEL=google/gemini-2.5-pro
+```
+
+Precedence, most specific wins: `LLMRequest.model` (set by a caller for
+one specific call) > `OPENROUTER_MODEL` env var > `"openrouter/auto"`
+hardcoded fallback. No provider class, no `service.py` composition root
+line, no `runtime/llm/` file needs to change for any of this.
 
 ## Public interfaces
 
@@ -311,6 +334,96 @@ to `LLMError` in the same change, so the switch is atomic.
    backend is running in CI.
 7. No other file should need to change. If it does, that's a sign the
    abstraction leaked somewhere — worth fixing before merging.
+
+**Realistic time estimate: well under 30 minutes** for a provider with an
+OpenAI-compatible or similarly simple HTTP API — steps 1–4 are copy-and-adapt
+from `openrouter_provider.py` (a working ~80-line reference
+implementation), step 6 is copy-and-adapt from
+`tests/llm/test_openrouter_provider.py`. The two files that change outside
+`runtime/llm/providers/` are `runtime/llm/providers/__init__.py` (one
+import + `__all__` entry) and `service.py` (one `register()` call) — both
+one-line additions, not edits to existing logic.
+
+## Final architecture review (post-implementation self-audit)
+
+Verified against the actual code, not just the design intent, right after
+the LLM Router shipped:
+
+1. **New providers never require modifying `LLMRouter`.** `router.py`
+   contains zero provider-name references anywhere — it only calls
+   `LLMProvider`/`RoutingPolicy`/`MetricsSink`/`CacheBackend`/`BudgetPolicy`
+   interface methods. Adding a cloud provider needs zero changes to
+   `router.py` *or* `policy.py` (it's reachable automatically once
+   registered, via `allow_cloud`). Adding a new *local/trusted* provider
+   needs one line in `LocalFirstPolicy.LOCAL_PROVIDERS` — `policy.py`, not
+   `router.py` — which is the documented, intended customization point.
+2. **Providers are registered only through the registry.** Confirmed by
+   grep: `OllamaProvider()`/`OpenRouterProvider()` are only ever
+   constructed in `service.py` (the composition root) and in
+   `tests/llm/`. No other file instantiates a provider class.
+3. **Routing policies are fully pluggable.** `LLMRouter.__init__` takes
+   `policy: RoutingPolicy` as a plain constructor argument; nothing in
+   `router.py` assumes `LocalFirstPolicy` specifically.
+4. **Metrics/Cache/Budget are provider-agnostic.** All three interfaces
+   take the provider *name* as a plain string parameter — none special-case
+   `"ollama"` or `"openrouter"` anywhere in their implementations.
+5. **No provider-specific logic outside `runtime/llm/`.** Confirmed by
+   grep: `OllamaProvider`/`OpenRouterProvider`/`OPENROUTER_API_KEY`/
+   `OPENROUTER_MODEL` appear only inside `runtime/llm/` and in `service.py`
+   (the one permitted composition root).
+6. **Configuration is entirely environment-driven.** `OPENROUTER_API_KEY`
+   (credential) and `OPENROUTER_MODEL` (which model OpenRouter routes to)
+   — both env vars, matching `runtime/ollama.py`'s existing
+   `FLOWCORE_OLLAMA`/`FLOWCORE_MODEL` convention. **This was a real gap
+   found during this review** — `OPENROUTER_MODEL` did not exist in the
+   first implementation (the model was a hardcoded constructor default
+   only); added, tested (`tests/llm/test_openrouter_provider.py`'s
+   `TestModelConfiguration`), and documented above.
+7. **DeepSeek (or any OpenRouter-proxied model) via env var alone.**
+   Verified directly: `OPENROUTER_MODEL=deepseek/deepseek-v4-flash` with no
+   other change produces a request body with `"model":
+   "deepseek/deepseek-v4-flash"` (see the test asserting this exact
+   behavior).
+8. **Extension process documented.** See "Adding a new provider" above.
+9. **Weaknesses found and their disposition:**
+   - **Fixed**: a misbehaving custom `RoutingPolicy` returning a provider
+     name outside `available` (a policy bug, or a provider that stopped
+     being available between the availability check and the loop) used to
+     propagate `ProviderNotFoundError` out of `generate()` uncaught — not
+     an `LLMError`, breaking the "callers only ever need to catch
+     `LLMError`" guarantee. `router.py` now filters the policy's output
+     against `available` defensively before iterating.
+   - **Documented, not fixed (acceptable at this project's actual scale)**:
+     `InMemoryMetrics`/`InMemoryTTLCache`/`CallCountBudget` use plain
+     dicts/lists with no locking. Under concurrent access (e.g. two
+     FastAPI requests calling the Router at the same time, each via
+     `asyncio.to_thread`) there's a benign race in `CallCountBudget` — the
+     check-then-record window isn't atomic, so a budget could briefly
+     allow one or two more calls than configured under real concurrency.
+     Not worth a lock for a single-user personal-automation project's
+     actual traffic pattern; worth revisiting if `CallCountBudget` is ever
+     used somewhere with genuine concurrent load.
+   - **Documented, not fixed (correct behavior, worth being explicit
+     about)**: `BudgetPolicy.record()` is only called on a *successful*
+     generation — a provider that fails 100 times in a row never counts
+     against its own call-count budget, only against retry/fallback cost.
+     This is the intended semantic (a budget tracks billable/successful
+     usage, not connection attempts), documented here so a future
+     implementer doesn't "fix" it into counting failures too without
+     realizing that changes the metric's meaning.
+   - **Documented, not fixed (no current consumer, so no risk yet)**: the
+     cache key (`cache_key_for()`) hashes `model|prompt|max_tokens|
+     temperature` but not `request.metadata` — two requests with identical
+     prompt/model but different `metadata["allow_cloud"]` would collide on
+     the same cache key. Harmless today because `NullCache` (which never
+     stores anything) is the only cache wired anywhere in this codebase;
+     would need fixing (include a metadata hash, or exclude routing-only
+     keys like `allow_cloud`/`purpose` from what's hashed) before any
+     future caller wires in `InMemoryTTLCache` for real.
+
+**Conclusion: the LLM Router is finalized as FlowCore's permanent AI
+infrastructure.** No further architectural work is required before
+additional providers, policies, or features are built on top of it.
 
 ## What was deliberately not built
 

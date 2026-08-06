@@ -57,7 +57,13 @@ class LLMRouter:
             return replace(cached, cached=True)
 
         available = self._registry.available_names()
-        order = self._policy.choose(request, available)
+        # Defensive: a misbehaving custom RoutingPolicy could return a name
+        # outside `available` (e.g. a typo, or a provider that was
+        # available a moment ago and isn't now). Filtering here means a
+        # policy bug degrades to "that provider is skipped," never an
+        # uncaught ProviderNotFoundError escaping generate() as something
+        # other than a clean LLMError.
+        order = [name for name in self._policy.choose(request, available) if name in available]
 
         errors: list[str] = []
         for name in order:

@@ -44,6 +44,70 @@ class TestIsAvailable:
             assert OpenRouterProvider(api_key=None).is_available() is False
 
 
+class TestModelConfiguration:
+    """Switching the underlying model (e.g. to DeepSeek) must be a pure
+    OPENROUTER_MODEL env var change -- no code change, no constructor
+    argument required."""
+
+    def test_defaults_to_auto_router_with_no_config(self):
+        from runtime.llm.providers.openrouter_provider import OpenRouterProvider
+
+        with patch.dict("os.environ", {}, clear=True):
+            assert OpenRouterProvider(api_key="sk-test")._default_model == "openrouter/auto"
+
+    def test_openrouter_model_env_var_selects_the_model(self):
+        from runtime.llm.providers.openrouter_provider import OpenRouterProvider
+
+        with patch.dict("os.environ", {"OPENROUTER_MODEL": "deepseek/deepseek-v4-flash"}, clear=True):
+            provider = OpenRouterProvider(api_key="sk-test")
+            assert provider._default_model == "deepseek/deepseek-v4-flash"
+
+    def test_env_var_model_is_actually_sent_in_the_request(self):
+        from runtime.llm import LLMRequest
+        from runtime.llm.providers.openrouter_provider import OpenRouterProvider
+
+        captured = {}
+
+        def fake_urlopen(req, timeout=None):
+            captured["body"] = json.loads(req.data)
+            return _FakeHTTPResponse(
+                {"choices": [{"message": {"content": "ok"}}], "model": "deepseek/deepseek-v4-flash"}
+            )
+
+        with (
+            patch.dict("os.environ", {"OPENROUTER_MODEL": "deepseek/deepseek-v4-flash"}, clear=True),
+            patch("urllib.request.urlopen", side_effect=fake_urlopen),
+        ):
+            OpenRouterProvider(api_key="sk-test").generate(LLMRequest(prompt="hi"))
+
+        assert captured["body"]["model"] == "deepseek/deepseek-v4-flash"
+
+    def test_explicit_constructor_arg_wins_over_env_var(self):
+        from runtime.llm.providers.openrouter_provider import OpenRouterProvider
+
+        with patch.dict("os.environ", {"OPENROUTER_MODEL": "deepseek/deepseek-v4-flash"}, clear=True):
+            provider = OpenRouterProvider(api_key="sk-test", default_model="anthropic/claude-sonnet-4")
+            assert provider._default_model == "anthropic/claude-sonnet-4"
+
+    def test_request_model_wins_over_both_env_var_and_default(self):
+        from runtime.llm import LLMRequest
+        from runtime.llm.providers.openrouter_provider import OpenRouterProvider
+
+        captured = {}
+
+        def fake_urlopen(req, timeout=None):
+            captured["body"] = json.loads(req.data)
+            return _FakeHTTPResponse({"choices": [{"message": {"content": "ok"}}], "model": "openai/gpt-5.5"})
+
+        with (
+            patch.dict("os.environ", {"OPENROUTER_MODEL": "deepseek/deepseek-v4-flash"}, clear=True),
+            patch("urllib.request.urlopen", side_effect=fake_urlopen),
+        ):
+            OpenRouterProvider(api_key="sk-test").generate(LLMRequest(prompt="hi", model="openai/gpt-5.5"))
+
+        assert captured["body"]["model"] == "openai/gpt-5.5"
+
+
 class TestGenerate:
     def test_no_api_key_raises_provider_unavailable(self):
         from runtime.llm import LLMProviderUnavailableError, LLMRequest

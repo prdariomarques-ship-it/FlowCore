@@ -8,6 +8,21 @@ cloud vendor.
 
 Stdlib-only (urllib), matching runtime/ollama.py's own style -- no new
 HTTP client dependency.
+
+Configuration is entirely environment-driven, same convention as
+runtime/ollama.py's FLOWCORE_OLLAMA/FLOWCORE_MODEL:
+  OPENROUTER_API_KEY  -- required for is_available() to return True.
+  OPENROUTER_MODEL    -- which underlying model OpenRouter routes to.
+                         Switching backends (e.g. to DeepSeek) is a pure
+                         config change, no code change:
+                             OPENROUTER_MODEL=deepseek/deepseek-v4-flash
+                             OPENROUTER_MODEL=anthropic/claude-sonnet-4
+                             OPENROUTER_MODEL=openai/gpt-5.5
+                         Falls back to "openrouter/auto" (OpenRouter's own
+                         cost/quality auto-router) when unset. A caller can
+                         still override per-request via LLMRequest.model,
+                         which always wins over both the env var and the
+                         constructor default.
 """
 
 from __future__ import annotations
@@ -24,15 +39,15 @@ from runtime.llm.provider import LLMProvider
 __all__ = ["OpenRouterProvider"]
 
 _API_URL = "https://openrouter.ai/api/v1/chat/completions"
-_DEFAULT_MODEL = "openrouter/auto"  # OpenRouter's own cost/quality auto-router
+_AUTO_MODEL = "openrouter/auto"  # OpenRouter's own cost/quality auto-router
 
 
 class OpenRouterProvider(LLMProvider):
     name = "openrouter"
 
-    def __init__(self, api_key: str | None = None, default_model: str = _DEFAULT_MODEL) -> None:
+    def __init__(self, api_key: str | None = None, default_model: str | None = None) -> None:
         self._api_key = api_key if api_key is not None else os.getenv("OPENROUTER_API_KEY")
-        self._default_model = default_model
+        self._default_model = default_model or os.getenv("OPENROUTER_MODEL") or _AUTO_MODEL
 
     def is_available(self) -> bool:
         return bool(self._api_key)

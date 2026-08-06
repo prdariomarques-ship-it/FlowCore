@@ -104,6 +104,21 @@ class TestFallbackBetweenProviders:
         with pytest.raises(LLMAllProvidersFailedError):
             router.generate(LLMRequest(prompt="x"))
 
+    def test_buggy_policy_naming_an_unavailable_provider_is_skipped_not_crashed(self):
+        """A misbehaving custom RoutingPolicy returning a name outside
+        `available` must degrade to "that entry is skipped," never an
+        uncaught ProviderNotFoundError escaping generate()."""
+        from runtime.llm import LLMAllProvidersFailedError, LLMRequest
+
+        class _BuggyPolicy:
+            def choose(self, request, available):
+                return ["typo-name", *available]
+
+        p = _StubProvider("a", available=False)  # not actually available
+        router = _build([p], policy=_BuggyPolicy())
+        with pytest.raises(LLMAllProvidersFailedError):
+            router.generate(LLMRequest(prompt="x"))
+
 
 class TestRetryWithinRouter:
     def test_transient_failure_recovers_via_retry_before_falling_over(self):
