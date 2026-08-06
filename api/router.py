@@ -118,6 +118,9 @@ Endpoints (Sprint 24, Layer 5 — Decision Engine, ordered/explainable decision 
   GET  /api/portfolios/{id}/decision/queue?shelf=...  — just the ordered decisions list
   GET  /api/portfolios/{id}/decision/score            — just the Decision Readiness Score (no shelf/products involved)
   GET  /api/portfolios/{id}/reason-chain?decision=...  — one decision's reason chain, or all of them if omitted
+
+Endpoints (Sprint 25, Narrative Engine — LLM as presentation layer only, never in decisions):
+  GET  /api/portfolios/{id}/narrative?shelf=...  — DecisionReport as prose (falls back if LLM unavailable)
 """
 
 from __future__ import annotations
@@ -933,6 +936,15 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     async def portfolio_reason_chain(portfolio_id: int, decision: str = "", shelf: str = DEFAULT_SHELF):
         try:
             return await service.portfolio_reason_chain(portfolio_id, decision, shelf)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except ProductMappingError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+    @app.get("/api/portfolios/{portfolio_id}/narrative")
+    async def portfolio_narrative(portfolio_id: int, shelf: str = DEFAULT_SHELF):
+        try:
+            return await service.portfolio_narrative(portfolio_id, shelf)
         except ValueError as e:
             raise HTTPException(status_code=404, detail=str(e))
         except ProductMappingError as e:

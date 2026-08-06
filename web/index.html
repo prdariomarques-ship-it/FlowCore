@@ -305,6 +305,12 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
       </div>
 
       <div class="card">
+        <div class="ch"><span class="ct">Narrativa</span><span class="ci">📖</span></div>
+        <button class="btn-sm" onclick="loadPortfolioNarrative()">Gerar narrativa</button>
+        <div id="pf-narrative" style="margin-top:10px"></div>
+      </div>
+
+      <div class="card">
         <div class="ch"><span class="ct">Recomendações</span><span class="ci">💡</span></div>
         <div id="pf-recs"><div class="sk"></div></div>
       </div>
@@ -1023,6 +1029,24 @@ async function loadPortfolioScore(){
     el.innerHTML=html;
   }catch(e){
     el.innerHTML='<div class="empty">Erro ao carregar score</div>';
+  }
+}
+
+async function loadPortfolioNarrative(){
+  const el=document.getElementById('pf-narrative');
+  el.innerHTML='<div class="bs">A gerar narrativa... (pode demorar no modelo local)</div>';
+  const shelf=document.getElementById('pf-shelf').value||'us_etf';
+  try{
+    const n=await api(`/api/portfolios/${_pfId}/narrative?shelf=${encodeURIComponent(shelf)}`);
+    const sourceTag=n.source==='llm'?`<span class="tag tg">LLM (${n.model})</span>`:'<span class="tag ty">fallback determinístico</span>';
+    let html=`<div style="margin-bottom:8px">${sourceTag}</div>`;
+    if(n.fallback_reason){
+      html+=`<div class="bs" style="margin-bottom:8px">${n.fallback_reason}</div>`;
+    }
+    html+=`<div style="white-space:pre-wrap;line-height:1.5">${n.narrative}</div>`;
+    el.innerHTML=html;
+  }catch(e){
+    el.innerHTML='<div class="empty">Erro ao gerar narrativa</div>';
   }
 }
 

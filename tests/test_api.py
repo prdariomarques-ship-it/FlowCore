@@ -1058,6 +1058,53 @@ class TestDecisionEndpoints:
         assert r.status_code == 404
 
 
+class TestNarrativeEndpoints:
+    # service.* is mocked directly — NarrativeEngine's own logic is
+    # covered by tests/narrative/.
+    def test_narrative_success_default_shelf(self):
+        c = _client()
+        payload = {
+            "portfolio_id": 1,
+            "narrative": "texto",
+            "source": "llm",
+            "model": "qwen3:4b",
+            "fallback_reason": None,
+        }
+        with patch("service.portfolio_narrative", return_value=payload) as m:
+            r = c.get("/api/portfolios/1/narrative")
+        assert r.status_code == 200
+        assert r.json() == payload
+        m.assert_called_once_with(1, "us_etf")
+
+    def test_narrative_honors_shelf_query_param(self):
+        c = _client()
+        payload = {
+            "portfolio_id": 1,
+            "narrative": "texto",
+            "source": "fallback",
+            "model": None,
+            "fallback_reason": "down",
+        }
+        with patch("service.portfolio_narrative", return_value=payload) as m:
+            r = c.get("/api/portfolios/1/narrative?shelf=br_renda_fixa")
+        assert r.status_code == 200
+        m.assert_called_once_with(1, "br_renda_fixa")
+
+    def test_narrative_missing_portfolio_returns_404(self):
+        c = _client()
+        with patch("service.portfolio_narrative", side_effect=ValueError("Portfolio not found: 999")):
+            r = c.get("/api/portfolios/999/narrative")
+        assert r.status_code == 404
+
+    def test_narrative_unknown_shelf_returns_404(self):
+        from runtime.product_mapping import ProductMappingError
+
+        c = _client()
+        with patch("service.portfolio_narrative", side_effect=ProductMappingError("Unknown product shelf: 'x'")):
+            r = c.get("/api/portfolios/1/narrative?shelf=x")
+        assert r.status_code == 404
+
+
 class TestAssetEndpoints:
     def test_get_asset_success(self):
         c = _client()

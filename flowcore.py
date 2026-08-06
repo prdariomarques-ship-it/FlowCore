@@ -2302,12 +2302,31 @@ async def cmd_portfolio(
                     print(f"  {i}. {step}")
                 print()
 
+    elif action == "narrative":
+        try:
+            n = await service.portfolio_narrative(portfolio_id, shelf or DEFAULT_SHELF)
+        except ValueError as e:
+            print(f"{RED}Error: {e}{NC}")
+            return
+        except ProductMappingError as e:
+            print(f"{RED}Error: {e}{NC}")
+            return
+        if n["source"] == "llm":
+            source_label = f"{GREEN}LLM ({n['model']}){NC}"
+        else:
+            source_label = f"{YELLOW}fallback determinístico{NC}"
+        print(f"Fonte: {source_label}")
+        if n["fallback_reason"]:
+            print(f"  ({n['fallback_reason']})")
+        print()
+        print(n["narrative"])
+
     else:
         print(f"{RED}Unknown portfolio action: {action!r}{NC}")
         print(
             "  Usage: python3 flowcore.py portfolio <create|list|show|summary|delete|"
             "add-holding|remove-holding|exposure [dimension]|concentration|impact|recommendations|"
-            "decision|queue|score|explain>"
+            "decision|queue|score|explain|narrative>"
         )
 
 
@@ -2621,6 +2640,12 @@ def main() -> None:
     portfolio_explain_p.add_argument("decision_id", nargs="?", default="", help="e.g. reduce_duration")
     portfolio_explain_p.add_argument("--shelf", default="", help="Product shelf (default: us_etf)")
 
+    portfolio_narrative_p = portfolio_sub.add_parser(
+        "narrative", help="DecisionReport as prose via the local LLM, deterministic fallback if unavailable (Sprint 25)"
+    )
+    portfolio_narrative_p.add_argument("portfolio_id", type=int)
+    portfolio_narrative_p.add_argument("--shelf", default="", help="Product shelf (default: us_etf)")
+
     asset_parser = subparsers.add_parser("asset", help="Asset classification lookup/tagging (Sprint 21)")
     asset_sub = asset_parser.add_subparsers(dest="asset_action")
 
@@ -2822,7 +2847,7 @@ def main() -> None:
             print(
                 "Usage: python3 flowcore.py portfolio <create|list|show|summary|delete|"
                 "add-holding|remove-holding|exposure [dimension]|concentration|impact|recommendations|"
-                "decision|queue|score|explain>"
+                "decision|queue|score|explain|narrative>"
             )
             sys.exit(1)
         asyncio.run(

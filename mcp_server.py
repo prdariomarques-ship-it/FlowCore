@@ -14,7 +14,9 @@ breakdowns, concentration/HHI), the SCPX Portfolio Impact Engine (macro
 regime vs. portfolio, deterministic recommendations) plus its Product
 Mapping layer (config-driven, swappable product shelves), the SCPX
 Decision Engine (ordered, explainable decision queue + Decision
-Readiness Score), and a live integration status aggregator as MCP tools
+Readiness Score), the SCPX Narrative Engine (LLM as presentation layer
+only, never inside the decision pipeline), and a live integration
+status aggregator as MCP tools
 so an MCP client (e.g. Claude Code) can call FlowCore directly instead
 of shelling out to the CLI.
 
@@ -830,6 +832,24 @@ async def flowcore_portfolio_explain(portfolio_id: int, decision_id: str = "", s
     built entirely from data already computed upstream, no LLM."""
     try:
         return await service.portfolio_reason_chain(portfolio_id, decision_id, shelf)
+    except ValueError as e:
+        raise RuntimeError(str(e)) from e
+    except ProductMappingError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_portfolio_narrative(portfolio_id: int, shelf: str = "us_etf") -> dict:
+    """Narrative Engine (Sprint 25) — translates the Decision Report into
+    natural-language prose via the local LLM (runtime/ollama.py, same one
+    flowcore_ask uses). The ONLY tool in the whole SCPX pipeline backed
+    by an LLM, and strictly as presentation: it narrates an already-final
+    decision, never influences one. Degrades to a deterministic fallback
+    narrative (built from the same reason chains, no LLM) if Ollama is
+    unavailable — check the response's "source" field ("llm" vs
+    "fallback") and "fallback_reason" when present."""
+    try:
+        return await service.portfolio_narrative(portfolio_id, shelf)
     except ValueError as e:
         raise RuntimeError(str(e)) from e
     except ProductMappingError as e:

@@ -24,6 +24,7 @@ from capability.registry import CapabilityRegistry
 from runtime.exposure import ExposureEngine, compute_concentration
 from runtime.decision import DecisionEngine
 from runtime.impact import ImpactEngine
+from runtime.narrative import NarrativeEngine
 from runtime.macro_score import MacroScoreEngine
 from runtime.product_mapping import DEFAULT_SHELF, list_shelves, load_shelf, map_action
 from runtime.ollama import (
@@ -45,6 +46,7 @@ _portfolio_repo = PortfolioRepository()
 _exposure_engine = ExposureEngine()
 _impact_engine = ImpactEngine(_regime_engine)
 _decision_engine = DecisionEngine(_impact_engine, _exposure_engine)
+_narrative_engine = NarrativeEngine()
 
 # Canonical note/todo/agenda title labels. Previously CLI/MCP used
 # "Note"/"TODO"/"Agenda" while api/router.py separately used
@@ -921,3 +923,18 @@ async def portfolio_reason_chain(portfolio_id: int, decision_id: str = "", shelf
         "portfolio_id": portfolio_id,
         "reason_chains": {d["id"]: d["reason_chain"] for d in report["decisions"]},
     }
+
+
+# ── SCPX Narrative Engine (Sprint 25) ────────────────────────────────────────
+# The only layer allowed to call an LLM in the whole SCPX pipeline, and
+# strictly as presentation over an already-computed DecisionReport. See
+# runtime/narrative/ for the fallback discipline.
+
+
+async def portfolio_narrative(portfolio_id: int, shelf: str = DEFAULT_SHELF, timeout: float | None = None) -> dict:
+    """Raises ValueError if the portfolio doesn't exist, ProductMappingError
+    if `shelf` is unknown. Never raises for LLM unavailability -- degrades
+    to a deterministic fallback narrative instead (see NarrativeReport.source)."""
+    report = await portfolio_decision(portfolio_id, shelf)
+    narrative = await _narrative_engine.generate(portfolio_id, report, timeout)
+    return narrative.to_dict()
