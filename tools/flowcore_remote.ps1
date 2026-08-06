@@ -52,8 +52,14 @@ function Find-ADB {
 }
 
 function Invoke-ADB {
-    param([string[]]$Args)
-    $adbArgs = if ($script:DeviceSerial) { @("-s", $script:DeviceSerial) + $Args } else { $Args }
+    # Named $ArgList, not $Args — $Args collides with PowerShell's own
+    # reserved automatic variable of the same name. With that collision,
+    # $Args inside this function silently ended up empty instead of the
+    # array actually passed in, so every call ran bare "adb -s <serial>"
+    # with no subcommand at all — which is why adb fell back to printing
+    # its full --help text instead of doing anything (e.g. "forward").
+    param([string[]]$ArgList)
+    $adbArgs = if ($script:DeviceSerial) { @("-s", $script:DeviceSerial) + $ArgList } else { $ArgList }
     & $script:ADB @adbArgs 2>&1
 }
 
@@ -104,8 +110,12 @@ if ($Device) {
 Write-OK "Dispositivo: $script:DeviceSerial"
 
 # Port forward ADB → SSH
+# Precise "error:"-prefix match, not a generic "error|fail" substring
+# search — the old check could false-positive on unrelated output (e.g.
+# adb's own --help text mentions "--exit-on-write-error") and then dump
+# that entire text as the "failure" message, obscuring the real error.
 $fwd = Invoke-ADB @("forward", "tcp:$Port", "tcp:$Port")
-if ($fwd -match "error|fail") {
+if ($fwd -match "^error:") {
     Write-FAIL "adb forward falhou: $fwd"
     exit 1
 }
