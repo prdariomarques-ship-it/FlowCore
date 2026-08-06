@@ -25,8 +25,9 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .bn{font-size:17px;font-weight:700;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .bs{font-size:10px;color:var(--text2);margin-top:1px}
 .hr{display:flex;align-items:center;gap:8px}
-.sdot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite}
+.sdot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite;flex-shrink:0}
 .sdot.off{background:var(--red);box-shadow:0 0 6px var(--red);animation:none}
+.sdot.warn{background:var(--yellow);box-shadow:0 0 6px var(--yellow);animation:none}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
 .btn-sm{background:var(--bg3);border:1px solid var(--border);color:var(--accent);padding:5px 11px;border-radius:8px;font-size:12px;cursor:pointer}
 .btn-sm:hover{background:var(--border)}
@@ -37,6 +38,11 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 
 /* Cards */
 .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:15px;box-shadow:var(--shadow)}
+.int-card{transition:transform .2s,border-color .2s}
+.int-card:hover{transform:translateY(-2px);border-color:var(--accent)}
+.int-err{color:var(--red);font-size:11px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border)}
+.int-caps{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.int-cap-chip{background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:2px 8px;font-size:10px;color:var(--text2)}
 .ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}
 .ct{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text2)}
 .ci{font-size:15px}
@@ -894,20 +900,43 @@ async function calCreate(){
 /* ── Integrations ── */
 const INTEGRATION_TAG={ok:'tg',not_configured:'ty',not_authenticated:'ty',unreachable:'tr',error:'tr'};
 const INTEGRATION_LABEL={ok:'Conectado',not_configured:'Não configurado',not_authenticated:'Não autenticado',unreachable:'Inacessível',error:'Erro'};
+const INTEGRATION_DOT={ok:'',not_configured:'warn',not_authenticated:'warn',unreachable:'off',error:'off'};
+const INTEGRATION_CONFIG_LABEL={not_configured:'Não configurado',not_authenticated:'Requer autenticação'};
+const OUTLOOK_ROW_NAMES=['Outlook Auth','Outlook Mailbox','Outlook Calendar'];
+
+function renderIntegrationCard(r){
+  const tag=INTEGRATION_TAG[r.status]||'tr';
+  const label=INTEGRATION_LABEL[r.status]||r.status;
+  const dotClass=(r.status in INTEGRATION_DOT)?INTEGRATION_DOT[r.status]:'off';
+  const when=(r.checked_at||'').replace('T',' ').slice(0,19);
+  const configLabel=INTEGRATION_CONFIG_LABEL[r.status]||'Configurado';
+  const errorHtml=r.error?`<div class="int-err">⚠ ${r.error}</div>`:'';
+  const capsHtml=(r.capabilities&&r.capabilities.length)
+    ?`<div class="int-caps">${r.capabilities.map(c=>`<span class="int-cap-chip">${c}</span>`).join('')}</div>`
+    :'';
+  return `<div class="card int-card">
+    <div class="ch"><span class="ct" style="display:flex;align-items:center;gap:7px"><span class="sdot ${dotClass}"></span>${r.name}</span><span class="tag ${tag}">${label}</span></div>
+    <div class="row"><span class="rl">Detalhe</span><span class="rv" style="text-align:right;max-width:220px">${r.detail}</span></div>
+    <div class="row"><span class="rl">Configuração</span><span class="rv">${configLabel}</span></div>
+    <div class="row" style="border:none"><span class="rl">Última verificação</span><span class="rv">${r.latency_ms}ms · ${when} UTC</span></div>
+    ${errorHtml}
+    ${capsHtml}
+  </div>`;
+}
 
 function renderIntegrations(list){
   const el=document.getElementById('integrations-list');
   if(!list.length){el.innerHTML='<div class="empty">Nenhuma integração encontrada.</div>';return;}
-  el.innerHTML=list.map(r=>{
-    const tag=INTEGRATION_TAG[r.status]||'tr';
-    const label=INTEGRATION_LABEL[r.status]||r.status;
-    const when=(r.checked_at||'').replace('T',' ').slice(0,19);
-    return `<div class="card">
-      <div class="ch"><span class="ct">${r.name}</span><span class="tag ${tag}">${label}</span></div>
-      <div class="row"><span class="rl">Detalhe</span><span class="rv" style="text-align:right;max-width:220px">${r.detail}</span></div>
-      <div class="row" style="border:none"><span class="rl">Latência</span><span class="rv">${r.latency_ms}ms · ${when} UTC</span></div>
-    </div>`;
-  }).join('');
+  const outlookRows=list.filter(r=>OUTLOOK_ROW_NAMES.includes(r.name));
+  const otherRows=list.filter(r=>!OUTLOOK_ROW_NAMES.includes(r.name));
+  let html='';
+  if(outlookRows.length){
+    html+=`<div class="sr-section"><div class="sr-title">Outlook</div><div class="gap">${outlookRows.map(renderIntegrationCard).join('')}</div></div>`;
+  }
+  if(otherRows.length){
+    html+=`<div class="sr-section"><div class="sr-title">Serviços</div><div class="gap">${otherRows.map(renderIntegrationCard).join('')}</div></div>`;
+  }
+  el.innerHTML=html;
 }
 
 async function loadIntegrations(){
