@@ -5,10 +5,11 @@ search, ...), flow commands (create, list, get, run, delete flows and
 their executions), Android device capabilities, Outlook (read-only),
 Calendar (shares Outlook's auth session), WhatsApp (via Evolution API,
 already-paired instance), Telegram (reuses the spcx-monitor bot), the
-SCPX Observer Framework (normalized MarketEvents, no interpretation),
-and a live integration status aggregator as MCP tools so an MCP client
-(e.g. Claude Code) can call FlowCore directly instead of shelling out to
-the CLI.
+SCPX Observer Framework (normalized MarketEvents, no interpretation), the
+SCPX Macro Score Engine (deterministic per-dimension scores, no LLM), and
+a live integration status aggregator as MCP tools so an MCP client (e.g.
+Claude Code) can call FlowCore directly instead of shelling out to the
+CLI.
 
 Started via: python3 flowcore.py mcp
 """
@@ -524,6 +525,32 @@ async def flowcore_observer_health() -> dict:
     try:
         return await service.observer_health()
     except ObserverError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_macro_score_dimensions() -> dict:
+    """SCPX Macro Score Engine — dimension -> source mapping. No computation."""
+    return await service.macro_score_dimensions()
+
+
+@mcp.tool()
+async def flowcore_macro_score_scores() -> list[dict]:
+    """Compute every SCPX macro dimension's score now. Deterministic, no LLM —
+    status is "insufficient_data" (score=None) for any dimension without
+    enough persisted history yet, never a fabricated number."""
+    return await service.macro_score_compute_all()
+
+
+@mcp.tool()
+async def flowcore_macro_score_score(dimension: str) -> dict:
+    """Compute a single SCPX macro dimension's score by name (commodities,
+    liquidity, risk_sentiment)."""
+    from runtime.macro_score import MacroScoreError
+
+    try:
+        return await service.macro_score_compute(dimension)
+    except MacroScoreError as e:
         raise RuntimeError(str(e)) from e
 
 

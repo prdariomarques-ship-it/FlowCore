@@ -20,17 +20,20 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from capability.registry import CapabilityRegistry
+from runtime.macro_score import MacroScoreEngine
 from runtime.ollama import (
     discover_default_model,
     discover_ollama_endpoint,
     generate as ollama_generate,
 )
-from storage import DocumentRepository, FlowRepository, MemoryRepository
+from storage import DocumentRepository, EventRepository, FlowRepository, MemoryRepository
 
 _doc_repo = DocumentRepository()
 _mem_repo = MemoryRepository()
 _flow_repo = FlowRepository()
 _registry = CapabilityRegistry()
+_event_repo = EventRepository()
+_macro_score_engine = MacroScoreEngine(_event_repo)
 
 # Canonical note/todo/agenda title labels. Previously CLI/MCP used
 # "Note"/"TODO"/"Agenda" while api/router.py separately used
@@ -632,3 +635,26 @@ async def observer_health() -> dict:
 
     events = await scheduler.run_source("vix")
     return events[0].to_dict()
+
+
+# ── SCPX Macro Score Engine (Sprint 19) ─────────────────────────────────────────
+# Deterministic, explainable per-dimension scores computed from persisted
+# MarketEvents (see runtime/macro_score/). No LLM, no interpretation beyond
+# arithmetic — decision engines belong to FlowCore, not a language model.
+
+
+async def macro_score_dimensions() -> dict:
+    """Static: which dimensions are scored and which sources feed each. No I/O."""
+    from runtime.macro_score import DIMENSIONS
+
+    return dict(DIMENSIONS)
+
+
+async def macro_score_compute(dimension: str) -> dict:
+    score = await _macro_score_engine.compute_score(dimension)
+    return score.to_dict()
+
+
+async def macro_score_compute_all() -> list[dict]:
+    scores = await _macro_score_engine.compute_all()
+    return [s.to_dict() for s in scores]

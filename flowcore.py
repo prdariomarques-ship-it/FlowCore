@@ -39,6 +39,7 @@ Usage:
     python3 flowcore.py integrations         Show live status of all integrations
     python3 flowcore.py telegram <health|config|send>
     python3 flowcore.py observer <registry|events [source]|health|watch>
+    python3 flowcore.py macro-score <dimensions|scores [dimension]>
 
 Env vars:
     FLOWCORE_MODEL=qwen3:8b              (default: llama2)
@@ -1916,6 +1917,42 @@ async def cmd_observer(action: str, source: str = "", interval: float = 300) -> 
         print("  Usage: python3 flowcore.py observer <registry|events [source]|health|watch>")
 
 
+def _print_dimension_score(score: dict) -> None:
+    if score["status"] == "insufficient_data":
+        print(f"  {score['dimension']:<16} {YELLOW}insufficient_data{NC}  samples={score['sample_counts']}")
+        return
+    color = GREEN if (score["score"] or 0) >= 0 else RED
+    print(f"  {score['dimension']:<16} {color}{score['score']:+.3f}{NC}  z_scores={score['z_scores']}")
+
+
+async def cmd_macro_score(action: str, dimension: str = "") -> None:
+    """SCPX Macro Score Engine (Sprint 19) — deterministic per-dimension scores. No LLM."""
+    import service
+    from runtime.macro_score import DIMENSIONS, MacroScoreError
+
+    if action == "dimensions":
+        for dim, sources in DIMENSIONS.items():
+            print(f"  {dim:<16} {', '.join(sources)}")
+
+    elif action == "scores":
+        try:
+            if dimension:
+                if dimension not in DIMENSIONS:
+                    print(f"{RED}Unknown dimension: {dimension!r}{NC}")
+                    return
+                score = await service.macro_score_compute(dimension)
+                _print_dimension_score(score)
+            else:
+                for score in await service.macro_score_compute_all():
+                    _print_dimension_score(score)
+        except MacroScoreError as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    else:
+        print(f"{RED}Unknown macro-score action: {action!r}{NC}")
+        print("  Usage: python3 flowcore.py macro-score <dimensions|scores [dimension]>")
+
+
 def main() -> None:
     """Main CLI handler."""
     parser = argparse.ArgumentParser(description="FlowCore CLI")
@@ -2105,6 +2142,14 @@ def main() -> None:
     observer_watch_p = observer_sub.add_parser("watch", help="Run the scheduler in the foreground (Ctrl-C to stop)")
     observer_watch_p.add_argument("--interval", type=float, default=300, help="Seconds between cycles (default: 300)")
 
+    macro_score_parser = subparsers.add_parser(
+        "macro-score", help="SCPX Macro Score Engine (deterministic per-dimension scores, no LLM)"
+    )
+    macro_score_sub = macro_score_parser.add_subparsers(dest="macro_score_action")
+    macro_score_sub.add_parser("dimensions", help="List dimensions and their source mapping (no computation)")
+    macro_score_scores_p = macro_score_sub.add_parser("scores", help="Compute scores now")
+    macro_score_scores_p.add_argument("dimension", nargs="?", default="", help="Compute only this dimension")
+
     args = parser.parse_args()
     cfg = get_config()
     platform = detect_platform()
@@ -2273,6 +2318,13 @@ def main() -> None:
         source = getattr(args, "source", "")
         interval = getattr(args, "interval", 300)
         asyncio.run(cmd_observer(action, source=source, interval=interval))
+    elif args.command == "macro-score":
+        action = getattr(args, "macro_score_action", None)
+        if not action:
+            print("Usage: python3 flowcore.py macro-score <dimensions|scores [dimension]>")
+            sys.exit(1)
+        dimension = getattr(args, "dimension", "")
+        asyncio.run(cmd_macro_score(action, dimension=dimension))
     else:
         parser.print_help()
         sys.exit(1)

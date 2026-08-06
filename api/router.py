@@ -80,6 +80,11 @@ Endpoints (Sprint 18 — SCPX Observer Framework, normalized MarketEvents):
   GET  /api/observer/events           — run every observer now, return MarketEvents
   GET  /api/observer/events/{source}  — run one observer by name (treasury, dollar, vix, oil, gold)
   GET  /api/observer/health           — live reachability probe (runs the vix observer)
+
+Endpoints (Sprint 19 — SCPX Macro Score Engine, deterministic per-dimension scores):
+  GET  /api/macro-score/dimensions          — dimension -> source mapping, no computation
+  GET  /api/macro-score/scores              — every dimension's score, computed now
+  GET  /api/macro-score/scores/{dimension}  — one dimension by name
 """
 
 from __future__ import annotations
@@ -683,6 +688,26 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             return {"events": await service.observer_source_events(source)}
         except ObserverError as e:
             raise HTTPException(status_code=502, detail=str(e))
+
+    # ── SCPX Macro Score Engine (Sprint 19) ────────────────────────────────
+    # Deterministic, explainable per-dimension scores — no LLM. Core-tier:
+    # unlike the Observer routes above, nothing here can 502 from a network
+    # failure, since this only reads already-persisted history.
+    @app.get("/api/macro-score/dimensions")
+    async def macro_score_dimensions():
+        return {"dimensions": await service.macro_score_dimensions()}
+
+    @app.get("/api/macro-score/scores")
+    async def macro_score_scores():
+        return {"scores": await service.macro_score_compute_all()}
+
+    @app.get("/api/macro-score/scores/{dimension}")
+    async def macro_score_dimension(dimension: str):
+        from runtime.macro_score import DIMENSIONS
+
+        if dimension not in DIMENSIONS:
+            raise HTTPException(status_code=404, detail=f"Unknown dimension: {dimension!r}")
+        return await service.macro_score_compute(dimension)
 
     # ── Search (Sprint 12) ───────────────────────────────────────────────
     @app.get("/api/search")
