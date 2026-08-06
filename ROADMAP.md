@@ -70,27 +70,26 @@ no LLM anywhere in the decision pipeline itself; never hardcode a specific
 product/ticker/bank/provider outside `runtime/product_mapping/`'s config-driven
 shelves; never duplicate an upstream engine's computation — always compose it.
 
-## Version 1.3 — Hybrid AI provider architecture
+## Version 1.3 — Hybrid AI provider architecture — superseded by Version 2.0
 
-**Provider abstraction** (local stays default and mandatory for anything unattended/financial/cost-sensitive; Claude becomes available opt-in for interactive, quality-sensitive work — never silent fallback):
-- Formalize `runtime/ollama.py`'s functions behind a minimal internal provider interface (no behavior change, prep work only).
-- Add `AnthropicProvider` (`ANTHROPIC_API_KEY` via `.env`), exposed as an explicitly separate, opt-in path — not wired into the default `flowcore_ask`/`/api/ask` behavior.
-- Define an explicit allow-list of which surfaces may ever call it, enforced in code, not just by default.
+**Provider abstraction** (local stays default and mandatory for anything unattended/financial/cost-sensitive; cloud becomes available opt-in for interactive, quality-sensitive work — never silent fallback): this goal was achieved, in a more general form than originally sketched here, by jumping straight to Version 2.0's `runtime/llm/` (see below) rather than building a narrower Ollama-only provider interface first. What's different from the original plan: the opt-in cloud path is `OpenRouterProvider` (a meta-provider reaching GPT/Claude/Gemini/DeepSeek/etc. via one API and `ANTHROPIC`/`OPENROUTER_API_KEY`-style env config), not a dedicated `AnthropicProvider` — functionally equivalent for "make Claude available opt-in," more general for "make any cloud model available opt-in." The "explicit allow-list of which surfaces may call it" is `runtime/llm/policy.py`'s `LocalFirstPolicy`, enforced in code exactly as planned.
 
 **Remaining known gaps, not addressed in 1.2 because they're features/UI, not architecture:**
 - Web UI: Documents-browsing view, edit/delete for memories/notes, pagination past the current hard 30-item cap — all flagged in Sprint 13's UI review, none built yet.
 - `doctor/service.py`'s `_check_ollama` re-implements its own reachability probe instead of calling `runtime/ollama.py`'s `discover_ollama_endpoint()` — can report Ollama unreachable on setups where discovery-based endpoint resolution actually works (see `ARCHITECTURE_HEALTH_REPORT.md`).
 - `api/router.py` instantiates a fresh `MemoryRepository()`/`DocumentRepository()` inline per endpoint rather than reusing a module-level instance like `flowcore.py`/`mcp_server.py` do — harmless today (both repos are stateless), worth normalizing if the file is touched again.
 
-## Version 2.0 — AI Router + Policy Engine
+## Version 2.0 — AI Router + Policy Engine — **Status: implemented**
 
-The larger architectural step, once 1.3's provider abstraction and hardening are real and load-bearing, not before:
+Implemented ahead of its original sequencing (`runtime/llm/`, added after Sprint 25 as a priority directive — architecture over feature count for the remainder of that session). What was planned vs. what shipped:
 
-- **AI Router**: decides which provider (local vs. Claude) handles a given request based on request type, latency needs, provider health, and cost policy — without exposing provider-specific details to the rest of FlowCore.
-- **Policy Engine**: has final say over whether a provider *may* be used for a given request at all (financial data, investment analysis, personal documents → local-only, always; coding/general reasoning → Claude allowed). No automatic cloud fallback under any circumstance — a blocked request explains why and asks before ever sending data externally.
-- **Telemetry**: per-provider call count, latency, tokens, estimated cost, errors, fallback attempts — logged (at minimum) or queryable (if a `provider_calls` table proves worth the extra work by then).
+- **AI Router** → `LLMRouter` (`runtime/llm/router.py`): decides which provider handles a given request via a pluggable `RoutingPolicy`, with retry-then-fallback across providers — the rest of FlowCore only ever sees `LLMRequest`/`LLMResponse`, never a provider-specific detail.
+- **Policy Engine** → `LocalFirstPolicy` (`runtime/llm/policy.py`), realized exactly as specified: Ollama (local) is always tried first; a cloud provider (`OpenRouterProvider`) is only ever considered when a caller explicitly sets `request.metadata["allow_cloud"]=True` — no automatic, silent cloud fallback under any circumstance.
+- **Telemetry** → `MetricsSink`/`InMemoryMetrics` (`runtime/llm/metrics.py`): per-provider call count, success/failure, average latency, last error — queryable via `GET /api/llm/status` / `flowcore.py llm status` / `flowcore_llm_status`. Process-lifetime only for now; a persisted table is a drop-in replacement behind the same interface, not built until real usage data justifies it.
 
-Explicitly not in scope for 2.0 unless real usage data says otherwise: `OpenAIProvider`, `GeminiProvider`, or any other provider beyond Local + Anthropic. Every provider beyond the two that actually matter for a single-user project is speculative engineering until proven needed.
+Two shipped providers: `OllamaProvider` (wraps the existing local integration, zero duplicated logic) and `OpenRouterProvider` (the default cloud backend — one OpenAI-compatible meta-provider in front of GPT/Claude/Gemini/DeepSeek/many others, so no provider class per cloud vendor was needed). `runtime/narrative/` (Sprint 25) is the one SCPX-pipeline consumer so far, dependency-injected with a Router instance rather than importing any provider module itself. `service.ask()` (Chat) is a deliberate, explicitly flagged non-migration (changing its exception contract without updating its 3 call sites in the same change would be a real backward-compatibility break) — see `docs/LLM_ROUTER_ARCHITECTURE.md` for the full design, data flow, and a concrete "adding a new provider" guide.
+
+Explicitly still out of scope: `OpenAIProvider`, `GeminiProvider`, or any other provider beyond Local + OpenRouter as *separate classes* — OpenRouter's own `model` parameter already reaches those vendors. A direct (non-OpenRouter) provider for a specific vendor is a future addition if a real need arises, not built speculatively. A persisted metrics table and a cost-based (real $) budget are the same story.
 
 ## Notes
 

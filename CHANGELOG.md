@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.0] — 2026-08-06
+
+Priority directive: architecture and foundations over feature count. Realizes
+`ROADMAP.md`'s Version 2.0 ("AI Router + Policy Engine") ahead of its
+original sequencing.
+
+### Added
+
+- **LLM Router** (`runtime/llm/`) — the single, permanent abstraction layer
+  between FlowCore and any LLM backend. Provider abstraction (`LLMProvider`),
+  provider registry, `LocalFirstPolicy` (the Policy Engine — Ollama always
+  first, cloud only ever opt-in per request via `metadata["allow_cloud"]`,
+  never a silent fallback), metrics/cache/budget interfaces (each with a
+  real, working default implementation, not just a stub), retry-then-
+  fallback orchestration in `LLMRouter`. Two shipped providers:
+  `OllamaProvider` (wraps the existing local integration) and
+  `OpenRouterProvider` (the default cloud backend — one OpenAI-compatible
+  API in front of GPT/Claude/Gemini/DeepSeek/many others, so no
+  provider class per cloud vendor was needed). `GET /api/llm/status`,
+  `flowcore.py llm status`, `flowcore_llm_status` MCP tool.
+  `docs/LLM_ROUTER_ARCHITECTURE.md` — full design + "adding a new
+  provider" guide.
+
+### Changed
+
+- `runtime/narrative/` (Sprint 25) migrated off `runtime/ollama.py`
+  directly onto an injected `LLMRouter` — the one SCPX-pipeline LLM
+  consumer, now provider-agnostic and structurally incapable of reaching
+  a cloud provider without a deliberate code change.
+
 ## [1.4.0] — 2026-08-06
 
 Sprint 25.
