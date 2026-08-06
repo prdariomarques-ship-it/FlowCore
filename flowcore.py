@@ -41,6 +41,8 @@ Usage:
     python3 flowcore.py observer <registry|events [source]|health|watch>
     python3 flowcore.py macro-score <dimensions|scores [dimension]>
     python3 flowcore.py regime signals [dimension]
+    python3 flowcore.py portfolio <create|list|show|summary|delete|add-holding|remove-holding>
+    python3 flowcore.py asset <show|tag>
 
 Env vars:
     FLOWCORE_MODEL=qwen3:8b              (default: llama2)
@@ -70,6 +72,7 @@ load_dotenv()
 from config.loader import get_config
 from runtime.core import FlowCoreRuntime, detect_platform
 from runtime.ollama import discover_default_model, discover_ollama_endpoint, OllamaDiscoveryError
+from runtime.portfolio.attributes import ASSET_ATTRIBUTE_FIELDS
 from storage import DocumentRepository, MemoryRepository
 from loguru import logger
 
@@ -1993,6 +1996,143 @@ async def cmd_regime(action: str, dimension: str = "") -> None:
         print("  Usage: python3 flowcore.py regime signals [dimension]")
 
 
+def _print_holding(h: dict) -> None:
+    price_str = f"${h['price']:.2f}" if h["price"] is not None else "n/a"
+    mv_str = f"${h['market_value']:.2f}" if h["market_value"] is not None else "n/a"
+    gain = h["unrealized_gain"]
+    if gain is None:
+        gain_str = f"{YELLOW}n/a{NC}"
+    else:
+        color = GREEN if gain >= 0 else RED
+        pct = h["unrealized_gain_pct"]
+        gain_str = f"{color}{gain:+.2f} ({pct:+.1f}%){NC}" if pct is not None else f"{color}{gain:+.2f}{NC}"
+    asset_name = (h.get("asset") or {}).get("name") or h["symbol"]
+    print(
+        f"  [{h['id']}] {h['symbol']:<8} {h['quantity']:g} @ {h['average_cost']:.2f}"
+        f"  price={price_str}  value={mv_str}  gain={gain_str}  ({asset_name})"
+    )
+    if h.get("valuation_error"):
+        print(f"      {RED}⚠ {h['valuation_error']}{NC}")
+
+
+async def cmd_portfolio(
+    action: str,
+    portfolio_id: int = 0,
+    name: str = "",
+    symbol: str = "",
+    quantity: float = 0.0,
+    average_cost: float = 0.0,
+    currency: str = "USD",
+    holding_id: int = 0,
+) -> None:
+    """FlowCore Portfolio Domain (Sprint 21, Phase 1) — manual holdings CRUD."""
+    import service
+
+    if action == "create":
+        if not name:
+            print(f'{RED}Usage: python3 flowcore.py portfolio create "<name>"{NC}')
+            return
+        p = await service.create_portfolio(name)
+        print(f"{GREEN}✓ Portfolio criado{NC} [{p['id']}] {p['name']}")
+
+    elif action == "list":
+        portfolios = await service.list_portfolios()
+        if not portfolios:
+            print("Nenhum portfólio ainda.")
+        for p in portfolios:
+            print(f"  [{p['id']}] {p['name']} — criado em {p['created_at']}")
+
+    elif action == "show":
+        try:
+            p = await service.get_portfolio(portfolio_id)
+            holdings = await service.list_holdings(portfolio_id)
+        except ValueError as e:
+            print(f"{RED}Error: {e}{NC}")
+            return
+        print(f"[{p['id']}] {p['name']}")
+        if not holdings:
+            print("  Nenhuma holding ainda.")
+        for h in holdings:
+            _print_holding(h)
+
+    elif action == "summary":
+        try:
+            s = await service.portfolio_summary(portfolio_id)
+        except ValueError as e:
+            print(f"{RED}Error: {e}{NC}")
+            return
+        color = GREEN if s["total_unrealized_gain"] >= 0 else RED
+        pct = s["total_unrealized_gain_pct"]
+        pct_str = f" ({pct:+.1f}%)" if pct is not None else ""
+        print(f"  Holdings: {s['valued_holding_count']}/{s['holding_count']} valuadas")
+        print(f"  Valor de mercado: ${s['total_market_value']:.2f}")
+        print(f"  Custo: ${s['total_cost_basis']:.2f}")
+        print(f"  Ganho/perda: {color}{s['total_unrealized_gain']:+.2f}{pct_str}{NC}")
+
+    elif action == "delete":
+        deleted = await service.delete_portfolio(portfolio_id)
+        if deleted:
+            print(f"{GREEN}✓ Portfólio removido{NC}")
+        else:
+            print(f"{RED}Portfólio não encontrado: {portfolio_id}{NC}")
+
+    elif action == "add-holding":
+        if not symbol or quantity <= 0:
+            print(
+                f"{RED}Usage: python3 flowcore.py portfolio add-holding "
+                f"<portfolio_id> <symbol> <quantity> <average_cost> [--currency USD]{NC}"
+            )
+            return
+        try:
+            h = await service.add_holding(portfolio_id, symbol, quantity, average_cost, currency)
+        except ValueError as e:
+            print(f"{RED}Error: {e}{NC}")
+            return
+        print(f"{GREEN}✓ Holding adicionada{NC} [{h['id']}] {h['symbol']} x{h['quantity']:g}")
+
+    elif action == "remove-holding":
+        deleted = await service.delete_holding(holding_id)
+        if deleted:
+            print(f"{GREEN}✓ Holding removida{NC}")
+        else:
+            print(f"{RED}Holding não encontrada: {holding_id}{NC}")
+
+    else:
+        print(f"{RED}Unknown portfolio action: {action!r}{NC}")
+        print("  Usage: python3 flowcore.py portfolio <create|list|show|summary|delete|add-holding|remove-holding>")
+
+
+async def cmd_asset(action: str, symbol: str = "", **tags: str) -> None:
+    """FlowCore Portfolio Domain (Sprint 21, Phase 1) — asset classification lookup/tagging."""
+    import service
+
+    if action == "show":
+        if not symbol:
+            print(f"{RED}Usage: python3 flowcore.py asset show <symbol>{NC}")
+            return
+        try:
+            asset = await service.get_asset(symbol)
+        except ValueError as e:
+            print(f"{RED}Error: {e}{NC}")
+            return
+        print(f"{asset['symbol']} — {asset['name']}")
+        print(f"  Classe: {asset['asset_class']}  Setor: {asset['sector']}  Indústria: {asset['industry']}")
+        print(f"  País: {asset['country']}  Moeda: {asset['currency']}")
+        if asset["attributes"]:
+            print(f"  Atributos: {asset['attributes']}")
+
+    elif action == "tag":
+        if not symbol:
+            print(f"{RED}Usage: python3 flowcore.py asset tag <symbol> [--theme ...] [--duration ...] ...{NC}")
+            return
+        asset = await service.tag_asset(symbol, **tags)
+        print(f"{GREEN}✓ Atributos atualizados{NC} — {asset['attributes']}")
+
+    else:
+        print(f"{RED}Unknown asset action: {action!r}{NC}")
+        print("  Usage: python3 flowcore.py asset <show|tag>")
+
+
 def main() -> None:
     """Main CLI handler."""
     parser = argparse.ArgumentParser(description="FlowCore CLI")
@@ -2197,6 +2337,46 @@ def main() -> None:
     regime_signals_p = regime_sub.add_parser("signals", help="Classify every dimension's regime now")
     regime_signals_p.add_argument("dimension", nargs="?", default="", help="Classify only this dimension")
 
+    portfolio_parser = subparsers.add_parser("portfolio", help="Portfolio Domain (Sprint 21, manual holdings CRUD)")
+    portfolio_sub = portfolio_parser.add_subparsers(dest="portfolio_action")
+
+    portfolio_create_p = portfolio_sub.add_parser("create", help="Create a portfolio")
+    portfolio_create_p.add_argument("name", help="Portfolio name")
+
+    portfolio_sub.add_parser("list", help="List portfolios")
+
+    portfolio_show_p = portfolio_sub.add_parser("show", help="Show a portfolio and its holdings")
+    portfolio_show_p.add_argument("portfolio_id", type=int)
+
+    portfolio_summary_p = portfolio_sub.add_parser("summary", help="Portfolio totals (live)")
+    portfolio_summary_p.add_argument("portfolio_id", type=int)
+
+    portfolio_delete_p = portfolio_sub.add_parser("delete", help="Delete a portfolio (cascades to its holdings)")
+    portfolio_delete_p.add_argument("portfolio_id", type=int)
+
+    portfolio_add_holding_p = portfolio_sub.add_parser("add-holding", help="Add a holding to a portfolio")
+    portfolio_add_holding_p.add_argument("portfolio_id", type=int)
+    portfolio_add_holding_p.add_argument("symbol")
+    portfolio_add_holding_p.add_argument("quantity", type=float)
+    portfolio_add_holding_p.add_argument("average_cost", type=float)
+    portfolio_add_holding_p.add_argument("--currency", default="USD")
+
+    portfolio_remove_holding_p = portfolio_sub.add_parser("remove-holding", help="Remove a holding")
+    portfolio_remove_holding_p.add_argument("holding_id", type=int)
+
+    asset_parser = subparsers.add_parser("asset", help="Asset classification lookup/tagging (Sprint 21)")
+    asset_sub = asset_parser.add_subparsers(dest="asset_action")
+
+    asset_show_p = asset_sub.add_parser("show", help="Show an asset's classification")
+    asset_show_p.add_argument("symbol")
+
+    asset_tag_p = asset_sub.add_parser("tag", help="Manually tag an asset's soft attributes")
+    asset_tag_p.add_argument("symbol")
+    # Flags derived from the canonical schema (runtime/portfolio/attributes.py),
+    # not hand-listed — a new attribute added there gets a CLI flag for free.
+    for _field in ASSET_ATTRIBUTE_FIELDS:
+        asset_tag_p.add_argument(f"--{_field.replace('_', '-')}", dest=_field, default=None)
+
     args = parser.parse_args()
     cfg = get_config()
     platform = detect_platform()
@@ -2379,6 +2559,33 @@ def main() -> None:
             sys.exit(1)
         dimension = getattr(args, "dimension", "")
         asyncio.run(cmd_regime(action, dimension=dimension))
+    elif args.command == "portfolio":
+        action = getattr(args, "portfolio_action", None)
+        if not action:
+            print("Usage: python3 flowcore.py portfolio <create|list|show|summary|delete|add-holding|remove-holding>")
+            sys.exit(1)
+        asyncio.run(
+            cmd_portfolio(
+                action,
+                portfolio_id=getattr(args, "portfolio_id", 0),
+                name=getattr(args, "name", ""),
+                symbol=getattr(args, "symbol", ""),
+                quantity=getattr(args, "quantity", 0.0),
+                average_cost=getattr(args, "average_cost", 0.0),
+                currency=getattr(args, "currency", "USD"),
+                holding_id=getattr(args, "holding_id", 0),
+            )
+        )
+    elif args.command == "asset":
+        action = getattr(args, "asset_action", None)
+        if not action:
+            print("Usage: python3 flowcore.py asset <show|tag>")
+            sys.exit(1)
+        symbol = getattr(args, "symbol", "")
+        # Extraction derived from the same canonical schema used to register
+        # the flags above — one list, not a hand-kept parallel dict.
+        tags = {field: getattr(args, field, None) for field in ASSET_ATTRIBUTE_FIELDS}
+        asyncio.run(cmd_asset(action, symbol=symbol, **tags))
     else:
         parser.print_help()
         sys.exit(1)

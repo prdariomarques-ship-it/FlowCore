@@ -89,6 +89,19 @@ Endpoints (Sprint 19 — SCPX Macro Score Engine, deterministic per-dimension sc
 Endpoints (Sprint 20 — SCPX Regime Engine, deterministic threshold classification):
   GET  /api/regime/signals             — every dimension's regime (elevated/depressed/neutral)
   GET  /api/regime/signals/{dimension}  — one dimension by name
+
+Endpoints (Sprint 21, Phase 1 — Portfolio Domain, manual CRUD):
+  POST   /api/portfolios                          — create a portfolio ({name})
+  GET    /api/portfolios                          — list portfolios
+  GET    /api/portfolios/{id}                     — get a portfolio by id
+  DELETE /api/portfolios/{id}                     — delete a portfolio (cascades to its holdings)
+  GET    /api/portfolios/{id}/summary             — total market value/cost basis/gain (live)
+  POST   /api/portfolios/{id}/holdings            — add a holding ({symbol, quantity, average_cost, currency?})
+  GET    /api/portfolios/{id}/holdings            — list holdings, live-valued + asset-classified
+  PUT    /api/holdings/{id}                       — update quantity/average_cost
+  DELETE /api/holdings/{id}                       — delete a holding
+  GET    /api/assets/{symbol}                     — an asset's classification
+  PUT    /api/assets/{symbol}/attributes          — manually tag an asset (theme, duration, ...)
 """
 
 from __future__ import annotations
@@ -100,9 +113,10 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from loguru import logger
-from pydantic import BaseModel
+from pydantic import BaseModel, create_model
 
 import service
+from runtime.portfolio.attributes import ASSET_ATTRIBUTE_FIELDS
 
 _WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
@@ -175,6 +189,32 @@ class WhatsAppSend(BaseModel):
 class TelegramSend(BaseModel):
     text: str
     chat_id: str | None = None
+
+
+class PortfolioCreate(BaseModel):
+    name: str
+
+
+class HoldingCreate(BaseModel):
+    symbol: str
+    quantity: float
+    average_cost: float
+    currency: str = "USD"
+
+
+class HoldingUpdate(BaseModel):
+    quantity: float | None = None
+    average_cost: float | None = None
+
+
+# Derived from the canonical schema (runtime/portfolio/attributes.py),
+# not hand-listed — a new attribute added there appears here for free,
+# with no separate edit. See service.tag_asset()'s validation, which
+# reads from the same list.
+AssetTagRequest = create_model(
+    "AssetTagRequest",
+    **{field: (str | None, None) for field in ASSET_ATTRIBUTE_FIELDS},
+)
 
 
 # ---------------------------------------------------------------------------
@@ -727,6 +767,77 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         if dimension not in DIMENSIONS:
             raise HTTPException(status_code=404, detail=f"Unknown dimension: {dimension!r}")
         return await service.regime_classify(dimension)
+
+    # ── Portfolio Domain (Sprint 21, Phase 1) ───────────────────────────────
+    # Manual CRUD only — confirmed with the user, see service.py's module
+    # comment for the full rationale.
+    @app.post("/api/portfolios", status_code=201)
+    async def create_portfolio(data: PortfolioCreate):
+        return await service.create_portfolio(data.name)
+
+    @app.get("/api/portfolios")
+    async def list_portfolios():
+        return {"portfolios": await service.list_portfolios()}
+
+    @app.get("/api/portfolios/{portfolio_id}")
+    async def get_portfolio(portfolio_id: int):
+        try:
+            return await service.get_portfolio(portfolio_id)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+    @app.delete("/api/portfolios/{portfolio_id}")
+    async def delete_portfolio(portfolio_id: int):
+        deleted = await service.delete_portfolio(portfolio_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail=f"Portfolio not found: {portfolio_id}")
+        return {"deleted": True}
+
+    @app.get("/api/portfolios/{portfolio_id}/summary")
+    async def portfolio_summary(portfolio_id: int):
+        try:
+            return await service.portfolio_summary(portfolio_id)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+    @app.post("/api/portfolios/{portfolio_id}/holdings", status_code=201)
+    async def add_holding(portfolio_id: int, data: HoldingCreate):
+        try:
+            return await service.add_holding(portfolio_id, data.symbol, data.quantity, data.average_cost, data.currency)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+    @app.get("/api/portfolios/{portfolio_id}/holdings")
+    async def list_holdings(portfolio_id: int):
+        try:
+            return {"holdings": await service.list_holdings(portfolio_id)}
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+    @app.put("/api/holdings/{holding_id}")
+    async def update_holding(holding_id: int, data: HoldingUpdate):
+        try:
+            return await service.update_holding(holding_id, data.quantity, data.average_cost)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+    @app.delete("/api/holdings/{holding_id}")
+    async def delete_holding(holding_id: int):
+        deleted = await service.delete_holding(holding_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail=f"Holding not found: {holding_id}")
+        return {"deleted": True}
+
+    @app.get("/api/assets/{symbol}")
+    async def get_asset(symbol: str):
+        try:
+            return await service.get_asset(symbol)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+    @app.put("/api/assets/{symbol}/attributes")
+    async def tag_asset(symbol: str, data: AssetTagRequest):
+        return await service.tag_asset(symbol, **data.model_dump())
 
     # ── Search (Sprint 12) ───────────────────────────────────────────────
     @app.get("/api/search")

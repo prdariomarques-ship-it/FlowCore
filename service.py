@@ -18,6 +18,7 @@ import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from capability.registry import CapabilityRegistry
 from runtime.macro_score import MacroScoreEngine
@@ -27,7 +28,7 @@ from runtime.ollama import (
     generate as ollama_generate,
 )
 from runtime.regime import RegimeEngine
-from storage import DocumentRepository, EventRepository, FlowRepository, MemoryRepository
+from storage import DocumentRepository, EventRepository, FlowRepository, MemoryRepository, PortfolioRepository
 
 _doc_repo = DocumentRepository()
 _mem_repo = MemoryRepository()
@@ -36,6 +37,7 @@ _registry = CapabilityRegistry()
 _event_repo = EventRepository()
 _macro_score_engine = MacroScoreEngine(_event_repo)
 _regime_engine = RegimeEngine(_macro_score_engine)
+_portfolio_repo = PortfolioRepository()
 
 # Canonical note/todo/agenda title labels. Previously CLI/MCP used
 # "Note"/"TODO"/"Agenda" while api/router.py separately used
@@ -676,3 +678,136 @@ async def regime_classify(dimension: str) -> dict:
 async def regime_classify_all() -> list[dict]:
     signals = await _regime_engine.classify_all()
     return [s.to_dict() for s in signals]
+
+
+# ── Portfolio Domain (Sprint 21, Phase 1) ───────────────────────────────────────
+# Manual CRUD only in this phase (confirmed with the user) — the `source`
+# column already supports future import/broker/Open Finance paths without
+# a schema change, but nothing beyond manual entry is built yet.
+
+
+async def create_portfolio(name: str) -> dict:
+    portfolio_id = await _portfolio_repo.create_portfolio(name)
+    return await _portfolio_repo.get_portfolio(portfolio_id)
+
+
+async def list_portfolios() -> list[dict]:
+    return await _portfolio_repo.list_portfolios()
+
+
+async def get_portfolio(portfolio_id: int) -> dict:
+    portfolio = await _portfolio_repo.get_portfolio(portfolio_id)
+    if portfolio is None:
+        raise ValueError(f"Portfolio not found: {portfolio_id}")
+    return portfolio
+
+
+async def delete_portfolio(portfolio_id: int) -> bool:
+    return await _portfolio_repo.delete_portfolio(portfolio_id)
+
+
+async def _ensure_asset_enriched(symbol: str) -> None:
+    """Best-effort auto-classification for a new symbol — never blocks
+    adding a holding. An unknown/unreachable symbol just stays
+    unclassified until manually tagged via tag_asset()."""
+    existing = await _portfolio_repo.get_asset(symbol)
+    if existing is not None:
+        return
+    from runtime.portfolio.asset_provider import AssetProviderError, fetch_asset_info
+
+    try:
+        info = await asyncio.to_thread(fetch_asset_info, symbol)
+    except AssetProviderError:
+        return
+    await _portfolio_repo.upsert_asset(symbol, **info)
+
+
+async def add_holding(
+    portfolio_id: int, symbol: str, quantity: float, average_cost: float, currency: str = "USD"
+) -> dict:
+    """Raises ValueError if the portfolio doesn't exist."""
+    portfolio = await _portfolio_repo.get_portfolio(portfolio_id)
+    if portfolio is None:
+        raise ValueError(f"Portfolio not found: {portfolio_id}")
+    holding_id = await _portfolio_repo.create_holding(portfolio_id, symbol, quantity, average_cost, currency)
+    await _ensure_asset_enriched(symbol)
+    return await _portfolio_repo.get_holding(holding_id)
+
+
+async def list_holdings(portfolio_id: int) -> list[dict]:
+    """Raises ValueError if the portfolio doesn't exist. Each holding is
+    enriched with a live market value (never persisted — recomputed every
+    call) and its asset's classification, when available."""
+    portfolio = await _portfolio_repo.get_portfolio(portfolio_id)
+    if portfolio is None:
+        raise ValueError(f"Portfolio not found: {portfolio_id}")
+    holdings = await _portfolio_repo.list_holdings(portfolio_id)
+
+    from runtime.portfolio.valuation import value_holdings
+
+    valued = await asyncio.to_thread(value_holdings, holdings)
+    enriched = []
+    for holding in valued:
+        asset = await _portfolio_repo.get_asset(holding["symbol"])
+        enriched.append({**holding, "asset": asset})
+    return enriched
+
+
+async def update_holding(holding_id: int, quantity: float | None = None, average_cost: float | None = None) -> dict:
+    """Raises ValueError if the holding doesn't exist."""
+    holding = await _portfolio_repo.get_holding(holding_id)
+    if holding is None:
+        raise ValueError(f"Holding not found: {holding_id}")
+    await _portfolio_repo.update_holding(holding_id, quantity=quantity, average_cost=average_cost)
+    return await _portfolio_repo.get_holding(holding_id)
+
+
+async def delete_holding(holding_id: int) -> bool:
+    return await _portfolio_repo.delete_holding(holding_id)
+
+
+async def portfolio_summary(portfolio_id: int) -> dict:
+    """Simple sums over live-valued holdings — arithmetic, not analysis.
+    Sector/geography/theme exposure breakdowns are Phase 2 (Portfolio
+    Intelligence), not built here. Holdings whose live price couldn't be
+    fetched are excluded from the totals but counted separately, rather
+    than silently treated as zero."""
+    holdings = await list_holdings(portfolio_id)
+    valued = [h for h in holdings if h["market_value"] is not None]
+    total_market_value = sum(h["market_value"] for h in valued)
+    total_cost_basis = sum(h["cost_basis"] for h in valued)
+    total_unrealized_gain = total_market_value - total_cost_basis
+    total_unrealized_gain_pct = (total_unrealized_gain / total_cost_basis * 100) if total_cost_basis else None
+    return {
+        "portfolio_id": portfolio_id,
+        "holding_count": len(holdings),
+        "valued_holding_count": len(valued),
+        "total_market_value": total_market_value,
+        "total_cost_basis": total_cost_basis,
+        "total_unrealized_gain": total_unrealized_gain,
+        "total_unrealized_gain_pct": total_unrealized_gain_pct,
+    }
+
+
+async def get_asset(symbol: str) -> dict:
+    asset = await _portfolio_repo.get_asset(symbol)
+    if asset is None:
+        raise ValueError(f"Asset not found: {symbol}")
+    return asset
+
+
+async def tag_asset(symbol: str, **attributes: Any) -> dict:
+    """Manually set/override attributes on an asset — merges with existing
+    attributes, never fabricated, never auto-fetched. Every key must be
+    one of runtime.portfolio.attributes.ASSET_ATTRIBUTE_FIELDS (the single
+    canonical schema every interface — API, CLI, MCP — derives from);
+    raises ValueError on an unknown key rather than silently writing an
+    orphan attribute nothing else can see."""
+    from runtime.portfolio.attributes import ASSET_ATTRIBUTE_FIELDS
+
+    unknown = set(attributes) - set(ASSET_ATTRIBUTE_FIELDS)
+    if unknown:
+        raise ValueError(f"Unknown asset attribute(s): {sorted(unknown)}. Known: {sorted(ASSET_ATTRIBUTE_FIELDS)}")
+    attrs = {k: v for k, v in attributes.items() if v is not None}
+    await _portfolio_repo.upsert_asset(symbol, attributes=attrs)
+    return await _portfolio_repo.get_asset(symbol)

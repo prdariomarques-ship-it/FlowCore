@@ -7,10 +7,11 @@ Calendar (shares Outlook's auth session), WhatsApp (via Evolution API,
 already-paired instance), Telegram (reuses the spcx-monitor bot), the
 SCPX Observer Framework (normalized MarketEvents, no interpretation), the
 SCPX Macro Score Engine (deterministic per-dimension scores, no LLM), the
-SCPX Regime Engine (deterministic threshold classification, no LLM), and
-a live integration status aggregator as MCP tools so an MCP client (e.g.
-Claude Code) can call FlowCore directly instead of shelling out to the
-CLI.
+SCPX Regime Engine (deterministic threshold classification, no LLM), the
+Portfolio Domain (manual portfolio/holding CRUD, live valuation, asset
+classification), and a live integration status aggregator as MCP tools
+so an MCP client (e.g. Claude Code) can call FlowCore directly instead
+of shelling out to the CLI.
 
 Started via: python3 flowcore.py mcp
 """
@@ -573,6 +574,137 @@ async def flowcore_regime_signal(dimension: str) -> dict:
         return await service.regime_classify(dimension)
     except MacroScoreError as e:
         raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_portfolio_create(name: str) -> dict:
+    """Create a portfolio (Sprint 21 Portfolio Domain)."""
+    return await service.create_portfolio(name)
+
+
+@mcp.tool()
+async def flowcore_portfolio_list() -> list[dict]:
+    """List all portfolios."""
+    return await service.list_portfolios()
+
+
+@mcp.tool()
+async def flowcore_portfolio_get(portfolio_id: int) -> dict:
+    """Get a portfolio by id."""
+    try:
+        return await service.get_portfolio(portfolio_id)
+    except ValueError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_portfolio_delete(portfolio_id: int) -> dict:
+    """Delete a portfolio (cascades to its holdings)."""
+    deleted = await service.delete_portfolio(portfolio_id)
+    return {"deleted": deleted}
+
+
+@mcp.tool()
+async def flowcore_portfolio_summary(portfolio_id: int) -> dict:
+    """Live totals for a portfolio (market value, cost basis, unrealized
+    gain) — simple sums, not exposure analysis (that's a later phase)."""
+    try:
+        return await service.portfolio_summary(portfolio_id)
+    except ValueError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_holding_add(
+    portfolio_id: int, symbol: str, quantity: float, average_cost: float, currency: str = "USD"
+) -> dict:
+    """Add a holding to a portfolio. Triggers best-effort automatic asset
+    classification (via yfinance) if the symbol hasn't been seen before —
+    never blocks the add if classification fails."""
+    try:
+        return await service.add_holding(portfolio_id, symbol, quantity, average_cost, currency)
+    except ValueError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_holding_list(portfolio_id: int) -> list[dict]:
+    """List a portfolio's holdings, each enriched with a live market value
+    (recomputed every call, never persisted) and its asset classification."""
+    try:
+        return await service.list_holdings(portfolio_id)
+    except ValueError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_holding_update(
+    holding_id: int, quantity: float | None = None, average_cost: float | None = None
+) -> dict:
+    """Update a holding's quantity and/or average cost."""
+    try:
+        return await service.update_holding(holding_id, quantity, average_cost)
+    except ValueError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_holding_delete(holding_id: int) -> dict:
+    """Delete a holding."""
+    deleted = await service.delete_holding(holding_id)
+    return {"deleted": deleted}
+
+
+@mcp.tool()
+async def flowcore_asset_get(symbol: str) -> dict:
+    """Get an asset's classification (name, sector, industry, country,
+    currency, asset_class, and any manually-tagged attributes)."""
+    try:
+        return await service.get_asset(symbol)
+    except ValueError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_asset_tag(
+    symbol: str,
+    theme: str | None = None,
+    duration: str | None = None,
+    credit_quality: str | None = None,
+    liquidity: str | None = None,
+    income_generation: str | None = None,
+    inflation_protection: str | None = None,
+    currency_protection: str | None = None,
+    risk_attributes: str | None = None,
+    region: str | None = None,
+    interest_rate_sensitivity: str | None = None,
+    growth_profile: str | None = None,
+    correlation_group: str | None = None,
+) -> dict:
+    """Manually tag an asset's soft attributes — merges with whatever is
+    already stored, never fabricated or auto-fetched.
+
+    Parameter names must match runtime.portfolio.attributes.ASSET_ATTRIBUTE_FIELDS
+    exactly (the canonical schema every interface derives from) — unlike
+    the API/CLI, MCP tools need a real Python signature for schema
+    introspection, so this list can't be generated at runtime. Enforced
+    by tests/portfolio/test_attributes_schema.py, not just this comment.
+    """
+    return await service.tag_asset(
+        symbol,
+        theme=theme,
+        duration=duration,
+        credit_quality=credit_quality,
+        liquidity=liquidity,
+        income_generation=income_generation,
+        inflation_protection=inflation_protection,
+        currency_protection=currency_protection,
+        risk_attributes=risk_attributes,
+        region=region,
+        interest_rate_sensitivity=interest_rate_sensitivity,
+        growth_profile=growth_profile,
+        correlation_group=correlation_group,
+    )
 
 
 def run() -> None:
