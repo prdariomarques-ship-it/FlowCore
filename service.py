@@ -621,20 +621,14 @@ async def observer_events() -> list[dict]:
 
 
 async def observer_source_events(source: str) -> list[dict]:
-    from runtime.observers.registry import registry
-    from runtime.observers.base import ObserverError
+    from runtime.observers.scheduler import scheduler
 
-    observer = registry.get(source)
-    try:
-        events = await asyncio.to_thread(observer.observe)
-    except ObserverError:
-        raise
+    events = await scheduler.run_source(source)
     return [e.to_dict() for e in events]
 
 
 async def observer_health() -> dict:
-    from runtime.observers.registry import registry
+    from runtime.observers.scheduler import scheduler
 
-    observer = registry.get("vix")
-    events = await asyncio.to_thread(observer.observe)
+    events = await scheduler.run_source("vix")
     return events[0].to_dict()

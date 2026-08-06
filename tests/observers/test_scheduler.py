@@ -76,6 +76,81 @@ class TestRunOnce:
         assert asyncio.run(scheduler.run_once()) == []
 
 
+class TestRunSource:
+    def test_returns_and_persists_events(self, tmp_path):
+        from storage import EventRepository
+
+        from runtime.observers.event import new_event
+        from runtime.observers.scheduler import ObserverScheduler
+
+        e1 = new_event(source="a", category="test", symbol="A", event="x", payload={})
+        reg = _make_registry_with(_FixedObserver("a", [e1]))
+        repo = EventRepository(db_path=str(tmp_path / "events.db"))
+        scheduler = ObserverScheduler(reg, event_repo=repo)
+
+        events = asyncio.run(scheduler.run_source("a"))
+        assert [e.source for e in events] == ["a"]
+        persisted = asyncio.run(repo.list_events())
+        assert len(persisted) == 1
+        assert persisted[0]["id"] == e1.id
+
+    def test_unknown_source_raises(self):
+        from runtime.observers.base import ObserverError
+        from runtime.observers.scheduler import ObserverScheduler
+
+        scheduler = ObserverScheduler(_make_registry_with())
+        with pytest.raises(ObserverError):
+            asyncio.run(scheduler.run_source("bogus"))
+
+
+class TestPersistence:
+    def test_run_once_persists_all_events(self, tmp_path):
+        from storage import EventRepository
+
+        from runtime.observers.event import new_event
+        from runtime.observers.scheduler import ObserverScheduler
+
+        e1 = new_event(source="a", category="test", symbol="A", event="x", payload={})
+        e2 = new_event(source="b", category="test", symbol="B", event="x", payload={})
+        reg = _make_registry_with(_FixedObserver("a", [e1]), _FixedObserver("b", [e2]))
+        repo = EventRepository(db_path=str(tmp_path / "events.db"))
+        scheduler = ObserverScheduler(reg, event_repo=repo)
+
+        asyncio.run(scheduler.run_once())
+        persisted = asyncio.run(repo.list_events())
+        assert {e["source"] for e in persisted} == {"a", "b"}
+
+    def test_no_event_repo_means_no_persistence_attempt(self):
+        # Backward compatible: omitting event_repo (the default) must not
+        # touch storage at all — covered implicitly by every test above
+        # that constructs ObserverScheduler(reg) with no second arg, but
+        # asserted explicitly here too.
+        from runtime.observers.event import new_event
+        from runtime.observers.scheduler import ObserverScheduler
+
+        e1 = new_event(source="a", category="test", symbol="A", event="x", payload={})
+        reg = _make_registry_with(_FixedObserver("a", [e1]))
+        scheduler = ObserverScheduler(reg)
+        assert scheduler._event_repo is None
+        events = asyncio.run(scheduler.run_once())
+        assert len(events) == 1
+
+    def test_persistence_failure_does_not_break_run_once(self, tmp_path):
+        from unittest.mock import AsyncMock
+
+        from runtime.observers.event import new_event
+        from runtime.observers.scheduler import ObserverScheduler
+
+        e1 = new_event(source="a", category="test", symbol="A", event="x", payload={})
+        reg = _make_registry_with(_FixedObserver("a", [e1]))
+        broken_repo = AsyncMock()
+        broken_repo.insert_event.side_effect = RuntimeError("disk full")
+        scheduler = ObserverScheduler(reg, event_repo=broken_repo)
+
+        events = asyncio.run(scheduler.run_once())
+        assert [e.source for e in events] == ["a"]
+
+
 class TestRunForever:
     def test_runs_multiple_cycles_until_cancelled(self):
         from runtime.observers.event import new_event
