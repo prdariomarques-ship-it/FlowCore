@@ -1237,39 +1237,39 @@ async def cmd_obsidian_watch(vault_path: str = None) -> None:
 
 
 async def cmd_ask(question: str) -> None:
-    """RAG: Ask AI using Ollama with document context."""
+    """RAG: Ask AI using the LLM Router (local-first) with document context."""
     import service
-    from runtime.ollama import (
-        OllamaError,
-        OllamaModelLoadTimeoutError,
-        OllamaModelNotInstalledError,
-        OllamaSubscriptionRequiredError,
-        OllamaUnreachableError,
+    from runtime.llm import (
+        LLMAuthenticationError,
+        LLMError,
+        LLMModelNotFoundError,
+        LLMProviderUnavailableError,
+        LLMTimeoutError,
     )
 
     try:
         answer, model = await service.ask(question)
         print(f"\n{BOLD}{CYAN}FlowCore AI ({model}):{NC}")
         print(answer)
-    except OllamaSubscriptionRequiredError as e:
+    except LLMAuthenticationError as e:
         print(f"{RED}Modelo requer assinatura Ollama Cloud.{NC}")
         print(f"{YELLOW}{e}{NC}")
-    except OllamaModelNotInstalledError as e:
+    except LLMModelNotFoundError as e:
         print(f"{RED}Modelo não instalado.{NC}")
         print(f"{YELLOW}{e}{NC}")
-    except OllamaModelLoadTimeoutError as e:
+    except LLMTimeoutError as e:
         print(f"{RED}Tempo esgotado carregando o modelo.{NC}")
         print(f"{YELLOW}{e}{NC}")
-    except OllamaUnreachableError as e:
+    except LLMProviderUnavailableError as e:
         print(f"{RED}Ollama não encontrado.{NC}")
         print(f"{YELLOW}{e}{NC}")
         logger.warning(f"Ollama not available: {e}")
-    except OllamaError as e:
-        # Covers OllamaDiscoveryError (endpoint/model resolution failed
-        # before generation even started) with the same "not found" framing.
+    except LLMError as e:
+        # Covers LLMAllProvidersFailedError/LLMBudgetExceededError with
+        # the same "not found" framing as the generic case above.
         print(f"{RED}Ollama não encontrado.{NC}")
         print(f"{YELLOW}{e}{NC}")
-        logger.warning(f"Ollama discovery failed: {e}")
+        logger.warning(f"LLM Router failed: {e}")
     except Exception as e:
         logger.error(f"Ask command error: {e}")
         print(f"{RED}Erro: {e}{NC}")

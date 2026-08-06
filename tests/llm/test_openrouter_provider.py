@@ -194,3 +194,73 @@ class TestGenerate:
 
         assert captured["body"]["max_tokens"] == 50
         assert captured["body"]["temperature"] == 0.2
+
+
+class TestErrorTaxonomyMapping:
+    """HTTP status codes map to the same provider-agnostic runtime.llm
+    error taxonomy OllamaProvider uses -- a caller differentiating error
+    kinds never needs to know which provider actually ran."""
+
+    def _http_error(self, code):
+        return urllib.error.HTTPError(url="https://openrouter.ai", code=code, msg="err", hdrs=None, fp=None)
+
+    def test_401_becomes_authentication_error(self):
+        from runtime.llm import LLMAuthenticationError, LLMRequest
+        from runtime.llm.providers.openrouter_provider import OpenRouterProvider
+
+        with patch("urllib.request.urlopen", side_effect=self._http_error(401)):
+            try:
+                OpenRouterProvider(api_key="sk-test").generate(LLMRequest(prompt="hi"))
+                raised = None
+            except LLMAuthenticationError as e:
+                raised = e
+        assert raised is not None
+
+    def test_403_becomes_authentication_error(self):
+        from runtime.llm import LLMAuthenticationError, LLMRequest
+        from runtime.llm.providers.openrouter_provider import OpenRouterProvider
+
+        with patch("urllib.request.urlopen", side_effect=self._http_error(403)):
+            try:
+                OpenRouterProvider(api_key="sk-test").generate(LLMRequest(prompt="hi"))
+                raised = None
+            except LLMAuthenticationError as e:
+                raised = e
+        assert raised is not None
+
+    def test_404_becomes_model_not_found_error(self):
+        from runtime.llm import LLMModelNotFoundError, LLMRequest
+        from runtime.llm.providers.openrouter_provider import OpenRouterProvider
+
+        with patch("urllib.request.urlopen", side_effect=self._http_error(404)):
+            try:
+                OpenRouterProvider(api_key="sk-test").generate(LLMRequest(prompt="hi"))
+                raised = None
+            except LLMModelNotFoundError as e:
+                raised = e
+        assert raised is not None
+
+    def test_500_becomes_generic_provider_unavailable_error(self):
+        from runtime.llm import LLMModelNotFoundError, LLMProviderUnavailableError, LLMRequest
+        from runtime.llm.providers.openrouter_provider import OpenRouterProvider
+
+        with patch("urllib.request.urlopen", side_effect=self._http_error(500)):
+            try:
+                OpenRouterProvider(api_key="sk-test").generate(LLMRequest(prompt="hi"))
+                raised = None
+            except LLMProviderUnavailableError as e:
+                raised = e
+        assert raised is not None
+        assert not isinstance(raised, LLMModelNotFoundError)
+
+    def test_timeout_error_becomes_llm_timeout_error(self):
+        from runtime.llm import LLMRequest, LLMTimeoutError
+        from runtime.llm.providers.openrouter_provider import OpenRouterProvider
+
+        with patch("urllib.request.urlopen", side_effect=TimeoutError("timed out")):
+            try:
+                OpenRouterProvider(api_key="sk-test").generate(LLMRequest(prompt="hi"))
+                raised = None
+            except LLMTimeoutError as e:
+                raised = e
+        assert raised is not None

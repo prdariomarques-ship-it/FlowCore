@@ -234,14 +234,32 @@ order on final failure — see "Data flow" above.
 ## Errors (`models.py`)
 
 ```
-LLMError                              (base — the only family callers should catch)
+LLMError                              (base — catch this alone if you don't care about the distinction)
 ├── LLMProviderUnavailableError        (one provider couldn't serve this request)
-├── LLMAllProvidersFailedError          (every offered provider failed)
-└── LLMBudgetExceededError               (a provider's budget was hit)
+│   ├── LLMAuthenticationError          (credential/subscription/API-key problem)
+│   ├── LLMModelNotFoundError            (model not installed locally / unrecognized on a cloud provider)
+│   └── LLMTimeoutError                   (model load, generation, or network timed out)
+├── LLMAllProvidersFailedError          (2+ providers offered, all failed differently — see below)
+└── LLMBudgetExceededError               (a provider's configured budget was hit)
 ```
 
-Callers of `LLMRouter.generate()` only ever need to catch `LLMError` — they
-never need to know or catch a provider-specific exception type.
+Callers of `LLMRouter.generate()` only ever need to catch `LLMError` (or a
+specific subclass, for differentiated messaging) — they never need to know
+or import a provider-specific exception type. Every provider maps its own
+exceptions/HTTP status codes onto this same taxonomy at the boundary — see
+`OllamaProvider`/`OpenRouterProvider` for the mapping table each one uses.
+
+**Failure typing, concretely:** when exactly one provider was offered for a
+request (the common case — `LocalFirstPolicy` without `allow_cloud` only
+ever offers `"ollama"`) and it fails, `LLMRouter.generate()` re-raises that
+provider's specific error *as-is* rather than wrapping it in
+`LLMAllProvidersFailedError` — this is what lets `flowcore.py`'s `cmd_ask`
+show "modelo não instalado" vs. "assinatura necessária" vs. "tempo
+esgotado" through the generic Router, with zero knowledge of
+`runtime.ollama`. `LLMAllProvidersFailedError` is reserved for the
+genuinely ambiguous case: two or more providers were tried (e.g.
+`allow_cloud=True` and both Ollama and OpenRouter failed) with no single
+type honestly describing what happened.
 
 ## Wiring (`service.py` — the composition root)
 
@@ -289,26 +307,41 @@ line, no `runtime/llm/` file needs to change for any of this.
 | CLI | `flowcore.py llm status` |
 | MCP | `flowcore_llm_status()` |
 
+Two consumer-facing surfaces are backed by the Router today:
 `flowcore_portfolio_narrative` / `GET /api/portfolios/{id}/narrative` /
-`flowcore.py portfolio narrative` are the one existing consumer-facing
-surface backed by the Router today (via `runtime/narrative/`) — its
-response already carries `source` (`"llm"` | `"fallback"`) and
-`fallback_reason`, which is effectively per-request Router status without
-needing a second round trip to `/api/llm/status`.
+`flowcore.py portfolio narrative` (via `runtime/narrative/`, `allow_cloud`
+never set — structurally local-only) and `flowcore_ask` /
+`POST /api/ask` / `flowcore.py ask` (via `service.ask()`, also
+`allow_cloud` never set today). The narrative response already carries
+`source` (`"llm"` | `"fallback"`) and `fallback_reason`, effectively
+per-request Router status without a second round trip to
+`/api/llm/status`.
 
-## Known gap: `service.ask()`
+## `service.ask()` migration (closed)
 
-`service.ask()` (Chat, `POST /api/ask`, `flowcore.py ask`, `flowcore_ask`)
-is **not** migrated to the Router yet, deliberately. Migrating it would
-change the exception types it raises (`OllamaError` family →
-`LLMError` family), and `flowcore.py`, `api/router.py`, and
-`mcp_server.py` all catch the `OllamaError` family specifically today —
-migrating `ask()` alone would be a real backward-compatibility break, not
-just an internal refactor. This is flagged explicitly (see the docstring
-on `service.ask()`) as the natural next step: migrate `ask()` to build an
-`LLMRequest` and call `_llm_router.generate()`, **and** update the three
-call sites' exception handling from `OllamaDiscoveryError`/`OllamaError`
-to `LLMError` in the same change, so the switch is atomic.
+`service.ask()` (Chat) was migrated to the Router in the same change that
+added the `LLMAuthenticationError`/`LLMModelNotFoundError`/`LLMTimeoutError`
+taxonomy above — that taxonomy exists specifically *because of* this
+migration: `cmd_ask` differentiates "model not installed" vs.
+"subscription required" vs. "timed out" vs. "unreachable" for the user,
+and the Router's original flat `LLMProviderUnavailableError` would have
+lost that distinction. `flowcore.py`'s `cmd_ask`, `api/router.py`'s
+`/api/ask` (502 for the three specific subclasses, 503 for everything
+else), and `mcp_server.py`'s `flowcore_ask` were all updated in the same
+change — `runtime.ollama`/`OllamaError` no longer appears in any of the
+three. `service.ask()` never sets `metadata["allow_cloud"]`, so Chat
+stays local-only by default, unchanged from before the migration.
+
+**No remaining direct `runtime.ollama` consumers of the "generate a
+response" kind exist anywhere in the codebase** — the only other places
+`runtime.ollama` is still imported directly are `runtime/llm/providers/
+ollama_provider.py` (correct — it *is* the Ollama provider) and a handful
+of `flowcore.py`/`api/router.py` commands that introspect the local Ollama
+installation itself (`ping`, `models`, `doctor`, `/api/settings`,
+benchmarking) — listing installed models or checking raw connectivity is
+not a "generate text" operation the Router abstracts, so these were
+deliberately left as direct `discover_ollama_endpoint()`/
+`discover_default_model()` calls, not migrated.
 
 ## Adding a new provider
 

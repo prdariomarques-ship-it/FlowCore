@@ -84,6 +84,41 @@ class TestFallbackBetweenProviders:
         with pytest.raises(LLMAllProvidersFailedError, match="down a.*down b"):
             router.generate(LLMRequest(prompt="x"))
 
+    def test_single_provider_failure_preserves_specific_error_type(self):
+        """When only one provider was ever offered (the common case --
+        e.g. LocalFirstPolicy without allow_cloud only ever offers
+        "ollama"), the Router re-raises that provider's own specific
+        error type instead of flattening it into
+        LLMAllProvidersFailedError -- callers that want differentiated
+        messaging (auth vs. not-found vs. timeout) depend on this."""
+        from runtime.llm import LLMAuthenticationError, LLMRequest
+
+        class _SingleProviderPolicy:
+            def choose(self, request, available):
+                return available[:1]
+
+        a = _StubProvider("a", fail_with=LLMAuthenticationError("needs subscription"), fail_times=-1)
+        router = _build([a], policy=_SingleProviderPolicy(), retry_attempts=1)
+        with pytest.raises(LLMAuthenticationError, match="needs subscription"):
+            router.generate(LLMRequest(prompt="x"))
+
+    def test_multiple_providers_failing_wraps_in_all_providers_failed(self):
+        """The opposite case: two or more providers were offered and all
+        failed -- no single error type would honestly describe that, so
+        it's wrapped in the generic LLMAllProvidersFailedError."""
+        from runtime.llm import (
+            LLMAllProvidersFailedError,
+            LLMAuthenticationError,
+            LLMProviderUnavailableError,
+            LLMRequest,
+        )
+
+        a = _StubProvider("a", fail_with=LLMAuthenticationError("auth issue"), fail_times=-1)
+        b = _StubProvider("b", fail_with=LLMProviderUnavailableError("down"), fail_times=-1)
+        router = _build([a, b], retry_attempts=1)
+        with pytest.raises(LLMAllProvidersFailedError):
+            router.generate(LLMRequest(prompt="x"))
+
     def test_no_provider_available_raises(self):
         from runtime.llm import LLMAllProvidersFailedError, LLMRequest
 
@@ -167,15 +202,29 @@ class TestCacheIntegration:
 
 
 class TestBudgetIntegration:
-    def test_budget_exceeded_falls_through_to_next_provider(self):
-        from runtime.llm import LLMAllProvidersFailedError, LLMRequest
+    def test_budget_exceeded_on_only_provider_raises_budget_error(self):
+        """Single provider offered -> the specific LLMBudgetExceededError
+        is preserved (see TestFallbackBetweenProviders' single-provider
+        type-preservation tests for why)."""
+        from runtime.llm import LLMBudgetExceededError, LLMRequest
         from runtime.llm.budget import CallCountBudget
 
         a = _StubProvider("a", text="from a")
         budget = CallCountBudget(max_calls={"a": 0})  # a is immediately over budget
         router = _build([a], budget=budget)
-        with pytest.raises(LLMAllProvidersFailedError, match="exceeded"):
+        with pytest.raises(LLMBudgetExceededError, match="exceeded"):
             router.generate(LLMRequest(prompt="x"))
+
+    def test_budget_exceeded_falls_through_to_next_provider(self):
+        from runtime.llm import LLMRequest
+        from runtime.llm.budget import CallCountBudget
+
+        a = _StubProvider("a", text="from a")
+        b = _StubProvider("b", text="from b")
+        budget = CallCountBudget(max_calls={"a": 0})  # only a is over budget
+        router = _build([a, b], budget=budget)
+        resp = router.generate(LLMRequest(prompt="x"))
+        assert resp.provider == "b"
 
 
 class TestStatus:

@@ -10,6 +10,18 @@ provider" means concretely: every caller constructs one LLMRequest and
 gets one LLMResponse back. Which concrete provider actually ran is
 recorded on the response (`response.provider`) for observability, never
 selected by the caller directly.
+
+Failure typing: when exactly one provider was offered for a request (the
+common case -- e.g. LocalFirstPolicy without allow_cloud only ever offers
+"ollama") and it fails, generate() re-raises that provider's *specific*
+error (LLMAuthenticationError, LLMModelNotFoundError, LLMTimeoutError, or
+the base LLMProviderUnavailableError) directly, instead of flattening it
+into LLMAllProvidersFailedError. This lets a caller that wants
+differentiated messaging (e.g. the CLI's `ask` command: "model not
+installed" vs. "subscription required" vs. "timed out") still get it
+through the generic Router, without ever importing a provider-specific
+exception. LLMAllProvidersFailedError is reserved for the genuinely
+ambiguous case: two or more providers were tried and failed.
 """
 
 from __future__ import annotations
@@ -66,6 +78,7 @@ class LLMRouter:
         order = [name for name in self._policy.choose(request, available) if name in available]
 
         errors: list[str] = []
+        last_error: LLMError | None = None
         for name in order:
             provider = self._registry.get(name)
             try:
@@ -77,6 +90,7 @@ class LLMRouter:
                 )
             except LLMError as e:
                 errors.append(f"{name}: {e}")
+                last_error = e
                 self._metrics.record_call(name, request.model or "?", 0.0, False, str(e))
                 continue
             self._budget.record(name, response)
@@ -84,6 +98,8 @@ class LLMRouter:
             self._cache.set(key, response)
             return response
 
+        if len(order) == 1 and last_error is not None:
+            raise last_error
         detail = "; ".join(errors) if errors else "no provider available for this request"
         raise LLMAllProvidersFailedError(detail)
 

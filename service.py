@@ -5,7 +5,7 @@ and MCP (mcp_server.py) interfaces, so the same operation is never
 implemented three times. Sprint 14, priority 1, task 2.
 
 This layer never prints, never raises HTTPException, never formats an
-MCP response — it returns plain values and lets OllamaError/ValueError
+MCP response — it returns plain values and lets LLMError/ValueError
 propagate. Each interface catches what it needs and presents it in its
 own idiom (CLI prints colored text, FastAPI maps to HTTP status codes,
 MCP raises RuntimeError).
@@ -24,16 +24,11 @@ from capability.registry import CapabilityRegistry
 from runtime.exposure import ExposureEngine, compute_concentration
 from runtime.decision import DecisionEngine
 from runtime.impact import ImpactEngine
-from runtime.llm import InMemoryMetrics, LLMRouter, LocalFirstPolicy, ProviderRegistry
+from runtime.llm import InMemoryMetrics, LLMRequest, LLMRouter, LocalFirstPolicy, ProviderRegistry
 from runtime.llm.providers import OllamaProvider, OpenRouterProvider
 from runtime.narrative import NarrativeEngine
 from runtime.macro_score import MacroScoreEngine
 from runtime.product_mapping import DEFAULT_SHELF, list_shelves, load_shelf, map_action
-from runtime.ollama import (
-    discover_default_model,
-    discover_ollama_endpoint,
-    generate as ollama_generate,
-)
 from runtime.regime import RegimeEngine
 from storage import DocumentRepository, EventRepository, FlowRepository, MemoryRepository, PortfolioRepository
 
@@ -99,31 +94,31 @@ async def build_rag_context(limit: int = 5) -> str:
 
 
 async def ask(question: str, timeout: float | None = None) -> tuple[str, str]:
-    """RAG-grounded ask: resolve endpoint/model, ground with recent documents,
-    generate. Returns (answer, model). Raises OllamaDiscoveryError (endpoint/
-    model resolution) or an OllamaError subclass (generation) on failure —
-    callers decide how to present it.
+    """RAG-grounded ask: ground with recent documents, generate via the
+    LLM Router. Returns (answer, model). Raises an LLMError subclass on
+    failure (LLMAuthenticationError/LLMModelNotFoundError/LLMTimeoutError/
+    LLMProviderUnavailableError/LLMAllProvidersFailedError/
+    LLMBudgetExceededError) — callers decide how to present it.
 
-    Deliberately NOT migrated to the LLM Router (_llm_router) yet: doing so
-    would change the exception types this raises (OllamaError family ->
-    LLMError family), which flowcore.py/api/router.py/mcp_server.py all
-    catch specifically today — a real backward-compatibility break, not
-    just an internal refactor. Flagged here as the natural next migration
-    once those three call sites are updated together, not done silently.
+    Migrated from a direct runtime.ollama call to the Router — this is
+    now the second (after runtime/narrative/) LLM Router consumer. Never
+    sets metadata["allow_cloud"], so Chat stays local-only by default
+    exactly like before the migration; nothing about *behavior* changed,
+    only *which exception family* callers must catch (flowcore.py's
+    cmd_ask, api/router.py's /api/ask, mcp_server.py's flowcore_ask were
+    all updated in the same change — see docs/LLM_ROUTER_ARCHITECTURE.md).
     """
-    base_url = discover_ollama_endpoint()
-    model = discover_default_model()
     context = await build_rag_context(5)
 
     system_prompt = "You are a helpful AI assistant. Use the provided context to answer questions accurately."
     prompt = f"{system_prompt}\n\nContext:\n{context}\n\nQuestion: {question}\n\nAnswer:"
 
-    kwargs = {"timeout": timeout} if timeout is not None else {}
+    request = LLMRequest(prompt=prompt, timeout=timeout, metadata={"purpose": "chat"})
     # generate() blocks (network I/O + warm-up polling); run off the event
     # loop thread so FastAPI/MCP stay responsive to other requests. Harmless
     # for the CLI's single-coroutine asyncio.run() too.
-    answer = await asyncio.to_thread(ollama_generate, base_url, model, prompt, **kwargs)
-    return answer, model
+    response = await asyncio.to_thread(_llm_router.generate, request)
+    return response.text, response.model
 
 
 async def llm_status() -> dict:

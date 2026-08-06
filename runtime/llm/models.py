@@ -17,6 +17,9 @@ __all__ = [
     "LLMResponse",
     "LLMError",
     "LLMProviderUnavailableError",
+    "LLMAuthenticationError",
+    "LLMModelNotFoundError",
+    "LLMTimeoutError",
     "LLMAllProvidersFailedError",
     "LLMBudgetExceededError",
 ]
@@ -76,11 +79,46 @@ class LLMError(RuntimeError):
 class LLMProviderUnavailableError(LLMError):
     """A single provider could not serve this request (unreachable, not
     configured, model missing, ...). The Router catches this to try the
-    next provider in the policy's order."""
+    next provider in the policy's order.
+
+    Three more specific, provider-agnostic subclasses exist below for
+    callers that want to differentiate *why* a provider failed (e.g. to
+    show a user a different message for "model not installed" vs.
+    "subscription required" vs. "timed out"). Every provider SHOULD raise
+    the most specific subclass that applies rather than the bare base
+    class -- see OllamaProvider/OpenRouterProvider for the mapping from
+    each provider's own exceptions/HTTP status codes. A caller that
+    doesn't care about the distinction can always just catch
+    LLMProviderUnavailableError (or LLMError) and get every subclass."""
+
+
+class LLMAuthenticationError(LLMProviderUnavailableError):
+    """The provider is reachable but refused the request for a
+    credential/subscription/API-key reason (e.g. Ollama Cloud model
+    requiring a subscription, an invalid/missing cloud API key, a 401/403
+    HTTP response)."""
+
+
+class LLMModelNotFoundError(LLMProviderUnavailableError):
+    """The requested model isn't available on this provider (not
+    installed locally, or an unrecognized model string for a cloud
+    provider -- typically a 404 HTTP response)."""
+
+
+class LLMTimeoutError(LLMProviderUnavailableError):
+    """The provider took too long -- model load, generation, or the
+    underlying network call itself timed out."""
 
 
 class LLMAllProvidersFailedError(LLMError):
-    """Every provider the policy offered for this request failed."""
+    """Every provider the policy offered for this request failed, OR a
+    single provider failed with more than one distinct error across
+    retries. When exactly one provider was offered and its failure has a
+    single, well-typed cause, LLMRouter.generate() re-raises that
+    specific error directly instead of wrapping it here -- see
+    router.py's docstring for why. This class is for the genuinely
+    ambiguous case: multiple providers, multiple different failures, no
+    single type would honestly describe what happened."""
 
 
 class LLMBudgetExceededError(LLMError):

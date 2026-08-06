@@ -31,7 +31,7 @@ from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
 import service
-from runtime.ollama import OllamaError
+from runtime.llm import LLMError
 from runtime.product_mapping import ProductMappingError
 from storage import DocumentRepository, MemoryRepository
 
@@ -132,7 +132,8 @@ async def flowcore_agenda(event: str) -> dict:
 
 @mcp.tool()
 async def flowcore_ask(question: str, timeout: float | None = None) -> str:
-    """Ask the local Ollama model a question, grounded with the 5 most recent documents as context.
+    """Ask the LLM Router a question (local-first, Ollama by default),
+    grounded with the 5 most recent documents as context.
 
     Warms up the model first if it's not already loaded in Ollama (can take
     a while on first call). `timeout` overrides FLOWCORE_OLLAMA_TIMEOUT
@@ -141,7 +142,7 @@ async def flowcore_ask(question: str, timeout: float | None = None) -> str:
     try:
         answer, _model = await service.ask(question, timeout=timeout)
         return answer
-    except OllamaError as e:
+    except LLMError as e:
         raise RuntimeError(str(e)) from e
 
 

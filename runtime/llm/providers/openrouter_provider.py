@@ -33,7 +33,14 @@ import time
 import urllib.error
 import urllib.request
 
-from runtime.llm.models import LLMProviderUnavailableError, LLMRequest, LLMResponse
+from runtime.llm.models import (
+    LLMAuthenticationError,
+    LLMModelNotFoundError,
+    LLMProviderUnavailableError,
+    LLMRequest,
+    LLMResponse,
+    LLMTimeoutError,
+)
 from runtime.llm.provider import LLMProvider
 
 __all__ = ["OpenRouterProvider"]
@@ -73,7 +80,15 @@ class OpenRouterProvider(LLMProvider):
         try:
             with urllib.request.urlopen(req, timeout=request.timeout or 60) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
-        except (urllib.error.URLError, TimeoutError, ValueError) as e:
+        except urllib.error.HTTPError as e:
+            if e.code in (401, 403):
+                raise LLMAuthenticationError(f"OpenRouter rejected the request ({e.code}): {e}") from e
+            if e.code == 404:
+                raise LLMModelNotFoundError(f"OpenRouter model not found ({e.code}): {model}") from e
+            raise LLMProviderUnavailableError(f"OpenRouter request failed ({e.code}): {e}") from e
+        except TimeoutError as e:
+            raise LLMTimeoutError(f"OpenRouter request timed out: {e}") from e
+        except (urllib.error.URLError, ValueError) as e:
             raise LLMProviderUnavailableError(f"OpenRouter request failed: {e}") from e
 
         latency_ms = (time.monotonic() - start) * 1000

@@ -27,11 +27,14 @@ from runtime.llm.cache import CacheBackend, InMemoryTTLCache, NullCache
 from runtime.llm.metrics import InMemoryMetrics, MetricsSink, NullMetrics
 from runtime.llm.models import (
     LLMAllProvidersFailedError,
+    LLMAuthenticationError,
     LLMBudgetExceededError,
     LLMError,
+    LLMModelNotFoundError,
     LLMProviderUnavailableError,
     LLMRequest,
     LLMResponse,
+    LLMTimeoutError,
 )
 from runtime.llm.policy import LocalFirstPolicy, RoutingPolicy
 from runtime.llm.provider import LLMProvider
@@ -45,13 +48,16 @@ __all__ = [
     "InMemoryMetrics",
     "InMemoryTTLCache",
     "LLMAllProvidersFailedError",
+    "LLMAuthenticationError",
     "LLMBudgetExceededError",
     "LLMError",
+    "LLMModelNotFoundError",
     "LLMProvider",
     "LLMProviderUnavailableError",
     "LLMRequest",
     "LLMResponse",
     "LLMRouter",
+    "LLMTimeoutError",
     "LocalFirstPolicy",
     "MetricsSink",
     "NoLimitBudget",

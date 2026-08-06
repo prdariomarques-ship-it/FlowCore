@@ -1020,14 +1020,16 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     # ── Chat / Ask (Web UI) ──────────────────────────────────────────────
     @app.post("/api/ask")
     async def ask(data: AskRequest):
-        from runtime.ollama import OllamaDiscoveryError, OllamaError
+        from runtime.llm import LLMAuthenticationError, LLMError, LLMModelNotFoundError, LLMTimeoutError
 
         try:
             answer, model = await service.ask(data.question, timeout=data.timeout)
-        except OllamaDiscoveryError as e:
-            raise HTTPException(status_code=503, detail=str(e))
-        except OllamaError as e:
+        except (LLMAuthenticationError, LLMModelNotFoundError, LLMTimeoutError) as e:
+            # Reached the provider; generation itself failed for a specific reason.
             raise HTTPException(status_code=502, detail=str(e))
+        except LLMError as e:
+            # Provider unreachable / all providers failed / budget exceeded.
+            raise HTTPException(status_code=503, detail=str(e))
 
         return {"answer": answer, "model": model}
 
