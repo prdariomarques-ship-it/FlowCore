@@ -70,29 +70,36 @@ if (-not $script:ADB) {
 Write-OK "ADB: $script:ADB"
 
 # Encontra dispositivo
-# Regex ancorada (^...$) em vez de só "\bdevice$" — mais robusta contra
-# linhas soltas do daemon do adb ("* daemon not running...") e contra \r
-# residual em saída nativa capturada via 2>&1 no Windows, que fazia a
-# extração anterior devolver entradas vazias em vez do serial real.
-$devices = @(
-    (Invoke-ADB @("devices")) |
-        ForEach-Object { $_.Trim() } |
-        Where-Object { $_ -match '^(\S+)\s+device$' } |
-        ForEach-Object { ($_ -split '\s+')[0] } |
-        Where-Object { $_ }
-)
-if (-not $devices) {
-    Write-FAIL "Nenhum dispositivo ADB conectado. Verifica o cabo e USB Debugging."
-    exit 1
-}
 if ($Device) {
+    # -Device explícito sempre tem prioridade e pula a auto-detecção —
+    # antes disso, um -Device correto ainda podia falhar se a lista
+    # auto-detectada abaixo viesse vazia por timing (comum em ADB via
+    # WiFi), já que o "if (-not $devices) { exit }" rodava antes de
+    # sequer olhar para $Device. Se o serial informado não existir de
+    # verdade, o adb -s abaixo falha com um erro específico dele mesmo.
     $script:DeviceSerial = $Device
-} elseif ($devices.Count -gt 1) {
-    Write-WARN "Múltiplos dispositivos: $($devices -join ', ')"
-    Write-Host "Usa: .\tools\flowcore_remote.ps1 $Command -Device <serial>"
-    exit 1
 } else {
-    $script:DeviceSerial = $devices
+    # Regex ancorada (^...$) em vez de só "\bdevice$" — mais robusta contra
+    # linhas soltas do daemon do adb ("* daemon not running...") e contra \r
+    # residual em saída nativa capturada via 2>&1 no Windows, que fazia a
+    # extração anterior devolver entradas vazias em vez do serial real.
+    $devices = @(
+        (Invoke-ADB @("devices")) |
+            ForEach-Object { $_.Trim() } |
+            Where-Object { $_ -match '^(\S+)\s+device$' } |
+            ForEach-Object { ($_ -split '\s+')[0] } |
+            Where-Object { $_ }
+    )
+    if (-not $devices) {
+        Write-FAIL "Nenhum dispositivo ADB conectado. Verifica o cabo/WiFi e USB Debugging."
+        exit 1
+    } elseif ($devices.Count -gt 1) {
+        Write-WARN "Múltiplos dispositivos: $($devices -join ', ')"
+        Write-Host "Usa: .\tools\flowcore_remote.ps1 $Command -Device <serial>"
+        exit 1
+    } else {
+        $script:DeviceSerial = $devices
+    }
 }
 Write-OK "Dispositivo: $script:DeviceSerial"
 
