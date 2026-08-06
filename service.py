@@ -26,6 +26,7 @@ from runtime.ollama import (
     discover_ollama_endpoint,
     generate as ollama_generate,
 )
+from runtime.regime import RegimeEngine
 from storage import DocumentRepository, EventRepository, FlowRepository, MemoryRepository
 
 _doc_repo = DocumentRepository()
@@ -34,6 +35,7 @@ _flow_repo = FlowRepository()
 _registry = CapabilityRegistry()
 _event_repo = EventRepository()
 _macro_score_engine = MacroScoreEngine(_event_repo)
+_regime_engine = RegimeEngine(_macro_score_engine)
 
 # Canonical note/todo/agenda title labels. Previously CLI/MCP used
 # "Note"/"TODO"/"Agenda" while api/router.py separately used
@@ -658,3 +660,19 @@ async def macro_score_compute(dimension: str) -> dict:
 async def macro_score_compute_all() -> list[dict]:
     scores = await _macro_score_engine.compute_all()
     return [s.to_dict() for s in scores]
+
+
+# ── SCPX Regime Engine (Sprint 20) ──────────────────────────────────────────────
+# Fase 3 of the pipeline — deterministic threshold classification of Macro
+# Score Engine's z-scores. No LLM, no fused "master regime" (see
+# runtime/regime/engine.py for why).
+
+
+async def regime_classify(dimension: str) -> dict:
+    signal = await _regime_engine.classify(dimension)
+    return signal.to_dict()
+
+
+async def regime_classify_all() -> list[dict]:
+    signals = await _regime_engine.classify_all()
+    return [s.to_dict() for s in signals]

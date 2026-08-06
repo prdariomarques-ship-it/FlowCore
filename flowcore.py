@@ -40,6 +40,7 @@ Usage:
     python3 flowcore.py telegram <health|config|send>
     python3 flowcore.py observer <registry|events [source]|health|watch>
     python3 flowcore.py macro-score <dimensions|scores [dimension]>
+    python3 flowcore.py regime signals [dimension]
 
 Env vars:
     FLOWCORE_MODEL=qwen3:8b              (default: llama2)
@@ -1953,6 +1954,45 @@ async def cmd_macro_score(action: str, dimension: str = "") -> None:
         print("  Usage: python3 flowcore.py macro-score <dimensions|scores [dimension]>")
 
 
+_REGIME_COLOR = {"elevated": CYAN, "depressed": CYAN, "neutral": GREEN, "insufficient_data": YELLOW}
+# Deliberately not red/green-for-good/bad — the Regime Engine only
+# classifies magnitude, it never judges whether "elevated"/"depressed" is
+# favorable (that's Portfolio Impact Engine's job, a later stage that
+# doesn't exist yet). Elevated/depressed share a color; only
+# neutral/insufficient_data get their own, purely to distinguish "a real
+# signal fired" from "nothing notable" / "no data" at a glance.
+
+
+def _print_regime_signal(signal: dict) -> None:
+    color = _REGIME_COLOR.get(signal["regime"], YELLOW)
+    score_str = f"{signal['score']:+.3f}" if signal["score"] is not None else "n/a"
+    print(f"  {signal['dimension']:<16} {color}{signal['regime']:<18}{NC} score={score_str}")
+
+
+async def cmd_regime(action: str, dimension: str = "") -> None:
+    """SCPX Regime Engine (Sprint 20) — deterministic threshold classification. No LLM."""
+    import service
+    from runtime.macro_score import DIMENSIONS, MacroScoreError
+
+    if action == "signals":
+        try:
+            if dimension:
+                if dimension not in DIMENSIONS:
+                    print(f"{RED}Unknown dimension: {dimension!r}{NC}")
+                    return
+                signal = await service.regime_classify(dimension)
+                _print_regime_signal(signal)
+            else:
+                for signal in await service.regime_classify_all():
+                    _print_regime_signal(signal)
+        except MacroScoreError as e:
+            print(f"{RED}Error: {e}{NC}")
+
+    else:
+        print(f"{RED}Unknown regime action: {action!r}{NC}")
+        print("  Usage: python3 flowcore.py regime signals [dimension]")
+
+
 def main() -> None:
     """Main CLI handler."""
     parser = argparse.ArgumentParser(description="FlowCore CLI")
@@ -2150,6 +2190,13 @@ def main() -> None:
     macro_score_scores_p = macro_score_sub.add_parser("scores", help="Compute scores now")
     macro_score_scores_p.add_argument("dimension", nargs="?", default="", help="Compute only this dimension")
 
+    regime_parser = subparsers.add_parser(
+        "regime", help="SCPX Regime Engine (deterministic threshold classification, no LLM)"
+    )
+    regime_sub = regime_parser.add_subparsers(dest="regime_action")
+    regime_signals_p = regime_sub.add_parser("signals", help="Classify every dimension's regime now")
+    regime_signals_p.add_argument("dimension", nargs="?", default="", help="Classify only this dimension")
+
     args = parser.parse_args()
     cfg = get_config()
     platform = detect_platform()
@@ -2325,6 +2372,13 @@ def main() -> None:
             sys.exit(1)
         dimension = getattr(args, "dimension", "")
         asyncio.run(cmd_macro_score(action, dimension=dimension))
+    elif args.command == "regime":
+        action = getattr(args, "regime_action", None)
+        if not action:
+            print("Usage: python3 flowcore.py regime signals [dimension]")
+            sys.exit(1)
+        dimension = getattr(args, "dimension", "")
+        asyncio.run(cmd_regime(action, dimension=dimension))
     else:
         parser.print_help()
         sys.exit(1)

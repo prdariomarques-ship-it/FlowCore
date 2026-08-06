@@ -85,6 +85,10 @@ Endpoints (Sprint 19 — SCPX Macro Score Engine, deterministic per-dimension sc
   GET  /api/macro-score/dimensions          — dimension -> source mapping, no computation
   GET  /api/macro-score/scores              — every dimension's score, computed now
   GET  /api/macro-score/scores/{dimension}  — one dimension by name
+
+Endpoints (Sprint 20 — SCPX Regime Engine, deterministic threshold classification):
+  GET  /api/regime/signals             — every dimension's regime (elevated/depressed/neutral)
+  GET  /api/regime/signals/{dimension}  — one dimension by name
 """
 
 from __future__ import annotations
@@ -708,6 +712,21 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         if dimension not in DIMENSIONS:
             raise HTTPException(status_code=404, detail=f"Unknown dimension: {dimension!r}")
         return await service.macro_score_compute(dimension)
+
+    # ── SCPX Regime Engine (Sprint 20) ─────────────────────────────────────
+    # Deterministic threshold classification of Macro Score Engine's
+    # z-scores — same no-network, no-502 property as the routes above.
+    @app.get("/api/regime/signals")
+    async def regime_signals():
+        return {"signals": await service.regime_classify_all()}
+
+    @app.get("/api/regime/signals/{dimension}")
+    async def regime_signal(dimension: str):
+        from runtime.macro_score import DIMENSIONS
+
+        if dimension not in DIMENSIONS:
+            raise HTTPException(status_code=404, detail=f"Unknown dimension: {dimension!r}")
+        return await service.regime_classify(dimension)
 
     # ── Search (Sprint 12) ───────────────────────────────────────────────
     @app.get("/api/search")

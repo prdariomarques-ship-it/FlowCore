@@ -6,7 +6,8 @@ their executions), Android device capabilities, Outlook (read-only),
 Calendar (shares Outlook's auth session), WhatsApp (via Evolution API,
 already-paired instance), Telegram (reuses the spcx-monitor bot), the
 SCPX Observer Framework (normalized MarketEvents, no interpretation), the
-SCPX Macro Score Engine (deterministic per-dimension scores, no LLM), and
+SCPX Macro Score Engine (deterministic per-dimension scores, no LLM), the
+SCPX Regime Engine (deterministic threshold classification, no LLM), and
 a live integration status aggregator as MCP tools so an MCP client (e.g.
 Claude Code) can call FlowCore directly instead of shelling out to the
 CLI.
@@ -550,6 +551,26 @@ async def flowcore_macro_score_score(dimension: str) -> dict:
 
     try:
         return await service.macro_score_compute(dimension)
+    except MacroScoreError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_regime_signals() -> list[dict]:
+    """SCPX Regime Engine — classify every dimension's regime now
+    (elevated/depressed/neutral/insufficient_data). Deterministic
+    threshold classification, no LLM, no fused "master regime"."""
+    return await service.regime_classify_all()
+
+
+@mcp.tool()
+async def flowcore_regime_signal(dimension: str) -> dict:
+    """Classify a single SCPX dimension's regime by name (commodities,
+    liquidity, risk_sentiment)."""
+    from runtime.macro_score import MacroScoreError
+
+    try:
+        return await service.regime_classify(dimension)
     except MacroScoreError as e:
         raise RuntimeError(str(e)) from e
 
