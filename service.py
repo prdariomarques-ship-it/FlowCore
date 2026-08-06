@@ -22,6 +22,7 @@ from typing import Any
 
 from capability.registry import CapabilityRegistry
 from runtime.exposure import ExposureEngine, compute_concentration
+from runtime.impact import ImpactEngine
 from runtime.macro_score import MacroScoreEngine
 from runtime.ollama import (
     discover_default_model,
@@ -40,6 +41,7 @@ _macro_score_engine = MacroScoreEngine(_event_repo)
 _regime_engine = RegimeEngine(_macro_score_engine)
 _portfolio_repo = PortfolioRepository()
 _exposure_engine = ExposureEngine()
+_impact_engine = ImpactEngine(_regime_engine)
 
 # Canonical note/todo/agenda title labels. Previously CLI/MCP used
 # "Note"/"TODO"/"Agenda" while api/router.py separately used
@@ -836,3 +838,30 @@ async def portfolio_concentration(portfolio_id: int) -> dict:
     """Raises ValueError if the portfolio doesn't exist."""
     holdings = await list_holdings(portfolio_id)
     return compute_concentration(holdings).to_dict()
+
+
+# ── SCPX Portfolio Impact Engine (Sprint 23, Phase 3) ───────────────────────────
+# Translates the current macro regime (Regime Engine) into expected impact
+# on a specific portfolio's actual holdings. Deterministic rules only, no
+# LLM. See runtime/impact/ for the full rule set and reasoning.
+
+
+async def portfolio_impact(portfolio_id: int) -> dict:
+    """Raises ValueError if the portfolio doesn't exist."""
+    holdings = await list_holdings(portfolio_id)
+    report = await _impact_engine.compute(portfolio_id, holdings)
+    return report.to_dict()
+
+
+async def portfolio_recommendations(portfolio_id: int) -> dict:
+    """Convenience view over portfolio_impact() exposing just the
+    actionable lists (recommendations + opportunities) — same
+    computation, no duplicated logic. Raises ValueError if the portfolio
+    doesn't exist."""
+    report = await portfolio_impact(portfolio_id)
+    return {
+        "portfolio_id": report["portfolio_id"],
+        "recommendations": report["recommendations"],
+        "opportunities": report["opportunities"],
+        "computed_at": report["computed_at"],
+    }

@@ -10,8 +10,9 @@ SCPX Macro Score Engine (deterministic per-dimension scores, no LLM), the
 SCPX Regime Engine (deterministic threshold classification, no LLM), the
 Portfolio Domain (manual portfolio/holding CRUD, live valuation, asset
 classification), the SCPX Exposure Engine (weighted classification
-breakdowns, concentration/HHI), and a live integration status aggregator
-as MCP tools
+breakdowns, concentration/HHI), the SCPX Portfolio Impact Engine (macro
+regime vs. portfolio, deterministic recommendations), and a live
+integration status aggregator as MCP tools
 so an MCP client (e.g. Claude Code) can call FlowCore directly instead
 of shelling out to the CLI.
 
@@ -733,6 +734,31 @@ async def flowcore_portfolio_concentration(portfolio_id: int) -> dict:
     top holding weight, top-5 weight. Live, recomputed every call."""
     try:
         return await service.portfolio_concentration(portfolio_id)
+    except ValueError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_portfolio_impact(portfolio_id: int) -> dict:
+    """Portfolio Impact Engine (Sprint 23) — translates the current macro
+    regime (Regime Engine) into expected impact on this portfolio's
+    actual holdings: overall_impact, confidence, portfolio_risk_score,
+    per-dimension drivers (with affected sectors/holdings), deterministic
+    recommendations and opportunities. No LLM — explainable rules only.
+    Live, recomputed every call."""
+    try:
+        return await service.portfolio_impact(portfolio_id)
+    except ValueError as e:
+        raise RuntimeError(str(e)) from e
+
+
+@mcp.tool()
+async def flowcore_portfolio_recommendations(portfolio_id: int) -> dict:
+    """Just the actionable lists (recommendations + opportunities) from
+    the Portfolio Impact Engine (Sprint 23) — same computation as
+    flowcore_portfolio_impact, narrower response."""
+    try:
+        return await service.portfolio_recommendations(portfolio_id)
     except ValueError as e:
         raise RuntimeError(str(e)) from e
 

@@ -2015,6 +2015,45 @@ def _print_holding(h: dict) -> None:
         print(f"      {RED}⚠ {h['valuation_error']}{NC}")
 
 
+_DIRECTION_COLOR = {"positive": GREEN, "negative": RED, "neutral": CYAN, "insufficient_data": YELLOW}
+
+
+def _print_driver_impact(d: dict) -> None:
+    color = _DIRECTION_COLOR.get(d["direction"], YELLOW)
+    print(f"  {CYAN}{d['dimension']}{NC} — {d['driver']}")
+    print(f"    regime={d['regime']}  direction={color}{d['direction']}{NC}  impact={d['expected_impact']}")
+    print(f"    confidence={d['confidence_label']} ({d['confidence_score']})  exposed={d['exposed_weight_pct']:.1f}%")
+    print(f"    {d['reason']}")
+    for b in d["buckets"]:
+        bc = GREEN if b["matched_direction"] == "positive" else RED
+        print(f"      {bc}{b['label']:<20}{NC} {b['weight_pct']:5.1f}%  ({b['source']}, {b['holding_count']} holdings)")
+
+
+def _print_recommendation(r: dict) -> None:
+    print(f"  • {r['action']}  (confiança={r['confidence']:.2f})")
+    print(f"    {r['reason']}")
+    if r["affected_holdings"]:
+        print(f"    Holdings: {', '.join(r['affected_holdings'])}")
+
+
+def _print_impact_report(report: dict) -> None:
+    color = _DIRECTION_COLOR.get(report["overall_impact"], YELLOW)
+    print(f"Impacto geral: {color}{report['overall_impact']}{NC}  (confiança={report['confidence']:.2f})")
+    print(f"Risk score: {report['portfolio_risk_score']:.1f}/100")
+    print(f"Dimensões afetadas: {', '.join(report['affected_dimensions']) or 'nenhuma'}")
+    print(f"\n{CYAN}Drivers:{NC}")
+    for d in report["drivers"]:
+        _print_driver_impact(d)
+    if report["recommendations"]:
+        print(f"\n{CYAN}Recomendações:{NC}")
+        for r in report["recommendations"]:
+            _print_recommendation(r)
+    if report["opportunities"]:
+        print(f"\n{CYAN}Oportunidades:{NC}")
+        for r in report["opportunities"]:
+            _print_recommendation(r)
+
+
 def _print_exposure_report(dim: str, report: dict) -> None:
     print(f"  {CYAN}{dim}{NC}  total=${report['total_market_value']:.2f}  unvalued={report['unvalued_count']}")
     for b in report["buckets"]:
@@ -2133,11 +2172,36 @@ async def cmd_portfolio(
         print(f"  Top 5: {c['top_5_weight_pct']:.1f}%")
         print(f"  Holdings: {c['holding_count']} ({c['unvalued_count']} não valuadas)")
 
+    elif action == "impact":
+        try:
+            report = await service.portfolio_impact(portfolio_id)
+        except ValueError as e:
+            print(f"{RED}Error: {e}{NC}")
+            return
+        _print_impact_report(report)
+
+    elif action == "recommendations":
+        try:
+            r = await service.portfolio_recommendations(portfolio_id)
+        except ValueError as e:
+            print(f"{RED}Error: {e}{NC}")
+            return
+        if r["recommendations"]:
+            print(f"{CYAN}Recomendações:{NC}")
+            for rec in r["recommendations"]:
+                _print_recommendation(rec)
+        if r["opportunities"]:
+            print(f"\n{CYAN}Oportunidades:{NC}")
+            for rec in r["opportunities"]:
+                _print_recommendation(rec)
+        if not r["recommendations"] and not r["opportunities"]:
+            print("Nenhuma recomendação ou oportunidade no momento.")
+
     else:
         print(f"{RED}Unknown portfolio action: {action!r}{NC}")
         print(
-            "  Usage: python3 flowcore.py portfolio "
-            "<create|list|show|summary|delete|add-holding|remove-holding|exposure [dimension]|concentration>"
+            "  Usage: python3 flowcore.py portfolio <create|list|show|summary|delete|"
+            "add-holding|remove-holding|exposure [dimension]|concentration|impact|recommendations>"
         )
 
 
@@ -2416,6 +2480,16 @@ def main() -> None:
     )
     portfolio_concentration_p.add_argument("portfolio_id", type=int)
 
+    portfolio_impact_p = portfolio_sub.add_parser(
+        "impact", help="Portfolio Impact Engine — macro regime vs. portfolio (Sprint 23, live)"
+    )
+    portfolio_impact_p.add_argument("portfolio_id", type=int)
+
+    portfolio_recommendations_p = portfolio_sub.add_parser(
+        "recommendations", help="Deterministic recommendations/opportunities (Sprint 23, live)"
+    )
+    portfolio_recommendations_p.add_argument("portfolio_id", type=int)
+
     asset_parser = subparsers.add_parser("asset", help="Asset classification lookup/tagging (Sprint 21)")
     asset_sub = asset_parser.add_subparsers(dest="asset_action")
 
@@ -2615,8 +2689,8 @@ def main() -> None:
         action = getattr(args, "portfolio_action", None)
         if not action:
             print(
-                "Usage: python3 flowcore.py portfolio "
-                "<create|list|show|summary|delete|add-holding|remove-holding|exposure [dimension]|concentration>"
+                "Usage: python3 flowcore.py portfolio <create|list|show|summary|delete|"
+                "add-holding|remove-holding|exposure [dimension]|concentration|impact|recommendations>"
             )
             sys.exit(1)
         asyncio.run(

@@ -107,6 +107,10 @@ Endpoints (Sprint 22, Phase 2 — Exposure Engine, weighted classification break
   GET  /api/portfolios/{id}/exposure              — full report (asset_class/sector/industry/country/currency)
   GET  /api/portfolios/{id}/exposure/{dimension}  — one dimension (hard column or any canonical soft attribute)
   GET  /api/portfolios/{id}/concentration         — HHI + top-1/top-5 weight
+
+Endpoints (Sprint 23, Phase 3 — Portfolio Impact Engine, macro regime -> portfolio):
+  GET  /api/portfolios/{id}/impact                — overall impact, drivers, risk score, recommendations, opportunities
+  GET  /api/portfolios/{id}/recommendations       — just the actionable lists (same computation as /impact)
 """
 
 from __future__ import annotations
@@ -869,6 +873,20 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     async def portfolio_concentration(portfolio_id: int):
         try:
             return await service.portfolio_concentration(portfolio_id)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+    @app.get("/api/portfolios/{portfolio_id}/impact")
+    async def portfolio_impact(portfolio_id: int):
+        try:
+            return await service.portfolio_impact(portfolio_id)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+    @app.get("/api/portfolios/{portfolio_id}/recommendations")
+    async def portfolio_recommendations(portfolio_id: int):
+        try:
+            return await service.portfolio_recommendations(portfolio_id)
         except ValueError as e:
             raise HTTPException(status_code=404, detail=str(e))
 
