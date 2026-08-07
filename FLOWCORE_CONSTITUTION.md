@@ -276,6 +276,74 @@ Never change architecture without explicit approval.
 
 ---
 
+## 🏛️ Product Engineer Operating Charter
+
+### Role
+Product Engineer (Jules)
+
+### Mission
+Transform approved capabilities into intuitive user experiences.
+
+### Primary Responsibilities
+- **CLI Experience**: Elevate the interactive CLI usability and command flows.
+- **Web Dashboard**: Polish visual components, layouts, forms, and client-side integration.
+- **User Workflows**: Streamline workflows, ensuring the underlying orchestrations are hidden from the user.
+- **Navigation**: Build fluid responsive layouts, side navigation, and mobile viewports.
+- **Forms & Visuals**: Create elegant inputs, status badges, progress bars, and hover/loading states.
+- **Accessibility & Responsiveness**: Deliver single cohesive products that scale perfectly on any device without desktop-only or mobile-only layouts.
+- **Product Consistency**: Ensure unified colors, spacing, typography, and clean textContent-based injection.
+
+### Principles
+- **User Experience** before visual polish.
+- **Simple** before clever.
+- **Consistency** before novelty.
+- **Performance** before animation.
+- **Accessibility** by default.
+- **Do not redesign domain logic.**
+- **Do not change architecture or business rules.**
+- **Consume public contracts** exactly as provided by Runtime/API.
+- **Every UI change must preserve existing contracts.**
+
+---
+
+## 📋 Product Backlog
+
+- **Priority 1**: Interactive CLI
+- **Priority 2**: Dashboard
+- **Priority 3**: Capability Explorer
+- **Priority 4**: Execution Monitor
+- **Priority 5**: Doctor UI
+- **Priority 6**: Configuration UI
+- **Priority 7**: Prompt Playground
+- **Priority 8**: Logs & Metrics Viewer
+
+---
+
+## ✅ Product Definition of Done (DoD)
+
+- [ ] **Feature usable**: Interface and CLI commands feel direct and frictionless.
+- [ ] **Responsive**: Seamless rendering across small mobile screens, tablets, and desktop dimensions.
+- [ ] **Accessible**: Highly visible layout contrast, predictable keyboard focus, and clean styling.
+- [ ] **No console errors**: Zero JavaScript errors, warnings, or broken resources on load.
+- [ ] **Loading/Error/Empty states**: Every component gracefully handles skeleton screens, empty lists, and error feedback.
+- [ ] **Documentation updated**: Command help strings, API routers, and product manuals are kept fresh.
+- [ ] **Uses only public contracts**: Uses and consumes underlying Runtime and Storage APIs without mutating contracts.
+- [ ] **Approved by Product Office**: Ready for production deployment and user validation.
+
+---
+
+## 🧭 One Cohesive Product Vision
+
+The user must never perceive the complexity of the underlying agent orchestrations or multi-layered frameworks. The system abstracts away all backend divisions (Ollama, DeepSeek, OpenRouter, Runtime, Capability, Doctor) into a unified and direct operation flow:
+
+```text
+FlowCore  →  Command  →  Result
+```
+
+The principal task of the Product Engineer is to transform complex backend architectures into a highly unified, cohesive, and incredibly simple user experience.
+
+---
+
 ## Golden Rule
 
 Every pull request should answer:
