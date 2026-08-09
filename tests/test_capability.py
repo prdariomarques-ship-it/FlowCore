@@ -99,6 +99,16 @@ class TestCapabilityAdapterBase:
         r = a.get_disk_usage()
         assert r.success is False
 
+    def test_default_get_cpu_info_fails(self):
+        a = self._make_adapter()
+        r = a.get_cpu_info()
+        assert r.success is False
+
+    def test_default_get_memory_info_fails(self):
+        a = self._make_adapter()
+        r = a.get_memory_info()
+        assert r.success is False
+
     def test_default_list_installed_apps_fails(self):
         a = self._make_adapter()
         r = a.list_installed_apps()
@@ -156,6 +166,8 @@ class TestCapabilityRegistry:
             "sendNotification",
             "runGit",
             "getDiskUsage",
+            "getCpuInfo",
+            "getMemoryInfo",
             "listInstalledApps",
         ]:
             assert expected in names, f"{expected} missing from registry"
@@ -193,6 +205,41 @@ class TestCapabilityRegistry:
         result = reg.call("getDiskUsage", "/")
         assert result.success is True
         assert "total" in result.data
+
+    def test_cpu_info_has_adapter_on_linux(self):
+        if sys.platform == "win32":
+            pytest.skip("Linux-only")
+        reg = self._registry()
+        adapter = reg.get("getCpuInfo")
+        assert adapter is not None, "getCpuInfo should resolve via LinuxAdapter outside Termux"
+
+    def test_cpu_info_call_returns_real_data_on_linux(self):
+        if sys.platform == "win32":
+            pytest.skip("Linux-only")
+        reg = self._registry()
+        result = reg.call("getCpuInfo")
+        assert result.success is True
+        assert isinstance(result.data["cores"], int)
+        assert result.data["cores"] > 0
+        assert isinstance(result.data["load_1m"], float)
+
+    def test_memory_info_has_adapter_on_linux(self):
+        if sys.platform == "win32":
+            pytest.skip("Linux-only")
+        reg = self._registry()
+        adapter = reg.get("getMemoryInfo")
+        assert adapter is not None, "getMemoryInfo should resolve via LinuxAdapter outside Termux"
+
+    def test_memory_info_call_returns_real_data_on_linux(self):
+        if sys.platform == "win32":
+            pytest.skip("Linux-only")
+        if not Path("/proc/meminfo").exists():
+            pytest.skip("No /proc/meminfo on this host")
+        reg = self._registry()
+        result = reg.call("getMemoryInfo")
+        assert result.success is True
+        assert result.data["total_mb"] > 0
+        assert 0 <= result.data["percent_used"] <= 100
 
     def test_list_installed_apps_unavailable_outside_termux(self):
         import os
