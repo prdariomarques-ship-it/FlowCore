@@ -162,6 +162,12 @@ class CapabilityAdapter(ABC):
     def get_disk_usage(self, path: str = "/data") -> CapabilityResult:
         return CapabilityResult.fail("getDiskUsage not supported", self.name)
 
+    def get_cpu_info(self) -> CapabilityResult:
+        return CapabilityResult.fail("getCpuInfo not supported", self.name)
+
+    def get_memory_info(self) -> CapabilityResult:
+        return CapabilityResult.fail("getMemoryInfo not supported", self.name)
+
     def list_installed_apps(self) -> CapabilityResult:
         return CapabilityResult.fail(
             "listInstalledApps not supported", self.name, corrective_action="Only available in Termux"

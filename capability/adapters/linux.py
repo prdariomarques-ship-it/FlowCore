@@ -15,6 +15,7 @@ that has python3 — including macOS, WSL, CI runners, and cloud VMs.
 
 from __future__ import annotations
 
+import os
 import shlex
 from pathlib import Path
 
@@ -193,3 +194,49 @@ class LinuxAdapter(CapabilityAdapter):
         if len(parts) < 4:
             return CapabilityResult.fail("Unexpected df output", self.name)
         return CapabilityResult.ok({"total": parts[1], "used": parts[2], "avail": parts[3]}, self.name)
+
+    # ── CPU ───────────────────────────────────────────────────────────────────
+
+    def get_cpu_info(self) -> CapabilityResult:
+        """Core count and load average via os.cpu_count()/os.getloadavg() —
+        stdlib POSIX, no external dependency, works under WSL/Termux/Linux."""
+        try:
+            cores = os.cpu_count()
+            load_1m, load_5m, load_15m = os.getloadavg()
+        except (OSError, AttributeError) as e:
+            return CapabilityResult.fail(str(e), self.name, reason="load average unavailable on this platform")
+        return CapabilityResult.ok(
+            {"cores": cores, "load_1m": load_1m, "load_5m": load_5m, "load_15m": load_15m},
+            self.name,
+        )
+
+    # ── Memory ────────────────────────────────────────────────────────────────
+
+    def get_memory_info(self) -> CapabilityResult:
+        """Total/available memory via /proc/meminfo (Linux/WSL/Termux kernels)."""
+        meminfo = Path("/proc/meminfo")
+        if not meminfo.exists():
+            return CapabilityResult.fail("No /proc/meminfo on this platform", self.name)
+        try:
+            values: dict[str, int] = {}
+            for line in meminfo.read_text().splitlines():
+                key, _, rest = line.partition(":")
+                if key in ("MemTotal", "MemAvailable", "MemFree"):
+                    values[key] = int(rest.strip().split()[0])  # kB
+        except Exception as e:
+            return CapabilityResult.fail(str(e), self.name)
+
+        total_kb = values.get("MemTotal")
+        if not total_kb:
+            return CapabilityResult.fail("Unexpected /proc/meminfo format", self.name)
+        available_kb = values.get("MemAvailable", values.get("MemFree", 0))
+        used_kb = total_kb - available_kb
+        return CapabilityResult.ok(
+            {
+                "total_mb": round(total_kb / 1024, 1),
+                "available_mb": round(available_kb / 1024, 1),
+                "used_mb": round(used_kb / 1024, 1),
+                "percent_used": round((used_kb / total_kb) * 100, 1),
+            },
+            self.name,
+        )

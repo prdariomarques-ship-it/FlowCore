@@ -45,6 +45,8 @@ _CAPABILITY_METHOD: dict[str, str] = {
     "releaseWakeLock": "release_wakelock",
     "getAndroidInfo": "get_android_info",
     "getDiskUsage": "get_disk_usage",
+    "getCpuInfo": "get_cpu_info",
+    "getMemoryInfo": "get_memory_info",
     "listInstalledApps": "list_installed_apps",
     # Termux / Linux
     "runPython": "run_python",

@@ -11,8 +11,10 @@ Designed to run on Termux / Android with minimal resource footprint.
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -83,6 +85,55 @@ class FlowCoreRuntime:
     @property
     def is_running(self) -> bool:
         return self._running
+
+    def run_doctor(self) -> dict[str, Any]:
+        """Real, end-to-end health diagnostic — the "Health checks"
+        responsibility documented above, previously unimplemented.
+
+        Resolves CPU / memory / disk through the Capability Registry (so
+        the result reflects whatever adapter is actually available on this
+        host, never a hardcoded platform assumption), and combines that
+        with DoctorService's existing component checks and this runtime's
+        own platform detection. Every call is logged (existing Observability
+        convention: loguru) and the report is persisted to
+        ~/.flowcore/flowcore.doctor.json (same convention RuntimeKernel
+        already uses for flowcore.runtime.json), giving the last run a
+        retrievable History.
+        """
+        from capability.resolver import ProviderResolver
+        from doctor.service import DoctorService
+
+        resolver = ProviderResolver()
+        cpu = resolver.resolve("getCpuInfo")
+        memory = resolver.resolve("getMemoryInfo")
+        disk = resolver.resolve("getDiskUsage", str(self.root))
+        components = DoctorService().run()
+
+        report: dict[str, Any] = {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "environment": self.platform_info,
+            "cpu": cpu.to_dict(),
+            "memory": memory.to_dict(),
+            "disk": disk.to_dict(),
+            "components": components.to_dict(),
+        }
+
+        logger.info(
+            "Doctor: cpu={} memory={} disk={} components={}/{} passed",
+            cpu.success,
+            memory.success,
+            disk.success,
+            components.passed,
+            len(components.checks),
+        )
+        self._write_doctor_history(report)
+        return report
+
+    def _write_doctor_history(self, report: dict[str, Any]) -> None:
+        path = Path.home() / ".flowcore" / "flowcore.doctor.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(report, f, indent=2, ensure_ascii=False)
 
 
 def _detect_root() -> Path:

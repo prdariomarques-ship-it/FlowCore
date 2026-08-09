@@ -745,93 +745,53 @@ async def cmd_stats() -> None:
 
 
 def cmd_doctor() -> None:
-    """System health check: Python, SQLite, Database, JSON, Config, Ollama, API, Scheduler."""
+    """Real end-to-end diagnostic: CPU, memory, disk, environment/runtime,
+    and component status — resolved through Runtime → Capability Registry
+    (see runtime.core.FlowCoreRuntime.run_doctor)."""
     print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
     print(f"{BOLD}{CYAN}║         FlowCore Doctor                         ║{NC}")
     print(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════╝{NC}\n")
 
-    checks = {}
+    from runtime.core import FlowCoreRuntime
 
     try:
-        version = sys.version.split()[0]
-        print(f"{GREEN}✓{NC} Python: {version}")
-        checks["python"] = "PASS"
+        report = FlowCoreRuntime().run_doctor()
     except Exception as e:
-        print(f"{RED}✗{NC} Python: {e}")
-        checks["python"] = "FAIL"
+        print(f"{RED}✗{NC} Doctor failed: {e}\n")
+        sys.exit(1)
 
-    try:
-        import aiosqlite  # noqa: F401 — availability probe
-
-        print(f"{GREEN}✓{NC} SQLite (aiosqlite)")
-        checks["sqlite"] = "PASS"
-    except Exception as e:
-        print(f"{RED}✗{NC} SQLite: {e}")
-        checks["sqlite"] = "FAIL"
-
-    try:
-        from storage.database import get_db_path
-
-        db_path = get_db_path()
-
-        async def _test_db():
-            import aiosqlite
-
-            async with aiosqlite.connect(db_path) as db:
-                cursor = await db.execute("SELECT 1")
-                await cursor.fetchone()
-
-        asyncio.run(_test_db())
-        print(f"{GREEN}✓{NC} Database: {db_path}")
-        checks["database"] = "PASS"
-    except Exception as e:
-        print(f"{RED}✗{NC} Database: {str(e)[:50]}")
-        checks["database"] = "FAIL"
-
-    try:
-        json.dumps({"test": "data"})
-        print(f"{GREEN}✓{NC} JSON")
-        checks["json"] = "PASS"
-    except Exception as e:
-        print(f"{RED}✗{NC} JSON: {e}")
-        checks["json"] = "FAIL"
-
-    try:
-        cfg = get_config()
-        assert cfg["app"]["name"] == "FlowCore"
-        print(f"{GREEN}✓{NC} Config: FlowCore")
-        checks["config"] = "PASS"
-    except Exception as e:
-        print(f"{RED}✗{NC} Config: {str(e)[:50]}")
-        checks["config"] = "FAIL"
-
-    try:
-        ollama_host = discover_ollama_endpoint()
-        try:
-            ollama_model = discover_default_model()
-        except OllamaDiscoveryError:
-            ollama_model = "?"
-        print(f"{GREEN}✓{NC} Ollama: {ollama_model} @ {ollama_host}")
-        checks["ollama"] = "PASS"
-    except OllamaDiscoveryError:
-        print(f"{YELLOW}⚠{NC} Ollama: Not available")
-        checks["ollama"] = "WARN"
-
-    try:
-        import fastapi  # noqa: F401 — availability probe
-
-        print(f"{GREEN}✓{NC} FastAPI (optional)")
-        checks["api"] = "PASS"
-    except ImportError:
-        print(f"{YELLOW}⚠{NC} FastAPI: Not installed")
-        checks["api"] = "WARN"
-
+    env = report["environment"]
+    platform_label = "Android" if env["android"] else ("Termux" if env["termux"] else "Linux/WSL")
+    print(f"{BOLD}Environment{NC}")
+    print(f"  Platform     : {platform_label}")
+    print(f"  Python       : {env['python_version']}")
+    print(f"  OS           : {env['os_name']}")
     print()
-    failures = [k for k, v in checks.items() if v == "FAIL"]
-    if failures:
-        print(f"{RED}FAIL: {', '.join(failures)}{NC}\n")
+
+    def _print_metric(title: str, result: dict) -> None:
+        if result["success"]:
+            print(f"  {GREEN}✓{NC} {title:<8}: {result['data']}")
+        else:
+            print(f"  {RED}✗{NC} {title:<8}: {result['error']}")
+
+    print(f"{BOLD}Resources{NC}")
+    _print_metric("CPU", report["cpu"])
+    _print_metric("Memory", report["memory"])
+    _print_metric("Disk", report["disk"])
+    print()
+
+    print(f"{BOLD}Components{NC}")
+    components = report["components"]
+    icons = {"ok": f"{GREEN}✓{NC}", "warn": f"{YELLOW}⚠{NC}", "fail": f"{RED}✗{NC}", "skip": "─"}
+    for check in components["checks"]:
+        icon = icons.get(check["status"], "?")
+        suffix = f"  → {check['fix']}" if check["fix"] and check["status"] != "ok" else ""
+        print(f"  {icon} {check['name']:<30} {check['message']}{suffix}")
+    print()
+    if components["healthy"]:
+        print(f"{GREEN}All checks passed ({components['passed']}/{len(components['checks'])}){NC}\n")
     else:
-        print(f"{GREEN}All critical systems operational{NC}\n")
+        print(f"{RED}{components['failed']} failure(s) | {components['warned']} warning(s){NC}\n")
 
 
 def cmd_boot(verbose: bool = False) -> None:
