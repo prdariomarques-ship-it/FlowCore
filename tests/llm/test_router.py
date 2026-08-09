@@ -167,6 +167,40 @@ class TestRetryWithinRouter:
         assert resp.provider == "a"
         assert resp.text == "recovered"
 
+    def test_exhausted_retries_fall_back_to_next_provider(self):
+        from runtime.llm import InMemoryMetrics, LLMProviderUnavailableError, LLMRequest
+
+        failing = _StubProvider("a", fail_with=LLMProviderUnavailableError("503 unavailable"), fail_times=-1)
+        working = _StubProvider("b", text="from b")
+        metrics = InMemoryMetrics()
+        router = _build([failing, working], metrics=metrics, retry_attempts=3, retry_backoff_seconds=0)
+
+        response = router.generate(LLMRequest(prompt="x"))
+
+        assert response.provider == "b"
+        assert failing.call_count == 3
+        assert working.call_count == 1
+        by_provider = {row["provider"]: row for row in metrics.snapshot()}
+        assert by_provider["a"]["calls"] == 3
+        assert by_provider["a"]["failures"] == 3
+        assert by_provider["b"]["calls"] == 1
+        assert by_provider["b"]["successes"] == 1
+
+    def test_each_real_attempt_records_exactly_one_metric(self):
+        from runtime.llm import InMemoryMetrics, LLMProviderUnavailableError, LLMRequest
+
+        flaky = _StubProvider("a", fail_with=LLMProviderUnavailableError("503 unavailable"), fail_times=1)
+        metrics = InMemoryMetrics()
+        router = _build([flaky], metrics=metrics, retry_attempts=2, retry_backoff_seconds=0)
+
+        router.generate(LLMRequest(prompt="x"))
+
+        snapshot = metrics.snapshot()[0]
+        assert flaky.call_count == 2
+        assert snapshot["calls"] == 2
+        assert snapshot["failures"] == 1
+        assert snapshot["successes"] == 1
+
 
 class TestMetricsIntegration:
     def test_records_success_and_failure(self):

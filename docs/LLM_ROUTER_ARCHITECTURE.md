@@ -224,12 +224,17 @@ into `LLMRouter`.
 
 ## Retry / Fallback (`retry.py` + `router.py`)
 
-`with_retry(fn, attempts, backoff_seconds)` is generic and provider-agnostic
-— it retries on `LLMError` with a fixed backoff, re-raises the last error
-once exhausted, and lets any non-`LLMError` (a genuine bug) propagate
-immediately without being retried. The Router wraps each provider attempt
-in `with_retry`, then falls through to the next provider in the policy's
-order on final failure — see "Data flow" above.
+`with_retry(fn, attempts, backoff_seconds)` is generic and provider-agnostic.
+Its defaults are configured through `config/default.json` at
+`llm.retry` (with the usual `config/local.json` and `FLOWCORE__...`
+overrides): enablement, maximum attempts, fixed/exponential backoff,
+initial/max delay, and jitter. It retries only transient provider failures
+(timeouts and unavailable-provider errors except 400/401/403/404 and known
+invalid/configuration failures); authentication, model-not-found, budget,
+and programming errors propagate immediately. The Router records exactly one
+metric for each real provider attempt, then falls through to the next provider
+only after retry is exhausted. Explicit legacy arguments retain their former
+fixed-backoff semantics.
 
 ## Errors (`models.py`)
 

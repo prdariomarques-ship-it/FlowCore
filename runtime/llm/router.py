@@ -26,6 +26,7 @@ ambiguous case: two or more providers were tried and failed.
 
 from __future__ import annotations
 
+import time
 from dataclasses import replace
 
 from runtime.llm.budget import BudgetPolicy, NoLimitBudget
@@ -47,8 +48,8 @@ class LLMRouter:
         metrics: MetricsSink | None = None,
         cache: CacheBackend | None = None,
         budget: BudgetPolicy | None = None,
-        retry_attempts: int = 2,
-        retry_backoff_seconds: float = 1.0,
+        retry_attempts: int | None = None,
+        retry_backoff_seconds: float | None = None,
     ) -> None:
         self._registry = registry
         self._policy = policy
@@ -81,20 +82,35 @@ class LLMRouter:
         last_error: LLMError | None = None
         for name in order:
             provider = self._registry.get(name)
+
+            def generate_attempt() -> LLMResponse:
+                start = time.monotonic()
+                try:
+                    response = provider.generate(request)
+                except LLMError as error:
+                    self._metrics.record_call(
+                        name,
+                        request.model or "?",
+                        (time.monotonic() - start) * 1000,
+                        False,
+                        str(error),
+                    )
+                    raise
+                self._metrics.record_call(name, response.model, response.latency_ms, True, None)
+                return response
+
             try:
                 self._budget.check(name)
                 response = with_retry(
-                    lambda p=provider: p.generate(request),
+                    generate_attempt,
                     attempts=self._retry_attempts,
                     backoff_seconds=self._retry_backoff_seconds,
                 )
             except LLMError as e:
                 errors.append(f"{name}: {e}")
                 last_error = e
-                self._metrics.record_call(name, request.model or "?", 0.0, False, str(e))
                 continue
             self._budget.record(name, response)
-            self._metrics.record_call(name, response.model, response.latency_ms, True, None)
             self._cache.set(key, response)
             return response
 

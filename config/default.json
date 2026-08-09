@@ -18,5 +18,15 @@
     "file": "logs/flowcore.log",
     "max_size_mb": 10,
     "backup_count": 3
+  },
+  "llm": {
+    "retry": {
+      "enabled": true,
+      "max_attempts": 3,
+      "backoff": "exponential",
+      "initial_delay_ms": 250,
+      "max_delay_ms": 5000,
+      "jitter": true
+    }
   }
 }
