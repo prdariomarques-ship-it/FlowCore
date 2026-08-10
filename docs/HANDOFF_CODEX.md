@@ -144,3 +144,44 @@ Then, for anything touching an interface: live-verify via CLI (`python3 flowcore
 - `ROADMAP.md` — forward-looking plan, Version 2.0 (LLM Router) marked implemented with a point-by-point mapping against what shipped.
 - `CHANGELOG.md` — [1.3.0]–[1.5.0] cover Sprints 24–25 and the LLM Router.
 - `docs/LLM_ROUTER_ARCHITECTURE.md` — the deep-dive on `runtime/llm/` specifically, including the post-implementation self-audit against a 9-point checklist and the "adding a new provider" guide.
+
+---
+
+## 9. Sprint 25 — Doctor Flow vertical slice (Qwen quality gate)
+
+**From:** Claude Code, acting as FlowCore's Runtime/Architecture owner
+**Date:** 2026-08-10
+**Purpose:** quality-gate handoff for Qwen. Codex's gate was skipped for this slice — confirmed (see below) that `runtime/executor.py` (Execution Engine, Codex's domain) is untouched and outside the Doctor Flow's dependency graph, so there is nothing in Codex's domain to review here.
+
+**Commit:** `598e4909c7740df40b0068ea03036a4a38172e7e` (`origin/main`), two commits:
+- `a9179c7` — feat(runtime): wire Doctor Flow end-to-end
+- `598e490` — test(runtime): cover Doctor Flow
+
+**What shipped:** the first real end-to-end FlowCore flow — `USER → CLI (flowcore.py doctor) → Runtime (FlowCoreRuntime.run_doctor()) → Capability Registry (ProviderResolver) → Doctor Capability (getCpuInfo/getMemoryInfo/getDiskUsage on LinuxAdapter) → Execution (real /proc + os.getloadavg() reads, no hardcoded data) → Observability (loguru, existing convention) → History (~/.flowcore/flowcore.doctor.json, same convention as flowcore.runtime.json)`. `DoctorService` (35 pre-existing component checks) is folded into the same report under `components`.
+
+**Public contract:**
+```python
+from runtime.core import FlowCoreRuntime
+report = FlowCoreRuntime().run_doctor()
+# {generated_at, environment, cpu, memory, disk, components}
+# cpu/memory/disk are CapabilityResult.to_dict(); components is DoctorReport.to_dict()
+```
+
+**Already verified by Claude, with reproducible evidence (commands run in a detached worktree at the exact commit, no code changed):**
+- JSON round-trip: `json.loads(json.dumps(report)) == report` — passes.
+- Safe degradation: `ProviderResolver(registry=CapabilityRegistry(adapters=[])).resolve("getCpuInfo"/"getMemoryInfo"/"getDiskUsage")` returns `CapabilityResult.fail(...)`, never raises.
+- `runtime/executor.py` unchanged: `git hash-object runtime/executor.py` == blob at baseline `584d380` (`1f404ec57eda1b20f0487c99e7dc2449afe9b116`).
+- No `executor`/`ExecutionEngine` reference anywhere in the Doctor Flow's module closure (`runtime/core.py`, `capability/resolver.py`, `capability/registry.py`, `capability/adapters/{base,linux,android,termux}.py`, `doctor/service.py`, `runtime/daemon.py`, `runtime/shell.py`, `runtime/ollama.py`) — `grep -rn "executor\|ExecutionEngine"` across all of them returns 0 matches.
+- Import graph of that same closure is acyclic (verified via `ast`-based static analysis, not just top-level regex — it walks every function body, which is how the `doctor.service -> runtime.daemon` local import inside `_check_daemon_state` was caught).
+- `pytest -q` — 459 passed, 14 skipped, 0 failures, 0 regression (was 446/14 before this sprint).
+- `ruff check .` and `ruff format --check .` — clean.
+
+**What Qwen should specifically check (outside Claude's architecture-gate scope):**
+- Security: `LinuxAdapter.get_memory_info()` (`capability/adapters/linux.py`) reads `/proc/meminfo` and catches a broad `except Exception`. Confirm that's an acceptable breadth here (no secrets in that file, read-only, no shell-out) or tighten it.
+- Test depth: `tests/test_runtime_core.py` and the additions to `tests/test_capability.py` cover the happy path and the "no adapter" path. No test currently exercises a malformed `/proc/meminfo` or `os.getloadavg()` raising `OSError` on a platform that lacks it (the code path exists in `get_cpu_info`'s `except (OSError, AttributeError)`, just untested).
+- Whether 35 `DoctorService` checks folded into one CLI command is too much output for a "quick" `flowcore doctor` — a UX/quality call, not an architecture one.
+
+**Known gaps, deliberately left as backlog (not defects):**
+- No live database-connectivity check migrated into `DoctorService` (the old ad-hoc `cmd_doctor` had one; dropped in the consolidation — see commit `a9179c7` message for the trade-off).
+- `get_cpu_info`/`get_memory_info` are only implemented on `LinuxAdapter`; on real Android/Termux they fall through to the base-stub `CapabilityResult.fail("... not supported")` — safe, but not real data on those platforms yet.
+- **Sprint-number collision:** this document's own section 8 already states "`CHANGELOG.md` — [1.3.0]–[1.5.0] cover Sprints 24-25 and the LLM Router" — i.e. "Sprint 25" was already used for the LLM Router in this repo's history, before being reused for this Doctor Flow slice. Worth reconciling sprint numbering across agents before it causes confusion in `ROADMAP.md`/`CHANGELOG.md`.
