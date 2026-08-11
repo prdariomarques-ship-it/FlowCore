@@ -403,3 +403,59 @@ class TestAndroidAppsAdapter:
         monkeypatch.setattr(mod, "run", lambda *a, **k: fake_result)
         r = self._adapter().list_installed_apps()
         assert r.success is False
+
+
+class TestLinuxAdapterCpuMemoryErrorPaths:
+    """Failure branches for getCpuInfo/getMemoryInfo (Sprint 25 Doctor Flow) —
+    the happy path is already covered by TestCapabilityRegistry's
+    *_on_linux tests; these cover platforms/conditions where the reading
+    itself fails, which must degrade to CapabilityResult.fail, never raise."""
+
+    def _adapter(self):
+        from capability.adapters.linux import LinuxAdapter
+
+        return LinuxAdapter()
+
+    def test_cpu_info_reports_failure_when_getloadavg_unsupported(self, monkeypatch):
+        import capability.adapters.linux as mod
+
+        def _raise():
+            raise OSError("getloadavg not supported")
+
+        monkeypatch.setattr(mod.os, "getloadavg", _raise)
+        r = self._adapter().get_cpu_info()
+        assert r.success is False
+        assert "load average unavailable" in r.reason
+
+    def test_memory_info_reports_failure_when_proc_meminfo_missing(self, monkeypatch):
+        import capability.adapters.linux as mod
+
+        class _FakePath:
+            def __init__(self, *a, **k):
+                pass
+
+            def exists(self):
+                return False
+
+        monkeypatch.setattr(mod, "Path", _FakePath)
+        r = self._adapter().get_memory_info()
+        assert r.success is False
+        assert "meminfo" in r.error.lower()
+
+    def test_memory_info_reports_failure_on_malformed_proc_meminfo(self, monkeypatch):
+        import capability.adapters.linux as mod
+
+        class _FakePath:
+            def __init__(self, *a, **k):
+                pass
+
+            def exists(self):
+                return True
+
+            def read_text(self):
+                return "SomeOtherField:      1234 kB\n"  # no MemTotal line
+
+        monkeypatch.setattr(mod, "Path", _FakePath)
+        r = self._adapter().get_memory_info()
+        assert r.success is False
+        assert "format" in r.error.lower()

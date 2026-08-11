@@ -6,8 +6,11 @@ Capability -> Execution -> real result -> Observability -> History.
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -60,6 +63,27 @@ class TestRunDoctor:
         assert disk_call[1] == (str(runtime.root),)
         assert report["disk"]["data"] == {"stub": True}
 
+    def test_no_adapter_available_reports_failure_not_crash(self, monkeypatch):
+        """When no adapter can serve a capability at all (e.g. a platform
+        the registry has no adapter for), run_doctor() must still return a
+        complete, well-shaped report with success=False for that reading —
+        never raise, never fabricate data, never silently drop the key."""
+        from capability.adapters.base import CapabilityResult
+
+        class _NoAdapterResolver:
+            def resolve(self, capability, *args, **kwargs):
+                return CapabilityResult.fail(f"No adapter supports '{capability}' on this platform", "resolver")
+
+        monkeypatch.setattr("capability.resolver.ProviderResolver", _NoAdapterResolver)
+        report = self._runtime().run_doctor()
+
+        for key in ("cpu", "memory", "disk"):
+            assert report[key]["success"] is False
+            assert "error" in report[key] and report[key]["error"]
+        # Doctor's own component checks are independent of capability resolution
+        # and must still run normally.
+        assert report["components"]["passed"] > 0
+
     def test_components_come_from_doctor_service(self):
         report = self._runtime().run_doctor()
         components = report["components"]
@@ -79,3 +103,26 @@ class TestRunDoctor:
         persisted = json.loads(history_path.read_text())
         assert persisted["generated_at"] == report["generated_at"]
         assert persisted["environment"] == report["environment"]
+
+    def test_unwritable_history_does_not_fail_the_diagnostic(self, monkeypatch, tmp_path):
+        """A History-write failure (read-only home, permissions, disk full --
+        realistic on Termux/Android, see doctor/service.py's termux_storage
+        check) must degrade gracefully, not turn a successful diagnostic
+        into a reported failure. Mirrors api/router.py's /api/status
+        Doctor section, which already does exactly this for the same
+        reason."""
+        if sys.platform == "win32" or (hasattr(os, "geteuid") and os.geteuid() == 0):
+            pytest.skip("POSIX file-permission semantics required, and root bypasses them")
+
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        flowcore_dir = tmp_path / ".flowcore"
+        flowcore_dir.mkdir(parents=True)
+        flowcore_dir.chmod(0o500)  # read+execute only -- writes inside must fail
+        try:
+            report = self._runtime().run_doctor()  # must not raise
+        finally:
+            flowcore_dir.chmod(0o700)  # restore so pytest's tmp_path cleanup can remove it
+
+        assert set(report.keys()) == {"generated_at", "environment", "cpu", "memory", "disk", "components"}
+        assert report["cpu"]["success"] is True
+        assert not (flowcore_dir / "flowcore.doctor.json").exists()

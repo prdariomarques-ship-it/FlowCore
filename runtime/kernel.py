@@ -173,13 +173,20 @@ class RuntimeKernel:
         return issues
 
     def _write_runtime_json(self, snap: RuntimeSnapshot) -> None:
+        """Best-effort persistence: a storage failure here (read-only home,
+        permissions, disk full) must never abort boot() after discovery has
+        already succeeded — same reasoning and convention as
+        runtime/core.py's FlowCoreRuntime._write_doctor_history()."""
         data = snap.to_dict()
         data["schema_version"] = "1.0"
         data["generated_at"] = datetime.now(timezone.utc).isoformat()
 
-        self._runtime_json.parent.mkdir(parents=True, exist_ok=True)
-        with open(self._runtime_json, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+        try:
+            self._runtime_json.parent.mkdir(parents=True, exist_ok=True)
+            with open(self._runtime_json, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+        except OSError as e:
+            logger.warning("RuntimeKernel: could not write {}: {}", self._runtime_json, e)
 
     def _log_snapshot(self, snap: RuntimeSnapshot) -> None:
         logger.debug("  Platform: {}", snap.platform_type)

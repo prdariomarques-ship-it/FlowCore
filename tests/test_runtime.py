@@ -112,6 +112,29 @@ class TestRuntimeKernel:
         assert "platform_type" in data
         assert "generated_at" in data
 
+    def test_unwritable_runtime_json_does_not_abort_boot(self, monkeypatch, tmp_path):
+        """A storage failure while persisting flowcore.runtime.json (read-only
+        home, permissions, disk full) must not discard an otherwise-successful
+        boot -- same reasoning as runtime/core.py's equivalent Doctor-history
+        test. Reproduced against the pre-fix code before this test was added
+        (PermissionError escaping boot())."""
+        if sys.platform == "win32" or (hasattr(os, "geteuid") and os.geteuid() == 0):
+            pytest.skip("POSIX file-permission semantics required, and root bypasses them")
+
+        from runtime.kernel import RuntimeKernel
+
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        flowcore_dir = tmp_path / ".flowcore"
+        flowcore_dir.mkdir(parents=True)
+        flowcore_dir.chmod(0o500)
+        try:
+            passport = RuntimeKernel().boot()  # must not raise
+        finally:
+            flowcore_dir.chmod(0o700)
+
+        assert passport.platform in ("termux", "android", "docker", "linux", "macos", "windows")
+        assert not (flowcore_dir / "flowcore.runtime.json").exists()
+
     def test_boot_twice_is_idempotent(self):
         from runtime.kernel import RuntimeKernel
 

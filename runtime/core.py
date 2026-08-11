@@ -130,10 +130,19 @@ class FlowCoreRuntime:
         return report
 
     def _write_doctor_history(self, report: dict[str, Any]) -> None:
+        """Best-effort persistence: a storage failure here (read-only home,
+        permissions, disk full — realistic on Termux/Android, see the
+        termux_storage check in doctor/service.py) must never turn an
+        otherwise-successful diagnostic into a reported failure. Mirrors
+        the existing degrade-gracefully convention in api/router.py's
+        /api/status Doctor section (try/except, log and move on)."""
         path = Path.home() / ".flowcore" / "flowcore.doctor.json"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(report, f, indent=2, ensure_ascii=False)
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(report, f, indent=2, ensure_ascii=False)
+        except OSError as e:
+            logger.warning("Doctor: could not write history to {}: {}", path, e)
 
 
 def _detect_root() -> Path:
