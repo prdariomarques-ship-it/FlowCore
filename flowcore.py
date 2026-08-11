@@ -764,6 +764,8 @@ def cmd_doctor() -> None:
         print(f"{RED}✗{NC} Doctor failed: {e}\n")
         sys.exit(1)
 
+    print(f"  Generated at : {report['generated_at']}\n")
+
     env = report["environment"]
     platform_label = "Android" if env["android"] else ("Termux" if env["termux"] else "Linux/WSL")
     print(f"{BOLD}Environment{NC}")
