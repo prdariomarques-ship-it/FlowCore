@@ -64,7 +64,15 @@ class TestObserverRegistry:
 
 
 class TestDefaultRegistry:
-    def test_five_default_observers_registered(self):
+    def test_seven_default_observers_registered(self):
         from runtime.observers.registry import registry
 
-        assert set(registry.names()) == {"treasury", "dollar", "vix", "oil", "gold"}
+        assert set(registry.names()) == {
+            "treasury",
+            "dollar",
+            "vix",
+            "oil",
+            "gold",
+            "usd_jpy",
+            "treasury_30y",
+        }

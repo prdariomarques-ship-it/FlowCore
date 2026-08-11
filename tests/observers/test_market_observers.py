@@ -97,9 +97,24 @@ class TestObserve:
 
 
 class TestDefaultObservers:
-    def test_five_sources(self):
+    def test_seven_sources(self):
         from runtime.observers.market_observers import default_yfinance_observers
 
         observers = default_yfinance_observers()
         sources = {o.source for o in observers}
-        assert sources == {"treasury", "dollar", "vix", "oil", "gold"}
+        assert sources == {"treasury", "dollar", "vix", "oil", "gold", "usd_jpy", "treasury_30y"}
+
+    def test_usd_jpy_and_treasury_30y_are_real_yfinance_symbols(self):
+        """Japan Duration Risk investigation: these two are the only
+        components with a confirmed real data source (JGB 10Y, Japanese
+        Treasury holdings, FIMA and capital flow have none -- see the
+        investigation report). Confirms the symbols wired here are the
+        exact ones verified live against Yahoo Finance, not placeholders."""
+        from runtime.observers.market_observers import default_yfinance_observers
+
+        by_source = {o.source: o for o in default_yfinance_observers()}
+        assert by_source["usd_jpy"].symbol == "JPY=X"
+        assert by_source["usd_jpy"].category == "fx"
+        assert by_source["treasury_30y"].symbol == "^TYX"
+        assert by_source["treasury_30y"].category == "rates"
+        assert by_source["treasury_30y"].unit == "pct"

@@ -78,7 +78,8 @@ Endpoints (Sprint 17, Milestone 4 — Telegram, reuses the spcx-monitor bot):
 Endpoints (Sprint 18 — SCPX Observer Framework, normalized MarketEvents):
   GET  /api/observer/registry         — registered observers (name/category/symbol), no fetch
   GET  /api/observer/events           — run every observer now, return MarketEvents
-  GET  /api/observer/events/{source}  — run one observer by name (treasury, dollar, vix, oil, gold)
+  GET  /api/observer/events/{source}  — run one observer by name (treasury, dollar, vix, oil, gold,
+                                         usd_jpy, treasury_30y)
   GET  /api/observer/health           — live reachability probe (runs the vix observer)
 
 Endpoints (Sprint 19 — SCPX Macro Score Engine, deterministic per-dimension scores):

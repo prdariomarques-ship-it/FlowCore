@@ -79,7 +79,9 @@ Triggering is manual/API/CLI/MCP only in this version — `POST /api/flows/{id}/
 
 ## Doctor (`doctor/service.py`)
 
-Health-check aggregator consumed by `flowcore.py doctor`, `GET /api/status`, and the Web UI's Caps tab. Sprint 14 removed four placeholder multi-provider bridge checks (`_check_qwen_bridge`, `_check_glm_bridge`, `_check_gemini_bridge`, `_check_claude_bridge`) that only verified an env var was set (`QWEN_PORT`, `GLM_HOST`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`) with no real provider implementation behind any of them, plus the now-orphaned `_check_bridge()` helper they shared, and the empty `doctor/checks/` package. `_check_ollama` — the one bridge check with a real implementation — remains, but note it re-implements its own reachability probe (`ollama list`, then a raw socket connect to `127.0.0.1:11434`) instead of calling `runtime/ollama.py`'s `discover_ollama_endpoint()`. That means Doctor can report Ollama as unreachable on a setup where the discovery-based endpoint (e.g. a Windows-side Ollama reached from WSL2) is actually working fine for `flowcore.py ask`/`ping`. Flagged as a concrete follow-up, not fixed this sprint (out of scope for a report-only task).
+Health-check aggregator consumed by `flowcore.py doctor`, `GET /api/status`, and the Web UI's Caps tab. Sprint 14 removed four placeholder multi-provider bridge checks (`_check_qwen_bridge`, `_check_glm_bridge`, `_check_gemini_bridge`, `_check_claude_bridge`) that only verified an env var was set (`QWEN_PORT`, `GLM_HOST`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`) with no real provider implementation behind any of them, plus the now-orphaned `_check_bridge()` helper they shared, and the empty `doctor/checks/` package. `_check_ollama` — the one bridge check with a real implementation — remains; the discovery-endpoint gap this section used to flag here has since been fixed (`doctor/service.py`'s `_check_ollama` falls back to `runtime/ollama.py`'s `discover_ollama_endpoint()` when the local `ollama` CLI isn't present, so it no longer misreports "unreachable" on a Windows-side-Ollama-via-WSL2 setup).
+
+**Sprint 25 addendum:** `flowcore.py doctor` no longer calls `DoctorService` directly — it goes through `FlowCoreRuntime.run_doctor()` (`runtime/core.py`), which combines real CPU/memory/disk readings (resolved through the Capability Registry — `capability/registry.py`'s `getCpuInfo`/`getMemoryInfo`/`getDiskUsage`) with `DoctorService`'s existing 35 component checks into one report, persisted to `~/.flowcore/flowcore.doctor.json`. `GET /api/status` and the Web UI's Caps tab still call `DoctorService` directly for just the component-check list, unchanged. Full contract: `docs/RUNTIME_TO_EXECUTION_ENGINE_CONTRACT.md`.
 
 ## Config (`config/`)
 
@@ -90,7 +92,8 @@ Health-check aggregator consumed by `flowcore.py doctor`, `GET /api/status`, and
 A second, parallel pipeline on top of the base platform above — turns raw market data into ranked, explainable portfolio decisions. Deterministic end to end: **no LLM inside any of these layers**, ever (an LLM may only ever sit downstream as a presentation/narrative layer over already-computed output — see Sprint 25 in `ROADMAP.md`). Each layer only calls the one below it directly; nothing skips a layer, nothing duplicates a layer's computation.
 
 ```
-Observer            runtime/observers/        MarketEvent (per source: treasury, dollar, vix, oil, gold)
+Observer            runtime/observers/        MarketEvent (per source: treasury, dollar, vix, oil, gold,
+                                               usd_jpy, treasury_30y)
    │                                           persisted via storage/event_repo.py's EventRepository
    ▼
 Macro Score Engine   runtime/macro_score/       DimensionScore (z-score per dimension: liquidity, commodities, risk_sentiment)

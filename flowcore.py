@@ -2510,7 +2510,10 @@ def main() -> None:
     observer_sub.add_parser("registry", help="List registered observers (no fetch)")
     observer_events_p = observer_sub.add_parser("events", help="Run observers now and print MarketEvents")
     observer_events_p.add_argument(
-        "source", nargs="?", default="", help="Run only this observer (treasury, dollar, vix, oil, gold)"
+        "source",
+        nargs="?",
+        default="",
+        help="Run only this observer (treasury, dollar, vix, oil, gold, usd_jpy, treasury_30y)",
     )
     observer_sub.add_parser("health", help="Live reachability probe (runs the vix observer)")
     observer_watch_p = observer_sub.add_parser("watch", help="Run the scheduler in the foreground (Ctrl-C to stop)")

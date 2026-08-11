@@ -63,4 +63,12 @@ def default_yfinance_observers() -> list[YFinanceObserver]:
         ),
         YFinanceObserver(source="oil", category="commodities", symbol="BZ=F", event_name="price_change", unit="price"),
         YFinanceObserver(source="gold", category="commodities", symbol="GC=F", event_name="price_change", unit="price"),
+        # Japan Duration Risk investigation: these two are the only
+        # components of that indicator with a confirmed real data source;
+        # the rest (JGB 10Y, Japanese Treasury holdings, FIMA, capital
+        # flow) have none today and are NOT observed here rather than
+        # faked. No scoring/classification built on these yet -- see the
+        # investigation report for why.
+        YFinanceObserver(source="usd_jpy", category="fx", symbol="JPY=X", event_name="fx_change", unit="price"),
+        YFinanceObserver(source="treasury_30y", category="rates", symbol="^TYX", event_name="yield_change", unit="pct"),
     ]
