@@ -529,7 +529,11 @@ def cmd_chat(cfg: dict) -> None:
 
 def cmd_remember(text: str) -> None:
     """Save a memory."""
-    memory = _mem_repo.add(text)
+    try:
+        memory = _mem_repo.add(text)
+    except OSError as e:
+        print(f"{RED}✗ Memory NOT saved: {e}{NC}")
+        sys.exit(1)
     print(f"{GREEN}✓ Memory saved{NC}")
     if memory["topics"]:
         print(f"  Topics: {', '.join(memory['topics'])}")

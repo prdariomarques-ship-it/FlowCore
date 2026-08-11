@@ -37,11 +37,17 @@ class MemoryRepository:
             return []
 
     def _save(self, memories: list[dict[str, Any]]) -> None:
+        """Raises on failure -- callers (e.g. add()) must never report a
+        memory as saved when the write actually failed. Previously this
+        logged and swallowed the error, so add() always returned a
+        "success" memory dict even when nothing was persisted (silent
+        data loss)."""
         try:
             with open(self._file, "w", encoding="utf-8") as f:
                 json.dump(memories, f, indent=2, ensure_ascii=False)
         except IOError as e:
             logger.error("Error saving memories: {}", e)
+            raise
 
     # ── Domain operations ────────────────────────────────────────────────────
 
