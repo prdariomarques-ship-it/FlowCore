@@ -1,0 +1,9 @@
+127.0.0.1 - - [12/Aug/2026 00:41:41] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [12/Aug/2026 00:41:42] code 404, message File not found
+127.0.0.1 - - [12/Aug/2026 00:41:42] "GET /api/opportunities HTTP/1.1" 404 -
+127.0.0.1 - - [12/Aug/2026 00:41:42] code 404, message File not found
+127.0.0.1 - - [12/Aug/2026 00:41:42] "GET /api/status HTTP/1.1" 404 -
+127.0.0.1 - - [12/Aug/2026 00:41:42] code 404, message File not found
+127.0.0.1 - - [12/Aug/2026 00:41:42] "GET /api/favorites HTTP/1.1" 404 -
+127.0.0.1 - - [12/Aug/2026 00:41:43] code 501, message Unsupported method ('POST')
+127.0.0.1 - - [12/Aug/2026 00:41:43] "POST /api/doctor/run HTTP/1.1" 501 -

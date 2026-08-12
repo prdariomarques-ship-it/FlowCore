@@ -11,9 +11,10 @@ Checks:
   7. Termux compatibility (no missing modules)
   8. Directory structure completeness
 """
-
 from __future__ import annotations
 
+import ast
+import os
 import sys
 from pathlib import Path
 
@@ -83,13 +84,10 @@ def audit_root_commands() -> None:
 def audit_api_localhost() -> None:
     """Check API binds to localhost."""
     print("\n[Audit 3] API localhost binding")
-    config_path = ROOT / "config" / "default.json"
-    if not config_path.exists():
-        warn("config/default.json not found")
-        return
+    config_path = ROOT / "config" / "default.yml"
     content = config_path.read_text()
     if "0.0.0.0" in content:
-        bad("config/default.json binds to 0.0.0.0 (network-exposed)")
+        bad("config/default.yml binds to 0.0.0.0 (network-exposed)")
     elif "127.0.0.1" in content:
         ok("API binds to 127.0.0.1 (localhost only)")
     else:
@@ -170,20 +168,9 @@ def audit_structure() -> None:
     print("\n[Audit 8] Directory structure")
     required_dirs = ["config", "runtime", "executor", "scheduler", "api", "agents", "scripts", "logs", "backups"]
     required_files = [
-        "install.sh",
-        "flowcore.py",
-        "daemon.py",
-        "validate_android.sh",
-        "doctor.sh",
-        "optimize.sh",
-        "benchmark.sh",
-        "update.sh",
-        "repair.sh",
-        "uninstall.sh",
-        "requirements.txt",
-        "README.md",
-        "LICENSE",
-        ".gitignore",
+        "install.sh", "flowcore.py", "daemon.py", "validate_android.sh",
+        "doctor.sh", "optimize.sh", "benchmark.sh", "update.sh", "repair.sh",
+        "uninstall.sh", "requirements.txt", "README.md", "LICENSE", ".gitignore",
     ]
     for d in required_dirs:
         if (ROOT / d).is_dir():

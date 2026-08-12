@@ -1,1119 +1,434 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="pt-PT">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#0a0f1e">
-<title>FlowCore</title>
-<style>
-:root{
-  --bg:#0a0f1e;--bg2:#111827;--bg3:#1a2235;--border:#1e3a5f;
-  --accent:#00d4ff;--accent2:#7c3aed;
-  --green:#10b981;--yellow:#f59e0b;--red:#ef4444;--purple:#a78bfa;
-  --text:#e2e8f0;--text2:#94a3b8;--radius:12px;
-  --shadow:0 4px 24px rgba(0,0,0,.4);
-}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;min-height:100vh;padding-bottom:84px}
-
-/* Header */
-.header{background:linear-gradient(135deg,#0a0f1e,#111827);border-bottom:1px solid var(--border);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}
-.hb{display:flex;align-items:center;gap:10px}
-.logo{width:34px;height:34px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:900;color:#fff}
-.bn{font-size:17px;font-weight:700;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.bs{font-size:10px;color:var(--text2);margin-top:1px}
-.hr{display:flex;align-items:center;gap:8px}
-.sdot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite}
-.sdot.off{background:var(--red);box-shadow:0 0 6px var(--red);animation:none}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-.btn-sm{background:var(--bg3);border:1px solid var(--border);color:var(--accent);padding:5px 11px;border-radius:8px;font-size:12px;cursor:pointer}
-.btn-sm:hover{background:var(--border)}
-
-/* Layout */
-.wrap{max-width:600px;margin:0 auto;padding:14px}
-.gap{display:flex;flex-direction:column;gap:12px}
-
-/* Cards */
-.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:15px;box-shadow:var(--shadow)}
-.ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}
-.ct{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text2)}
-.ci{font-size:15px}
-
-/* Stats */
-.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-.st{background:var(--bg3);border-radius:10px;padding:10px 6px;text-align:center}
-.sv{font-size:20px;font-weight:700;color:var(--accent)}
-.sl{font-size:9px;color:var(--text2);margin-top:2px;text-transform:uppercase;letter-spacing:.4px}
-
-/* Rows */
-.row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border)}
-.row:last-child{border-bottom:none}
-.rl{color:var(--text2);font-size:12px}
-.rv{font-weight:600;font-size:13px}
-
-/* Tags */
-.tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
-.tg{background:rgba(16,185,129,.15);color:var(--green);border:1px solid rgba(16,185,129,.3)}
-.tr{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
-.ty{background:rgba(245,158,11,.15);color:var(--yellow);border:1px solid rgba(245,158,11,.3)}
-.tp{background:rgba(167,139,250,.15);color:var(--purple);border:1px solid rgba(167,139,250,.3)}
-
-/* Buttons */
-.btns{display:flex;gap:8px;margin-top:13px}
-.btn{flex:1;padding:9px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
-.bg{background:rgba(16,185,129,.2);color:var(--green);border:1px solid rgba(16,185,129,.4)}
-.bg:hover{background:rgba(16,185,129,.35)}
-.br{background:rgba(239,68,68,.2);color:var(--red);border:1px solid rgba(239,68,68,.4)}
-.br:hover{background:rgba(239,68,68,.35)}
-
-/* Input row */
-.ir{display:flex;gap:8px;margin-bottom:12px}
-.if{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 12px;font-size:13px;outline:none;transition:border-color .2s}
-.if:focus{border-color:var(--accent)}
-.if::placeholder{color:var(--text2)}
-.bs2{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:8px;color:#fff;font-size:15px;width:40px;cursor:pointer;flex-shrink:0}
-.bs2:hover{opacity:.85}
-
-/* Caps grid */
-.cg{display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:7px}
-.ci2{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:7px 9px;display:flex;align-items:center;gap:6px;font-size:12px}
-.ci2.ok{border-color:rgba(16,185,129,.3)}
-.ci2.miss{opacity:.4}
-.cd{width:6px;height:6px;border-radius:50%;flex-shrink:0}
-.cd.ok{background:var(--green)}
-.cd.miss{background:var(--text2)}
-
-/* Check list */
-.cl{display:flex;flex-direction:column;gap:5px}
-.ck{display:flex;align-items:center;gap:9px;padding:7px 9px;background:var(--bg3);border-radius:8px;font-size:12px}
-.ck-name{flex:1;font-weight:500}
-.ck-msg{color:var(--text2);font-size:11px;text-align:right;max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
-/* Memories / notes */
-.ml{display:flex;flex-direction:column;gap:6px}
-.mi{background:var(--bg3);border-radius:8px;padding:10px 12px;border-left:2px solid var(--accent2)}
-.mi.todo{border-left-color:var(--yellow)}
-.mi.agenda{border-left-color:var(--green)}
-.mi-text{color:var(--text);margin-bottom:3px;font-size:13px}
-.mi-meta{color:var(--text2);font-size:11px;display:flex;align-items:center;gap:6px}
-.topics{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
-.tb{background:rgba(124,58,237,.2);color:#a78bfa;border-radius:20px;padding:1px 7px;font-size:10px;border:1px solid rgba(124,58,237,.3)}
-
-/* System info */
-.sys-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.sys-card{background:var(--bg3);border-radius:10px;padding:12px;text-align:center}
-.sys-val{font-size:26px;font-weight:700;color:var(--accent)}
-.sys-lbl{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
-.battery-bar{width:100%;height:6px;background:var(--border);border-radius:3px;margin-top:8px;overflow:hidden}
-.battery-fill{height:100%;border-radius:3px;transition:width .5s}
-
-/* Search results */
-.sr-section{margin-bottom:14px}
-.sr-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--text2);margin-bottom:8px}
-.sr-item{background:var(--bg3);border-radius:8px;padding:9px 11px;margin-bottom:5px;font-size:13px}
-.sr-item .sr-text{color:var(--text);margin-bottom:2px}
-.sr-item .sr-sub{color:var(--text2);font-size:11px}
-.no-results{text-align:center;color:var(--text2);padding:24px;font-size:13px}
-
-/* Passport card */
-.passport-field{background:var(--bg3);border-radius:8px;padding:10px 12px;margin-bottom:6px}
-.pf-label{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--text2);margin-bottom:4px}
-.pf-value{font-size:13px;word-break:break-all}
-.hash-val{font-family:monospace;font-size:10px;color:var(--text2);word-break:break-all}
-
-/* Skeleton */
-.sk{background:linear-gradient(90deg,var(--bg3) 25%,var(--border) 50%,var(--bg3) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;height:13px;margin-bottom:7px}
-@keyframes shimmer{0%{background-position:200%}100%{background-position:-200%}}
-.empty{text-align:center;color:var(--text2);padding:22px;font-size:13px}
-
-/* Notify */
-.notify-btn{width:100%;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:var(--yellow);padding:10px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
-.notify-btn:hover{background:rgba(245,158,11,.2)}
-
-/* Toast */
-.toast{position:fixed;bottom:92px;left:50%;transform:translateX(-50%) translateY(14px);background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:9px 18px;border-radius:8px;font-size:13px;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;z-index:200}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-
-/* Bottom nav */
-.nav{position:fixed;bottom:0;left:0;right:0;background:rgba(17,24,39,.96);border-top:1px solid var(--border);display:flex;backdrop-filter:blur(10px);z-index:100}
-.ni{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;padding:9px 0 13px;gap:3px;cursor:pointer;color:var(--text2);font-size:9px;font-weight:500;border:none;background:none;transition:color .2s}
-.ni span:last-child{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ni.active{color:var(--accent)}
-.ni:hover{color:var(--text)}
-.ni-icon{font-size:19px}
-
-/* Pages */
-.page{display:none}
-.page.active{display:block}
-
-/* Kind selector */
-.kind-sel{display:flex;gap:6px;margin-bottom:12px}
-.ks{flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:7px;border-radius:8px;font-size:12px;text-align:center;cursor:pointer;transition:all .2s}
-.ks.active{color:var(--accent);border-color:var(--accent);background:rgba(0,212,255,.08)}
-
-/* Dashboard */
-.chart-svg{width:100%;height:110px;display:block}
-.chart-bar-ok{fill:var(--green)}
-.chart-bar-fail{fill:var(--red)}
-.chart-label{fill:var(--text2);font-size:7px}
-.flow-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);gap:8px}
-.flow-row:last-child{border-bottom:none}
-.flow-name{font-size:13px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.flow-meta{font-size:11px;color:var(--text2)}
-.run-btn{background:rgba(0,212,255,.15);border:1px solid rgba(0,212,255,.35);color:var(--accent);padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0}
-.run-btn:hover{background:rgba(0,212,255,.28)}
-.run-btn:disabled{opacity:.5;cursor:default}
-.exec-row{background:var(--bg3);border-radius:8px;padding:9px 11px;margin-bottom:6px;font-size:13px}
-.exec-row .exec-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;gap:8px}
-.exec-name{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.exec-sub{color:var(--text2);font-size:11px}
-
-/* Chat */
-.chat-log{display:flex;flex-direction:column;gap:10px;max-height:60vh;overflow-y:auto;padding-bottom:2px}
-.msg{max-width:85%;padding:9px 12px;border-radius:12px;font-size:13px;line-height:1.45;word-break:break-word;white-space:pre-wrap}
-.msg.user{align-self:flex-end;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border-bottom-right-radius:3px}
-.msg.bot{align-self:flex-start;background:var(--bg3);border:1px solid var(--border);border-bottom-left-radius:3px}
-.msg.thinking{color:var(--text2);font-style:italic;animation:pulse 1.6s infinite}
-.if:disabled{opacity:.5}
-.bs2:disabled{opacity:.5;cursor:default}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Radar Imobiliário AI — Console</title>
+  <!-- Tailwind CSS & FontAwesome -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap');
+    :root {
+      --bg: #09090b;
+      --card: #18181b;
+      --border: #27272a;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --fg: #fafafa;
+      --fg-muted: #a1a1aa;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --red: #ef4444;
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg);
+      color: var(--fg);
+    }
+    .monospace {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Loading Skeleton */
+    .sk {
+      background: linear-gradient(90deg, #27272a 25%, #3f3f46 50%, #27272a 75%);
+      background-size: 200% 100%;
+      animation: loading 1.5s infinite;
+      border-radius: 6px;
+    }
+    @keyframes loading {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+  </style>
 </head>
-<body>
+<body class="min-h-screen flex flex-col antialiased">
 
-<div class="header">
-  <div class="hb">
-    <div class="logo">F</div>
-    <div>
-      <div class="bn">FlowCore</div>
-      <div class="bs" id="last-upd">A carregar...</div>
-    </div>
-  </div>
-  <div class="hr">
-    <div class="sdot off" id="dot"></div>
-    <button class="btn-sm" onclick="refresh()">↻</button>
-  </div>
-</div>
-
-<div class="wrap">
-
-  <!-- ══ HOME ══ -->
-  <div class="page active" id="page-home">
-    <div class="gap">
-      <!-- Stats -->
-      <div class="card">
-        <div class="sg">
-          <div class="st"><div class="sv" id="s-caps">─</div><div class="sl">Caps</div></div>
-          <div class="st"><div class="sv" id="s-doc">─</div><div class="sl">Doctor</div></div>
-          <div class="st"><div class="sv" id="s-mem">─</div><div class="sl">Memórias</div></div>
-          <div class="st"><div class="sv" id="s-notes">─</div><div class="sl">Notas</div></div>
-        </div>
+  <!-- Header -->
+  <header class="border-b border-zinc-800 bg-zinc-950 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
+    <div class="flex items-center space-x-3.5">
+      <div class="h-9 w-9 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black shadow-md shadow-blue-600/10">
+        <i class="fa-solid fa-radar text-lg"></i>
       </div>
-
-      <!-- Daemon -->
-      <div class="card">
-        <div class="ch"><span class="ct">Daemon</span><span class="ci">⚙️</span></div>
-        <div class="row"><span class="rl">Estado</span><span class="rv" id="d-state"><span class="tag ty">─</span></span></div>
-        <div class="row"><span class="rl">PID</span><span class="rv" id="d-pid" style="color:var(--text2)">─</span></div>
-        <div class="row"><span class="rl">Uptime</span><span class="rv" id="d-up" style="color:var(--text2)">─</span></div>
-        <div class="row"><span class="rl">Ciclo heartbeat</span><span class="rv" id="d-cyc" style="color:var(--text2)">─</span></div>
-        <div class="btns">
-          <button class="btn bg" onclick="da('start')">▶ Iniciar</button>
-          <button class="btn br" onclick="da('stop')">■ Parar</button>
-        </div>
-      </div>
-
-      <!-- Notificação -->
-      <div class="card">
-        <div class="ch"><span class="ct">Notificação Android</span><span class="ci">🔔</span></div>
-        <div class="ir">
-          <input class="if" id="n-text" placeholder="Mensagem para o Android...">
-          <button class="bs2" onclick="sendNotify()">🔔</button>
-        </div>
-        <div class="row" style="padding-top:0;border:none">
-          <span class="rl">via termux-notification</span>
-          <span class="tag ty" id="n-status">nativo Android</span>
-        </div>
+      <div>
+        <h1 class="text-sm font-black tracking-tight text-white uppercase">Radar Imobiliário AI</h1>
+        <p class="text-[10px] text-zinc-500 font-bold monospace uppercase">Console v1.0.0</p>
       </div>
     </div>
+
+    <div class="flex items-center space-x-6">
+      <div class="flex items-center space-x-2 text-xs">
+        <span id="dot" class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span class="text-zinc-400 font-bold" id="last-upd">Carregando...</span>
+      </div>
+      <button class="bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-200 text-xs px-3.5 py-1.5 rounded-lg font-bold transition-all" onclick="refresh()">
+        <i class="fa-solid fa-rotate"></i> Atualizar
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Left Column: Dashboard & Status -->
+    <div class="space-y-6">
+
+      <!-- System Telemetry Card -->
+      <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xs font-black uppercase text-zinc-400 tracking-wider">Telemetria do Sistema</h2>
+          <span class="px-2 py-0.5 rounded-full text-[9px] font-black border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">ATIVO</span>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3 text-center">
+          <div class="bg-zinc-950 border border-zinc-850 rounded-xl p-3">
+            <div class="text-[10px] text-zinc-500 font-bold uppercase">CPU</div>
+            <div class="text-sm font-black monospace mt-1" id="telemetry-cpu">─ cores</div>
+          </div>
+          <div class="bg-zinc-950 border border-zinc-850 rounded-xl p-3">
+            <div class="text-[10px] text-zinc-500 font-bold uppercase">RAM</div>
+            <div class="text-sm font-black monospace mt-1" id="telemetry-ram">─%</div>
+          </div>
+          <div class="bg-zinc-950 border border-zinc-850 rounded-xl p-3">
+            <div class="text-[10px] text-zinc-500 font-bold uppercase">Disco</div>
+            <div class="text-xs font-black monospace mt-1.5" id="telemetry-disk">─</div>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-zinc-850 flex items-center justify-between text-xs">
+          <span class="text-zinc-500 font-bold">Banco de Dados:</span>
+          <span class="monospace text-zinc-300 font-bold" id="telemetry-db-path">data/radar.db</span>
+        </div>
+      </div>
+
+      <!-- Action: Trigger Diagnostics / Ingestion -->
+      <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xs font-black uppercase text-zinc-400 tracking-wider">Ações e Ingestão</h2>
+          <i class="fa-solid fa-bolt text-blue-500"></i>
+        </div>
+        <p class="text-xs text-zinc-500 leading-relaxed">
+          Acione o diagnóstico completo e o pipeline de ingestão de imóveis da CAIXA em tempo real de forma ativa e sem simulações.
+        </p>
+        <button id="btn-run-doctor" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-black text-xs py-3 rounded-xl shadow-md transition-all uppercase tracking-wide flex items-center justify-center space-x-2" onclick="runDoctor()">
+          <i class="fa-solid fa-stethoscope"></i> <span>Executar Ingestão & Doctor</span>
+        </button>
+      </div>
+
+      <!-- Doctor Checks Checklist -->
+      <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <h2 class="text-xs font-black uppercase text-zinc-400 tracking-wider">Relatório Doctor</h2>
+        <div class="space-y-2.5" id="doctor-checklist">
+          <!-- Checks dynamic loader -->
+          <div class="sk h-10 w-full"></div>
+          <div class="sk h-10 w-full"></div>
+        </div>
+      </div>
+
+      <!-- Favorites Card -->
+      <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <h2 class="text-xs font-black uppercase text-zinc-400 tracking-wider">Favoritos (<span id="fav-count">0</span>)</h2>
+        <div class="space-y-3" id="favorites-list">
+          <div class="text-xs text-zinc-500 italic py-2">Nenhum imóvel favoritado ainda.</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Right Columns: Opportunities Feed -->
+    <div class="lg:col-span-2 space-y-6">
+
+      <!-- Opportunities Header -->
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-black tracking-tight text-white flex items-center space-x-2">
+          <span>Oportunidades Encontradas</span>
+          <span class="bg-blue-600/10 text-blue-400 text-xs px-2.5 py-0.5 rounded-full border border-blue-500/20 font-black monospace" id="opp-count">0</span>
+        </h2>
+
+        <div class="flex items-center space-x-3 text-xs">
+          <span class="text-zinc-500 font-bold">Filtro:</span>
+          <select id="score-filter" class="bg-zinc-900 border border-zinc-800 text-zinc-300 font-bold rounded-lg px-2.5 py-1.5 focus:border-zinc-700 outline-none" onchange="filterOpportunities()">
+            <option value="0">Todos os Scores</option>
+            <option value="50">Score &gt; 50</option>
+            <option value="75">Score &gt; 75 (Premium)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Opportunities Cards Feed -->
+      <div class="space-y-4" id="opportunities-feed">
+        <!-- Skeleton Loaders -->
+        <div class="sk h-48 w-full rounded-2xl"></div>
+        <div class="sk h-48 w-full rounded-2xl"></div>
+        <div class="sk h-48 w-full rounded-2xl"></div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-6 right-6 bg-zinc-900 border border-zinc-800 text-white font-semibold text-xs px-5 py-3.5 rounded-xl shadow-2xl transition-all translate-y-12 opacity-0 pointer-events-none duration-300 z-50 flex items-center space-x-2">
+    <i class="fa-solid fa-circle-check text-emerald-400 text-sm"></i>
+    <span id="toast-message">Mapeamento executado.</span>
   </div>
 
-  <!-- ══ DASHBOARD ══ -->
-  <div class="page" id="page-dashboard">
-    <div class="gap">
-      <div class="card">
-        <div class="sg">
-          <div class="st"><div class="sv" id="dash-flows">─</div><div class="sl">Flows</div></div>
-          <div class="st"><div class="sv" id="dash-execs">─</div><div class="sl">Execuções</div></div>
-          <div class="st"><div class="sv" id="dash-success">─</div><div class="sl">Sucesso</div></div>
-          <div class="st"><div class="sv" id="dash-fail">─</div><div class="sl">Falhas</div></div>
-        </div>
-      </div>
+  <!-- Javascript -->
+  <script>
+    const API = "";
 
-      <div class="card">
-        <div class="ch"><span class="ct">Execuções (últimos 14 dias)</span><span class="ci">📈</span></div>
-        <svg class="chart-svg" id="exec-chart" viewBox="0 0 280 100" preserveAspectRatio="none"></svg>
-      </div>
-
-      <div class="card">
-        <div class="ch"><span class="ct">Flows</span><span class="ci">🧩</span></div>
-        <div id="flows-list"><div class="sk"></div><div class="sk"></div></div>
-      </div>
-
-      <div class="card">
-        <div class="ch"><span class="ct">Execuções recentes</span><span class="ci">🕓</span></div>
-        <div id="exec-list"><div class="sk"></div><div class="sk"></div></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══ CALENDÁRIO ══ -->
-  <div class="page" id="page-calendar">
-    <div class="gap">
-      <div class="card">
-        <div class="ch"><span class="ct">Próxima reunião</span><span class="ci">⏰</span></div>
-        <div id="cal-next"><div class="sk"></div></div>
-      </div>
-
-      <div class="card">
-        <div class="ch"><span class="ct">Hoje</span><span class="ci">📅</span></div>
-        <div id="cal-today"><div class="sk"></div><div class="sk"></div></div>
-      </div>
-
-      <div class="card">
-        <div class="ch"><span class="ct">Esta semana</span><span class="ci">🗓️</span></div>
-        <div id="cal-week"><div class="sk"></div><div class="sk"></div></div>
-      </div>
-
-      <div class="card">
-        <div class="ch"><span class="ct">Pesquisar eventos</span><span class="ci">🔍</span></div>
-        <div class="ir">
-          <input class="if" id="cal-search-inp" placeholder="Pesquisar eventos...">
-          <button class="bs2" onclick="calSearch()">🔍</button>
-        </div>
-        <div id="cal-search-results"></div>
-      </div>
-
-      <div class="card">
-        <div class="ch"><span class="ct">Novo evento</span><span class="ci">➕</span></div>
-        <div class="ir"><input class="if" id="cal-subject" placeholder="Título"></div>
-        <div class="ir"><input class="if" id="cal-start" type="datetime-local"></div>
-        <div class="ir"><input class="if" id="cal-end" type="datetime-local"></div>
-        <div class="ir"><input class="if" id="cal-location" placeholder="Local (opcional)"></div>
-        <div class="ir"><input class="if" id="cal-attendees" placeholder="Participantes, separados por vírgula (opcional)"></div>
-        <div class="ir"><input class="if" id="cal-description" placeholder="Descrição (opcional)"></div>
-        <button class="btn bg" style="width:100%" onclick="calCreate()">✓ Criar evento</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══ INTEGRAÇÕES ══ -->
-  <div class="page" id="page-integrations">
-    <div class="gap">
-      <div class="card">
-        <div class="ch"><span class="ct">Integrações</span><span class="ci">🔌</span></div>
-        <div class="row" style="padding-top:0;border:none">
-          <span class="rl">Verificação ao vivo, sem histórico</span>
-          <button class="btn-sm" onclick="loadIntegrations()">↻ Verificar</button>
-        </div>
-      </div>
-      <div id="integrations-list"><div class="sk"></div><div class="sk"></div><div class="sk"></div></div>
-    </div>
-  </div>
-
-  <!-- ══ SISTEMA ══ -->
-  <div class="page" id="page-sys">
-    <div class="gap">
-      <div class="card" id="sys-battery-card">
-        <div class="ch"><span class="ct">Bateria</span><span class="ci">🔋</span></div>
-        <div class="sk"></div><div class="sk"></div>
-      </div>
-      <div class="card" id="sys-storage-card">
-        <div class="ch"><span class="ct">Armazenamento</span><span class="ci">💾</span></div>
-        <div class="sk"></div>
-      </div>
-      <div class="card" id="sys-wifi-card">
-        <div class="ch"><span class="ct">Wifi</span><span class="ci">📶</span></div>
-        <div class="sk"></div>
-      </div>
-      <div class="card" id="sys-clipboard-card">
-        <div class="ch"><span class="ct">Clipboard</span><span class="ci">📋</span></div>
-        <div class="ir">
-          <input class="if" id="clip-inp" placeholder="Texto para copiar...">
-          <button class="bs2" onclick="setClipboard()">✓</button>
-        </div>
-        <div class="row" style="padding-top:0;border:none">
-          <span class="rl">Conteúdo atual</span>
-          <button class="btn-sm" onclick="loadClipboard()">↻ Ler</button>
-        </div>
-        <div id="clip-content" class="exec-sub" style="margin-top:6px;word-break:break-all"></div>
-      </div>
-      <div class="card" id="sys-apps-card">
-        <div class="ch"><span class="ct">Apps instalados</span><span class="ci">📱</span></div>
-        <div class="sk"></div>
-      </div>
-      <div class="card" id="sys-passport-card">
-        <div class="ch"><span class="ct">Passport do sistema</span><span class="ci">🛂</span></div>
-        <div class="sk"></div><div class="sk"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══ CAPS + DOCTOR ══ -->
-  <div class="page" id="page-caps">
-    <div class="gap">
-      <div class="card">
-        <div class="ch"><span class="ct">Capabilities</span><span class="ci">⚡</span></div>
-        <div class="cg" id="caps-grid"><div class="sk" style="height:36px"></div><div class="sk" style="height:36px"></div></div>
-      </div>
-      <div class="card">
-        <div class="ch"><span class="ct">Doctor</span><span class="ci">🩺</span></div>
-        <div class="cl" id="chk-list"><div class="sk"></div><div class="sk"></div></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══ MEMÓRIAS ══ -->
-  <div class="page" id="page-mem">
-    <div class="gap">
-      <div class="card">
-        <div class="ch"><span class="ct">Nova Memória</span><span class="ci">🧠</span></div>
-        <div class="ir">
-          <input class="if" id="m-inp" placeholder="Guarda algo... usa #tag">
-          <button class="bs2" onclick="addMem()">✓</button>
-        </div>
-      </div>
-      <div class="card">
-        <div class="ch"><span class="ct">Memórias recentes</span></div>
-        <div class="ml" id="mem-list"><div class="sk"></div><div class="sk"></div></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══ NOTAS ══ -->
-  <div class="page" id="page-notes">
-    <div class="gap">
-      <!-- Pesquisa global -->
-      <div class="card">
-        <div class="ch"><span class="ct">Pesquisar</span><span class="ci">🔍</span></div>
-        <div class="ir">
-          <input class="if" id="s-inp" placeholder="Pesquisar em tudo...">
-          <button class="bs2" onclick="doSearch()">🔍</button>
-        </div>
-        <div id="search-results" style="display:none"></div>
-      </div>
-
-      <!-- Nova nota -->
-      <div class="card">
-        <div class="ch"><span class="ct">Nova Nota</span><span class="ci">📝</span></div>
-        <div class="kind-sel">
-          <div class="ks active" data-kind="note" onclick="selKind(this)">📝 Nota</div>
-          <div class="ks" data-kind="todo"   onclick="selKind(this)">☑️ Todo</div>
-          <div class="ks" data-kind="agenda" onclick="selKind(this)">📅 Agenda</div>
-        </div>
-        <div class="ir">
-          <input class="if" id="note-inp" placeholder="Escreve aqui...">
-          <button class="bs2" onclick="addNote()">✓</button>
-        </div>
-      </div>
-
-      <!-- Lista -->
-      <div class="card">
-        <div class="ch"><span class="ct">Recentes</span></div>
-        <div class="ml" id="notes-list"><div class="sk"></div><div class="sk"></div></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══ CHAT ══ -->
-  <div class="page" id="page-chat">
-    <div class="gap">
-      <div class="card">
-        <div class="ch"><span class="ct">Chat local</span><span class="ci">💬</span></div>
-        <div class="chat-log" id="chat-log">
-          <div class="empty">Faz uma pergunta ao modelo local.<br>Pode demorar — modelos maiores levam mais tempo a responder.</div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="ir">
-          <input class="if" id="chat-inp" placeholder="Escreve a tua pergunta...">
-          <button class="bs2" id="chat-send" onclick="sendChat()">➤</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══ CONFIGURAÇÕES ══ -->
-  <div class="page" id="page-settings">
-    <div class="gap">
-      <div class="card">
-        <div class="ch"><span class="ct">FlowCore</span><span class="ci">⚙️</span></div>
-        <div class="row"><span class="rl">Versão</span><span class="rv" id="set-version">─</span></div>
-        <div class="row"><span class="rl">Plataforma</span><span class="rv" id="set-platform">─</span></div>
-        <div class="row"><span class="rl">Python</span><span class="rv" id="set-python">─</span></div>
-      </div>
-      <div class="card">
-        <div class="ch"><span class="ct">Modelo local (Ollama)</span><span class="ci">🧠</span></div>
-        <div class="row"><span class="rl">Endpoint</span><span class="rv" id="set-ollama-host">─</span></div>
-        <div class="row"><span class="rl">Modelo ativo</span><span class="rv" id="set-ollama-model">─</span></div>
-        <div id="set-ollama-error"></div>
-      </div>
-    </div>
-  </div>
-
-</div>
-
-<!-- Bottom nav -->
-<div class="nav">
-  <button class="ni active" onclick="pg('home',this)"><span class="ni-icon">🏠</span><span>Início</span></button>
-  <button class="ni" onclick="pg('dashboard',this)"><span class="ni-icon">📈</span><span>Dashboard</span></button>
-  <button class="ni" onclick="pg('calendar',this)"><span class="ni-icon">📅</span><span>Calendário</span></button>
-  <button class="ni" onclick="pg('integrations',this)"><span class="ni-icon">🔌</span><span>Integrações</span></button>
-  <button class="ni" onclick="pg('sys',this)"><span class="ni-icon">📊</span><span>Sistema</span></button>
-  <button class="ni" onclick="pg('caps',this)"><span class="ni-icon">⚡</span><span>Caps</span></button>
-  <button class="ni" onclick="pg('mem',this)"><span class="ni-icon">🧠</span><span>Memórias</span></button>
-  <button class="ni" onclick="pg('notes',this)"><span class="ni-icon">📝</span><span>Notas</span></button>
-  <button class="ni" onclick="pg('chat',this)"><span class="ni-icon">💬</span><span>Chat</span></button>
-  <button class="ni" onclick="pg('settings',this)"><span class="ni-icon">⚙️</span><span>Config</span></button>
-</div>
-
-<div class="toast" id="toast"></div>
-
-<script>
-const API='';
-let _noteKind='note';
-
-/* ── Nav ── */
-function pg(name,btn){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.ni').forEach(b=>b.classList.remove('active'));
-  document.getElementById('page-'+name).classList.add('active');
-  btn.classList.add('active');
-  if(name==='dashboard') loadDashboard();
-  if(name==='calendar') loadCalendar();
-  if(name==='integrations') loadIntegrations();
-  if(name==='sys') loadSys();
-  if(name==='notes') loadNotes();
-  if(name==='settings') loadSettings();
-}
-
-/* ── Toast ── */
-let _tt;
-function toast(m,ms=2500){
-  const e=document.getElementById('toast');
-  e.textContent=m; e.classList.add('show');
-  clearTimeout(_tt); _tt=setTimeout(()=>e.classList.remove('show'),ms);
-}
-
-/* ── API ── */
-async function api(path,opts={}){
-  const r=await fetch(API+path,{headers:{'Content-Type':'application/json'},...opts});
-  if(!r.ok){
-    let detail=String(r.status);
-    try{ const body=await r.json(); if(body.detail) detail=body.detail; }catch(e){}
-    throw new Error(detail);
-  }
-  return r.json();
-}
-
-/* ── Refresh ── */
-async function refresh(){
-  const dot=document.getElementById('dot');
-  try{
-    const [s,mems,notes]=await Promise.all([
-      api('/api/status'),
-      api('/api/memories'),
-      api('/api/notes')
-    ]);
-    dot.classList.remove('off');
-    document.getElementById('last-upd').textContent='Atualizado '+new Date().toLocaleTimeString('pt-PT');
-    renderStatus(s);
-    renderMems(mems.memories||[]);
-    renderNotesList(notes.notes||[]);
-    document.getElementById('s-notes').textContent=(notes.notes||[]).length;
-    document.getElementById('s-mem').textContent=s.memory_count??'─';
-  }catch(e){
-    dot.classList.add('off');
-    document.getElementById('last-upd').textContent='Sem ligação';
-  }
-}
-
-/* ── Status ── */
-function renderStatus(s){
-  const caps=s.capabilities||{};
-  const avail=Object.values(caps).filter(v=>v).length;
-  const total=Object.keys(caps).length;
-  document.getElementById('s-caps').textContent=avail+'/'+total;
-
-  const chks=s.doctor||[];
-  const ok=chks.filter(c=>c.status==='ok').length;
-  document.getElementById('s-doc').textContent=ok+'/'+chks.length;
-
-  // Daemon
-  const d=s.daemon||{};
-  if(d.running){
-    document.getElementById('d-state').innerHTML='<span class="tag tg">● Ativo</span>';
-    document.getElementById('d-pid').textContent=d.pid;
-    document.getElementById('d-up').textContent=fup(d.uptime||0);
-    document.getElementById('d-cyc').textContent='#'+(d.cycle||0);
-  }else{
-    document.getElementById('d-state').innerHTML='<span class="tag tr">○ Parado</span>';
-    ['d-pid','d-up','d-cyc'].forEach(id=>document.getElementById(id).textContent='─');
-  }
-
-  // Caps grid
-  const cg=document.getElementById('caps-grid');
-  cg.innerHTML='';
-  for(const[n,a] of Object.entries(caps).sort()){
-    const el=document.createElement('div');
-    el.className='ci2 '+(a?'ok':'miss');
-    el.innerHTML=`<div class="cd ${a?'ok':'miss'}"></div><span>${n}</span>`;
-    cg.appendChild(el);
-  }
-
-  // Doctor
-  const icons={ok:'✅',warn:'⚠️',fail:'❌',skip:'─'};
-  const cl=document.getElementById('chk-list');
-  cl.innerHTML='';
-  for(const c of chks){
-    const el=document.createElement('div');
-    el.className='ck';
-    el.innerHTML=`<span>${icons[c.status]||'?'}</span><span class="ck-name">${c.name}</span><span class="ck-msg">${c.message||''}</span>`;
-    cl.appendChild(el);
-  }
-  if(!chks.length) cl.innerHTML='<div class="empty">Doctor não disponível</div>';
-}
-
-/* ── System page ── */
-async function loadSys(){
-  try{
-    const [sys,pp]=await Promise.all([api('/api/system'),api('/api/passport')]);
-    renderSys(sys);
-    renderPassport(pp);
-  }catch(e){
-    document.getElementById('sys-battery-card').querySelector('.ch').insertAdjacentHTML('afterend','<div class="empty">Sem dados</div>');
-  }
-  loadClipboard();
-  loadApps();
-}
-
-function renderSys(s){
-  // Battery
-  const bc=document.getElementById('sys-battery-card');
-  const bat=s.battery||{};
-  const pct=bat.percentage??null;
-  const status=bat.status||'';
-  const health=bat.health||'';
-  bc.innerHTML=`<div class="ch"><span class="ct">Bateria</span><span class="ci">🔋</span></div>`;
-  if(pct!==null){
-    const color=pct>50?'var(--green)':pct>20?'var(--yellow)':'var(--red)';
-    bc.innerHTML+=`
-      <div class="sys-grid">
-        <div class="sys-card"><div class="sys-val" style="color:${color}">${pct}%</div><div class="sys-lbl">Nível</div></div>
-        <div class="sys-card"><div class="sys-val" style="font-size:16px">${status}</div><div class="sys-lbl">Estado</div></div>
-      </div>
-      <div class="battery-bar" style="margin-top:12px"><div class="battery-fill" style="width:${pct}%;background:${color}"></div></div>
-      ${health?`<div style="margin-top:8px;font-size:12px;color:var(--text2)">Saúde: ${health}</div>`:''}`;
-  }else{
-    bc.innerHTML+=`<div class="empty">termux-battery-status não disponível</div>`;
-  }
-
-  // Storage
-  const sc=document.getElementById('sys-storage-card');
-  const st=s.storage||{};
-  sc.innerHTML=`<div class="ch"><span class="ct">Armazenamento /data</span><span class="ci">💾</span></div>`;
-  if(st.total){
-    sc.innerHTML+=`<div class="sys-grid">
-      <div class="sys-card"><div class="sys-val">${st.avail}</div><div class="sys-lbl">Livre</div></div>
-      <div class="sys-card"><div class="sys-val">${st.used}</div><div class="sys-lbl">Usado</div></div>
-    </div>
-    ${s.android_version?`<div style="margin-top:10px;font-size:12px;color:var(--text2)">Android ${s.android_version}</div>`:''}`;
-  }else{
-    sc.innerHTML+=`<div class="empty">Dados de armazenamento não disponíveis</div>`;
-  }
-
-  // Wifi
-  const wc=document.getElementById('sys-wifi-card');
-  const wifi=s.wifi||{};
-  wc.innerHTML=`<div class="ch"><span class="ct">Wifi</span><span class="ci">📶</span></div>`;
-  if(wifi.ssid){
-    wc.innerHTML+=`<div class="row"><span class="rl">Rede</span><span class="rv">${wifi.ssid}</span></div>
-      <div class="row"><span class="rl">Sinal (RSSI)</span><span class="rv">${wifi.rssi} dBm</span></div>
-      <div class="row"><span class="rl">Velocidade</span><span class="rv">${wifi.link_speed} Mbps</span></div>
-      <div class="row" style="border:none"><span class="rl">IP</span><span class="rv">${wifi.ip||'─'}</span></div>`;
-  }else if(wifi.output){
-    wc.innerHTML+=`<div class="exec-sub" style="white-space:pre-wrap;max-height:120px;overflow-y:auto">${wifi.output}</div>`;
-  }else{
-    wc.innerHTML+=`<div class="empty">Wifi não disponível</div>`;
-  }
-}
-
-/* ── Clipboard ── */
-async function loadClipboard(){
-  const el=document.getElementById('clip-content');
-  try{
-    const r=await api('/api/clipboard');
-    el.textContent=r.text||'(vazio)';
-  }catch(e){
-    el.innerHTML='<span style="color:var(--text2)">Clipboard não disponível</span>';
-  }
-}
-
-async function setClipboard(){
-  const inp=document.getElementById('clip-inp');
-  const t=inp.value.trim(); if(!t)return;
-  try{
-    await api('/api/clipboard',{method:'POST',body:JSON.stringify({text:t})});
-    inp.value=''; toast('✓ Clipboard atualizado'); loadClipboard();
-  }catch(e){toast('Erro: '+e.message);}
-}
-document.getElementById('clip-inp').addEventListener('keydown',e=>{if(e.key==='Enter')setClipboard();});
-
-/* ── Installed apps ── */
-async function loadApps(){
-  const ac=document.getElementById('sys-apps-card');
-  try{
-    const r=await api('/api/apps');
-    const pkgs=r.packages||[];
-    ac.innerHTML=`<div class="ch"><span class="ct">Apps instalados (${r.count??pkgs.length})</span><span class="ci">📱</span></div>`;
-    if(!pkgs.length){ac.innerHTML+='<div class="empty">Nenhum app encontrado</div>';return;}
-    ac.innerHTML+=`<div class="ml" style="max-height:220px;overflow-y:auto">${
-      pkgs.slice(0,50).map(p=>`<div class="mi" style="padding:7px 10px"><div class="mi-text" style="font-size:12px">${p}</div></div>`).join('')
-    }</div>${pkgs.length>50?`<div class="exec-sub" style="margin-top:6px;text-align:center">+ ${pkgs.length-50} mais</div>`:''}`;
-  }catch(e){
-    ac.innerHTML=`<div class="ch"><span class="ct">Apps instalados</span><span class="ci">📱</span></div><div class="empty">Não disponível nesta plataforma</div>`;
-  }
-}
-
-function renderPassport(pp){
-  const pc=document.getElementById('sys-passport-card');
-  pc.innerHTML=`<div class="ch"><span class="ct">Passport do sistema</span><span class="ci">🛂</span></div>`;
-  if(!pp||!pp.agent){pc.innerHTML+='<div class="empty">Passport não disponível</div>';return;}
-  const h=pp.health_status==='ok'?'tg':pp.health_status==='degraded'?'ty':'tr';
-  pc.innerHTML+=`
-    <div class="passport-field"><div class="pf-label">Agente</div><div class="pf-value">${pp.agent.name} v${pp.agent.version}</div></div>
-    <div class="passport-field"><div class="pf-label">Plataforma</div><div class="pf-value">${pp.runtime?.platform||'─'}</div></div>
-    <div class="passport-field"><div class="pf-label">Saúde</div><div class="pf-value"><span class="tag ${h}">${pp.health_status}</span></div></div>
-    <div class="passport-field"><div class="pf-label">Capacidades</div><div class="pf-value">${(pp.capabilities||[]).length} disponíveis</div></div>
-    <div class="passport-field"><div class="pf-label">Expira</div><div class="pf-value">${(pp.expires_at||'').replace('T',' ').slice(0,19)} UTC</div></div>
-    <div class="passport-field"><div class="pf-label">Hash SHA-256</div><div class="hash-val">${pp.hash||''}</div></div>`;
-}
-
-/* ── Dashboard ── */
-async function loadDashboard(){
-  try{
-    const [flowsR,execR]=await Promise.all([api('/api/flows'),api('/api/executions?limit=200')]);
-    const flows=flowsR.flows||[];
-    const execs=execR.executions||[];
-    renderDashStats(flows,execs);
-    renderExecChart(execs);
-    renderFlowsList(flows);
-    renderExecList(execs);
-  }catch(e){
-    document.getElementById('flows-list').innerHTML='<div class="empty">Erro a carregar dashboard</div>';
-  }
-}
-
-function renderDashStats(flows,execs){
-  document.getElementById('dash-flows').textContent=flows.length;
-  document.getElementById('dash-execs').textContent=execs.length;
-  const done=execs.filter(e=>e.status==='completed').length;
-  const failed=execs.filter(e=>e.status==='failed').length;
-  document.getElementById('dash-success').textContent=execs.length?Math.round(done/execs.length*100)+'%':'─';
-  document.getElementById('dash-fail').textContent=failed;
-}
-
-function renderExecChart(execs){
-  const days=[];
-  const now=new Date();
-  for(let i=13;i>=0;i--){
-    const d=new Date(now); d.setDate(d.getDate()-i);
-    days.push({key:d.toISOString().slice(0,10),ok:0,fail:0});
-  }
-  const byKey=Object.fromEntries(days.map(d=>[d.key,d]));
-  for(const e of execs){
-    const ts=e.started_at||e.created_at||'';
-    const bucket=byKey[ts.slice(0,10)];
-    if(!bucket)continue;
-    if(e.status==='completed')bucket.ok++;
-    else if(e.status==='failed')bucket.fail++;
-  }
-  const max=Math.max(1,...days.map(d=>d.ok+d.fail));
-  const barW=18,gap=2,chartH=80,baseY=90;
-  let svg='';
-  days.forEach((d,i)=>{
-    const x=i*(barW+gap);
-    const total=d.ok+d.fail;
-    const okH=total?d.ok/max*chartH:0;
-    const failH=total?d.fail/max*chartH:0;
-    if(d.ok>0)svg+=`<rect class="chart-bar-ok" x="${x}" y="${baseY-okH}" width="${barW}" height="${Math.max(okH,1)}"/>`;
-    if(d.fail>0)svg+=`<rect class="chart-bar-fail" x="${x}" y="${baseY-okH-failH}" width="${barW}" height="${Math.max(failH,1)}"/>`;
-    if(total===0)svg+=`<rect x="${x}" y="${baseY-1}" width="${barW}" height="1" fill="var(--border)"/>`;
-    if(i%2===0)svg+=`<text class="chart-label" x="${x+barW/2}" y="99" text-anchor="middle">${d.key.slice(8,10)}</text>`;
-  });
-  document.getElementById('exec-chart').innerHTML=svg;
-}
-
-function renderFlowsList(flows){
-  const l=document.getElementById('flows-list');
-  if(!flows.length){l.innerHTML='<div class="empty">Sem flows ainda.<br>Cria uma via CLI: flowcore.py flow create</div>';return;}
-  l.innerHTML='';
-  for(const f of flows){
-    const el=document.createElement('div');
-    el.className='flow-row';
-    el.innerHTML=`<div><div class="flow-name">${f.name}</div><div class="flow-meta">${(f.steps||[]).length} passo(s)</div></div>
-      <button class="run-btn" onclick="runFlow(${f.id},this)">▶ Executar</button>`;
-    l.appendChild(el);
-  }
-}
-
-async function runFlow(id,btn){
-  if(btn){btn.disabled=true;btn.textContent='...';}
-  try{
-    const ex=await api('/api/flows/'+id+'/run',{method:'POST'});
-    toast(ex.status==='completed'?'✓ Flow executado':'✗ Flow falhou: '+(ex.error||''));
-    loadDashboard();
-  }catch(e){
-    toast('Erro: '+e.message);
-    if(btn){btn.disabled=false;btn.textContent='▶ Executar';}
-  }
-}
-
-function renderExecList(execs){
-  const l=document.getElementById('exec-list');
-  if(!execs.length){l.innerHTML='<div class="empty">Sem execuções ainda.</div>';return;}
-  l.innerHTML='';
-  for(const e of execs.slice(0,15)){
-    const el=document.createElement('div');
-    el.className='exec-row';
-    const tag=e.status==='completed'?'tg':e.status==='failed'?'tr':'ty';
-    const dur=execDuration(e.started_at,e.finished_at);
-    const when=(e.started_at||e.created_at||'').replace('T',' ').slice(0,19);
-    el.innerHTML=`<div class="exec-top"><span class="exec-name">${e.flow_name}</span><span class="tag ${tag}">${e.status}</span></div>
-      <div class="exec-sub">${when} UTC${dur?' · '+dur:''}</div>`;
-    l.appendChild(el);
-  }
-}
-
-function execDuration(start,finish){
-  if(!start||!finish)return '';
-  const s=new Date(start.replace(' ','T')+'Z');
-  const f=new Date(finish.replace(' ','T')+'Z');
-  const secs=Math.max(0,(f-s)/1000);
-  return fup(secs);
-}
-
-/* ── Calendar ── */
-async function loadCalendar(){
-  await Promise.all([loadCalNext(), loadCalToday(), loadCalWeek()]);
-}
-
-function renderCalEvent(e){
-  const start=(e.start||'').replace('T',' ').slice(0,16);
-  const end=(e.end||'').slice(11,16);
-  const loc=e.location?` @ ${e.location}`:'';
-  return `<div class="exec-row"><div class="exec-top"><span class="exec-name">${e.subject||'(sem título)'}</span></div>
-    <div class="exec-sub">${start} – ${end}${loc}</div></div>`;
-}
-
-async function loadCalNext(){
-  const el=document.getElementById('cal-next');
-  try{
-    const r=await api('/api/calendar/next');
-    el.innerHTML=r.event?renderCalEvent(r.event):'<div class="empty">Sem reuniões nos próximos 30 dias.</div>';
-  }catch(e){
-    el.innerHTML=`<div class="empty">${e.message}</div>`;
-  }
-}
-
-async function loadCalToday(){
-  const el=document.getElementById('cal-today');
-  try{
-    const r=await api('/api/calendar/today');
-    el.innerHTML=(r.events||[]).length?r.events.map(renderCalEvent).join(''):'<div class="empty">Sem eventos hoje.</div>';
-  }catch(e){
-    el.innerHTML=`<div class="empty">${e.message}</div>`;
-  }
-}
-
-async function loadCalWeek(){
-  const el=document.getElementById('cal-week');
-  try{
-    const r=await api('/api/calendar/week');
-    const events=r.events||[];
-    if(!events.length){el.innerHTML='<div class="empty">Sem eventos esta semana.</div>';return;}
-    const groups={};
-    for(const e of events){
-      const day=(e.start||'').slice(0,10);
-      (groups[day]=groups[day]||[]).push(e);
+    async function fetchAPI(path, opts = {}) {
+      const response = await fetch(API + path, opts);
+      if (!response.ok) {
+        throw new Error(`HTTP error ${response.status}`);
+      }
+      return response.json();
     }
-    let html='';
-    for(const day of Object.keys(groups).sort()){
-      html+=`<div class="sr-section"><div class="sr-title">${day}</div>${groups[day].map(renderCalEvent).join('')}</div>`;
+
+    function showToast(message) {
+      const t = document.getElementById('toast');
+      document.getElementById('toast-message').textContent = message;
+      t.classList.remove('translate-y-12', 'opacity-0', 'pointer-events-none');
+      setTimeout(() => {
+        t.classList.add('translate-y-12', 'opacity-0', 'pointer-events-none');
+      }, 3000);
     }
-    el.innerHTML=html;
-  }catch(e){
-    el.innerHTML=`<div class="empty">${e.message}</div>`;
-  }
-}
 
-async function calSearch(){
-  const q=document.getElementById('cal-search-inp').value.trim();
-  if(!q)return;
-  const el=document.getElementById('cal-search-results');
-  el.innerHTML='<div class="sk"></div>';
-  try{
-    const r=await api('/api/calendar/search?q='+encodeURIComponent(q));
-    const events=r.events||[];
-    el.innerHTML=events.length?events.map(renderCalEvent).join(''):`<div class="empty">Sem resultados para "${q}"</div>`;
-  }catch(e){
-    el.innerHTML=`<div class="empty">${e.message}</div>`;
-  }
-}
-document.getElementById('cal-search-inp').addEventListener('keydown',e=>{if(e.key==='Enter')calSearch();});
+    let allOpportunities = [];
 
-async function calCreate(){
-  const subject=document.getElementById('cal-subject').value.trim();
-  const start=document.getElementById('cal-start').value;
-  const end=document.getElementById('cal-end').value;
-  const location=document.getElementById('cal-location').value.trim();
-  const attendeesRaw=document.getElementById('cal-attendees').value.trim();
-  const description=document.getElementById('cal-description').value.trim();
-  if(!subject||!start||!end){toast('Preenche título, início e fim');return;}
-  const attendees=attendeesRaw?attendeesRaw.split(',').map(a=>a.trim()).filter(Boolean):[];
-  try{
-    await api('/api/calendar',{method:'POST',body:JSON.stringify({subject,start,end,location,attendees,description})});
-    toast('✓ Evento criado');
-    for(const id of ['cal-subject','cal-start','cal-end','cal-location','cal-attendees','cal-description'])
-      document.getElementById(id).value='';
-    loadCalendar();
-  }catch(e){toast('Erro: '+e.message);}
-}
+    async function refresh() {
+      const dot = document.getElementById('dot');
+      dot.classList.add('animate-pulse');
 
-/* ── Integrations ── */
-const INTEGRATION_TAG={ok:'tg',not_configured:'ty',not_authenticated:'ty',unreachable:'tr',error:'tr'};
-const INTEGRATION_LABEL={ok:'Conectado',not_configured:'Não configurado',not_authenticated:'Não autenticado',unreachable:'Inacessível',error:'Erro'};
+      try {
+        const [status, opps, favs] = await Promise.all([
+          fetchAPI('/api/status'),
+          fetchAPI('/api/opportunities'),
+          fetchAPI('/api/favorites')
+        ]);
 
-function renderIntegrations(list){
-  const el=document.getElementById('integrations-list');
-  if(!list.length){el.innerHTML='<div class="empty">Nenhuma integração encontrada.</div>';return;}
-  el.innerHTML=list.map(r=>{
-    const tag=INTEGRATION_TAG[r.status]||'tr';
-    const label=INTEGRATION_LABEL[r.status]||r.status;
-    const when=(r.checked_at||'').replace('T',' ').slice(0,19);
-    return `<div class="card">
-      <div class="ch"><span class="ct">${r.name}</span><span class="tag ${tag}">${label}</span></div>
-      <div class="row"><span class="rl">Detalhe</span><span class="rv" style="text-align:right;max-width:220px">${r.detail}</span></div>
-      <div class="row" style="border:none"><span class="rl">Latência</span><span class="rv">${r.latency_ms}ms · ${when} UTC</span></div>
-    </div>`;
-  }).join('');
-}
+        dot.classList.remove('off');
+        document.getElementById('last-upd').textContent = 'Atualizado às ' + new Date().toLocaleTimeString('pt-PT');
 
-async function loadIntegrations(){
-  const el=document.getElementById('integrations-list');
-  el.innerHTML='<div class="sk"></div><div class="sk"></div><div class="sk"></div>';
-  try{
-    const r=await api('/api/integrations/status');
-    renderIntegrations(r.integrations||[]);
-  }catch(e){
-    el.innerHTML=`<div class="empty">Erro: ${e.message}</div>`;
-  }
-}
+        // Render System Telemetry
+        document.getElementById('telemetry-cpu').textContent = `${status.cpu.cores} cores`;
+        document.getElementById('telemetry-ram').textContent = `${status.memory.percent}%`;
+        document.getElementById('telemetry-disk').textContent = `${status.disk.used} / ${status.disk.total}`;
+        document.getElementById('telemetry-db-path').textContent = status.database.path;
 
-/* ── Memories ── */
-function renderMems(mems){
-  const l=document.getElementById('mem-list');
-  if(!mems.length){l.innerHTML='<div class="empty">Sem memórias.<br>Adiciona a primeira acima ↑</div>';return;}
-  l.innerHTML='';
-  for(const m of mems.slice(-30).reverse()){
-    const el=document.createElement('div');
-    el.className='mi';
-    const topics=(m.topics||[]).map(t=>`<span class="tb">#${t}</span>`).join('');
-    el.innerHTML=`<div class="mi-text">${m.text||''}</div>
-      ${topics?`<div class="topics">${topics}</div>`:''}
-      <div class="mi-meta">${(m.timestamp||'').slice(0,10)}</div>`;
-    l.appendChild(el);
-  }
-}
+        // Render Doctor Checklist
+        renderDoctorChecklist(status.doctor || []);
 
-async function addMem(){
-  const inp=document.getElementById('m-inp');
-  const t=inp.value.trim(); if(!t)return;
-  try{
-    await api('/api/memories',{method:'POST',body:JSON.stringify({text:t})});
-    inp.value=''; toast('✓ Memória guardada'); refresh();
-  }catch(e){toast('Erro: '+e.message);}
-}
-document.getElementById('m-inp').addEventListener('keydown',e=>{if(e.key==='Enter')addMem();});
+        // Render Favorites
+        renderFavorites(favs.favorites || []);
 
-/* ── Notes ── */
-function selKind(el){
-  document.querySelectorAll('.ks').forEach(k=>k.classList.remove('active'));
-  el.classList.add('active');
-  _noteKind=el.dataset.kind;
-}
+        // Render Opportunities
+        allOpportunities = opps.opportunities || [];
+        filterOpportunities();
 
-async function loadNotes(){
-  try{
-    const r=await api('/api/notes');
-    renderNotesList(r.notes||[]);
-  }catch(e){}
-}
-
-function renderNotesList(notes){
-  const l=document.getElementById('notes-list');
-  if(!notes.length){l.innerHTML='<div class="empty">Sem notas ainda.</div>';return;}
-  l.innerHTML='';
-  const icons={note:'📝',todo:'☑️',agenda:'📅'};
-  for(const n of notes.slice(-30).reverse()){
-    const el=document.createElement('div');
-    el.className='mi '+(n.source||'note');
-    el.innerHTML=`<div class="mi-text">${icons[n.source]||'📝'} ${n.content||n.title||''}</div>
-      <div class="mi-meta">${(n.created_at||'').slice(0,10)}</div>`;
-    l.appendChild(el);
-  }
-}
-
-async function addNote(){
-  const inp=document.getElementById('note-inp');
-  const t=inp.value.trim(); if(!t)return;
-  try{
-    await api('/api/notes',{method:'POST',body:JSON.stringify({text:t,kind:_noteKind})});
-    inp.value=''; toast('✓ Guardado'); loadNotes(); refresh();
-  }catch(e){toast('Erro: '+e.message);}
-}
-document.getElementById('note-inp').addEventListener('keydown',e=>{if(e.key==='Enter')addNote();});
-
-/* ── Search ── */
-async function doSearch(){
-  const q=document.getElementById('s-inp').value.trim();
-  if(!q)return;
-  const sr=document.getElementById('search-results');
-  sr.style.display='block';
-  sr.innerHTML='<div class="sk"></div><div class="sk"></div>';
-  try{
-    const r=await api('/api/search?q='+encodeURIComponent(q));
-    const mems=r.memories||[];
-    const docs=r.documents||[];
-    if(!mems.length&&!docs.length){sr.innerHTML='<div class="empty">Sem resultados para "'+q+'"</div>';return;}
-    let html='';
-    if(mems.length){
-      html+=`<div class="sr-section"><div class="sr-title">Memórias (${mems.length})</div>`;
-      for(const m of mems.slice(0,5))
-        html+=`<div class="sr-item"><div class="sr-text">${m.text||''}</div><div class="sr-sub">${(m.timestamp||'').slice(0,10)}</div></div>`;
-      html+='</div>';
+      } catch (e) {
+        dot.classList.add('off');
+        document.getElementById('last-upd').textContent = 'Sem ligação';
+        showToast('Erro ao atualizar dados: ' + e.message);
+      }
     }
-    if(docs.length){
-      html+=`<div class="sr-section"><div class="sr-title">Documentos (${docs.length})</div>`;
-      for(const d of docs.slice(0,5))
-        html+=`<div class="sr-item"><div class="sr-text">${d.title||''}</div><div class="sr-sub">${(d.content||'').slice(0,60)}...</div></div>`;
-      html+='</div>';
+
+    function renderDoctorChecklist(checks) {
+      const container = document.getElementById('doctor-checklist');
+      container.innerHTML = '';
+
+      if (!checks.length) {
+        container.innerHTML = '<div class="text-xs text-zinc-500 italic">Nenhum teste disponível.</div>';
+        return;
+      }
+
+      checks.forEach(c => {
+        const div = document.createElement('div');
+        div.className = 'flex items-center justify-between p-3 bg-zinc-950 border border-zinc-850 rounded-xl text-xs';
+
+        const statusColor = c.status === 'ok' ? 'text-emerald-400' : 'text-amber-400';
+        const icon = c.status === 'ok' ? 'fa-circle-check' : 'fa-circle-exclamation';
+
+        div.innerHTML = `
+          <div class="flex items-center space-x-2.5">
+            <i class="fa-solid ${icon} ${statusColor} text-base"></i>
+            <span class="font-bold text-zinc-200">${c.name}</span>
+          </div>
+          <span class="text-zinc-500 monospace font-semibold text-[10px]">${c.message}</span>
+        `;
+        container.appendChild(div);
+      });
     }
-    sr.innerHTML=html;
-  }catch(e){sr.innerHTML='<div class="empty">Erro na pesquisa</div>';}
-}
-document.getElementById('s-inp').addEventListener('keydown',e=>{if(e.key==='Enter')doSearch();});
 
-/* ── Daemon ── */
-async function da(action){
-  try{
-    const r=await api('/api/daemon/'+action,{method:'POST'});
-    toast(r.message||action+' OK');
-    setTimeout(refresh,600);
-  }catch(e){toast('Erro: '+e.message);}
-}
+    function renderFavorites(favs) {
+      const container = document.getElementById('favorites-list');
+      document.getElementById('fav-count').textContent = favs.length;
+      container.innerHTML = '';
 
-/* ── Notify ── */
-async function sendNotify(){
-  const inp=document.getElementById('n-text');
-  const t=inp.value.trim(); if(!t){toast('Escreve uma mensagem');return;}
-  try{
-    const r=await api('/api/notify',{method:'POST',body:JSON.stringify({title:'FlowCore',body:t})});
-    inp.value='';
-    const ok=r.sent!==false;
-    document.getElementById('n-status').textContent=ok?'enviada ✓':'termux-api ausente';
-    document.getElementById('n-status').className='tag '+(ok?'tg':'ty');
-    toast(ok?'🔔 Notificação enviada':'termux-notification não disponível');
-  }catch(e){toast('Erro: '+e.message);}
-}
-document.getElementById('n-text').addEventListener('keydown',e=>{if(e.key==='Enter')sendNotify();});
+      if (!favs.length) {
+        container.innerHTML = '<div class="text-xs text-zinc-500 italic">Nenhum imóvel favoritado ainda.</div>';
+        return;
+      }
 
-/* ── Settings ── */
-async function loadSettings(){
-  try{
-    const s=await api('/api/settings');
-    renderSettings(s);
-  }catch(e){
-    document.getElementById('set-ollama-error').innerHTML=`<div class="empty">Erro a carregar definições: ${e.message}</div>`;
-  }
-}
+      favs.forEach(f => {
+        const div = document.createElement('div');
+        div.className = 'p-3 bg-zinc-950 border border-zinc-850 rounded-xl space-y-1';
+        div.innerHTML = `
+          <div class="font-black text-xs text-zinc-200 truncate">${f.title}</div>
+          <div class="flex items-center justify-between text-[10px] text-zinc-500 monospace">
+            <span>${f.city}/${f.state}</span>
+            <span class="text-blue-400 font-bold">Score: ${f.score}</span>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
 
-function renderSettings(s){
-  document.getElementById('set-version').textContent=s.version||'─';
-  const p=s.platform||{};
-  const platName=p.termux?'Termux/Android':(p.os_name||'─');
-  document.getElementById('set-platform').textContent=platName;
-  document.getElementById('set-python').textContent=p.python_version||'─';
+    function filterOpportunities() {
+      const filterValue = parseFloat(document.getElementById('score-filter').value);
+      const filtered = allOpportunities.filter(o => o.score >= filterValue);
+      renderOpportunities(filtered);
+    }
 
-  const o=s.ollama||{};
-  document.getElementById('set-ollama-host').textContent=o.endpoint||'Indisponível';
-  document.getElementById('set-ollama-model').innerHTML=o.model?o.model:'<span class="tag ty">─</span>';
-  const errEl=document.getElementById('set-ollama-error');
-  errEl.innerHTML=o.error?`<div class="empty">${o.error}</div>`:'';
-}
+    function renderOpportunities(opps) {
+      const container = document.getElementById('opportunities-feed');
+      document.getElementById('opp-count').textContent = opps.length;
+      container.innerHTML = '';
 
-/* ── Chat ── */
-let _chatHistory=[];
-function renderChatLog(){
-  const l=document.getElementById('chat-log');
-  if(!_chatHistory.length){
-    l.innerHTML='<div class="empty">Faz uma pergunta ao modelo local.<br>Pode demorar — modelos maiores levam mais tempo a responder.</div>';
-    return;
-  }
-  l.innerHTML='';
-  for(const m of _chatHistory){
-    const el=document.createElement('div');
-    el.className='msg '+m.role+(m.thinking?' thinking':'');
-    el.textContent=m.text;
-    l.appendChild(el);
-  }
-  l.scrollTop=l.scrollHeight;
-}
+      if (!opps.length) {
+        container.innerHTML = `
+          <div class="flex flex-col items-center justify-center p-12 text-center bg-zinc-900 border border-zinc-800 rounded-2xl space-y-3">
+            <i class="fa-solid fa-folder-open text-4xl text-zinc-700"></i>
+            <p class="text-sm font-bold text-zinc-400">Nenhuma oportunidade disponível</p>
+            <p class="text-xs text-zinc-500 max-w-sm leading-relaxed">Execute uma nova ingestão ativa clicando no botão de Ingestão & Doctor no painel esquerdo.</p>
+          </div>
+        `;
+        return;
+      }
 
-async function sendChat(){
-  const inp=document.getElementById('chat-inp');
-  const btn=document.getElementById('chat-send');
-  const q=inp.value.trim(); if(!q)return;
-  inp.value='';
-  _chatHistory.push({role:'user',text:q});
-  const thinking={role:'bot',text:'A pensar...',thinking:true};
-  _chatHistory.push(thinking);
-  renderChatLog();
-  inp.disabled=true; btn.disabled=true;
-  try{
-    const r=await api('/api/ask',{method:'POST',body:JSON.stringify({question:q})});
-    _chatHistory[_chatHistory.indexOf(thinking)]={role:'bot',text:r.answer||'(sem resposta)'};
-  }catch(e){
-    _chatHistory[_chatHistory.indexOf(thinking)]={role:'bot',text:'Erro: '+e.message};
-  }
-  inp.disabled=false; btn.disabled=false;
-  renderChatLog();
-  inp.focus();
-}
-document.getElementById('chat-inp').addEventListener('keydown',e=>{if(e.key==='Enter')sendChat();});
+      opps.forEach(o => {
+        const card = document.createElement('div');
+        card.className = 'bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4 hover:border-zinc-700 transition-all cursor-pointer';
 
-/* ── Helpers ── */
-function fup(s){
-  s=Math.floor(s);
-  if(s<60) return s+'s';
-  if(s<3600) return Math.floor(s/60)+'m '+s%60+'s';
-  return Math.floor(s/3600)+'h '+Math.floor(s%3600/60)+'m';
-}
+        const scoreColor = o.score > 75 ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-blue-400 bg-blue-500/10 border-blue-500/20';
+        const riskBadge = o.risk_level === 'LOW' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : (o.risk_level === 'MEDIUM' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20');
 
-/* ── Init ── */
-refresh();
-setInterval(refresh,30000);
-</script>
+        let prosHTML = '';
+        o.explanation.pros.forEach(p => {
+          prosHTML += `<li class="flex items-start space-x-2 text-zinc-400"><i class="fa-solid fa-check text-emerald-500 mt-1"></i> <span>${p}</span></li>`;
+        });
+
+        let consHTML = '';
+        o.explanation.cons.forEach(c => {
+          consHTML += `<li class="flex items-start space-x-2 text-zinc-400"><i class="fa-solid fa-xmark text-red-500 mt-1"></i> <span>${c}</span></li>`;
+        });
+
+        card.innerHTML = `
+          <div class="flex items-start justify-between">
+            <div class="space-y-1">
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black border uppercase ${riskBadge}">${o.risk_level} RISK</span>
+              <h3 class="text-base font-black text-white leading-snug">${o.title}</h3>
+              <p class="text-xs text-zinc-500 monospace font-semibold"><i class="fa-solid fa-location-dot"></i> ${o.street || 'Endereço não identificado'}, ${o.number || ''} — ${o.neighborhood}, ${o.city}/${o.state}</p>
+            </div>
+
+            <div class="flex flex-col items-end space-y-1.5">
+              <div class="border rounded-2xl px-4 py-2 text-center ${scoreColor}">
+                <div class="text-[9px] uppercase tracking-wider font-black font-mono opacity-80">Opportunity Score</div>
+                <div class="text-lg font-black monospace">${o.score}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Financial Breakdown -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3.5 pt-3 border-t border-zinc-850">
+            <div>
+              <div class="text-[10px] text-zinc-500 font-bold uppercase">Lance Mínimo</div>
+              <div class="text-sm font-black monospace text-zinc-100 mt-0.5">R$ ${o.minimum_bid.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</div>
+            </div>
+            <div>
+              <div class="text-[10px] text-zinc-500 font-bold uppercase">Avaliação Original</div>
+              <div class="text-sm font-black monospace text-zinc-100 mt-0.5">R$ ${o.appraisal_value.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</div>
+            </div>
+            <div>
+              <div class="text-[10px] text-zinc-500 font-bold uppercase">Desconto</div>
+              <div class="text-sm font-black monospace text-emerald-400 mt-0.5">${o.discount_percent}%</div>
+            </div>
+            <div>
+              <div class="text-[10px] text-zinc-500 font-bold uppercase">Margem Potencial</div>
+              <div class="text-sm font-black monospace text-blue-400 mt-0.5">R$ ${o.potential_margin.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</div>
+            </div>
+          </div>
+
+          <!-- Pros and Cons -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-zinc-850 text-xs">
+            <div class="space-y-2">
+              <div class="font-black text-zinc-300 uppercase tracking-wide">Fatores Positivos (Prós)</div>
+              <ul class="space-y-1.5">${prosHTML}</ul>
+            </div>
+            <div class="space-y-2">
+              <div class="font-black text-zinc-300 uppercase tracking-wide">Fatores de Atenção (Contras)</div>
+              <ul class="space-y-1.5">${consHTML}</ul>
+            </div>
+          </div>
+
+          <!-- Actions Footer -->
+          <div class="flex items-center justify-between pt-4 border-t border-zinc-850">
+            <div class="flex items-center space-x-3 text-xs monospace">
+              <span class="text-zinc-500 font-bold">Confiança de Dados:</span>
+              <span class="text-zinc-300 font-black">${o.confidence}%</span>
+            </div>
+
+            <div class="flex items-center space-x-3.5 flex-row-reverse">
+              <a href="${o.property_url}" target="_blank" class="text-white bg-blue-600 hover:bg-blue-500 text-xs px-4 py-2.5 rounded-xl font-bold transition-all flex items-center space-x-1.5 ml-2">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> <span>Origem</span>
+              </a>
+              <a href="${o.document_url}" target="_blank" class="text-zinc-300 hover:text-white bg-zinc-950 border border-zinc-850 hover:border-zinc-750 text-xs px-4 py-2.5 rounded-xl font-bold transition-all flex items-center space-x-1.5 ml-2">
+                <i class="fa-solid fa-file-invoice"></i> <span>Edital</span>
+              </a>
+              <button class="text-zinc-400 hover:text-zinc-200 p-2.5 rounded-xl border border-zinc-850 hover:border-zinc-750 transition-all text-sm" onclick="event.stopPropagation(); favorite('${o.id}')" title="Favoritar">
+                <i class="fa-regular fa-star"></i>
+              </button>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    async function runDoctor() {
+      const btn = document.getElementById('btn-run-doctor');
+      const textSpan = btn.querySelector('span');
+      const originalText = textSpan.textContent;
+
+      btn.disabled = true;
+      textSpan.textContent = 'Executando Ingestão...';
+
+      try {
+        const r = await fetchAPI('/api/doctor/run', { method: 'POST' });
+        showToast(r.message || 'Diagnóstico e Ingestão concluídos!');
+        await refresh();
+      } catch (e) {
+        showToast('Falha: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        textSpan.textContent = originalText;
+      }
+    }
+
+    async function favorite(propertyId) {
+      try {
+        const r = await fetchAPI(`/api/favorites/${propertyId}`, { method: 'POST' });
+        showToast(r.message || 'Favoritado!');
+        await refresh();
+      } catch (e) {
+        showToast('Erro ao favoritar: ' + e.message);
+      }
+    }
+
+    // Initial load
+    window.onload = () => {
+      refresh();
+    };
+  </script>
 </body>
 </html>

@@ -3,11 +3,11 @@
 Reads config/default.json and optionally overlays config/local.json.
 Environment variables override file values using FLOWCORE__ prefix.
 """
-
 from __future__ import annotations
 
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -43,7 +43,7 @@ def _env_overrides(cfg: dict, prefix: str = "FLOWCORE") -> dict:
     result = cfg.copy()
     for key, value in os.environ.items():
         if key.startswith(f"{prefix}__"):
-            parts = key[len(prefix) + 2 :].lower().split("__")
+            parts = key[len(prefix)+2:].lower().split("__")
             target = result
             for part in parts[:-1]:
                 if part not in target:
