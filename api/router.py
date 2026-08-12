@@ -1024,7 +1024,7 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         from runtime.llm import LLMAuthenticationError, LLMError, LLMModelNotFoundError, LLMTimeoutError
 
         try:
-            answer, model = await service.ask(data.question, timeout=data.timeout)
+            result = await service.agent_ask(data.question, timeout=data.timeout)
         except (LLMAuthenticationError, LLMModelNotFoundError, LLMTimeoutError) as e:
             # Reached the provider; generation itself failed for a specific reason.
             raise HTTPException(status_code=502, detail=str(e))
@@ -1032,7 +1032,9 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             # Provider unreachable / all providers failed / budget exceeded.
             raise HTTPException(status_code=503, detail=str(e))
 
-        return {"answer": answer, "model": model}
+        # tool_used is additive -- existing consumers reading only
+        # answer/model (Android app, Web UI) are unaffected.
+        return {"answer": result["answer"], "model": result["model"], "tool_used": result["tool_used"]}
 
     # ── Settings (Web UI) ────────────────────────────────────────────────
     @app.get("/api/settings")

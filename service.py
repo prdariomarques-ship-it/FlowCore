@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from capability.registry import CapabilityRegistry
+from runtime.agent import AgentEngine, ToolSpec
 from runtime.exposure import ExposureEngine, compute_concentration
 from runtime.decision import DecisionEngine
 from runtime.impact import ImpactEngine
@@ -72,6 +73,19 @@ async def list_notes(kind: str | None = None) -> list[dict]:
     """List note/todo/agenda documents, optionally filtered by kind."""
     docs = await _doc_repo.list_all()
     return [d for d in docs if d.get("source") in NOTE_KIND_LABELS and (kind is None or d.get("source") == kind)]
+
+
+async def memory_save(text: str) -> dict:
+    """Persist a memory. Thin wrapper so every caller (Agent included)
+    goes through the same repository api/router.py's /api/memories
+    already uses, instead of touching MemoryRepository directly."""
+    return _mem_repo.add(text)
+
+
+async def memory_recall(query: str) -> list[dict]:
+    """Search stored memories by text/topic — the read side memory_save
+    didn't have a caller for until the Agent needed one."""
+    return _mem_repo.search(query)
 
 
 async def build_rag_context(limit: int = 5) -> str:
@@ -957,3 +971,96 @@ async def portfolio_narrative(portfolio_id: int, shelf: str = DEFAULT_SHELF, tim
     report = await portfolio_decision(portfolio_id, shelf)
     narrative = await _narrative_engine.generate(portfolio_id, report, timeout)
     return narrative.to_dict()
+
+
+# ── Agent Engine ──────────────────────────────────────────────────────────────
+# Natural-language entrypoint: the LLM picks one of the tools below (or
+# answers directly from RAG context), FlowCore executes the pick for
+# real, and the LLM turns the real result into a natural-language answer.
+# Every tool here reuses an existing service function or repository
+# method -- the Agent adds no new capability, only a language interface
+# onto ones that already existed as separate REST endpoints/CLI commands.
+
+
+async def _doctor_tool() -> dict:
+    from doctor.service import DoctorService
+
+    report = await asyncio.to_thread(DoctorService().run, verbose=False)
+    return report.to_dict()
+
+
+async def _memory_save_tool(text: str) -> dict:
+    return await memory_save(text)
+
+
+async def _memory_recall_tool(query: str) -> dict:
+    return {"query": query, "matches": await memory_recall(query)}
+
+
+async def _note_save_tool(text: str, kind: str = "note") -> dict:
+    return await add_note(text, kind)
+
+
+async def _portfolio_summary_tool(portfolio_id: int | None = None) -> dict:
+    """portfolio_id is optional from the LLM's point of view -- when
+    omitted, resolved deterministically (never guessed by the LLM): the
+    one existing portfolio if there's exactly one, otherwise a ValueError
+    asking which one, which the Agent surfaces verbatim as a clarifying
+    question instead of inventing a portfolio."""
+    if portfolio_id is None:
+        portfolios = await list_portfolios()
+        if not portfolios:
+            raise ValueError("Nenhuma carteira cadastrada ainda -- crie uma carteira antes de pedir um resumo.")
+        if len(portfolios) > 1:
+            names = ", ".join(f"{p['id']}:{p['name']}" for p in portfolios)
+            raise ValueError(f"Existe mais de uma carteira ({names}) -- diga o ID ou o nome da carteira desejada.")
+        portfolio_id = portfolios[0]["id"]
+    return await portfolio_summary(portfolio_id)
+
+
+_agent_tools = [
+    ToolSpec(
+        name="doctor",
+        description="Executa o diagnostico real do sistema FlowCore (Android, Termux, Ollama, rede, etc.).",
+        handler=_doctor_tool,
+    ),
+    ToolSpec(
+        name="memory_save",
+        description="Salva uma informacao persistente na memoria do usuario.",
+        parameters={"text": "string, obrigatorio"},
+        handler=_memory_save_tool,
+    ),
+    ToolSpec(
+        name="memory_recall",
+        description="Busca informacoes ja salvas na memoria do usuario por palavra-chave.",
+        parameters={"query": "string, obrigatorio"},
+        handler=_memory_recall_tool,
+    ),
+    ToolSpec(
+        name="note_save",
+        description="Cria uma nota, tarefa (todo) ou item de agenda.",
+        parameters={
+            "text": "string, obrigatorio",
+            "kind": 'string, opcional: "note" | "todo" | "agenda", padrao "note"',
+        },
+        handler=_note_save_tool,
+    ),
+    ToolSpec(
+        name="portfolio_summary",
+        description="Consulta o resumo (valor total, custo, ganho) de uma carteira existente.",
+        parameters={"portfolio_id": "int, opcional se so existir uma carteira cadastrada"},
+        handler=_portfolio_summary_tool,
+    ),
+]
+
+_agent_engine = AgentEngine(_llm_router, _agent_tools)
+
+
+async def agent_ask(question: str, timeout: float | None = None) -> dict:
+    """Same LLMRouter, same LLMError contract as ask() -- callers (CLI,
+    FastAPI, MCP) catch LLMError exactly like they already did for ask().
+    Superset of ask(): when no tool applies, the LLM answers directly
+    from the same RAG context ask() would have used."""
+    context = await build_rag_context(5)
+    result = await _agent_engine.handle(question, context=context, timeout=timeout)
+    return result.to_dict()

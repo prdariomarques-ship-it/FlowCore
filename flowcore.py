@@ -1203,7 +1203,9 @@ async def cmd_obsidian_watch(vault_path: str = None) -> None:
 
 
 async def cmd_ask(question: str) -> None:
-    """RAG: Ask AI using the LLM Router (local-first) with document context."""
+    """Ask the FlowCore Agent: the LLM Router (local-first) picks a real
+    tool when one applies (doctor/memory/notes/portfolio), otherwise
+    answers directly from document context."""
     import service
     from runtime.llm import (
         LLMAuthenticationError,
@@ -1214,9 +1216,11 @@ async def cmd_ask(question: str) -> None:
     )
 
     try:
-        answer, model = await service.ask(question)
-        print(f"\n{BOLD}{CYAN}FlowCore AI ({model}):{NC}")
-        print(answer)
+        result = await service.agent_ask(question)
+        print(f"\n{BOLD}{CYAN}FlowCore AI ({result['model']}):{NC}")
+        if result["tool_used"]:
+            print(f"{YELLOW}[tool: {result['tool_used']}]{NC}")
+        print(result["answer"])
     except LLMAuthenticationError as e:
         print(f"{RED}Modelo requer assinatura Ollama Cloud.{NC}")
         print(f"{YELLOW}{e}{NC}")

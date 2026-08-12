@@ -132,16 +132,18 @@ async def flowcore_agenda(event: str) -> dict:
 
 @mcp.tool()
 async def flowcore_ask(question: str, timeout: float | None = None) -> str:
-    """Ask the LLM Router a question (local-first, Ollama by default),
-    grounded with the 5 most recent documents as context.
+    """Ask the FlowCore Agent a question (local-first LLM, Ollama by
+    default). The Agent picks a real tool (doctor/memory/notes/portfolio)
+    when one applies and executes it for real; otherwise it answers
+    directly, grounded with the 5 most recent documents as context.
 
     Warms up the model first if it's not already loaded in Ollama (can take
     a while on first call). `timeout` overrides FLOWCORE_OLLAMA_TIMEOUT
     (default 180s) for both the warm-up wait and the generate call.
     """
     try:
-        answer, _model = await service.ask(question, timeout=timeout)
-        return answer
+        result = await service.agent_ask(question, timeout=timeout)
+        return result["answer"]
     except LLMError as e:
         raise RuntimeError(str(e)) from e
 

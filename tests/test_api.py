@@ -96,22 +96,32 @@ class TestMemoriesEndpoint:
 
 
 class TestAskEndpoint:
-    # /api/ask -> service.ask() -> the LLM Router (runtime/llm/). Only the
-    # exception -> HTTP status mapping is tested here; RAG grounding and
-    # the Router's own retry/fallback logic are covered elsewhere
-    # (tests/llm/, tests/narrative/).
+    # /api/ask -> service.agent_ask() -> AgentEngine -> the LLM Router
+    # (runtime/llm/). Only the exception -> HTTP status mapping and the
+    # response shape are tested here; tool selection/execution is covered
+    # in tests/agent/, RAG grounding and the Router's own retry/fallback
+    # logic elsewhere (tests/llm/, tests/narrative/).
     def test_success(self):
         c = _client()
-        with patch("service.ask", return_value=("42", "qwen3:4b")):
+        agent_result = {"answer": "42", "model": "qwen3:4b", "tool_used": None, "tool_result": None}
+        with patch("service.agent_ask", return_value=agent_result):
             r = c.post("/api/ask", json={"question": "q"})
         assert r.status_code == 200
-        assert r.json() == {"answer": "42", "model": "qwen3:4b"}
+        assert r.json() == {"answer": "42", "model": "qwen3:4b", "tool_used": None}
+
+    def test_success_with_tool_used(self):
+        c = _client()
+        agent_result = {"answer": "Diagnostico ok.", "model": "gemma3:4b", "tool_used": "doctor", "tool_result": {}}
+        with patch("service.agent_ask", return_value=agent_result):
+            r = c.post("/api/ask", json={"question": "diagnostico"})
+        assert r.status_code == 200
+        assert r.json()["tool_used"] == "doctor"
 
     def test_authentication_error_returns_502(self):
         from runtime.llm import LLMAuthenticationError
 
         c = _client()
-        with patch("service.ask", side_effect=LLMAuthenticationError("needs subscription")):
+        with patch("service.agent_ask", side_effect=LLMAuthenticationError("needs subscription")):
             r = c.post("/api/ask", json={"question": "q"})
         assert r.status_code == 502
 
@@ -119,7 +129,7 @@ class TestAskEndpoint:
         from runtime.llm import LLMModelNotFoundError
 
         c = _client()
-        with patch("service.ask", side_effect=LLMModelNotFoundError("not installed")):
+        with patch("service.agent_ask", side_effect=LLMModelNotFoundError("not installed")):
             r = c.post("/api/ask", json={"question": "q"})
         assert r.status_code == 502
 
@@ -127,7 +137,7 @@ class TestAskEndpoint:
         from runtime.llm import LLMTimeoutError
 
         c = _client()
-        with patch("service.ask", side_effect=LLMTimeoutError("too slow")):
+        with patch("service.agent_ask", side_effect=LLMTimeoutError("too slow")):
             r = c.post("/api/ask", json={"question": "q"})
         assert r.status_code == 502
 
@@ -135,7 +145,7 @@ class TestAskEndpoint:
         from runtime.llm import LLMProviderUnavailableError
 
         c = _client()
-        with patch("service.ask", side_effect=LLMProviderUnavailableError("down")):
+        with patch("service.agent_ask", side_effect=LLMProviderUnavailableError("down")):
             r = c.post("/api/ask", json={"question": "q"})
         assert r.status_code == 503
 
@@ -143,7 +153,7 @@ class TestAskEndpoint:
         from runtime.llm import LLMAllProvidersFailedError
 
         c = _client()
-        with patch("service.ask", side_effect=LLMAllProvidersFailedError("all down")):
+        with patch("service.agent_ask", side_effect=LLMAllProvidersFailedError("all down")):
             r = c.post("/api/ask", json={"question": "q"})
         assert r.status_code == 503
 
