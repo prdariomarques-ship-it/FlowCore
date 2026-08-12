@@ -59,14 +59,26 @@ def build_prompt(question: str, tools, context: str = "") -> str:
     return "\n".join(lines)
 
 
+# Caps how much of a tool's result gets re-fed into the grounding prompt.
+# Some real results (e.g. doctor's ~35 checks) serialize to ~1000+ tokens,
+# which on constrained hardware (CPU-only Ollama) can push a single
+# prompt-eval past two minutes -- the tool_result returned to the caller
+# stays the full, real, untouched data; only what's shown to the *second*
+# LLM call is capped, purely for latency.
+_MAX_RESULT_CHARS = 1200
+
+
 def build_result_prompt(question: str, tool_name: str, result: dict) -> str:
+    serialized = json.dumps(result, ensure_ascii=False, default=str)
+    if len(serialized) > _MAX_RESULT_CHARS:
+        serialized = serialized[:_MAX_RESULT_CHARS] + " ... (resultado truncado por tamanho)"
     return (
         "Voce e o FlowCore. Uma ferramenta real foi executada e retornou o resultado abaixo.\n"
         "Escreva uma resposta em linguagem natural, em portugues do Brasil, para a pergunta original, "
         "usando SOMENTE os dados deste resultado. Nunca invente numeros ou fatos que nao estejam nele.\n\n"
         f"Pergunta original: {question}\n"
         f"Ferramenta executada: {tool_name}\n"
-        f"Resultado: {json.dumps(result, ensure_ascii=False, default=str)}\n\n"
+        f"Resultado: {serialized}\n\n"
         "Resposta:"
     )
 
