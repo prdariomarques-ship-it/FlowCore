@@ -1,17 +1,8 @@
-"""RoutingPolicy -- decides which provider(s) may serve a given request,
-in preference order. This is FlowCore's Policy Engine (sketched in
-ROADMAP.md's "Version 2.0" section, now realized): the *only* place that
-decides whether cloud is allowed for a request. No provider, no engine,
-and no caller may bypass it.
-
-Standing rule, encoded as the default policy: financial/investment/
-personal data stays local-only unless a caller explicitly opts in via
-request.metadata["allow_cloud"]=True -- there is never a silent,
-automatic fallback from local to cloud. A caller has to say so.
-"""
+"""Routing policy for provider ordering and privacy boundaries."""
 
 from __future__ import annotations
 
+import os
 from abc import ABC, abstractmethod
 
 from runtime.llm.models import LLMRequest
@@ -22,24 +13,34 @@ __all__ = ["RoutingPolicy", "LocalFirstPolicy"]
 class RoutingPolicy(ABC):
     @abstractmethod
     def choose(self, request: LLMRequest, available: list[str]) -> list[str]:
-        """Returns an ordered subset of `available` to try, most
-        preferred first. An empty list means "no provider may serve
-        this request" -- the Router raises LLMProviderUnavailableError,
-        it never silently picks something outside this list."""
+        """Return an ordered subset of available providers."""
 
 
 class LocalFirstPolicy(RoutingPolicy):
-    """Default policy. Ollama (local) is always tried first when
-    available. Cloud providers are only ever considered when the caller
-    explicitly sets metadata["allow_cloud"]=True -- e.g. Narrative
-    Engine requests never set it, so a portfolio narrative is
-    structurally incapable of leaving the machine even if OpenRouter is
-    configured, without a deliberate code change to that call site."""
+    """Configurable local-first policy with explicit cloud opt-in.
 
-    LOCAL_PROVIDERS = ("ollama",)
+    ``FLOWCORE_LLM_PROVIDER_ORDER`` accepts a comma-separated preference list,
+    such as ``ollama,deepseek,glm,qwen,openrouter``. Only registered and
+    available providers are returned. Cloud providers remain excluded unless
+    the request sets ``metadata["allow_cloud"]`` to true.
+    """
+
+    DEFAULT_ORDER = ("ollama", "deepseek", "glm", "qwen", "openrouter", "ollama_cloud")
+    LOCAL_PROVIDERS = frozenset({"ollama"})
+
+    def __init__(self, provider_order: tuple[str, ...] | None = None) -> None:
+        configured = provider_order or tuple(
+            name.strip()
+            for name in os.getenv("FLOWCORE_LLM_PROVIDER_ORDER", "").split(",")
+            if name.strip()
+        )
+        self.provider_order = configured or self.DEFAULT_ORDER
 
     def choose(self, request: LLMRequest, available: list[str]) -> list[str]:
-        order = [name for name in self.LOCAL_PROVIDERS if name in available]
-        if request.metadata.get("allow_cloud"):
-            order += [name for name in available if name not in order]
-        return order
+        ordered = [name for name in self.provider_order if name in available]
+        # Keep compatibility with providers added before configuration is
+        # updated, while retaining deterministic registry order.
+        ordered.extend(name for name in available if name not in ordered)
+        if not request.metadata.get("allow_cloud"):
+            ordered = [name for name in ordered if name in self.LOCAL_PROVIDERS]
+        return ordered

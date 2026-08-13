@@ -51,3 +51,18 @@ class TestLocalFirstPolicy:
             LLMRequest(prompt="x", metadata={"allow_cloud": True}), ["ollama", "some_future_provider"]
         )
         assert order == ["ollama", "some_future_provider"]
+
+    def test_custom_provider_order_is_respected_when_cloud_is_allowed(self):
+        from runtime.llm import LLMRequest, LocalFirstPolicy
+
+        policy = LocalFirstPolicy(("openrouter", "ollama", "deepseek"))
+        order = policy.choose(
+            LLMRequest(prompt="x", metadata={"allow_cloud": True}), ["ollama", "openrouter", "deepseek"]
+        )
+        assert order == ["openrouter", "ollama", "deepseek"]
+
+    def test_custom_cloud_priority_still_cannot_bypass_local_first_boundary(self):
+        from runtime.llm import LLMRequest, LocalFirstPolicy
+
+        policy = LocalFirstPolicy(("openrouter", "deepseek"))
+        assert policy.choose(LLMRequest(prompt="x"), ["openrouter", "deepseek"]) == []
