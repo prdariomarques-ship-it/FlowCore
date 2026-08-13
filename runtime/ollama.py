@@ -341,12 +341,13 @@ def generate(base_url: str, model: str, prompt: str, timeout: float = DEFAULT_GE
     """
     ensure_model_loaded(base_url, model, timeout=timeout)
 
-    # "keep_alive": "-1" mantém o modelo residente em RAM após a chamada,
-    # evitando o re-carregamento caro de disco (~4,9 GB no deepseek-r1:8b)
-    # em hosts sobrecarregados. O unload fica a cargo do daemon/keep-alive
-    # do host, não do cliente.
+    # Sem keep_alive explícito: o daemon do Ollama gerencia a residência em
+    # RAM (padrão: manter ~5 min após a última chamada). "keep_alive": "-1"
+    # (residente permanente) foi deliberadamente evitado — hosts WSL2 com
+    # ~8 GB RAM e swap ativo sofreram pressão de memória quando modelos
+    # ficavam presos em RAM; o unload padrão do daemon evita esse cenário.
     payload = json.dumps(
-        {"model": model, "prompt": prompt, "stream": False, "keep_alive": "-1"}
+        {"model": model, "prompt": prompt, "stream": False, "options": {"think": False}}
     )
     request = urllib.request.Request(
         f"{base_url.rstrip('/')}/api/generate",
