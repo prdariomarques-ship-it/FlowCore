@@ -71,4 +71,57 @@ def default_yfinance_observers() -> list[YFinanceObserver]:
         # investigation report for why.
         YFinanceObserver(source="usd_jpy", category="fx", symbol="JPY=X", event_name="fx_change", unit="price"),
         YFinanceObserver(source="treasury_30y", category="rates", symbol="^TYX", event_name="yield_change", unit="pct"),
+        # ── Market Intelligence expansion (2026-08-13) ──────────────────
+        # All tickers below were verified programmatically against
+        # yfinance on 13/08/2026 (see data/symbols_verified_20260813.md).
+        # Brasil — equity
+        YFinanceObserver(
+            source="ibovespa", category="equities", symbol="^BVSP", event_name="price_change", unit="price"
+        ),
+        # EUA — equities
+        YFinanceObserver(source="sp500", category="equities", symbol="^GSPC", event_name="price_change", unit="price"),
+        YFinanceObserver(source="nasdaq", category="equities", symbol="^IXIC", event_name="price_change", unit="price"),
+        YFinanceObserver(source="dow", category="equities", symbol="^DJI", event_name="price_change", unit="price"),
+        YFinanceObserver(
+            source="russell2000", category="equities", symbol="^RUT", event_name="price_change", unit="price"
+        ),
+        # EUA — taxa (5Y para completar a curva 2-5-10-30)
+        YFinanceObserver(source="treasury_5y", category="rates", symbol="^FVX", event_name="yield_change", unit="pct"),
+        YFinanceObserver(source="treasury_2y", category="rates", symbol="^IRX", event_name="yield_change", unit="pct"),
+        # EUA — dólar global (DXY via DX-Y.NYB, verificado com retry)
+        YFinanceObserver(source="dxy", category="fx", symbol="DX-Y.NYB", event_name="fx_change", unit="price"),
+        # Europa
+        YFinanceObserver(
+            source="eurostoxx", category="equities", symbol="^STOXX50E", event_name="price_change", unit="price"
+        ),
+        YFinanceObserver(source="dax", category="equities", symbol="^GDAXI", event_name="price_change", unit="price"),
+        YFinanceObserver(source="ftse", category="equities", symbol="^FTSE", event_name="price_change", unit="price"),
+        YFinanceObserver(source="eurusd", category="fx", symbol="EURUSD=X", event_name="fx_change", unit="price"),
+        # Ásia
+        YFinanceObserver(
+            source="nikkei", category="equities", symbol="^N225",
+            event_name="price_change", unit="price",
+        ),
+        YFinanceObserver(
+            source="hangseng", category="equities", symbol="^HSI",
+            event_name="price_change", unit="price",
+        ),
+        YFinanceObserver(
+            source="shanghai", category="equities", symbol="000001.SS",
+            event_name="price_change", unit="price",
+        ),
+        YFinanceObserver(source="usdcny", category="fx", symbol="CNY=X", event_name="fx_change", unit="price"),
+        # Commodities extras (Brent já coberto por `oil`)
+        YFinanceObserver(
+            source="wti", category="commodities", symbol="CL=F",
+            event_name="price_change", unit="price",
+        ),
+        YFinanceObserver(
+            source="silver", category="commodities", symbol="SI=F",
+            event_name="price_change", unit="price",
+        ),
+        YFinanceObserver(
+            source="copper", category="commodities", symbol="HG=F",
+            event_name="price_change", unit="price",
+        ),
     ]

@@ -67,12 +67,10 @@ class TestDefaultRegistry:
     def test_seven_default_observers_registered(self):
         from runtime.observers.registry import registry
 
-        assert set(registry.names()) == {
-            "treasury",
-            "dollar",
-            "vix",
-            "oil",
-            "gold",
-            "usd_jpy",
-            "treasury_30y",
-        }
+        names = set(registry.names())
+        # The original 7 core observers remain registered (backward
+        # compatibility); the registry was expanded with BR/US/EU/Asia
+        # equities, rates, FX and commodities observers.
+        assert {"treasury", "dollar", "vix", "oil", "gold", "usd_jpy",
+                "treasury_30y"} <= names
+        assert len(names) >= 25

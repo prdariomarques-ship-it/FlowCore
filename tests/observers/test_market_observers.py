@@ -102,7 +102,12 @@ class TestDefaultObservers:
 
         observers = default_yfinance_observers()
         sources = {o.source for o in observers}
-        assert sources == {"treasury", "dollar", "vix", "oil", "gold", "usd_jpy", "treasury_30y"}
+        # The original 7 core sources are preserved (backward compatibility);
+        # the set was expanded to BR/US/EU/Asia equities, rates, FX and
+        # commodities — assert the superset property and a minimum count.
+        assert {"treasury", "dollar", "vix", "oil", "gold", "usd_jpy",
+                "treasury_30y"} <= sources
+        assert len(sources) >= 25
 
     def test_usd_jpy_and_treasury_30y_are_real_yfinance_symbols(self):
         """Japan Duration Risk investigation: these two are the only
@@ -113,6 +118,7 @@ class TestDefaultObservers:
         from runtime.observers.market_observers import default_yfinance_observers
 
         by_source = {o.source: o for o in default_yfinance_observers()}
+        assert len(by_source) >= 25
         assert by_source["usd_jpy"].symbol == "JPY=X"
         assert by_source["usd_jpy"].category == "fx"
         assert by_source["treasury_30y"].symbol == "^TYX"

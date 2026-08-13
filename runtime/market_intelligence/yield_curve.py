@@ -47,6 +47,8 @@ class YieldCurve:
     slope_30y_10y: float | None  # bps 30Y minus 10Y
     previous_slope_10y_2y: float | None
     state: str  # "normal", "flat", "inverted", "steepening", "flattening"
+    shape: str | None  # bull/bear steepening|flattening — requires level + slope moves
+    interpretation: str | None  # deterministic sentence, only when data supports it
 
     def to_dict(self) -> dict:
         return {
@@ -59,6 +61,8 @@ class YieldCurve:
             "slope_30y_10y_bps": self.slope_30y_10y,
             "previous_slope_10y_2y_bps": self.previous_slope_10y_2y,
             "state": self.state,
+            "shape": self.shape,
+            "interpretation": self.interpretation,
         }
 
 
@@ -112,9 +116,11 @@ def build_yield_curve() -> YieldCurve:
         prev_slope = round((prev["treasury"] - prev["treasury_2y"]) * 100, 1)
 
     state = _classify_state(s_10y_2y, prev_slope)
+    shape, interpretation = _classify_shape(points, prev)
     return YieldCurve(points=points, slope_10y_2y=s_10y_2y,
                       slope_30y_10y=s_30y_10y,
-                      previous_slope_10y_2y=prev_slope, state=state)
+                      previous_slope_10y_2y=prev_slope, state=state,
+                      shape=shape, interpretation=interpretation)
 
 
 def _classify_state(slope_bps: float | None, prev_bps: float | None) -> str:
@@ -130,3 +136,85 @@ def _classify_state(slope_bps: float | None, prev_bps: float | None) -> str:
     if delta < -10:
         return "flattening"
     return "normal" if slope_bps > 100 else "flat"
+
+
+def _classify_shape(
+    points: list[CurvePoint], prev: dict[str, float]
+) -> tuple[str | None, str | None]:
+    """Bull/bear steepening|flattening classification.
+
+    Level move = weighted average delta of long-end yields (10Y, 30Y)
+    versus the short end (2Y). Slope move = change of the 10Y-2Y spread.
+    Only classifies when both level and slope moves exceed 5 bps — below
+    that there is no evidence to support a conclusion (honest default).
+    The interpretation sentence is generated deterministically and ONLY
+    when a shape is identified; no sentence is fabricated otherwise.
+    """
+    if len(prev) < 2:
+        return None, None
+
+    delta = {src: (p.yield_pct - prev[src]) * 100
+             for p in points for src in (p.source,)
+             if p.source in prev and p.yield_pct is not None}
+    if len(delta) < 2:
+        return None, None
+
+    longs = [delta.get("treasury"), delta.get("treasury_30y")]
+    longs = [v for v in longs if v is not None]
+    short = delta.get("treasury_2y")
+    if not longs or short is None:
+        return None, None
+
+    level_move = sum(longs) / len(longs)          # bps long-end average move
+    slope_move = (delta.get("treasury", 0.0) - short)  # bps spread change
+
+    if abs(level_move) < 5 and abs(slope_move) < 5:
+        return None, None
+
+    if slope_move > 5:
+        if level_move > 5:
+            shape = "bear_steepening"
+            interpretation = (
+                "A curva americana apresenta bear steepening: yields longos "
+                "subindo mais que os curtos, compatível com prêmio de prazo "
+                "e/ou pressão fiscal."
+            )
+        elif level_move < -5:
+            shape = "bull_steepening"
+            interpretation = (
+                "A curva americana apresenta bull steepening: corte esperado "
+                "de juros puxa os curtos para baixo mais que os longos, "
+                "sinal típico de início de ciclo de afrouxamento."
+            )
+        else:
+            shape = "steepening"
+            interpretation = (
+                "A curva americana está alongando (steepening) sem movimento "
+                "direcional claro de nível — rotacionando de curto para longo."
+            )
+    elif slope_move < -5:
+        if level_move > 5:
+            shape = "bear_flattening"
+            interpretation = (
+                "A curva americana apresenta bear flattening: os yields curtos "
+                "sobem mais que os longos, pressão de inflação/juros curtos "
+                "contra expectativa de desaceleração."
+            )
+        elif level_move < -5:
+            shape = "bull_flattening"
+            interpretation = (
+                "A curva americana apresenta bull flattening: queda "
+                "generalizada de yields com longos caindo mais, movimento de "
+                "busca de segurança (flight to quality)."
+            )
+        else:
+            shape = "flattening"
+            interpretation = (
+                "A curva americana está achando (flattening) sem movimento "
+                "direcional claro de nível — expectativas de política "
+                "monetária convergindo no médio prazo."
+            )
+    else:
+        return None, None
+
+    return shape, interpretation

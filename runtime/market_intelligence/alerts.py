@@ -34,6 +34,25 @@ ALERT_DEFAULTS: dict[str, dict] = {
     "ibovespa_daily_drop": {"source": "ibovespa", "kind": "daily_delta_below",
                             "threshold": -3.0, "severity": "critical",
                             "label": "Ibovespa cai mais de 3% no dia"},
+    # ── Market Intelligence expansion (2026-08-13) ──────────────────────
+    "oil_shock": {"source": "wti", "kind": "daily_delta_above",
+                  "threshold": 5.0, "severity": "critical",
+                  "label": "WTI sobe mais de 5% no dia (choque de petróleo)"},
+    "gold_new_high": {"source": "gold", "kind": "above", "threshold": 4500.0,
+                      "severity": "warning",
+                      "label": "Ouro acima de US$ 4.500/oz (novo patamar)"},
+    "dxy_strong_move": {"source": "dxy", "kind": "daily_delta_above",
+                        "threshold": 1.5, "severity": "warning",
+                        "label": "DXY move mais de 1,5% no dia (regime FX)"},
+    "nasdaq_drop": {"source": "nasdaq", "kind": "daily_delta_below",
+                    "threshold": -3.0, "severity": "critical",
+                    "label": "Nasdaq cai mais de 3% no dia"},
+    "silver_mover": {"source": "silver", "kind": "daily_delta_above",
+                     "threshold": 4.0, "severity": "warning",
+                     "label": "Prata move mais de 4% no dia"},
+    "copper_demand_signal": {"source": "copper", "kind": "daily_delta_below",
+                             "threshold": -4.0, "severity": "warning",
+                             "label": "Cobre cai mais de 4% no dia (sinal de demanda)"},
 }
 
 _DEDUP_HOURS = 24

@@ -1071,6 +1071,62 @@ def _market_alerts_tool() -> dict:
     return {"fired_now": evaluate_alerts(), "history": list_alerts()}
 
 
+def _market_news_tool(groups: str = "", max_per_group: int = 6) -> dict:
+    from runtime.market_intelligence.news import fetch_news
+
+    g = [s.strip() for s in groups.split(",") if s.strip()] if groups else None
+    return fetch_news(g, max_per_group=max_per_group)
+
+
+def _market_correlation_tool(symbols: str = "", days: int = 60) -> dict:
+    from runtime.market_intelligence.risk import correlation_matrix
+
+    if not symbols:
+        symbols = "^GSPC,^BVSP,USDBRL=X,GC=F,BZ=F,^TNX"
+    return correlation_matrix([s.strip() for s in symbols.split(",") if s.strip()],
+                              days=days)
+
+
+def _market_risk_tool(holdings: str = "", days: int = 60) -> dict:
+    """Risk decomposition for `symbol=weight` pairs (CSV)."""
+    from runtime.market_intelligence.risk import risk_contribution
+
+    if not holdings:
+        return {"error": "invalid_request",
+                "detail": "informe holdings como symbol=peso, ex: ^GSPC=1.0,GC=F=0.3"}
+    parsed: dict[str, float] = {}
+    for pair in holdings.split(","):
+        if "=" not in pair:
+            return {"error": "invalid_request", "detail": f"par inválido: {pair!r}"}
+        sym, _, w = pair.partition("=")
+        try:
+            parsed[sym.strip()] = float(w)
+        except ValueError:
+            return {"error": "invalid_request", "detail": f"peso inválido: {w!r}"}
+    return risk_contribution(parsed, days=days)
+
+
+def _market_rebalance_tool(holdings: str = "", target: str = "", threshold_pct: float = 5.0) -> dict:
+    """Deterministic target-vs-current deviation (BUY/REDUCE/HOLD/WATCH)."""
+    import json as _json
+
+    from runtime.market_intelligence.rebalance import analyze_rebalancing
+
+    try:
+        h = _json.loads(holdings) if holdings else None
+        t = _json.loads(target) if target else None
+    except Exception:
+        return {"error": "invalid_request",
+                "detail": "holdings/target devem ser JSON válidos"}
+    return analyze_rebalancing(h, t)
+
+
+def _market_scores_history_tool(dimension: str = "", days: int = 60) -> dict:
+    from runtime.market_intelligence.score_history import score_history
+
+    return score_history(dimension or None, days=days)
+
+
 _agent_tools = [
     ToolSpec(
         name="doctor",
@@ -1134,7 +1190,8 @@ _agent_tools = [
     ),
     ToolSpec(
         name="market_briefing",
-        description="Gera o briefing diário estruturado do mercado com dados reais (taxas, bolsa, FX, commodities, vol).",
+        description="Gera o briefing diário estruturado do mercado com dados reais "
+                    "(taxas, bolsa, FX, commodities, vol).",
         handler=_market_briefing_tool,
     ),
     ToolSpec(
@@ -1151,6 +1208,45 @@ _agent_tools = [
         name="market_alerts",
         description="Consulta os alertas de mercado com severidade e o histórico de eventos disparados.",
         handler=_market_alerts_tool,
+    ),
+    ToolSpec(
+        name="market_news",
+        description="Consulta notícias reais de mercado por grupo "
+                    "(brazil|us_equities|rates|commodities|fx|global) "
+                    "com categorização determinística.",
+        parameters={"groups": 'string, opcional, separado por vírgula, ex: "brazil,commodities"',
+                    "max_per_group": "int, opcional, padrão 6"},
+        handler=_market_news_tool,
+    ),
+    ToolSpec(
+        name="market_correlation",
+        description="Calcula a matriz de correlação (Pearson, log-retornos diários) entre símbolos com dados reais.",
+        parameters={"symbols": 'string, separado por vírgula, ex: "^GSPC,GC=F,USDBRL=X"',
+                    "days": "int, opcional, padrão 60"},
+        handler=_market_correlation_tool,
+    ),
+    ToolSpec(
+        name="market_risk",
+        description="Decomposição de risco da carteira: volatilidade total, "
+                    "contribuição marginal e percentual de cada posição.",
+        parameters={"holdings": 'string, obrigatório, symbol=peso separado por vírgula, ex: "^GSPC=1.0,GC=F=0.3"',
+                    "days": "int, opcional, padrão 60"},
+        handler=_market_risk_tool,
+    ),
+    ToolSpec(
+        name="market_rebalance",
+        description="Análise determinística de rebalance: target vs atual, com ações BUY/REDUCE/HOLD/WATCH e razões.",
+        parameters={"holdings": 'JSON array de posições, ex: [{"symbol":"SGOV","value":5000}]',
+                    "target": 'JSON objeto bucket->fração, ex: {"cash_short_duration":0.5,"equities_index":0.5}',
+                    "threshold_pct": "float, opcional, padrão 5.0"},
+        handler=_market_rebalance_tool,
+    ),
+    ToolSpec(
+        name="market_scores_history",
+        description="Consulta o histórico dos Macro Scores (janelas D-1/D-5/D-20/D-60) para análise de tendência.",
+        parameters={"dimension": 'string, opcional, ex: "commodities"',
+                    "days": "int, opcional, padrão 60"},
+        handler=_market_scores_history_tool,
     ),
 ]
 

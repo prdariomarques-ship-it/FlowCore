@@ -75,4 +75,13 @@ class MacroScoreEngine:
         )
 
     async def compute_all(self) -> list[DimensionScore]:
-        return [await self.compute_score(dimension) for dimension in DIMENSIONS]
+        scores = [await self.compute_score(dimension) for dimension in DIMENSIONS]
+        # Read-only additive hook: snapshot every computation into
+        # Macro Score History (D-1/D-5/D-20/D-60 views). A failure here
+        # must never break the live scores.
+        try:
+            from runtime.market_intelligence.score_history import record_scores
+            record_scores([s.to_dict() for s in scores])
+        except Exception:  # noqa: BLE001
+            pass
+        return scores
