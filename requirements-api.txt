@@ -1,4 +1,4 @@
-# FlowCore API — Optional, requires pydantic-core (may need TUR on Termux)
+# FlowCore API — Optional (may require compilation on some platforms)
 
 -r requirements-core.txt
 
