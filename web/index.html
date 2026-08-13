@@ -321,6 +321,21 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
       </div>
     </div>
   </div>
+  <!-- ══ MERCADO ══ -->
+  <div class="page" id="page-market">
+    <div class="gap">
+      <div class="card">
+        <div class="ch"><span class="ct">Mercado</span><span class="ci">🌎</span></div>
+        <div class="row" style="padding-top:0;border:none">
+          <span class="rl">Dados reais: observers, Macro Score, Regime e portfólio</span>
+          <button class="btn-sm" onclick="loadMarket()">↻ Atualizar</button>
+        </div>
+      </div>
+      <div id="mk-scores"><div class="sk"></div><div class="sk"></div></div>
+      <div id="mk-events"><div class="sk"></div><div class="sk"></div></div>
+      <div id="mk-impact"><div class="sk"></div><div class="sk"></div></div>
+    </div>
+  </div>
 
   <!-- ══ CALENDÁRIO ══ -->
   <div class="page" id="page-calendar">
@@ -523,6 +538,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
   <button class="ni active" onclick="pg('home',this)"><span class="ni-icon">🏠</span><span>Início</span></button>
   <button class="ni" onclick="pg('dashboard',this)"><span class="ni-icon">📈</span><span>Dashboard</span></button>
   <button class="ni" onclick="pg('portfolio',this)"><span class="ni-icon">💼</span><span>Portfólio</span></button>
+  <button class="ni" onclick="pg('market',this)"><span class="ni-icon">🌎</span><span>Mercado</span></button>
   <button class="ni" onclick="pg('calendar',this)"><span class="ni-icon">📅</span><span>Calendário</span></button>
   <button class="ni" onclick="pg('integrations',this)"><span class="ni-icon">🔌</span><span>Integrações</span></button>
   <button class="ni" onclick="pg('sys',this)"><span class="ni-icon">📊</span><span>Sistema</span></button>
@@ -547,6 +563,7 @@ function pg(name,btn){
   btn.classList.add('active');
   if(name==='dashboard') loadDashboard();
   if(name==='portfolio') loadPortfolios();
+  if(name==='market') loadMarket();
   if(name==='calendar') loadCalendar();
   if(name==='integrations') loadIntegrations();
   if(name==='sys') loadSys();
@@ -1240,6 +1257,71 @@ async function loadIntegrations(){
   }
 }
 
+
+/* ── Mercado (observers + Macro Score + Regime + portfólio) ── */
+const MK_TAG={ok:'tg',scored:'tg',insufficient_data:'ty',stale:'ty',unconfigured:'ty',error:'tr',not_collected:'ty'};
+const MK_LABEL={ok:'Coletado',scored:'Score calculado',insufficient_data:'Poucas amostras',stale:'Desatualizado',error:'Erro',not_collected:'Sem dados'};
+const MK_DOT={ok:'',scored:'ok',insufficient_data:'warn',stale:'warn',error:'off',not_collected:'off'};
+async function loadMarket(){
+  const scores=document.getElementById('mk-scores');
+  const events=document.getElementById('mk-events');
+  const impact=document.getElementById('mk-impact');
+  scores.innerHTML='<div class="sk"></div><div class="sk"></div>';
+  events.innerHTML='<div class="sk"></div><div class="sk"></div>';
+  impact.innerHTML='<div class="sk"></div><div class="sk"></div>';
+  await Promise.all([loadMarketScores(scores), loadMarketEvents(events), loadMarketImpact(impact)]);
+}
+async function loadMarketScores(el){
+  try{
+    const r=await api('/api/macro-score/scores');
+    const scores=r.scores||[];
+    if(!scores.length){el.innerHTML='<div class="empty">Sem scores ainda — rode a ingestão e aguarde ≥5 amostras por dimensão.</div>';return;}
+    let html='<div class="card"><div class="ch"><span class="ct">Macro Score</span><span class="ci">📊</span></div>';
+    for(const s of scores){
+      const v=s.score===null?'—':Number(s.score).toFixed(2);
+      const tag=MK_TAG[s.status]||'ty';
+      const label=MK_LABEL[s.status]||s.status;
+      const dot=MK_DOT[s.status]||'';
+      const cls=s.status==='scored'?(s.score>=0?'tg':'tr'):'ty';
+      html+=`<div class="row"><div><span class="sdot ${dot}"></span><span>${s.dimension}</span>
+        <span class="${cls}">${v}</span></div><span class="${tag}">${label}</span></div>`;
+    }
+    html+='</div>'; el.innerHTML=html;
+  }catch(e){el.innerHTML=`<div class="empty">Erro: ${e.message}</div>`;}
+}
+async function loadMarketEvents(el){
+  try{
+    const r=await api('/api/observer/events');
+    const evs=r.events||[];
+    if(!evs.length){el.innerHTML='<div class="empty">Nenhum evento coletado — verifique o job de ingestão.</div>';return;}
+    let html='<div class="card"><div class="ch"><span class="ct">Eventos recentes (observadores)</span><span class="ci">👁</span></div>';
+    for(const e of evs.slice(0,8)){
+      const when=(e.timestamp||'').replace('T',' ').slice(0,19);
+      const val=e.payload&&e.payload.value!==undefined?Number(e.payload.value):null;
+      html+=`<div class="row"><div><span class="sdot ok"></span><span>${e.source}${e.symbol?' · '+e.symbol:''}</span>
+        ${val!==null?`<span class="tg">${val}</span>`:''}</div><span class="ty">${when}</span></div>`;
+    }
+    html+='</div>'; el.innerHTML=html;
+  }catch(e){el.innerHTML=`<div class="empty">Erro: ${e.message}</div>`;}
+}
+async function loadMarketImpact(el){
+  try{
+    const pl=await api('/api/portfolios');
+    const pf=(pl.portfolios||[])[0];
+    if(!pf){el.innerHTML='<div class="empty">Sem portfólio registrado.</div>';return;}
+    const imp=await api('/api/portfolios/'+pf.id+'/impact');
+    const risk=imp.portfolio_risk_score!==undefined?Number(imp.portfolio_risk_score).toFixed(1):'—';
+    const overall=(imp.overall_impact||'—').toUpperCase();
+    const ovTag=overall==='NEUTRAL'?'ty':(overall==='POSITIVE'?'tg':'tr');
+    let html=`<div class="card"><div class="ch"><span class="ct">Impacto do regime · ${pf.name}</span><span class="${ovTag}">risco ${risk}</span></div>
+      <div class="row" style="border:none"><span class="rl">Impacto geral</span><span class="${ovTag}">${overall}</span></div>`;
+    for(const d of (imp.drivers||[])){
+      const dt=d.direction==='negative'?'tr':(d.direction==='positive'?'tg':'ty');
+      html+=`<div class="row"><div><span class="sdot ${dt==='tr'?'off':'warn'}"></span><span>${d.dimension}</span></div><span class="${dt}">${d.regime||d.driver||'—'}</span></div>`;
+    }
+    html+='</div>'; el.innerHTML=html;
+  }catch(e){el.innerHTML=`<div class="empty">Erro: ${e.message}</div>`;}
+}
 /* ── Memories ── */
 function renderMems(mems){
   const l=document.getElementById('mem-list');
