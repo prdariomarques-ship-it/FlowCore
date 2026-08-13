@@ -31,7 +31,14 @@ DEFAULT_GENERATE_TIMEOUT = float(os.getenv("FLOWCORE_OLLAMA_TIMEOUT", "180"))
 WARMUP_POLL_INTERVAL = 2  # segundos entre checagens de /api/ps durante o warm-up
 
 # Ordem de preferência ao escolher automaticamente um modelo instalado.
-MODEL_PRIORITY = ["gpt-oss", "glm", "qwen", "deepseek", "llama", "mistral", "phi", "gemma"]
+# Configúravel via FLOWCORE_MODEL_PRIORITY (lista separada por vírgula,
+# ex.: "deepseek,qwen,gemma"). O default local-first prioriza modelos de
+# raciocínio instalados localmente (deepseek-r1) para o Agent Core.
+_DEFAULT_PRIORITY = ["deepseek", "qwen", "glm", "llama", "mistral", "phi", "gemma", "gpt-oss"]
+_raw_priority = os.getenv("FLOWCORE_MODEL_PRIORITY", "").strip()
+MODEL_PRIORITY: list[str] = [
+    kw for kw in (k.strip() for k in _raw_priority.split(",") if k.strip())
+] or _DEFAULT_PRIORITY
 
 
 class OllamaError(RuntimeError):
@@ -334,7 +341,13 @@ def generate(base_url: str, model: str, prompt: str, timeout: float = DEFAULT_GE
     """
     ensure_model_loaded(base_url, model, timeout=timeout)
 
-    payload = json.dumps({"model": model, "prompt": prompt, "stream": False})
+    # "keep_alive": "-1" mantém o modelo residente em RAM após a chamada,
+    # evitando o re-carregamento caro de disco (~4,9 GB no deepseek-r1:8b)
+    # em hosts sobrecarregados. O unload fica a cargo do daemon/keep-alive
+    # do host, não do cliente.
+    payload = json.dumps(
+        {"model": model, "prompt": prompt, "stream": False, "keep_alive": "-1"}
+    )
     request = urllib.request.Request(
         f"{base_url.rstrip('/')}/api/generate",
         data=payload.encode("utf-8"),

@@ -1031,6 +1031,35 @@ async def _market_events_tool() -> dict:
     return {"events": await observer_events()}
 
 
+# ── Integração Dario OS (agent finance tools) ─────────────────────────────
+# market_snapshot, macro_score e regime são tools de DADOS reais e
+# determinísticos para o Agent do Dario OS (e qualquer agente externo).
+# O LLM usa estas tools como fonte; as decisões continuam nos engines
+# determinísticos do FlowCore — regra absoluta: LLM nunca decide.
+
+
+async def _market_snapshot_tool() -> dict:
+    """Snapshot de mercado em tempo real (dados REAIS via observers/yfinance)."""
+    try:
+        events = await observer_events()
+        return {"status": "ok", "market_snapshot": events}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
+
+
+async def _macro_score_tool(dimension: str | None = None) -> dict:
+    """Macro Score determinístico — todos os scores ou um por dimensão."""
+    try:
+        scores = (
+            await macro_score_compute_all()
+            if dimension is None
+            else {dimension: await macro_score_compute(dimension)}
+        )
+        return {"status": "ok", "macro_scores": scores}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
+
+
 async def _regime_signals_tool() -> dict:
     return {"signals": await regime_classify_all()}
 
@@ -1086,8 +1115,24 @@ _agent_tools = [
         handler=_market_events_tool,
     ),
     ToolSpec(
+        name="market_snapshot",
+        description="Snapshot de mercado em tempo real (dados reais via observers/yfinance).",
+        handler=_market_snapshot_tool,
+    ),
+    ToolSpec(
+        name="macro_score",
+        description="Consulta os scores determinísticos do Macro Score (todas as dimensões ou uma específica).",
+        parameters={"dimension": "string, opcional — nome de uma dimensão (ex.: commodities)"},
+        handler=_macro_score_tool,
+    ),
+    ToolSpec(
         name="regime_signals",
         description="Consulta os sinais de regime macro calculados pelo engine determinístico.",
+        handler=_regime_signals_tool,
+    ),
+    ToolSpec(
+        name="regime",
+        description="Alias de regime_signals: classificação de regime atual por dimensão (dado real, sem LLM).",
         handler=_regime_signals_tool,
     ),
     ToolSpec(

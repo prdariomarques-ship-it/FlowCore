@@ -130,11 +130,13 @@ Endpoints (LLM Router — provider-agnostic LLM access, added after Sprint 25):
 from __future__ import annotations
 
 import asyncio
+import hmac
+import os
 import time
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, JSONResponse
 from loguru import logger
 from pydantic import BaseModel, create_model
 
@@ -143,6 +145,15 @@ from runtime.portfolio.attributes import ASSET_ATTRIBUTE_FIELDS
 from runtime.product_mapping import DEFAULT_SHELF, ProductMappingError
 
 _WEB_DIR = Path(__file__).resolve().parent.parent / "web"
+
+
+def _constant_time_eq(a: str, b: str) -> bool:
+    """Constant-time string equality for token comparison."""
+    return hmac.compare_digest(a.encode("utf-8"), b.encode("utf-8"))
+
+
+async def _json_response(payload: dict, status_code: int) -> JSONResponse:
+    return JSONResponse(status_code=status_code, content=payload)
 
 
 # ---------------------------------------------------------------------------
@@ -257,6 +268,30 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     """Create the FastAPI application."""
     app = FastAPI(title="FlowCore API", version=version)
     _platform = platform_info or {}
+
+    # ── Token auth for /api/* routes (optional, env-driven) ─────────────
+    # When FLOWCORE_API_TOKEN is set in the environment (or .env, which
+    # flowcore.py loads before this module), every /api/* request EXCEPT
+    # /api/health and / must carry the matching X-FlowCore-Token header.
+    # With no env var, the API keeps its previous open behaviour — so
+    # existing consumers (Web UI, Mobile, CLI) are never broken.
+    _api_token: str | None = os.getenv("FLOWCORE_API_TOKEN")
+    _token_protected_prefixes = ("/api/",)
+    _token_public_paths = {"/api/health", "/"}
+
+    @app.middleware("http")
+    async def flowcore_token_auth(request: Request, call_next):
+        if not _api_token:
+            return await call_next(request)
+        path = request.url.path
+        if any(path.startswith(p) for p in _token_protected_prefixes) and path not in _token_public_paths:
+            provided = request.headers.get("X-FlowCore-Token", "")
+            # Constant-time comparison to avoid timing side-channels.
+            if not provided or not _constant_time_eq(provided, _api_token):
+                return await _json_response(
+                    {"detail": "invalid or missing X-FlowCore-Token"}, 401
+                )
+        return await call_next(request)
 
     # ── Web UI ──────────────────────────────────────────────────────────
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
