@@ -1027,6 +1027,26 @@ async def _portfolio_summary_tool(portfolio_id: int | None = None) -> dict:
     return await portfolio_summary(portfolio_id)
 
 
+async def _market_events_tool() -> dict:
+    return {"events": await observer_events()}
+
+
+async def _regime_signals_tool() -> dict:
+    return {"signals": await regime_classify_all()}
+
+
+async def _portfolio_impact_tool(portfolio_id: int) -> dict:
+    return await portfolio_impact(portfolio_id)
+
+
+async def _portfolio_exposure_tool(portfolio_id: int, dimension: str | None = None) -> dict:
+    return await portfolio_exposure(portfolio_id, dimension)
+
+
+async def _portfolio_recommendations_tool(portfolio_id: int, shelf: str = DEFAULT_SHELF) -> dict:
+    return await portfolio_recommendations(portfolio_id, shelf)
+
+
 _agent_tools = [
     ToolSpec(
         name="doctor",
@@ -1059,6 +1079,34 @@ _agent_tools = [
         description="Consulta o resumo (valor total, custo, ganho) de uma carteira existente.",
         parameters={"portfolio_id": "int, opcional se so existir uma carteira cadastrada"},
         handler=_portfolio_summary_tool,
+    ),
+    ToolSpec(
+        name="market_events",
+        description="Consulta os eventos reais dos observers de mercado registrados pelo Core.",
+        handler=_market_events_tool,
+    ),
+    ToolSpec(
+        name="regime_signals",
+        description="Consulta os sinais de regime macro calculados pelo engine determinístico.",
+        handler=_regime_signals_tool,
+    ),
+    ToolSpec(
+        name="portfolio_impact",
+        description="Calcula o impacto macro atual sobre uma carteira existente.",
+        parameters={"portfolio_id": "int, obrigatório"},
+        handler=_portfolio_impact_tool,
+    ),
+    ToolSpec(
+        name="portfolio_exposure",
+        description="Calcula a exposição de uma carteira por dimensão, sem interpretação do LLM.",
+        parameters={"portfolio_id": "int, obrigatório", "dimension": "string, opcional"},
+        handler=_portfolio_exposure_tool,
+    ),
+    ToolSpec(
+        name="portfolio_recommendations",
+        description="Consulta recomendações determinísticas da carteira, opcionalmente enriquecidas por shelf.",
+        parameters={"portfolio_id": "int, obrigatório", "shelf": "string, opcional"},
+        handler=_portfolio_recommendations_tool,
     ),
 ]
 
