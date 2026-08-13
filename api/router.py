@@ -1119,4 +1119,48 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         except ValueError as e:
             raise HTTPException(status_code=404, detail=str(e))
 
+    # ── Market Intelligence (expansion over Observer/Macro/Regime) ─────────
+    # Composed over already-validated observers — every number here is a
+    # real yfinance-backed quote. Failing sources degrade silently.
+    @app.get("/api/market/asset-classes")
+    async def market_asset_classes():
+        from runtime.market_intelligence.asset_classes import analyze_asset_classes
+        return analyze_asset_classes()
+
+    @app.get("/api/market/yield-curve")
+    async def market_yield_curve():
+        from runtime.market_intelligence.yield_curve import build_yield_curve
+        return build_yield_curve().to_dict()
+
+    @app.get("/api/market/fx")
+    async def market_fx():
+        from runtime.market_intelligence.fx_analysis import analyze_fx
+        return analyze_fx()
+
+    @app.get("/api/market/watchlists")
+    async def market_list_watchlists():
+        from runtime.market_intelligence.watchlist import list_watchlists
+        return list_watchlists()
+
+    @app.get("/api/market/watchlist/{watchlist}")
+    async def market_watchlist(watchlist: str):
+        from runtime.market_intelligence.watchlist import snapshot
+        return snapshot(watchlist)
+
+    @app.get("/api/market/alerts")
+    async def market_alerts():
+        from runtime.market_intelligence.alerts import evaluate_alerts, list_alerts
+        return {"fired_now": evaluate_alerts(),
+                "history": list_alerts()}
+
+    @app.get("/api/market/calendar")
+    async def market_calendar():
+        from runtime.market_intelligence.calendar import today_events
+        return {"events": today_events()}
+
+    @app.get("/api/market/briefing")
+    async def market_briefing():
+        from runtime.market_intelligence.briefing import build_briefing
+        return build_briefing()
+
     return app

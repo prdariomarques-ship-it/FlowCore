@@ -1047,6 +1047,30 @@ async def _portfolio_recommendations_tool(portfolio_id: int, shelf: str = DEFAUL
     return await portfolio_recommendations(portfolio_id, shelf)
 
 
+def _market_briefing_tool() -> dict:
+    from runtime.market_intelligence.briefing import build_briefing
+
+    return build_briefing()
+
+
+def _market_yield_curve_tool() -> dict:
+    from runtime.market_intelligence.yield_curve import build_yield_curve
+
+    return build_yield_curve().to_dict()
+
+
+def _market_fx_tool() -> dict:
+    from runtime.market_intelligence.fx_analysis import analyze_fx
+
+    return analyze_fx()
+
+
+def _market_alerts_tool() -> dict:
+    from runtime.market_intelligence.alerts import evaluate_alerts, list_alerts
+
+    return {"fired_now": evaluate_alerts(), "history": list_alerts()}
+
+
 _agent_tools = [
     ToolSpec(
         name="doctor",
@@ -1107,6 +1131,26 @@ _agent_tools = [
         description="Consulta recomendações determinísticas da carteira, opcionalmente enriquecidas por shelf.",
         parameters={"portfolio_id": "int, obrigatório", "shelf": "string, opcional"},
         handler=_portfolio_recommendations_tool,
+    ),
+    ToolSpec(
+        name="market_briefing",
+        description="Gera o briefing diário estruturado do mercado com dados reais (taxas, bolsa, FX, commodities, vol).",
+        handler=_market_briefing_tool,
+    ),
+    ToolSpec(
+        name="market_yield_curve",
+        description="Analisa a curva de juros americana (2Y/5Y/10Y/30Y) e detecta inclinação/achatamento/inversão.",
+        handler=_market_yield_curve_tool,
+    ),
+    ToolSpec(
+        name="market_fx",
+        description="Analisa o regime do dólar (DXY) e pares cambiais principais com dados reais.",
+        handler=_market_fx_tool,
+    ),
+    ToolSpec(
+        name="market_alerts",
+        description="Consulta os alertas de mercado com severidade e o histórico de eventos disparados.",
+        handler=_market_alerts_tool,
     ),
 ]
 
