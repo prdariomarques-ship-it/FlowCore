@@ -62,7 +62,15 @@ def check_health() -> dict[str, Any]:
         raise WhatsAppError(f"Evolution API unreachable: {e}") from e
     if r.status_code != 200:
         raise WhatsAppError(f"Evolution API error {r.status_code}: {r.text[:300]}")
-    return r.json()
+    try:
+        return r.json()
+    except ValueError:
+        raise WhatsAppError(
+            f"{_api_url()} answered HTTP {r.status_code} but not with Evolution "
+            "API JSON — check EVOLUTION_API_URL: another service (possibly "
+            "FlowCore itself, which moved to port 8090) may be answering on "
+            "that port."
+        )
 
 
 def get_status() -> dict[str, Any]:
