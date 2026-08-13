@@ -252,7 +252,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
         <div class="sg">
           <div class="st"><div class="sv" id="dash-flows">─</div><div class="sl">Flows</div></div>
           <div class="st"><div class="sv" id="dash-execs">─</div><div class="sl">Execuções</div></div>
-          <div class="st"><div class="sv" id="dash-success">─</div><div class="sl">Sucesso</div></div>
+          <div class="st"><div class="sv" id="dash-success">0%</div><div class="sl">Sucesso</div></div>
           <div class="st"><div class="sv" id="dash-fail">─</div><div class="sl">Falhas</div></div>
         </div>
       </div>
@@ -269,17 +269,21 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 
       <div class="card">
         <div class="ch"><span class="ct">Execuções recentes</span><span class="ci">🕓</span></div>
-        <div id="exec-list"><div class="sk"></div><div class="sk"></div></div>
+                <div id="exec-list"><div class="sk"></div><div class="sk"></div></div>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="ct">Mercado · Macro Score</span><span class="ci">🌎</span></div>
+        <div id="dash-market"><div class="sk"></div></div>
       </div>
     </div>
   </div>
-
   <!-- ══ PORTFÓLIO (Sprint 21-23 — Portfolio Domain / Exposure / Impact Engine) ══ -->
   <div class="page" id="page-portfolio">
     <div class="gap">
       <div class="card">
         <div class="ch"><span class="ct">Portfólio</span><span class="ci">💼</span></div>
-        <div class="ir"><select class="if" id="pf-select" onchange="onPortfolioSelect()"></select></div>
+        <div class="ir"><select class="if" id="pf-select" onchange="onPortfolioSelect()"></select>
+          <button class="btn-sm" onclick="pfCreatePrompt()">+ Criar</button></div>
         <div class="sg" id="pf-summary"></div>
       </div>
 
@@ -317,6 +321,10 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 
       <div class="card">
         <div class="ch"><span class="ct">Holdings</span><span class="ci">📄</span></div>
+        <div class="ir"><input class="if" id="hold-sym" placeholder="Símbolo (ex: AAPL)">
+          <input class="if" id="hold-qty" type="number" step="any" placeholder="Qtde">
+          <input class="if" id="hold-cost" type="number" step="any" placeholder="Custo médio">
+          <button class="bs2" onclick="holdAdd()">✓</button></div>
         <div id="pf-holdings"><div class="sk"></div></div>
       </div>
     </div>
@@ -775,16 +783,42 @@ function renderPassport(pp){
 
 /* ── Dashboard ── */
 async function loadDashboard(){
+  // Cada chamada é independente: uma falha NÃO derruba o dashboard inteiro.
+  let flows=[],execs=[];
   try{
-    const [flowsR,execR]=await Promise.all([api('/api/flows'),api('/api/executions?limit=200')]);
-    const flows=flowsR.flows||[];
-    const execs=execR.executions||[];
-    renderDashStats(flows,execs);
-    renderExecChart(execs);
-    renderFlowsList(flows);
-    renderExecList(execs);
+    const r=await api('/api/flows'); flows=r.flows||[];
   }catch(e){
-    document.getElementById('flows-list').innerHTML='<div class="empty">Erro a carregar dashboard</div>';
+    document.getElementById('flows-list').innerHTML=`<div class="empty">Flows indisponíveis: ${e.message}</div>`;
+  }
+  try{
+    const r=await api('/api/executions?limit=200'); execs=r.executions||[];
+  }catch(e){
+    document.getElementById('exec-list').innerHTML=`<div class="empty">Execuções indisponíveis: ${e.message}</div>`;
+  }
+  renderDashStats(flows,execs);
+  renderExecChart(execs);
+  renderFlowsList(flows);
+  renderExecList(execs);
+  loadDashMarket();
+}
+async function loadDashMarket(){
+  const el=document.getElementById('dash-market');
+  try{
+    const r=await api('/api/macro-score/scores');
+    const scores=r.scores||[];
+    if(!scores.length){el.innerHTML='<div class="empty">DADOS INSUFICIENTES — observers precisam de ≥5 amostras por dimensão. Rode a ingestão e aguarde.</div>';return;}
+    const when=((scores[0].computed_at)||'').replace('T',' ').slice(0,19);
+    let html='<div class="row" style="border:none"><span class="rl">Última atualização</span><span class="rv">'+(when||'—')+'</span></div>';
+    for(const s of scores){
+      const v=s.score===null?'—':Number(s.score).toFixed(2);
+      const cls=s.status==='scored'?(s.score>=0?'tg':'tr'):'ty';
+      const n=Object.values(s.sample_counts||{}).reduce((a,b)=>a+b,0);
+      const lbl=s.status==='scored'?'calculado':'poucas amostras ('+n+')';
+      html+=`<div class="row"><span>${s.dimension}</span><span class="${cls}">${v} · ${lbl}</span></div>`;
+    }
+    el.innerHTML=html;
+  }catch(e){
+    el.innerHTML=`<div class="empty">Mercado indisponível: ${e.message}</div>`;
   }
 }
 
@@ -793,7 +827,7 @@ function renderDashStats(flows,execs){
   document.getElementById('dash-execs').textContent=execs.length;
   const done=execs.filter(e=>e.status==='completed').length;
   const failed=execs.filter(e=>e.status==='failed').length;
-  document.getElementById('dash-success').textContent=execs.length?Math.round(done/execs.length*100)+'%':'─';
+  document.getElementById('dash-success').textContent=execs.length?Math.round(done/execs.length*100)+'%':'0%';
   document.getElementById('dash-fail').textContent=failed;
 }
 
@@ -1110,13 +1144,44 @@ async function loadPortfolioHoldings(){
       const gain=h.unrealized_gain;
       const tag=gain==null?'ty':(gain>=0?'tg':'tr');
       const gainStr=gain==null?'n/a':`${gain>=0?'+':''}${gain.toFixed(2)}`;
-      return `<div class="row"><span class="rl">${h.symbol} · ${h.quantity}</span><span class="rv"><span class="tag ${tag}">${gainStr}</span></span></div>`;
+      return `<div class="row"><span class="rl">${h.symbol} · ${h.quantity}</span><span class="rv"><span class="tag ${tag}">${gainStr}</span> <button class="btn-sm" onclick="holdRemove(${h.id})">✕</button></span></div>`;
     }).join('');
   }catch(e){
     el.innerHTML='<div class="empty">Erro ao carregar holdings</div>';
   }
 }
 
+/* ── Portfolio: criar carteira e gerir holdings ── */
+async function pfCreatePrompt(){
+  const name=prompt('Nome da nova carteira:');
+  if(!name||!name.trim())return;
+  try{
+    const r=await api('/api/portfolios',{method:'POST',body:JSON.stringify({name:name.trim()})});
+    _pfId=r.id;
+    toast('✓ Carteira criada');
+    loadPortfolios();
+  }catch(e){toast('Erro: '+e.message);}
+}
+async function holdAdd(){
+  const sym=document.getElementById('hold-sym').value.trim().toUpperCase();
+  const qty=parseFloat(document.getElementById('hold-qty').value);
+  const cost=parseFloat(document.getElementById('hold-cost').value);
+  if(!sym||!qty){toast('Preenche símbolo e quantidade');return;}
+  try{
+    await api(`/api/portfolios/${_pfId}/holdings`,{method:'POST',body:JSON.stringify({symbol:sym,quantity:qty,average_cost:isNaN(cost)?null:cost})});
+    ['hold-sym','hold-qty','hold-cost'].forEach(id=>document.getElementById(id).value='');
+    toast('✓ Ativo adicionado');
+    onPortfolioSelect();
+  }catch(e){toast('Erro: '+e.message);}
+}
+async function holdRemove(id){
+  if(!confirm('Remover este ativo?'))return;
+  try{
+    await api(`/api/holdings/${id}`,{method:'DELETE'});
+    toast('✓ Ativo removido');
+    onPortfolioSelect();
+  }catch(e){toast('Erro: '+e.message);}
+}
 /* ── Calendar ── */
 async function loadCalendar(){
   await Promise.all([loadCalNext(), loadCalToday(), loadCalWeek()]);
@@ -1136,20 +1201,24 @@ async function loadCalNext(){
     const r=await api('/api/calendar/next');
     el.innerHTML=r.event?renderCalEvent(r.event):'<div class="empty">Sem reuniões nos próximos 30 dias.</div>';
   }catch(e){
-    el.innerHTML=`<div class="empty">${e.message}</div>`;
+        el.innerHTML=`<div class="empty">Calendário indisponível: ${calErrorNote(e.message)}</div>`;
   }
 }
-
 async function loadCalToday(){
   const el=document.getElementById('cal-today');
   try{
     const r=await api('/api/calendar/today');
     el.innerHTML=(r.events||[]).length?r.events.map(renderCalEvent).join(''):'<div class="empty">Sem eventos hoje.</div>';
   }catch(e){
-    el.innerHTML=`<div class="empty">${e.message}</div>`;
+    el.innerHTML=`<div class="empty">Calendário indisponível: ${calErrorNote(e.message)}</div>`;
   }
 }
 
+function calErrorNote(msg){
+  if(/503|not.?config|oauth|credential/i.test(msg))
+    return 'Google Calendar não configurado. Adicione as credenciais OAuth no .env para ativar.';
+  return msg;
+}
 async function loadCalWeek(){
   const el=document.getElementById('cal-week');
   try{
@@ -1167,7 +1236,7 @@ async function loadCalWeek(){
     }
     el.innerHTML=html;
   }catch(e){
-    el.innerHTML=`<div class="empty">${e.message}</div>`;
+    el.innerHTML=`<div class="empty">Calendário indisponível: ${calErrorNote(e.message)}</div>`;
   }
 }
 
