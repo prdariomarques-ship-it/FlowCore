@@ -62,9 +62,10 @@ class DocumentRepository:
     async def list_all(self) -> list[dict[str, Any]]:
         await self.ensure_table()
         async with aiosqlite.connect(self._db_path) as db:
-            cursor = await db.execute("SELECT id, title, source, created_at FROM documents ORDER BY created_at DESC")
+            cursor = await db.execute(
+                "SELECT id, title, content, source, created_at FROM documents ORDER BY created_at DESC")
             rows = await cursor.fetchall()
-            return [{"id": r[0], "title": r[1], "source": r[2], "created_at": r[3]} for r in rows]
+            return [{"id": r[0], "title": r[1], "content": r[2], "source": r[3], "created_at": r[4]} for r in rows]
 
     async def get_by_id(self, doc_id: int) -> dict[str, Any] | None:
         await self.ensure_table()
@@ -97,6 +98,14 @@ class DocumentRepository:
             )
             rows = await cursor.fetchall()
             return [{"title": r[0], "content": r[1], "created_at": r[2]} for r in rows]
+
+    async def delete(self, doc_id: int) -> bool:
+        """Delete a document. Returns True if a row was removed."""
+        await self.ensure_table()
+        async with aiosqlite.connect(self._db_path) as db:
+            await db.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
+            await db.commit()
+            return db.total_changes > 0
 
     async def count(self) -> int:
         await self.ensure_table()

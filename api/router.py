@@ -983,6 +983,21 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             return {"notes": await service.list_notes(kind=kind)}
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+    @app.delete("/api/notes/{note_id}")
+    async def delete_note(note_id: int):
+        """Delete a note/todo/agenda document — same source of truth consumed
+        by the Web UI, the mobile agent and the personal agent."""
+        try:
+            from storage.document_repo import DocumentRepository
+
+            deleted = await DocumentRepository().delete(note_id)
+            if not deleted:
+                raise HTTPException(status_code=404, detail="Note not found")
+            return {"deleted": True}
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
     @app.post("/api/notes", status_code=201)
     async def create_note(data: NoteCreate):
