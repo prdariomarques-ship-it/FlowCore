@@ -321,18 +321,20 @@ class TestIntegrationsStatus:
             patch.object(service, "_check_outlook_mailbox", new=self._ok("b")),
             patch.object(service, "_check_outlook_calendar", new=self._ok("c")),
             patch.object(service, "_check_whatsapp", new=self._ok("y")),
+            patch.object(service, "_check_telegram", new=self._ok("t")),
             patch.object(service, "_check_ollama", new=self._ok("z")),
             patch.object(service, "_check_android", new=self._ok("w")),
             patch.object(service, "_check_mcp", new=self._ok("m")),
         ):
             results = asyncio.run(service.integrations_status())
-        assert len(results) == 7
+        assert len(results) == 8
         names = {r["name"] for r in results}
         assert names == {
             "Outlook Auth",
             "Outlook Mailbox",
             "Outlook Calendar",
             "WhatsApp",
+            "Telegram",
             "Ollama",
             "Android",
             "MCP",
@@ -353,12 +355,13 @@ class TestIntegrationsStatus:
             patch.object(service, "_check_outlook_mailbox", new=self._ok("b")),
             patch.object(service, "_check_outlook_calendar", new=self._ok("c")),
             patch.object(service, "_check_whatsapp", new=self._ok("y")),
+            patch.object(service, "_check_telegram", new=self._ok("t")),
             patch.object(service, "_check_ollama", new=self._ok("z")),
             patch.object(service, "_check_android", new=self._ok("w")),
             patch.object(service, "_check_mcp", new=self._ok("m")),
         ):
             results = asyncio.run(service.integrations_status())
-        assert len(results) == 7
+        assert len(results) == 8
         outlook_result = next(r for r in results if r["name"] == "Outlook Auth")
         assert outlook_result["status"] == "error"
         assert "boom" in outlook_result["detail"]

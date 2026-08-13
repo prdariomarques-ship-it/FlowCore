@@ -504,6 +504,18 @@ async def _check_whatsapp() -> dict:
     return {"status": "ok" if ok else "error", "detail": detail, "error": None if ok else detail}
 
 
+async def _check_telegram() -> dict:
+    """Fast, non-throwing Telegram bot reachability check."""
+    try:
+        from runtime.telegram import check_health
+
+        result = await asyncio.to_thread(check_health)
+        detail = result.get("username") or result.get("first_name") or "reachable"
+        return {"status": "ok", "detail": detail, "error": None}
+    except Exception as e:
+        return {"status": "error", "detail": str(e), "error": str(e)}
+
+
 async def _check_ollama() -> dict:
     from runtime.ollama import OllamaDiscoveryError, discover_default_model, discover_ollama_endpoint
 
@@ -603,6 +615,7 @@ async def integrations_status() -> list[dict]:
         ("Outlook Mailbox", _check_outlook_mailbox),
         ("Outlook Calendar", _check_outlook_calendar),
         ("WhatsApp", _check_whatsapp),
+        ("Telegram", _check_telegram),
         ("Ollama", _check_ollama),
         ("Android", _check_android),
         ("MCP", _check_mcp),
@@ -626,10 +639,6 @@ async def integrations_status() -> list[dict]:
 
 
 # ── Telegram (Sprint 17, Milestone 4) ─────────────────────────────────────────
-# Not wired into integrations_status() above — that function is being actively
-# extended by a separate in-flight task (docs/JULES_TASKS_INTEGRATION_DASHBOARD.md,
-# GitHub issue #4), and touching it here risks a merge collision. Adding a
-# Telegram row to the dashboard is a natural, small follow-up once that work lands.
 
 
 async def telegram_health() -> dict:

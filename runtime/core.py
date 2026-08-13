@@ -64,15 +64,50 @@ class FlowCoreRuntime:
         self.platform_info = detect_platform()
 
     async def start(self) -> None:
-        """Bootstrap the application."""
+        """Bootstrap the application and ensure Core-owned observer ingestion is registered."""
         logger.info(
             "FlowCore starting — platform: termux={} android={} python={}",
             self.platform_info["termux"],
             self.platform_info["android"],
             self.platform_info["python_version"],
         )
+        self._ensure_observer_ingestion_job()
         self._running = True
         logger.info("FlowCore started successfully")
+
+    def _ensure_observer_ingestion_job(self) -> None:
+        """Register the canonical observer ingestion job through JobScheduler.
+
+        Registration is intentionally best-effort: environments without cron or
+        Termux's scheduler can still run the API and invoke the ingestion script
+        manually. The Core remains the single owner of this job; Web and Mobile
+        only consume the resulting events and derived reports.
+        """
+        if os.environ.get("FLOWCORE_AUTO_INGEST", "1").lower() in {"0", "false", "no", "off"}:
+            logger.info("Observer ingestion auto-registration disabled by FLOWCORE_AUTO_INGEST")
+            return
+
+        script = self.root / "scripts" / "ingest_observers.py"
+        if not script.exists():
+            logger.warning("Observer ingestion script not found: {}", script)
+            return
+
+        schedule = os.environ.get("FLOWCORE_OBSERVER_SCHEDULE", "*/15 * * * *")
+        try:
+            from runtime.job_scheduler import JobScheduler
+
+            registered = JobScheduler().add_job(
+                "observer_ingest",
+                str(script),
+                schedule,
+            )
+            logger.info(
+                "Observer ingestion job ensured: schedule={} registered={}",
+                schedule,
+                registered,
+            )
+        except Exception as exc:
+            logger.warning("Could not register observer ingestion job: {}", exc)
 
     async def stop(self) -> None:
         """Gracefully shut down."""
