@@ -158,3 +158,54 @@ class TestSendMessage:
         with patch("runtime.telegram.urllib.request.urlopen", return_value=_mock_urlopen(payload)):
             with pytest.raises(TelegramError):
                 send_message("hello")
+
+
+class TestBuildBriefingMessage:
+    """build_briefing_message composes a rich SPC-X/SML digest with real-data
+    providers mocked (no network) — verifies structure and HTML escaping."""
+
+    def test_builds_message_with_regime_and_escaping(self, monkeypatch):
+        from runtime.telegram import build_briefing_message
+
+        def fake_briefing():
+            return {
+                "lines": [
+                    "CURVA EUA: flat (10Y-2Y -10 bps)",
+                    "EQUITIES: 20 fontes | destaques: SPX -1.2%",
+                ],
+                "generated_at": "2026-08-14T00:00:00Z",
+            }
+
+        def fake_fetch_news(max_per_group=2):
+            return {"items": [
+                {"category": "brasil", "title": "Banco Central <mantém> Selic & sinaliza"},
+                {"category": "usa", "title": "Fed keeps rates on hold"},
+            ]}
+
+        def fake_classify_all():
+            return {
+                "commodities": {"status": "depressed"},
+                "liquidity": {"status": "depressed"},
+                "risk_sentiment": {"status": "elevated"},
+            }
+
+        with patch("runtime.market_intelligence.briefing.build_briefing", side_effect=fake_briefing), \
+             patch("runtime.market_intelligence.news.fetch_news", side_effect=fake_fetch_news), \
+             patch("runtime.regime.engine.RegimeEngine") as _mock_engine:
+            _mock_engine.return_value.classify_all.return_value = fake_classify_all()
+            msg = build_briefing_message()
+
+        assert "DARIO OS — RADAR DE MERCADO" in msg
+        assert "Commodities: 📉 DEPRIMIDO" in msg
+        assert "Risk Sentiment: ⚠️ ELEVADO" in msg
+        assert "NOTÍCIAS DO DIA" in msg
+        assert "Selic" in msg
+        # HTML escaping of user-visible news titles
+        assert "<mantém>" not in msg
+        assert "&lt;mantém&gt;" in msg
+        assert "&amp; sinaliza" in msg
+        assert len(msg) <= 4095
+
+    def test_escape_covers_entities(self):
+        from runtime.telegram import _escape
+        assert _escape("<b>x&y</b>") == "&lt;b&gt;x&amp;y&lt;/b&gt;"

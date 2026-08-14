@@ -65,6 +65,100 @@ def check_health() -> dict[str, Any]:
     return _call("getMe", token)
 
 
+def _escape(text: str) -> str:
+    """Escape text for Telegram HTML parse mode."""
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def build_briefing_message() -> str:
+    """Compose a rich HTML briefing from real market data (SPC-X/SML digest format).
+
+    Includes: headline date, US yield curve with slope, FX (DXY + pairs with regime),
+    asset classes with movers, macro regime (SCPX), macro-score trends and market
+    news/alert counts. Telegram supports HTML with a 4096-char limit — sections are
+    capped to stay under it; HTML escaping is applied to all free text.
+    """
+    from runtime.market_intelligence.briefing import build_briefing
+    from runtime.market_intelligence.news import fetch_news
+    from runtime.regime.engine import RegimeEngine
+
+    b = build_briefing()
+    lines = b["lines"]
+    if not lines:
+        lines = ["Mercado: sem dados suficientes no momento."]
+
+    # Headline com status do regime
+    try:
+        regime = RegimeEngine().classify_all()
+    except Exception:
+        regime = None
+    status_map = {
+        "elevated": "⚠️ ELEVADO",
+        "depressed": "📉 DEPRIMIDO",
+        "neutral": "➖ NEUTRO",
+        "bullish": "📈 ALTA",
+        "bearish": "📉 BAIXA",
+        "insufficient_data": "❓ SEM DADOS",
+    }
+    def status_label(v: str | dict) -> str:
+        if isinstance(v, dict):
+            v = v.get("status", v.get("regime", ""))
+        return str(status_map.get(str(v), str(v).upper()))
+
+    headline = "📊 <b>DARIO OS — RADAR DE MERCADO</b>"
+    if regime and isinstance(regime, dict):
+        labels = []
+        for dim in ("commodities", "liquidity", "risk_sentiment"):
+            if dim in regime:
+                labels.append(f"{dim.replace('_', ' ').title()}: {status_label(regime[dim])}")
+        if labels:
+            headline += "\n⚖️ <b>REGIME SCPX:</b> " + " | ".join(labels)
+
+    # Corpo: só as linhas principais, sem pontos internos para caber no limite
+    body_parts: list[str] = [headline, ""]
+    for line in lines[:22]:  # margem de segurança dentro dos 4096 chars
+        if not line:
+            continue
+        line = _escape(line)
+        line = line.replace("|", "·")
+        if line.startswith("  "):
+            line = "─ " + line.strip()
+        body_parts.append(line)
+
+    # Notícias do dia em uma seção própria (títulos, não apenas contagem)
+    news_section: list[str] = []
+    try:
+        news = fetch_news(max_per_group=2)
+        if news.get("items"):
+            news_section.append("")
+            news_section.append("🗞️ <b>NOTÍCIAS DO DIA</b>")
+            for it in news["items"][:8]:
+                cat = _escape(it.get("category", "")).upper()[:24]
+                title = _escape(it.get("title", ""))[:95]
+                news_section.append(f"• <b>[{cat}]</b> {title}")
+    except Exception:  # noqa: BLE001
+        pass
+
+    msg = "\n".join(body_parts + news_section)
+    return msg[:4095]
+
+
+def send_briefing(chat_id: str | None = None, timeout: float = 15) -> dict[str, Any]:
+    """Send the rich daily briefing (HTML) to the configured chat."""
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    if not token:
+        raise TelegramNotConfiguredError("TELEGRAM_BOT_TOKEN not set. Add the spcx-monitor bot's token to .env.")
+    resolved_chat_id = chat_id or os.getenv("TELEGRAM_CHAT_ID")
+    if not resolved_chat_id:
+        raise TelegramNotConfiguredError("chat_id not provided and TELEGRAM_CHAT_ID not set.")
+    return _call(
+        "sendMessage",
+        token,
+        {"chat_id": resolved_chat_id, "text": build_briefing_message(), "parse_mode": "HTML"},
+        timeout=timeout,
+    )
+
+
 def send_message(text: str, chat_id: str | None = None, timeout: float = 10) -> dict[str, Any]:
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     if not token:

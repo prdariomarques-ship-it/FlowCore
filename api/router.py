@@ -74,6 +74,7 @@ Endpoints (Sprint 17, Milestone 4 — Telegram, reuses the spcx-monitor bot):
   GET  /api/telegram/health   — verifies the bot token via Telegram's getMe
   GET  /api/telegram/config   — static check: are the env vars set at all
   POST /api/telegram/send     — send a message ({text, chat_id?})
+  POST /api/telegram/briefing — send the rich daily market briefing (SPC-X/SML digest)
 
 Endpoints (Sprint 18 — SCPX Observer Framework, normalized MarketEvents):
   GET  /api/observer/registry         — registered observers (name/category/symbol), no fetch
@@ -722,6 +723,18 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             return await service.telegram_send(data.text, data.chat_id)
         except TelegramNotConfiguredError as e:
             raise HTTPException(status_code=503, detail=str(e))
+        except TelegramError as e:
+            raise HTTPException(status_code=502, detail=str(e))
+
+    @app.post("/api/telegram/briefing")
+    async def telegram_briefing():
+        """Send the rich daily market briefing (SPC-X/SML digest format) to the configured chat."""
+        from runtime.telegram import TelegramError, TelegramNotConfiguredError
+
+        try:
+            return await service.telegram_briefing()
+        except TelegramNotConfiguredError as e:
+            raise HTTPException(status_code=422, detail=str(e))
         except TelegramError as e:
             raise HTTPException(status_code=502, detail=str(e))
 

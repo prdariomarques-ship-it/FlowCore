@@ -659,6 +659,12 @@ async def telegram_send(text: str, chat_id: str | None = None) -> dict:
     return await asyncio.to_thread(send_message, text, chat_id)
 
 
+async def telegram_briefing() -> dict:
+    from runtime.telegram import send_briefing
+
+    return await asyncio.to_thread(send_briefing)
+
+
 # ── SCPX Observer Framework (Sprint 18) ─────────────────────────────────────────
 # The "Market Data" stage of the SCPX pipeline (FLOWCORE_CONSTITUTION.md,
 # "SCPX Vision"). Observers only observe — normalized MarketEvents out, no
