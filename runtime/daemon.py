@@ -135,11 +135,49 @@ def _pid_alive(pid: int) -> bool:
         return False
 
 
+# ── Observer cycle hook (env-controlled, default OFF) ────────────────────────
+
+
+def _observe_once_safe() -> int:
+    """Run every registered market observer once, persisting events
+    (storage.EventRepository, Sprint 19). Never raises: the daemon logs a
+    warning and keeps running if anything goes wrong. Only active when the
+    env var FLOWCORE_DAEMON_OBSERVE=1 is set — preserves the existing
+    heartbeat-only behaviour for everyone else."""
+    if os.environ.get("FLOWCORE_DAEMON_OBSERVE", "") != "1":
+        return 0
+    try:
+        import asyncio
+
+        from runtime.observers.registry import registry as _default_registry
+        from runtime.observers.scheduler import ObserverScheduler, _default_event_repo
+
+        async def _run() -> int:
+            scheduler = ObserverScheduler(_default_registry, event_repo=_default_event_repo())
+            events = await scheduler.run_once()
+            return len(events)
+
+        loop = asyncio.new_event_loop()
+        try:
+            count = loop.run_until_complete(_run())
+        finally:
+            loop.close()
+        print(f"[daemon] observer cycle: {count} event(s) persisted", flush=True)
+        return count
+    except Exception as e:
+        print(f"[daemon] observer cycle failed (non-fatal): {e}", flush=True)
+        return -1
+
+
 # ── Daemon loop (runs in the child process) ───────────────────────────────────
 
 
 def _run_daemon_loop(interval: int) -> None:
-    """Heartbeat loop executed inside the spawned subprocess."""
+    """Heartbeat loop executed inside the spawned subprocess.
+
+    With FLOWCORE_DAEMON_OBSERVE=1 each cycle also runs every registered
+    market observer once (observer → event → storage), continuously feeding
+    the Macro Score Engine with live history — no engine is replaced."""
     _DAEMON_DIR.mkdir(parents=True, exist_ok=True)
 
     my_pid = os.getpid()
@@ -169,6 +207,11 @@ def _run_daemon_loop(interval: int) -> None:
             tmp = _STATE_FILE.with_suffix(".tmp")
             tmp.write_text(json.dumps(state))
             tmp.replace(_STATE_FILE)
+        except Exception:
+            pass
+
+        try:
+            _observe_once_safe()
         except Exception:
             pass
 
