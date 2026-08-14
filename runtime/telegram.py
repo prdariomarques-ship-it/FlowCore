@@ -70,6 +70,19 @@ def _escape(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def _score_trend_line(score: float | None, status: str) -> str:
+    """Numeric score + trend arrow for a dimension."""
+    if score is None:
+        return "sem pontuação"
+    if status == "elevated":
+        arrow = "▲"
+    elif status == "depressed":
+        arrow = "▼"
+    else:
+        arrow = "◆"
+    return f"{arrow} {score:+.2f}"
+
+
 def build_briefing_message() -> str:
     """Compose a rich HTML briefing from real market data (SPC-X/SML digest format).
 
@@ -110,9 +123,14 @@ def build_briefing_message() -> str:
         labels = []
         for dim in ("commodities", "liquidity", "risk_sentiment"):
             if dim in regime:
-                labels.append(f"{dim.replace('_', ' ').title()}: {status_label(regime[dim])}")
+                sig = regime[dim]
+                score = sig.get("score") if isinstance(sig, dict) else None
+                labels.append(
+                    f"{dim.replace('_', ' ').title()}: {status_label(sig)} "
+                    f"({_score_trend_line(score, str(sig.get('regime', ''))) if isinstance(sig, dict) else ''})"
+                )
         if labels:
-            headline += "\n⚖️ <b>REGIME SCPX:</b> " + " | ".join(labels)
+            headline += "\n⚖️ <b>REGIME SCPX:</b>\n" + "\n".join(labels)
 
     # Corpo: só as linhas principais, sem pontos internos para caber no limite
     body_parts: list[str] = [headline, ""]
@@ -125,6 +143,35 @@ def build_briefing_message() -> str:
             line = "─ " + line.strip()
         body_parts.append(line)
 
+    # Seção de tendências históricas (D-1/D-5/D-20) por dimensão — nunca interpolada
+    try:
+        from runtime.market_intelligence.score_history import score_history
+
+        hist = score_history(days=20)
+        hist_lines: list[str] = []
+        if hist and isinstance(hist, dict):
+            windows = hist.get("windows") or {}
+            for dim, wdata in windows.items():
+                if not isinstance(wdata, dict):
+                    continue
+                views = wdata.get("history") or {}
+                parts = []
+                for window in ("D-1", "D-5", "D-20"):
+                    v = views.get(window)
+                    if not isinstance(v, dict):
+                        continue
+                    val = v.get("value")
+                    if val is not None:
+                        parts.append(f"{window}: {float(val):+.2f} ({_escape(str(v.get('status', '')))})")
+                if parts:
+                    hist_lines.append(f"▪ {dim.replace('_', ' ').title()}: " + " · ".join(parts))
+        if hist_lines:
+            body_parts.append("")
+            body_parts.append("📈 <b>HISTÓRICO SCPX (DADOS REAIS)</b>")
+            body_parts.extend(hist_lines[:3])
+    except Exception:  # noqa: BLE001
+        pass
+
     # Notícias do dia em uma seção própria (títulos, não apenas contagem)
     news_section: list[str] = []
     try:
@@ -132,7 +179,7 @@ def build_briefing_message() -> str:
         if news.get("items"):
             news_section.append("")
             news_section.append("🗞️ <b>NOTÍCIAS DO DIA</b>")
-            for it in news["items"][:8]:
+            for it in news["items"][:10]:
                 cat = _escape(it.get("category", "")).upper()[:24]
                 title = _escape(it.get("title", ""))[:95]
                 news_section.append(f"• <b>[{cat}]</b> {title}")
