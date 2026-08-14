@@ -190,20 +190,44 @@ def build_briefing_message() -> str:
     return msg[:4095]
 
 
+def _resolve_chat_id(chat_id: str | None, extra_env: str | None = None) -> list[str]:
+    """Resolve destination chat(s). If multiple envs are configured (primary + SML),
+    the briefing goes to all of them — SPC-X and SML receive the same digest."""
+    candidates: list[str] = []
+    if chat_id:
+        candidates.append(str(chat_id).strip())
+    primary = (os.getenv("TELEGRAM_CHAT_ID") or "").strip()
+    secondary = (os.getenv(extra_env or "TELEGRAM_CHAT_ID_SML") or "").strip()
+    if primary:
+        candidates.append(primary)
+    if secondary and secondary not in candidates:
+        candidates.append(secondary)
+    return candidates
+
+
 def send_briefing(chat_id: str | None = None, timeout: float = 15) -> dict[str, Any]:
-    """Send the rich daily briefing (HTML) to the configured chat."""
+    """Send the rich daily briefing (HTML) to the configured chat(s).
+
+    Primary: TELEGRAM_CHAT_ID. Optional secondary (e.g. SML signal bot): TELEGRAM_CHAT_ID_SML.
+    When both are set, both chats receive the digest.
+    """
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     if not token:
         raise TelegramNotConfiguredError("TELEGRAM_BOT_TOKEN not set. Add the spcx-monitor bot's token to .env.")
-    resolved_chat_id = chat_id or os.getenv("TELEGRAM_CHAT_ID")
-    if not resolved_chat_id:
-        raise TelegramNotConfiguredError("chat_id not provided and TELEGRAM_CHAT_ID not set.")
-    return _call(
-        "sendMessage",
-        token,
-        {"chat_id": resolved_chat_id, "text": build_briefing_message(), "parse_mode": "HTML"},
-        timeout=timeout,
-    )
+    targets = _resolve_chat_id(chat_id)
+    if not targets:
+        raise TelegramNotConfiguredError(
+            "chat_id not provided and TELEGRAM_CHAT_ID / TELEGRAM_CHAT_ID_SML not set."
+        )
+    last_result: dict[str, Any] | None = None
+    for target in targets:
+        last_result = _call(
+            "sendMessage",
+            token,
+            {"chat_id": target, "text": build_briefing_message(), "parse_mode": "HTML"},
+            timeout=timeout,
+        )
+    return last_result or {}
 
 
 def send_message(text: str, chat_id: str | None = None, timeout: float = 10) -> dict[str, Any]:
