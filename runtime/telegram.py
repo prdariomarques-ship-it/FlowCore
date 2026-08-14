@@ -1,9 +1,9 @@
 """FlowCore — Telegram integration (Sprint 17, Milestone 4).
 
-Reuses the user's existing spcx-monitor Telegram bot (already running,
+Reuses the user's existing @dario_spcx_monitor_bot Telegram bot (already running,
 sending real financial alerts) rather than a new dedicated bot — confirmed
-with the user. FlowCore's notifications land in the same chat as
-spcx-monitor/signal-engine/renda-fixa-monitor's alerts.
+with the user. FlowCore's notifications land in the same chats as the user's
+SPC-X / SML signal bots.
 
 Outbound send only — no webhook, no long-polling for inbound commands,
 matching how the user's existing bots are actually used (alerting, not
@@ -61,7 +61,7 @@ def check_health() -> dict[str, Any]:
     """Is the bot token valid? Calls Telegram's getMe endpoint (real network call)."""
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     if not token:
-        raise TelegramNotConfiguredError("TELEGRAM_BOT_TOKEN not set. Add the spcx-monitor bot's token to .env.")
+        raise TelegramNotConfiguredError("TELEGRAM_BOT_TOKEN not set. Add the @dario_spcx_monitor_bot token to .env.")
     return _call("getMe", token)
 
 
@@ -213,7 +213,7 @@ def send_briefing(chat_id: str | None = None, timeout: float = 15) -> dict[str, 
     """
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     if not token:
-        raise TelegramNotConfiguredError("TELEGRAM_BOT_TOKEN not set. Add the spcx-monitor bot's token to .env.")
+        raise TelegramNotConfiguredError("TELEGRAM_BOT_TOKEN not set. Add the @dario_spcx_monitor_bot token to .env.")
     targets = _resolve_chat_id(chat_id)
     if not targets:
         raise TelegramNotConfiguredError(
@@ -233,11 +233,11 @@ def send_briefing(chat_id: str | None = None, timeout: float = 15) -> dict[str, 
 def send_message(text: str, chat_id: str | None = None, timeout: float = 10) -> dict[str, Any]:
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     if not token:
-        raise TelegramNotConfiguredError("TELEGRAM_BOT_TOKEN not set. Add the spcx-monitor bot's token to .env.")
+        raise TelegramNotConfiguredError("TELEGRAM_BOT_TOKEN not set. Add the @dario_spcx_monitor_bot token to .env.")
     resolved_chat_id = chat_id or os.getenv("TELEGRAM_CHAT_ID")
     if not resolved_chat_id:
         raise TelegramNotConfiguredError(
-            "chat_id not provided and TELEGRAM_CHAT_ID not set. Add the spcx-monitor chat id to .env "
+            "chat_id not provided and TELEGRAM_CHAT_ID not set. Add the @dario_spcx_monitor_bot chat id to .env "
             "or pass chat_id explicitly."
         )
     return _call("sendMessage", token, {"chat_id": resolved_chat_id, "text": text}, timeout=timeout)
