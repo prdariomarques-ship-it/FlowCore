@@ -54,7 +54,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="Celular / Termux"
-                android:textSize="11sp" />
+                android:textSize="10sp" />
 
             <Button
                 android:id="@+id/emulatorButton"
@@ -62,7 +62,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="Emulador"
-                android:textSize="11sp" />
+                android:textSize="10sp" />
 
             <Button
                 android:id="@+id/lanButton"
@@ -70,8 +70,33 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="Rede local"
-                android:textSize="11sp" />
+                android:textSize="10sp" />
         </LinearLayout>
+
+        <Button
+            android:id="@+id/proxyButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Usar proxy protegido · porta 8090"
+            android:textSize="12sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="TOKEN DA API (opcional; não é salvo)"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/apiTokenInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:autofillHints="password"
+            android:hint="Preencha apenas para endpoint protegido"
+            android:inputType="textPassword"
+            android:singleLine="true"
+            android:textSize="16sp" />
 
         <LinearLayout
             android:layout_width="match_parent"

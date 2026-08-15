@@ -41,11 +41,16 @@ def test_android_app_has_persistent_server_configuration_and_presets():
     assert 'findViewById<Button>(R.id.testConnectionButton)' in activity
     assert 'setPreset("http://127.0.0.1:8080")' in activity
     assert 'setPreset("http://10.0.2.2:8080")' in activity
+    assert 'setPreset("http://127.0.0.1:8090")' in activity
+    assert 'X-FlowCore-Token' in activity
+    assert 'apiTokenInput.text.toString().trim()' in activity
     assert 'http://192.168.1.50:8080' in activity
     assert 'android:id="@+id/serverUrlInput"' in layout
+    assert 'android:id="@+id/apiTokenInput"' in layout
     assert 'android:id="@+id/termuxButton"' in layout
     assert 'android:id="@+id/emulatorButton"' in layout
     assert 'android:id="@+id/lanButton"' in layout
+    assert 'android:id="@+id/proxyButton"' in layout
 
 
 def test_android_manifest_allows_api_network_and_uses_launcher_activity():

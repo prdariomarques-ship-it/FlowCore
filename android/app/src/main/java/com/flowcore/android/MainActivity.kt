@@ -3,6 +3,7 @@ package com.flowcore.android
 import android.content.Context
 import android.net.Uri
 import android.os.Bundle
+import android.text.InputType
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
@@ -15,6 +16,7 @@ class MainActivity : AppCompatActivity() {
     private val executor = Executors.newSingleThreadExecutor()
     private lateinit var output: TextView
     private lateinit var serverUrlInput: EditText
+    private lateinit var apiTokenInput: EditText
     private val preferences by lazy {
         getSharedPreferences("flowcore_settings", Context.MODE_PRIVATE)
     }
@@ -30,6 +32,8 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         output = findViewById(R.id.outputText)
         serverUrlInput = findViewById(R.id.serverUrlInput)
+        apiTokenInput = findViewById(R.id.apiTokenInput)
+        apiTokenInput.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
 
         val savedUrl = preferences.getString(KEY_BASE_URL, BuildConfig.FLOWCORE_BASE_URL)
             ?: BuildConfig.FLOWCORE_BASE_URL
@@ -45,6 +49,10 @@ class MainActivity : AppCompatActivity() {
             serverUrlInput.requestFocus()
             serverUrlInput.setSelection(serverUrlInput.text.length)
             output.text = "Digite o IP do computador na rede local.\nExemplo: http://192.168.1.50:8080"
+        }
+        findViewById<Button>(R.id.proxyButton).setOnClickListener {
+            setPreset("http://127.0.0.1:8090")
+            output.text = "Proxy protegido selecionado em 8090.\nPreencha o token apenas se esse endpoint exigir autenticação."
         }
         findViewById<Button>(R.id.saveServerButton).setOnClickListener {
             saveServerUrl(showMessage = true)
@@ -87,27 +95,31 @@ class MainActivity : AppCompatActivity() {
         serverUrlInput.setSelection(serverUrlInput.text.length)
         preferences.edit().putString(KEY_BASE_URL, normalized).apply()
         if (showMessage) {
-            output.text = "Endereço salvo:\n$normalized\n\nToque em TESTAR CONEXÃO."
+            output.text = "Endereço salvo:\n$normalized\n\nO token, se preenchido, fica apenas nesta sessão."
         }
         return normalized
     }
 
     private fun runCheck(label: String, path: String) {
         val baseUrl = saveServerUrl(showMessage = false) ?: return
+        val token = apiTokenInput.text.toString().trim()
         output.text = "$label\nGET $baseUrl$path ..."
         executor.execute {
-            val result = request(baseUrl, path)
+            val result = request(baseUrl, path, token)
             runOnUiThread { output.text = result }
         }
     }
 
-    private fun request(baseUrl: String, path: String): String {
+    private fun request(baseUrl: String, path: String, token: String): String {
         val connection = (URL("$baseUrl$path").openConnection() as HttpURLConnection)
         return try {
             connection.requestMethod = "GET"
             connection.connectTimeout = 5000
             connection.readTimeout = 10000
             connection.setRequestProperty("Accept", "application/json")
+            if (token.isNotEmpty()) {
+                connection.setRequestProperty("X-FlowCore-Token", token)
+            }
 
             val statusCode = connection.responseCode
             val stream = if (statusCode in 200..299) {
@@ -118,6 +130,8 @@ class MainActivity : AppCompatActivity() {
             val body = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
             if (statusCode in 200..299) {
                 "Conexão OK · HTTP $statusCode\n$baseUrl$path\n\n$body"
+            } else if (statusCode == 401) {
+                "HTTP 401 · token ausente ou inválido\n$baseUrl$path\n\nPreencha o token da API somente se estiver usando o proxy protegido em 8090."
             } else {
                 "HTTP $statusCode\n$baseUrl$path\n\n$body"
             }
@@ -134,8 +148,10 @@ class MainActivity : AppCompatActivity() {
         return when {
             baseUrl.contains("127.0.0.1") || baseUrl.contains("localhost") ->
                 "Dica: esse endereço aponta para o próprio celular. Use Termux no celular ou informe o IP do PC na rede."
+            baseUrl.contains(":8090") ->
+                "Dica: a porta 8090 costuma ser o proxy protegido. Confirme o token, o serviço e o firewall da rede."
             else ->
-                "Dica: confirme que o FlowCore está ativo, escutando na rede local, e que a porta 8080 não está bloqueada pelo firewall."
+                "Dica: confirme que o FlowCore está ativo, escutando na rede local, e que a porta não está bloqueada pelo firewall."
         }
     }
 
