@@ -4,6 +4,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { getAllTheologians } from "../data/theologians";
+import { invokeLLM } from "./_core/llm";
 
 const chatMessageSchema = z.object({
   role: z.enum(["user", "assistant"]),
@@ -26,30 +27,16 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         const theologian = getAllTheologians().find((entry) => entry.slug === input.theologianSlug);
         if (!theologian) throw new Error("Teólogo não encontrado");
-        const apiKey = process.env.OPENAI_API_KEY;
-        if (!apiKey) throw new Error("OPENAI_API_KEY não configurada no servidor");
-
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-          body: JSON.stringify({
-            model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-            temperature: 0.75,
-            max_tokens: 700,
-            messages: [
-              { role: "system", content: theologian.prompt },
-              ...input.messages,
-            ],
-          }),
+        const response = await invokeLLM({
+          model: "gpt-5-mini",
+          messages: [
+            { role: "system", content: theologian.prompt },
+            ...input.messages,
+          ],
         });
-        if (!response.ok) {
-          const details = await response.text();
-          console.error("OpenAI request failed", response.status, details.slice(0, 500));
-          throw new Error("Falha ao consultar a OpenAI");
-        }
-        const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-        const message = data.choices?.[0]?.message?.content?.trim();
-        if (!message) throw new Error("A OpenAI não retornou conteúdo");
+        const content = response.choices?.[0]?.message?.content;
+        const message = typeof content === "string" ? content.trim() : "";
+        if (!message) throw new Error("O modelo não retornou conteúdo");
         return { message };
       }),
   }),
