@@ -30,7 +30,7 @@ const env = {
   // App branding - update these values directly (do not use env vars)
   appName: "Teólogos Chat",
   appSlug: "teologos-chat",
-  owner: "DMN0712",
+  owner: "dmn0712s-team",
   // S3 URL of the app logo - set this to the URL returned by generate_image when creating custom logo
   // Leave empty to use the default icon from assets/images/icon.png
   logoUrl: "/manus-storage/teologos-chat-icon_0f80397b.png",
@@ -126,6 +126,11 @@ const config: ExpoConfig = {
   experiments: {
     typedRoutes: true,
     reactCompiler: true,
+  },
+  extra: {
+    eas: {
+      projectId: "eba23da4-d7bb-476d-ba2c-6545f5b9f827",
+    },
   },
 };
 
