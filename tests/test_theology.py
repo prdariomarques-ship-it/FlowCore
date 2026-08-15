@@ -8,8 +8,10 @@ from theology.service import respond
 
 
 def test_catalog_contains_expected_historical_scope():
-    assert len(get_periods()) == 9
-    assert len(get_all_theologians()) == 27
+    assert len(get_periods()) == 12
+    assert len(get_all_theologians()) == 93
+    assert get_theologian("paulo-de-tarso").name == "Paulo de Tarso"
+    assert get_theologian("karl-barth").name == "Karl Barth"
     assert get_theologian("agostinho-de-hipona").name == "Agostinho de Hipona"
 
 
@@ -56,6 +58,9 @@ def test_theology_response_uses_rag_memory_and_historical_prompt():
     assert result["model"] == "test-model"
     assert result["provider"] == "test"
     assert result["source_count"] == 2
+    assert result["document_count"] == 1
+    assert result["memory_count"] == 1
+    assert result["recent_context_used"] is True
     assert "Agostinho" in captured["prompt"]
     assert "Notas sobre graça" in captured["prompt"]
     assert "MEMÓRIAS DO PESQUISADOR" in captured["prompt"]
@@ -69,7 +74,7 @@ def test_theology_api_catalog_search_and_response():
     client = TestClient(create_app(version="test", platform_info={"os_name": "test"}))
     periods_response = client.get("/api/theology/periods")
     assert periods_response.status_code == 200
-    assert len(periods_response.json()["periods"]) == 9
+    assert len(periods_response.json()["periods"]) == 12
 
     search_response = client.get("/api/theology/search", params={"q": "graça"})
     assert search_response.status_code == 200
@@ -81,6 +86,9 @@ def test_theology_api_catalog_search_and_response():
         "provider": "test",
         "theologian": {"slug": "agostinho-de-hipona", "name": "Agostinho de Hipona"},
         "source_count": 1,
+        "document_count": 1,
+        "memory_count": 0,
+        "recent_context_used": False,
     }
     with patch("theology.service.respond", new=AsyncMock(return_value=fake_result)):
         response = client.post(
@@ -93,3 +101,6 @@ def test_theology_api_catalog_search_and_response():
     assert response.status_code == 200
     assert response.json()["message"] == "Resposta de teste."
     assert response.json()["source_count"] == 1
+    assert response.json()["document_count"] == 1
+    assert response.json()["memory_count"] == 0
+    assert response.json()["recent_context_used"] is False

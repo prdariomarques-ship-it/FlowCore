@@ -22,9 +22,12 @@ def search(query: str, limit: int = 30) -> list[dict]:
     return search_catalog(query, limit=limit)
 
 
-def _format_sources(search_result: dict, recent_context: str) -> tuple[str, int]:
+def _format_sources(search_result: dict, recent_context: str) -> tuple[str, int, int, int, bool]:
     sections: list[str] = []
     source_count = 0
+    document_count = 0
+    memory_count = 0
+    recent_context_used = bool(recent_context)
 
     documents = search_result.get("documents", [])
     if documents:
@@ -34,6 +37,7 @@ def _format_sources(search_result: dict, recent_context: str) -> tuple[str, int]
             content = str(document.get("content", ""))[:900]
             sections.append(f"[{title}]\n{content}")
             source_count += 1
+            document_count += 1
 
     memories = search_result.get("memories", [])
     if memories:
@@ -42,14 +46,21 @@ def _format_sources(search_result: dict, recent_context: str) -> tuple[str, int]
             text = str(memory.get("text", ""))[:700]
             sections.append(f"[Memória]\n{text}")
             source_count += 1
+            memory_count += 1
 
     if recent_context:
         sections.append("CONTEXTO RECENTE DO ACERVO:")
         sections.append(recent_context[:1800])
 
     if not sections:
-        return "Nenhum documento ou memória relevante foi encontrado no acervo local.", 0
-    return "\n\n".join(sections)[:_MAX_SOURCE_CHARS], source_count
+        return "Nenhum documento ou memória relevante foi encontrado no acervo local.", 0, 0, 0, recent_context_used
+    return (
+        "\n\n".join(sections)[:_MAX_SOURCE_CHARS],
+        source_count,
+        document_count,
+        memory_count,
+        recent_context_used,
+    )
 
 
 def _format_history(messages: Iterable[dict]) -> str:
@@ -106,7 +117,9 @@ async def respond(
 
     search_result = await core_service.search(clean_question)
     recent_context = await core_service.build_rag_context(5)
-    sources, source_count = _format_sources(search_result, recent_context)
+    sources, source_count, document_count, memory_count, recent_context_used = _format_sources(
+        search_result, recent_context
+    )
     prompt = _build_prompt(theologian, clean_question, _format_history(messages or []), sources)
     response = await core_service.generate_prompt(
         prompt,
@@ -125,4 +138,7 @@ async def respond(
         "provider": response.provider,
         "theologian": theologian.to_dict() | {"prompt": None},
         "source_count": source_count,
+        "document_count": document_count,
+        "memory_count": memory_count,
+        "recent_context_used": recent_context_used,
     }
