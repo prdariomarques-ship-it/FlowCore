@@ -135,6 +135,29 @@ async def ask(question: str, timeout: float | None = None) -> tuple[str, str]:
     return response.text, response.model
 
 
+async def generate_prompt(
+    prompt: str,
+    *,
+    timeout: float | None = None,
+    max_tokens: int | None = None,
+    temperature: float | None = None,
+    metadata: dict | None = None,
+):
+    """Generate text through FlowCore's canonical local-first LLM Router.
+
+    Higher-level domains such as theology may build their own prompt and
+    context, but they must use this function rather than importing a provider.
+    """
+    request = LLMRequest(
+        prompt=prompt,
+        timeout=timeout,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        metadata=metadata or {},
+    )
+    return await asyncio.to_thread(_llm_router.generate, request)
+
+
 async def llm_status() -> dict:
     """Introspection for the LLM Router: registered providers, which are
     currently available, and per-provider call metrics."""

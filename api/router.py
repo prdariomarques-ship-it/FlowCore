@@ -136,7 +136,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from loguru import logger
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel, Field, create_model
 
 import service
 from runtime.portfolio.attributes import ASSET_ATTRIBUTE_FIELDS
@@ -173,6 +173,18 @@ class NoteCreate(BaseModel):
 
 class AskRequest(BaseModel):
     question: str
+    timeout: float | None = None
+
+
+class TheologyMessage(BaseModel):
+    role: str
+    content: str
+
+
+class TheologyRespondRequest(BaseModel):
+    theologian_slug: str = Field(min_length=1, max_length=120)
+    question: str | None = Field(default=None, max_length=1600)
+    messages: list[TheologyMessage] = Field(default_factory=list, max_length=30)
     timeout: float | None = None
 
 
@@ -1050,6 +1062,44 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         # tool_used is additive -- existing consumers reading only
         # answer/model (Android app, Web UI) are unaffected.
         return {"answer": result["answer"], "model": result["model"], "tool_used": result["tool_used"]}
+
+    # ── Theology research ───────────────────────────────────────────────
+    @app.get("/api/theology/periods")
+    async def theology_periods():
+        from theology.service import list_periods
+
+        return {"periods": list_periods()}
+
+    @app.get("/api/theology/search")
+    async def theology_search(q: str = Query("", max_length=200), limit: int = Query(30, ge=1, le=100)):
+        from theology.service import search
+
+        return {"results": search(q, limit=limit)}
+
+    @app.post("/api/theology/respond")
+    async def theology_respond(data: TheologyRespondRequest):
+        from runtime.llm import LLMAuthenticationError, LLMError, LLMModelNotFoundError, LLMTimeoutError
+        from theology.service import respond
+
+        history = [message.model_dump() for message in data.messages]
+        question = data.question or next(
+            (message.content for message in reversed(data.messages) if message.role == "user"),
+            "",
+        )
+        try:
+            result = await respond(
+                theologian_slug=data.theologian_slug,
+                question=question,
+                messages=history,
+                timeout=data.timeout,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+        except (LLMAuthenticationError, LLMModelNotFoundError, LLMTimeoutError) as exc:
+            raise HTTPException(status_code=502, detail=str(exc))
+        except LLMError as exc:
+            raise HTTPException(status_code=503, detail=str(exc))
+        return result
 
     # ── Settings (Web UI) ────────────────────────────────────────────────
     @app.get("/api/settings")
