@@ -16,6 +16,9 @@ type FlowCoreTheologyResponse = {
   model?: string;
   provider?: string;
   source_count?: number;
+  document_count?: number;
+  memory_count?: number;
+  recent_context_used?: boolean;
 };
 
 async function respondViaFlowCore(theologianSlug: string, messages: Array<{ role: "user" | "assistant"; content: string }>) {
@@ -30,6 +33,7 @@ async function respondViaFlowCore(theologianSlug: string, messages: Array<{ role
     method: "POST",
     headers,
     body: JSON.stringify({ theologian_slug: theologianSlug, messages }),
+    signal: AbortSignal.timeout(120_000),
   });
   const payload = (await response.json().catch(() => ({}))) as Partial<FlowCoreTheologyResponse> & { detail?: string };
   if (!response.ok) {
@@ -63,6 +67,9 @@ export const appRouter = router({
             model: flowCoreResponse.model,
             provider: flowCoreResponse.provider,
             sourceCount: flowCoreResponse.source_count ?? 0,
+            documentCount: flowCoreResponse.document_count ?? 0,
+            memoryCount: flowCoreResponse.memory_count ?? 0,
+            recentContextUsed: flowCoreResponse.recent_context_used ?? false,
           };
         }
 
@@ -76,7 +83,13 @@ export const appRouter = router({
         const content = response.choices?.[0]?.message?.content;
         const message = typeof content === "string" ? content.trim() : "";
         if (!message) throw new Error("O modelo não retornou conteúdo");
-        return { message, sourceCount: 0 };
+        return {
+          message,
+          sourceCount: 0,
+          documentCount: 0,
+          memoryCount: 0,
+          recentContextUsed: false,
+        };
       }),
   }),
 });

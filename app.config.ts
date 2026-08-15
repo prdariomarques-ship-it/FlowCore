@@ -129,6 +129,7 @@ const config: ExpoConfig = {
     reactCompiler: true,
   },
   extra: {
+    apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? "",
     eas: {
       projectId: "eba23da4-d7bb-476d-ba2c-6545f5b9f827",
     },

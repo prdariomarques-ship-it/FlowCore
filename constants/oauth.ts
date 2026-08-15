@@ -1,4 +1,6 @@
 import * as Linking from "expo-linking";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
 import * as ReactNative from "react-native";
 
 // Extract scheme from bundle ID (last segment timestamp, prefixed with "manus")
@@ -6,6 +8,10 @@ import * as ReactNative from "react-native";
 const bundleId = "com.app.teologoschat";
 const timestamp = bundleId.split(".").pop()?.replace(/^t/, "") ?? "";
 const schemeFromBundleId = `manus${timestamp}`;
+const configuredApiBaseUrl =
+  typeof Constants.expoConfig?.extra?.apiBaseUrl === "string"
+    ? Constants.expoConfig.extra.apiBaseUrl
+    : process.env.EXPO_PUBLIC_API_BASE_URL ?? "";
 
 const env = {
   portal: process.env.EXPO_PUBLIC_OAUTH_PORTAL_URL ?? "",
@@ -13,7 +19,7 @@ const env = {
   appId: process.env.EXPO_PUBLIC_APP_ID ?? "",
   ownerId: process.env.EXPO_PUBLIC_OWNER_OPEN_ID ?? "",
   ownerName: process.env.EXPO_PUBLIC_OWNER_NAME ?? "",
-  apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? "",
+  apiBaseUrl: configuredApiBaseUrl,
   deepLinkScheme: schemeFromBundleId,
 };
 
@@ -23,30 +29,54 @@ export const APP_ID = env.appId;
 export const OWNER_OPEN_ID = env.ownerId;
 export const OWNER_NAME = env.ownerName;
 export const API_BASE_URL = env.apiBaseUrl;
+export const API_BASE_URL_STORAGE_KEY = "teologos.api-base-url";
+
+let runtimeApiBaseUrl = "";
+
+export function normalizeApiBaseUrl(value: string): string {
+  return value.trim().replace(/\/$/, "");
+}
 
 /**
- * Get the API base URL, deriving from current hostname if not set.
- * Metro runs on 8081, API server runs on 3000.
- * URL pattern: https://PORT-sandboxid.region.domain
+ * Returns the configured API host. Native builds use the persisted runtime value
+ * first, then the build-time EXPO_PUBLIC_API_BASE_URL value. Web keeps its
+ * existing hostname-derived fallback for the embedded development environment.
  */
 export function getApiBaseUrl(): string {
-  // If API_BASE_URL is set, use it
-  if (API_BASE_URL) {
-    return API_BASE_URL.replace(/\/$/, "");
-  }
+  if (runtimeApiBaseUrl) return runtimeApiBaseUrl;
+  if (API_BASE_URL) return normalizeApiBaseUrl(API_BASE_URL);
 
-  // On web, derive from current hostname by replacing port 8081 with 3000
   if (ReactNative.Platform.OS === "web" && typeof window !== "undefined" && window.location) {
     const { protocol, hostname } = window.location;
-    // Pattern: 8081-sandboxid.region.domain -> 3000-sandboxid.region.domain
     const apiHostname = hostname.replace(/^8081-/, "3000-");
-    if (apiHostname !== hostname) {
-      return `${protocol}//${apiHostname}`;
-    }
+    if (apiHostname !== hostname) return `${protocol}//${apiHostname}`;
   }
 
-  // Fallback to empty (will use relative URL)
   return "";
+}
+
+/** Load the user-selected host before the first native chat request. */
+export async function loadApiBaseUrl(): Promise<string> {
+  try {
+    runtimeApiBaseUrl = normalizeApiBaseUrl(
+      (await AsyncStorage.getItem(API_BASE_URL_STORAGE_KEY)) ?? "",
+    );
+  } catch {
+    runtimeApiBaseUrl = "";
+  }
+  return getApiBaseUrl();
+}
+
+/** Persist a host entered in the app's connection panel. */
+export async function setApiBaseUrl(value: string): Promise<string> {
+  const normalized = normalizeApiBaseUrl(value);
+  runtimeApiBaseUrl = normalized;
+  if (normalized) {
+    await AsyncStorage.setItem(API_BASE_URL_STORAGE_KEY, normalized);
+  } else {
+    await AsyncStorage.removeItem(API_BASE_URL_STORAGE_KEY);
+  }
+  return normalized;
 }
 
 export const SESSION_TOKEN_KEY = "app_session_token";

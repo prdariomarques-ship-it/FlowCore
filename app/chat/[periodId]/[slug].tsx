@@ -5,9 +5,18 @@ import { StatusBar } from "expo-status-bar";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { getTheologian, getPeriod } from "@/data/theologians";
+import { getApiBaseUrl } from "@/constants/oauth";
 import { trpc } from "@/lib/trpc";
 
-type Message = { id: string; role: "user" | "assistant"; content: string; sourceCount?: number };
+type Message = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  sourceCount?: number;
+  documentCount?: number;
+  memoryCount?: number;
+  recentContextUsed?: boolean;
+};
 
 const suggestedQuestions = [
   "Quais são suas ideias centrais?",
@@ -84,10 +93,18 @@ export default function ChatScreen() {
           role: "assistant",
           content: assistantMessage,
           sourceCount: response.sourceCount,
+          documentCount: response.documentCount,
+          memoryCount: response.memoryCount,
+          recentContextUsed: response.recentContextUsed,
         },
       ]);
-    } catch {
-      setError("Não foi possível obter uma resposta agora. Verifique sua conexão e tente novamente.");
+    } catch (caught) {
+      const detail = caught instanceof Error ? caught.message : "erro desconhecido";
+      setError(
+        getApiBaseUrl()
+          ? `O servidor não respondeu: ${detail}`
+          : "Servidor não configurado. Volte à tela inicial, abra Conexão do chat e informe a URL do Node.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -169,9 +186,11 @@ export default function ChatScreen() {
               <View className={`rounded-2xl px-4 py-3 ${item.role === "user" ? "rounded-br-sm bg-userBubble" : "rounded-bl-sm border border-border bg-surface"}`}>
                 <Text className={`text-[15px] leading-6 ${item.role === "user" ? "text-parchment" : "text-foreground"}`}>{item.content}</Text>
               </View>
-              {item.role === "assistant" && item.sourceCount ? (
+              {item.role === "assistant" && (item.sourceCount || item.recentContextUsed) ? (
                 <Text className="mt-1 px-1 text-[10px] font-semibold uppercase tracking-widest text-primary">
-                  FlowCore · {item.sourceCount} {item.sourceCount === 1 ? "fonte local" : "fontes locais"}
+                  FlowCore · {item.documentCount ? `${item.documentCount} ${item.documentCount === 1 ? "documento" : "documentos"}` : "sem documentos"}
+                  {item.memoryCount ? ` · ${item.memoryCount} ${item.memoryCount === 1 ? "memória local" : "memórias locais"}` : ""}
+                  {item.recentContextUsed ? " · contexto recente" : ""}
                 </Text>
               ) : null}
             </View>

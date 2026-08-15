@@ -22,7 +22,9 @@ export function createTRPCClient() {
   return trpc.createClient({
     links: [
       httpBatchLink({
-        url: `${getApiBaseUrl()}/api/trpc`,
+        // Keep this relative so the custom fetch can resolve the runtime host
+        // selected in the installed APK after the client was created.
+        url: "/api/trpc",
         // tRPC v11: transformer MUST be inside httpBatchLink, not at root
         transformer: superjson,
         async headers() {
@@ -31,7 +33,13 @@ export function createTRPCClient() {
         },
         // Custom fetch to include credentials for cookie-based auth
         fetch(url, options) {
-          return fetch(url, {
+          const rawUrl = String(url);
+          const baseUrl = getApiBaseUrl();
+          const relativePath = rawUrl.replace(/^https?:\/\/[^/]+/i, "");
+          const targetUrl = baseUrl
+            ? `${baseUrl}${relativePath.startsWith("/") ? relativePath : `/${relativePath}`}`
+            : rawUrl;
+          return fetch(targetUrl, {
             ...options,
             credentials: "include",
           });

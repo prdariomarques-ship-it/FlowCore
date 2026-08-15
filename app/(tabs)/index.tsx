@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
-import { FlatList, Pressable, Text, TextInput, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, FlatList, Pressable, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as WebBrowser from "expo-web-browser";
 
+import { getApiBaseUrl, loadApiBaseUrl, setApiBaseUrl } from "@/constants/oauth";
 import { ScreenContainer } from "@/components/screen-container";
 import { getAllTheologians, periods, type ChurchPeriod } from "@/data/theologians";
 
@@ -19,7 +20,21 @@ function normalize(value: string) {
 export default function HomeScreen() {
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const [serverUrl, setServerUrl] = useState("");
+  const [connectionOpen, setConnectionOpen] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<string | null>(null);
+  const [testingConnection, setTestingConnection] = useState(false);
   const normalizedQuery = normalize(query.trim());
+
+  useEffect(() => {
+    let active = true;
+    void loadApiBaseUrl().then((url) => {
+      if (active) setServerUrl(url);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const filteredPeriods = useMemo(() => {
     if (!normalizedQuery) return periods;
@@ -50,6 +65,41 @@ export default function HomeScreen() {
 
   const openLibrary = async () => {
     await WebBrowser.openBrowserAsync("https://t.me/+5xOk2gVhhCtmNjMx");
+  };
+
+  const saveServerUrl = async () => {
+    try {
+      const savedUrl = await setApiBaseUrl(serverUrl);
+      setServerUrl(savedUrl);
+      setConnectionStatus(
+        savedUrl
+          ? "Endereço salvo. Agora abra um teólogo e envie uma pergunta."
+          : "Informe o endereço do servidor Node para ativar o chat.",
+      );
+    } catch {
+      setConnectionStatus("Não foi possível salvar este endereço no dispositivo.");
+    }
+  };
+
+  const testConnection = async () => {
+    const target = serverUrl.trim().replace(/\/$/, "");
+    if (!target) {
+      setConnectionStatus("Informe a URL do servidor antes de testar.");
+      return;
+    }
+    setTestingConnection(true);
+    setConnectionStatus(null);
+    try {
+      const response = await fetch(`${target}/api/health`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      setConnectionStatus("Conexão OK. O servidor Node está acessível pelo aplicativo.");
+    } catch {
+      setConnectionStatus(
+        "Não foi possível alcançar o servidor. No celular, não use localhost: use uma URL HTTPS pública ou o IP da sua rede local.",
+      );
+    } finally {
+      setTestingConnection(false);
+    }
   };
 
   const renderPeriod = ({ item, index }: { item: ChurchPeriod; index: number }) => (
@@ -142,6 +192,64 @@ export default function HomeScreen() {
               </Text>
               {normalizedQuery && (
                 <Text className="text-xs font-semibold text-primary">Pesquisa ativa</Text>
+              )}
+            </View>
+
+            <View className="mt-4 rounded-2xl border border-border bg-surface p-4">
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setConnectionOpen((value) => !value)}
+                style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+              >
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-1">
+                    <Text className="text-xs font-bold uppercase tracking-widest text-primary">Conexão do chat</Text>
+                    <Text className="mt-1 text-xs leading-4 text-muted" numberOfLines={1}>
+                      {getApiBaseUrl() || "Servidor ainda não configurado"}
+                    </Text>
+                  </View>
+                  <Text className="text-xl text-primary">{connectionOpen ? "⌃" : "⌄"}</Text>
+                </View>
+              </Pressable>
+              {connectionOpen && (
+                <View className="mt-3">
+                  <Text className="text-xs leading-4 text-muted">
+                    Use a URL pública do Node ou o IP do computador na mesma rede. Não use localhost no celular.
+                  </Text>
+                  <TextInput
+                    value={serverUrl}
+                    onChangeText={(value) => {
+                      setServerUrl(value);
+                      setConnectionStatus(null);
+                    }}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="url"
+                    placeholder="https://seu-servidor.example.com"
+                    placeholderTextColor="#8B9695"
+                    className="mt-3 rounded-xl border border-border bg-background px-3 py-3 text-sm text-foreground"
+                  />
+                  <View className="mt-3 flex-row gap-2">
+                    <Pressable
+                      onPress={() => void saveServerUrl()}
+                      style={({ pressed }) => ({ flex: 1, opacity: pressed ? 0.72 : 1 })}
+                    >
+                      <View className="rounded-xl bg-primary px-3 py-3">
+                        <Text className="text-center text-xs font-bold uppercase tracking-wider text-background">Salvar</Text>
+                      </View>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => void testConnection()}
+                      disabled={testingConnection}
+                      style={({ pressed }) => ({ flex: 1, opacity: testingConnection ? 0.5 : pressed ? 0.72 : 1 })}
+                    >
+                      <View className="rounded-xl border border-primary/60 px-3 py-3">
+                        {testingConnection ? <ActivityIndicator color="#C99A4A" /> : <Text className="text-center text-xs font-bold uppercase tracking-wider text-primary">Testar</Text>}
+                      </View>
+                    </Pressable>
+                  </View>
+                  {connectionStatus && <Text className="mt-3 text-xs leading-4 text-muted">{connectionStatus}</Text>}
+                </View>
               )}
             </View>
 
