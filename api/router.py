@@ -134,7 +134,7 @@ import asyncio
 import time
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from loguru import logger
 from pydantic import BaseModel, create_model
@@ -1063,6 +1063,80 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         # tool_used is additive -- existing consumers reading only
         # answer/model (Android app, Web UI) are unaffected.
         return {"answer": result["answer"], "model": result["model"], "tool_used": result["tool_used"]}
+
+    # ── AI Runtime (Local-First inference layer) ─────────────────────────
+    # Surface of status + control exposed to the Web UI (IA Local), the
+    # mobile route (192.168.1.66/flowcore/) and the personal agent.
+    # Auth: same shared API token as the other exposed endpoints (LAN/Caddy).
+    @app.get("/api/ai-runtime/health")
+    async def ai_runtime_health(request: Request):
+        from api.auth import require_api_token
+
+        require_api_token(request)
+        return service.ai_runtime_health()
+
+    @app.get("/api/ai-runtime/models")
+    async def ai_runtime_models(request: Request):
+        from api.auth import require_api_token
+
+        require_api_token(request)
+        return service.ai_runtime_model_list()
+
+    @app.get("/api/ai-runtime/memory")
+    async def ai_runtime_memory(request: Request):
+        from api.auth import require_api_token
+
+        require_api_token(request)
+        return service.ai_runtime_memory_status()
+
+    @app.post("/api/ai-runtime/load")
+    async def ai_runtime_load(request: Request):
+        from api.auth import require_api_token
+
+        require_api_token(request)
+        body = await request.json()
+        model = (body or {}).get("model")
+        if not model:
+            raise HTTPException(status_code=422, detail="model is required")
+        try:
+            return service.ai_runtime_load_model(model)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+
+    @app.post("/api/ai-runtime/unload")
+    async def ai_runtime_unload(request: Request):
+        from api.auth import require_api_token
+
+        require_api_token(request)
+        body = await request.json()
+        model = (body or {}).get("model")
+        if not model:
+            raise HTTPException(status_code=422, detail="model is required")
+        return service.ai_runtime_unload_model(model)
+
+    # Chat with FlowCore context: same agent_ask() engine (tool selection,
+    # real tool execution, grounding) plus an explicit per-model choice and
+    # an opt-in cloud fallback rule (allow_cloud=true), preserving LOCAL-FIRST.
+    @app.post("/api/chat")
+    async def ai_chat(request: Request):
+        from api.auth import require_api_token
+        from runtime.llm import LLMError, LLMTimeoutError
+
+        require_api_token(request)
+        body = await request.json()
+        question = (body or {}).get("question") or ""
+        if not question.strip():
+            raise HTTPException(status_code=422, detail="question is required")
+        timeout = body.get("timeout") or 300
+        allow_cloud = bool(body.get("allow_cloud"))
+        model = body.get("model")
+        try:
+            result = await service.ai_chat(question, timeout=timeout, allow_cloud=allow_cloud, model=model)
+        except LLMTimeoutError as e:
+            raise HTTPException(status_code=504, detail=str(e))
+        except LLMError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        return result
 
     # ── Settings (Web UI) ────────────────────────────────────────────────
     @app.get("/api/settings")

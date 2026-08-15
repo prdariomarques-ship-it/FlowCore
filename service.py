@@ -1267,3 +1267,105 @@ async def agent_ask(question: str, timeout: float | None = None) -> dict:
     context = await build_rag_context(5)
     result = await _agent_engine.handle(question, context=context, timeout=timeout)
     return result.to_dict()
+
+
+# ---------------------------------------------------------------------------
+# AI Runtime -- Local-First inference layer surface (status + control).
+# Reuses the existing LLMRouter/AgentEngine instead of duplicating them;
+# the web UI (IA Local), the mobile route and the personal agent all
+# consume this same surface through the API.
+# ---------------------------------------------------------------------------
+
+
+def _set_active_model(model: str) -> None:
+    """Override the default model for the next calls (transient, env-free):
+    used by /api/chat?model= to let the UI select a local model. Falls back
+    to the standard auto-discovery when None."""
+    global _active_model
+    _active_model = model or None
+
+
+_active_model: str | None = None
+
+
+def ai_runtime_health() -> dict:
+    from runtime.ai_runtime import ai_runtime_health as _health
+
+    return _health()
+
+
+def ai_runtime_model_list() -> dict:
+    from runtime.ai_runtime import model_list
+
+    data = model_list()
+    if _active_model:
+        data["selected_model"] = _active_model
+    return data
+
+
+def ai_runtime_memory_status() -> dict:
+    from runtime.ai_runtime import memory_status
+
+    return memory_status()
+
+
+def ai_runtime_load_model(model: str, timeout: float = 300) -> dict:
+    from runtime.ai_runtime import load_model
+
+    return load_model(model, timeout=timeout)
+
+
+def ai_runtime_unload_model(model: str) -> dict:
+    from runtime.ai_runtime import unload_model
+
+    return unload_model(model)
+
+
+async def ai_chat(question: str, timeout: float = 300, allow_cloud: bool = False, model: str | None = None) -> dict:
+    """Chat with FlowCore context -- exactly the agent_ask engine (real tool
+    execution, no invented data), with optional per-call model selection
+    and an explicit opt-in cloud fallback rule. LOCAL-FIRST is preserved:
+    cloud is only tried when allow_cloud=true AND the local path failed.
+
+    Model selection and the cloud opt-in ride on the LLMRequest metadata
+    (``selected_model`` / ``allow_cloud``), which the FlowCore-local
+    ``_AiRuntimePolicy`` honors -- keeping per-call overrides out of the
+    shared LocalFirstPolicy state."""
+    context = await build_rag_context(5)
+    previous_policy = _agent_engine._router._policy
+    try:
+        from runtime.llm.policy import LocalFirstPolicy
+
+        _agent_engine._router._policy = _AiRuntimePolicy(
+            LocalFirstPolicy(), selected_model=model, allow_cloud=allow_cloud
+        )
+        result = await _agent_engine.handle(question, context=context, timeout=timeout)
+    finally:
+        _agent_engine._router._policy = previous_policy
+    payload = result.to_dict()
+    payload["allow_cloud"] = allow_cloud
+    return payload
+
+
+class _AiRuntimePolicy:
+    """Per-call override wrapper around any RoutingPolicy: rewrites the
+    request metadata with ``selected_model`` and ``allow_cloud``, then
+    delegates to the wrapped policy. The OllamaProvider uses
+    ``request.model`` when set, and the Router's cloud gating reads
+    ``metadata["allow_cloud"]`` -- so a single metadata rewrite drives
+    both the model choice and the fallback rule without mutating global
+    policy state."""
+
+    def __init__(self, inner, selected_model: str | None = None, allow_cloud: bool = False) -> None:
+        self._inner = inner
+        self._selected_model = selected_model
+        self._allow_cloud = allow_cloud
+
+    def choose(self, request, available):
+        metadata = dict(request.metadata or {})
+        if self._selected_model:
+            metadata["selected_model"] = self._selected_model
+        if self._allow_cloud:
+            metadata["allow_cloud"] = True
+        request.metadata = metadata
+        return self._inner.choose(request, available)

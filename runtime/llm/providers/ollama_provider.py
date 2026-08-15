@@ -48,7 +48,11 @@ class OllamaProvider(LLMProvider):
         start = time.monotonic()
         try:
             base_url = discover_ollama_endpoint()
-            model = request.model or discover_default_model()
+            model = (
+                (request.metadata or {}).get("selected_model")
+                or request.model
+                or discover_default_model()
+            )
             kwargs = {"timeout": request.timeout} if request.timeout is not None else {}
             text = ollama_generate(base_url, model, request.prompt, **kwargs)
         except OllamaSubscriptionRequiredError as e:

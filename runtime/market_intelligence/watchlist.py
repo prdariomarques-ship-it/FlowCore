@@ -12,7 +12,6 @@ degradation): a dead ticker never breaks the rest.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 from runtime.observers.providers.yfinance_provider import ObserverError, fetch_quote
 
