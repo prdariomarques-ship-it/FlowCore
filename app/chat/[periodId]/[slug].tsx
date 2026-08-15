@@ -7,7 +7,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { getTheologian, getPeriod } from "@/data/theologians";
 import { trpc } from "@/lib/trpc";
 
-type Message = { id: string; role: "user" | "assistant"; content: string };
+type Message = { id: string; role: "user" | "assistant"; content: string; sourceCount?: number };
 
 const suggestedQuestions = [
   "Quais são suas ideias centrais?",
@@ -75,7 +75,17 @@ export default function ChatScreen() {
         theologianSlug: theologian.slug,
         messages: [...history, { role: "user", content: trimmed }],
       });
-      setMessages([...nextMessages, { id: `${Date.now()}-assistant`, role: "assistant", content: response.message }]);
+      const assistantMessage = response.message?.trim();
+      if (!assistantMessage) throw new Error("O backend retornou uma resposta vazia.");
+      setMessages([
+        ...nextMessages,
+        {
+          id: `${Date.now()}-assistant`,
+          role: "assistant",
+          content: assistantMessage,
+          sourceCount: response.sourceCount,
+        },
+      ]);
     } catch {
       setError("Não foi possível obter uma resposta agora. Verifique sua conexão e tente novamente.");
     } finally {
@@ -159,6 +169,11 @@ export default function ChatScreen() {
               <View className={`rounded-2xl px-4 py-3 ${item.role === "user" ? "rounded-br-sm bg-userBubble" : "rounded-bl-sm border border-border bg-surface"}`}>
                 <Text className={`text-[15px] leading-6 ${item.role === "user" ? "text-parchment" : "text-foreground"}`}>{item.content}</Text>
               </View>
+              {item.role === "assistant" && item.sourceCount ? (
+                <Text className="mt-1 px-1 text-[10px] font-semibold uppercase tracking-widest text-primary">
+                  FlowCore · {item.sourceCount} {item.sourceCount === 1 ? "fonte local" : "fontes locais"}
+                </Text>
+              ) : null}
             </View>
           )}
           ListFooterComponent={
