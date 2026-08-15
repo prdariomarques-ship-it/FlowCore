@@ -53,3 +53,10 @@ tmp/
 
 # Termux-specific
 .termux/
+
+# Android/Gradle local artifacts
+.gradle/
+android/.gradle/
+android/local.properties
+android/**/build/
+*.apk
