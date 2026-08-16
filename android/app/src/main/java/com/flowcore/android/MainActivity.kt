@@ -121,7 +121,8 @@ class MainActivity : AppCompatActivity() {
                     android.graphics.Color.parseColor("#00d4ff") else
                     android.graphics.Color.parseColor("#94a3b8"))
                 setBackgroundColor(android.graphics.Color.parseColor("#1a2235"))
-                val lp = LinearLayout.LayoutParams(0, 96)
+                isSingleLine = true
+                val lp = LinearLayout.LayoutParams(0, 130)
                 lp.weight = 1f
                 lp.marginStart = 10
                 lp.marginEnd = 10
@@ -188,7 +189,8 @@ class MainActivity : AppCompatActivity() {
                     textSize = 14f
                     setTextColor(android.graphics.Color.parseColor("#e2e8f0"))
                     setHintTextColor(android.graphics.Color.parseColor("#94a3b8"))
-                    val lp = LinearLayout.LayoutParams(0, 110)
+                    isSingleLine = true
+                    val lp = LinearLayout.LayoutParams(0, 140)
                     lp.weight = 1f
                     lp.marginEnd = 16
                     layoutParams = lp
@@ -201,7 +203,8 @@ class MainActivity : AppCompatActivity() {
                     textSize = 12f
                     setTextColor(android.graphics.Color.WHITE)
                     setBackgroundColor(android.graphics.Color.parseColor("#00d4ff"))
-                    val lp = LinearLayout.LayoutParams(180, 110)
+                    isSingleLine = true
+                    val lp = LinearLayout.LayoutParams(220, 140)
                     layoutParams = lp
                     setOnClickListener {
                         val q = input.text.toString().trim()
@@ -245,7 +248,8 @@ class MainActivity : AppCompatActivity() {
                     textSize = 12f
                     setTextColor(android.graphics.Color.parseColor("#e2e8f0"))
                     setHintTextColor(android.graphics.Color.parseColor("#94a3b8"))
-                    val lp = LinearLayout.LayoutParams(0, 90)
+                    isSingleLine = true
+                    val lp = LinearLayout.LayoutParams(0, 120)
                     lp.weight = 1f
                     lp.marginEnd = 16
                     layoutParams = lp
@@ -255,7 +259,8 @@ class MainActivity : AppCompatActivity() {
                     textSize = 11f
                     setTextColor(android.graphics.Color.WHITE)
                     setBackgroundColor(android.graphics.Color.parseColor("#7c3aed"))
-                    val lp = LinearLayout.LayoutParams(220, 90)
+                    isSingleLine = true
+                    val lp = LinearLayout.LayoutParams(240, 120)
                     layoutParams = lp
                     setOnClickListener {
                         val u = et.text.toString().trim().trimEnd('/')
@@ -285,9 +290,10 @@ class MainActivity : AppCompatActivity() {
         textSize = 13f
         setTextColor(android.graphics.Color.parseColor("#00d4ff"))
         setBackgroundColor(android.graphics.Color.parseColor("#1a2235"))
+        isSingleLine = true
         layoutParams = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
-            104
+            140
         ).apply { topMargin = 12 }
         setOnClickListener(onClick)
     }
