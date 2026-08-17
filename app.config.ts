@@ -1,7 +1,6 @@
 // Load environment variables with proper priority (system > .env)
 import "./scripts/load-env.js";
 import type { ExpoConfig } from "expo/config";
-import { resolveGatewayUrl } from "./constants/gateway";
 
 // Bundle ID format: space.manus.<project_name_dots>.<timestamp>
 // e.g., "my-app" created at 2024-01-15 10:30:45 -> "space.manus.my.app.t20240115103045"
@@ -26,6 +25,7 @@ const bundleId =
 // e.g., "space.manus.my.app.t20240115103045" -> "manus20240115103045"
 const timestamp = bundleId.split(".").pop()?.replace(/^t/, "") ?? "";
 const schemeFromBundleId = `manus${timestamp}`;
+const publicGatewayUrl = "https://teologoschat-meectvnb.manus.space";
 
 const env = {
   // App branding - update these values directly (do not use env vars)
@@ -131,7 +131,10 @@ const config: ExpoConfig = {
     reactCompiler: true,
   },
   extra: {
-    apiBaseUrl: resolveGatewayUrl(process.env.EXPO_PUBLIC_API_BASE_URL ?? process.env.API_BASE_URL),
+    apiBaseUrl:
+      process.env.EXPO_PUBLIC_API_BASE_URL ??
+      process.env.API_BASE_URL ??
+      publicGatewayUrl,
     eas: {
       projectId: "eba23da4-d7bb-476d-ba2c-6545f5b9f827",
     },
