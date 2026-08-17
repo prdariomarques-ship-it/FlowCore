@@ -1,17 +1,26 @@
 package com.flowcore.android
 
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.method.LinkMovementMethod
 import android.text.method.ScrollingMovementMethod
+import android.text.style.ForegroundColorSpan
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.cardview.widget.CardView
+import com.google.android.material.button.MaterialButton
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
@@ -19,8 +28,10 @@ import java.net.URL
 import java.util.concurrent.Executors
 
 /**
- * FlowCore Android — cliente do FlowCore Core rodando no Termux (localhost:8080).
+ * FlowCore Android (redesign v1.8) — cliente do FlowCore Core rodando no Termux.
  * Abas: Radar (Macro Score + Regime) | Agente (chat LLM local-first) | Notas | Status
+ * Visual: Material 3 dark com cartão de cabeçalho em gradiente, tabs em chips,
+ * cartões elevados e saída em bloco de código.
  */
 class MainActivity : AppCompatActivity() {
 
@@ -35,7 +46,16 @@ class MainActivity : AppCompatActivity() {
     private val apiToken: String
         get() = getSharedPreferences("flowcore", 0).getString("api_token", "")!!
 
+    private val C_PRIMARY = Color.parseColor("#EEF2FF")
+    private val C_SECONDARY = Color.parseColor("#94A3B8")
+    private val C_ACCENT = Color.parseColor("#00D4FF")
+    private val C_VIOLET = Color.parseColor("#7C3AED")
+    private val C_SUCCESS = Color.parseColor("#34D399")
+    private val C_ERROR = Color.parseColor("#F87171")
+    private val C_ON_ACCENT = Color.parseColor("#06141F")
+
     private lateinit var root: LinearLayout
+    private lateinit var tabsRow: LinearLayout
     private lateinit var content: LinearLayout
     private var currentTab = "radar"
 
@@ -59,7 +79,7 @@ class MainActivity : AppCompatActivity() {
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
-                setBackgroundColor(android.graphics.Color.parseColor("#0a0f1e"))
+                setBackgroundColor(Color.parseColor("#0A0F1E"))
             }
             setContentView(root)
             renderHeader()
@@ -68,7 +88,7 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             val tv = TextView(this).apply {
                 textSize = 14f
-                setTextColor(android.graphics.Color.RED)
+                setTextColor(Color.RED)
                 setPadding(40, 40, 40, 40)
                 text = "Erro ao montar a tela:\n${e::class.java.name}\n${e.message}\nLog: ${getExternalFilesDir(null)}/crash.txt"
             }
@@ -79,93 +99,120 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /* ── Header ───────────────────────────────────────────── */
+    /* ── Header com gradiente e logo ─────────────────────── */
     private fun renderHeader() {
-        val header = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(36, 28, 36, 28)
+        val header = CardView(this).apply {
+            radius = 0f
+            cardElevation = 0f
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
+            setCardBackgroundColor(Color.parseColor("#0E2A47"))
+        }
+        val banner = GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            intArrayOf(Color.parseColor("#0E2A47"), Color.parseColor("#0A0F1E"))
+        )
+        val inner = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(36, 44, 36, 44)
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            background = banner
         }
         val logo = TextView(this).apply {
             text = "F"
-            textSize = 17f
+            textSize = 20f
+            typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-            setTextColor(android.graphics.Color.WHITE)
-            val lp = LinearLayout.LayoutParams(96, 96)
-            lp.marginEnd = 28
-            layoutParams = lp
-            background = android.graphics.drawable.GradientDrawable().apply {
-                setColor(android.graphics.Color.parseColor("#111827"))
-                cornerRadius = 18f
+            setTextColor(C_ACCENT)
+            layoutParams = LinearLayout.LayoutParams(130, 130).apply {
+                marginEnd = 28
+            }
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#00D4FF"))
+                cornerRadius = 32f
             }
         }
         val titleBlock = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            layoutParams = ViewGroup.LayoutParams(
+            layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
-            )
+            ).apply { gravity = Gravity.CENTER_VERTICAL }
         }
         val title = TextView(this).apply {
             text = "FlowCore"
-            textSize = 20f
-            setTextColor(android.graphics.Color.parseColor("#00d4ff"))
+            textSize = 26f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(C_PRIMARY)
         }
         val sub = TextView(this).apply {
             text = "Radar de Mercado · Agente · Notas"
-            textSize = 11f
-            setTextColor(android.graphics.Color.parseColor("#94a3b8"))
+            textSize = 12f
+            setTextColor(C_ACCENT)
         }
         titleBlock.addView(title)
         titleBlock.addView(sub)
-        header.addView(logo)
-        header.addView(titleBlock)
+        inner.addView(logo)
+        inner.addView(titleBlock)
+        header.addView(inner)
         root.addView(header)
     }
 
-    private fun clearBody() {
-        // Remove tudo exceto o header (primeiro filho do root)
-        while (root.childCount > 1) root.removeViewAt(1)
-        content.removeAllViews()
-    }
-
-    /* ── Tabs ─────────────────────────────────────────────── */
+    /* ── Tabs como chips Material ────────────────────────── */
     private fun renderTabs() {
-        val tabs = LinearLayout(this).apply {
+        tabsRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(24, 0, 24, 0)
+            setPadding(20, 24, 20, 16)
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
         }
-        listOf("radar" to "Radar", "agente" to "Agente", "notas" to "Notas", "status" to "Status").forEach { (key, label) ->
-            val btn = Button(this).apply {
+        val entries = listOf(
+            "radar" to "Radar",
+            "agente" to "Agente",
+            "notas" to "Notas",
+            "status" to "Status"
+        )
+        entries.forEachIndexed { idx, (key, label) ->
+            val btn = MaterialButton(this).apply {
                 text = label
-                textSize = 12f
-                setTextColor(if (key == currentTab)
-                    android.graphics.Color.parseColor("#00d4ff") else
-                    android.graphics.Color.parseColor("#94a3b8"))
-                setBackgroundColor(android.graphics.Color.parseColor("#1a2235"))
                 isSingleLine = true
-                val lp = LinearLayout.LayoutParams(0, 130)
-                lp.weight = 1f
-                lp.marginStart = 10
-                lp.marginEnd = 10
-                lp.topMargin = 12
-                layoutParams = lp
-                setOnClickListener { currentTab = key; clearBody(); renderTabs(); showTab(key) }
+                textSize = 12f
+                layoutParams = LinearLayout.LayoutParams(0, 120).apply {
+                    weight = 1f
+                    marginStart = if (idx == 0) 0 else 12
+                    marginEnd = if (idx == entries.size - 1) 0 else 0
+                }
+                if (key == currentTab) {
+                    setBackgroundColor(C_ACCENT)
+                    setTextColor(C_ON_ACCENT)
+                } else {
+                    setBackgroundColor(Color.parseColor("#1A2235"))
+                    setTextColor(C_SECONDARY)
+                }
+                val radius = 24f
+                val shape = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = radius
+                    if (key == currentTab) setColor(C_ACCENT) else setColor(Color.parseColor("#1A2235"))
+                }
+                background = shape
+                setOnClickListener { currentTab = key; renderTabs(); showTab(key) }
             }
-            tabs.addView(btn)
+            tabsRow.addView(btn)
         }
-        root.addView(tabs)
+        root.addView(tabsRow)
+
         content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(36, 24, 36, 36)
+            setPadding(36, 8, 36, 40)
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
@@ -180,62 +227,72 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    /* ── Tab content ──────────────────────────────────────── */
+    private fun clearBody() {
+        while (root.childCount > 2) root.removeViewAt(2)
+        content.removeAllViews()
+    }
+
+    /* ── Conteúdo das abas ───────────────────────────────── */
     private fun showTab(tab: String) {
         content.removeAllViews()
         when (tab) {
             "radar" -> {
-                content.addView(quickSection("MACRO SCORE · REGIME DE MERCADO"))
-                content.addView(actionButton("Atualizar scores") { get("/api/macro-score/scores", it as TextView) })
-                content.addView(actionButton("Dimensões") { get("/api/macro-score/dimensions", it as TextView) })
-                content.addView(actionButton("Sinais de regime") { get("/api/regime/signals", it as TextView) })
-                content.addView(actionButton("Observer (eventos)") { get("/api/observer/events", it as TextView) })
+                content.addView(sectionTitle("Macro Score · Regime de Mercado"))
+                content.addView(actionButton("Atualizar scores", C_ACCENT) { get("/api/macro-score/scores", it as TextView) })
+                content.addView(actionButton("Dimensões", C_ACCENT) { get("/api/macro-score/dimensions", it as TextView) })
+                content.addView(actionButton("Sinais de regime", C_ACCENT) { get("/api/regime/signals", it as TextView) })
+                content.addView(actionButton("Observer (eventos)", C_ACCENT) { get("/api/observer/events", it as TextView) })
                 content.addView(out())
             }
             "agente" -> {
-                content.addView(quickSection("AGENTE · LLM LOCAL-FIRST (OLLAMA → CLOUD)"))
+                content.addView(sectionTitle("Agente · LLM local-first (Ollama → Cloud)"))
                 val chat = TextView(this).apply {
-                    textSize = 13f
-                    setTextColor(android.graphics.Color.parseColor("#e2e8f0"))
+                    textSize = 14f
+                    setTextColor(C_PRIMARY)
                     movementMethod = ScrollingMovementMethod()
-                    setPadding(24, 24, 24, 24)
-                    background = android.graphics.drawable.GradientDrawable().apply {
-                        setColor(android.graphics.Color.parseColor("#111827")); cornerRadius = 24f
+                    setPadding(28, 28, 28, 28)
+                    background = GradientDrawable().apply {
+                        setColor(Color.parseColor("#111827"))
+                        cornerRadius = 24f
                     }
                     layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT, 480
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        480
                     )
                 }
                 content.addView(chat)
                 val row = LinearLayout(this).apply {
                     orientation = LinearLayout.HORIZONTAL
-                    layoutParams = ViewGroup.LayoutParams(
+                    layoutParams = LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
-                    )
+                    ).apply { topMargin = 20 }
                 }
                 val input = EditText(this).apply {
                     hint = "Pergunte ao FlowCore..."
                     textSize = 14f
-                    setTextColor(android.graphics.Color.parseColor("#e2e8f0"))
-                    setHintTextColor(android.graphics.Color.parseColor("#94a3b8"))
+                    setTextColor(C_PRIMARY)
+                    setHintTextColor(C_SECONDARY)
                     isSingleLine = true
                     val lp = LinearLayout.LayoutParams(0, 140)
                     lp.weight = 1f
                     lp.marginEnd = 16
                     layoutParams = lp
-                    background = android.graphics.drawable.GradientDrawable().apply {
-                        setColor(android.graphics.Color.parseColor("#1a2235")); cornerRadius = 14f
+                    background = GradientDrawable().apply {
+                        setColor(Color.parseColor("#1A2235"))
+                        cornerRadius = 24f
                     }
                 }
-                val send = Button(this).apply {
+                val send = MaterialButton(this).apply {
                     text = "Enviar"
-                    textSize = 12f
-                    setTextColor(android.graphics.Color.WHITE)
-                    setBackgroundColor(android.graphics.Color.parseColor("#00d4ff"))
+                    textSize = 13f
                     isSingleLine = true
-                    val lp = LinearLayout.LayoutParams(220, 140)
-                    layoutParams = lp
+                    layoutParams = LinearLayout.LayoutParams(220, 140)
+                    setTextColor(C_ON_ACCENT)
+                    background = GradientDrawable().apply {
+                        setColor(C_ACCENT)
+                        cornerRadius = 24f
+                    }
                     setOnClickListener {
                         val q = input.text.toString().trim()
                         if (q.isEmpty()) return@setOnClickListener
@@ -249,49 +306,56 @@ class MainActivity : AppCompatActivity() {
                 content.addView(row)
             }
             "notas" -> {
-                content.addView(quickSection("NOTAS E MEMÓRIAS"))
-                content.addView(actionButton("Listar notas") { get("/api/notes", it as TextView) })
-                content.addView(actionButton("Memórias") { get("/api/memories", it as TextView) })
+                content.addView(sectionTitle("Notas e Memórias"))
+                content.addView(actionButton("Listar notas", C_ACCENT) { get("/api/notes", it as TextView) })
+                content.addView(actionButton("Memórias", C_ACCENT) { get("/api/memories", it as TextView) })
                 content.addView(out())
             }
             "status" -> {
-                content.addView(quickSection("STATUS DO CORE E INTEGRAÇÕES"))
-                content.addView(actionButton("Health") { get("/api/health", it as TextView) })
-                content.addView(actionButton("Status completo") { get("/api/status", it as TextView) })
-                content.addView(actionButton("Integrações") { get("/api/integrations/status", it as TextView) })
-                content.addView(actionButton("LLM Router") { get("/api/llm/status", it as TextView) })
-                content.addView(actionButton("WhatsApp") { get("/api/whatsapp/status", it as TextView) })
-                content.addView(actionButton("Telegram") { get("/api/telegram/config", it as TextView) })
-                content.addView(actionButton("Outlook (não lidas)") { get("/api/outlook/unread", it as TextView) })
+                content.addView(sectionTitle("Status do Core e Integrações"))
+                content.addView(actionButton("Health", C_SUCCESS) { get("/api/health", it as TextView) })
+                content.addView(actionButton("Status completo", C_SUCCESS) { get("/api/status", it as TextView) })
+                content.addView(actionButton("Integrações", C_SUCCESS) { get("/api/integrations/status", it as TextView) })
+                content.addView(actionButton("LLM Router", C_SUCCESS) { get("/api/llm/status", it as TextView) })
+                content.addView(actionButton("WhatsApp", C_SUCCESS) { get("/api/whatsapp/status", it as TextView) })
+                content.addView(actionButton("Telegram", C_SUCCESS) { get("/api/telegram/config", it as TextView) })
+                content.addView(actionButton("Outlook (não lidas)", C_SUCCESS) { get("/api/outlook/unread", it as TextView) })
                 content.addView(out())
-                // Configuração da URL do Core
+                content.addView(sectionTitle("Conexão com o Core"))
                 val urlRow = LinearLayout(this).apply {
                     orientation = LinearLayout.HORIZONTAL
                     layoutParams = LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
-                    ).apply { topMargin = 24 }
+                    ).apply { topMargin = 8 }
                 }
                 val et = EditText(this).apply {
                     setText(baseUrl)
                     hint = "http://127.0.0.1:8080"
                     textSize = 12f
-                    setTextColor(android.graphics.Color.parseColor("#e2e8f0"))
-                    setHintTextColor(android.graphics.Color.parseColor("#94a3b8"))
+                    setTextColor(C_PRIMARY)
+                    setHintTextColor(C_SECONDARY)
                     isSingleLine = true
                     val lp = LinearLayout.LayoutParams(0, 120)
                     lp.weight = 1f
                     lp.marginEnd = 16
+                    lp.topMargin = 24
                     layoutParams = lp
+                    background = GradientDrawable().apply {
+                        setColor(Color.parseColor("#1A2235"))
+                        cornerRadius = 18f
+                    }
                 }
-                val save = Button(this).apply {
+                val save = MaterialButton(this).apply {
                     text = "Salvar URL"
                     textSize = 11f
-                    setTextColor(android.graphics.Color.WHITE)
-                    setBackgroundColor(android.graphics.Color.parseColor("#7c3aed"))
                     isSingleLine = true
-                    val lp = LinearLayout.LayoutParams(240, 120)
-                    layoutParams = lp
+                    layoutParams = LinearLayout.LayoutParams(240, 120)
+                    setTextColor(Color.WHITE)
+                    background = GradientDrawable().apply {
+                        setColor(C_VIOLET)
+                        cornerRadius = 24f
+                    }
                     setOnClickListener {
                         val u = et.text.toString().trim().trimEnd('/')
                         if (u.isNotEmpty()) {
@@ -307,38 +371,48 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /* ── Helpers ──────────────────────────────────────────── */
-    private fun quickSection(label: String): TextView = TextView(this).apply {
-        text = label
-        textSize = 11f
-        setTextColor(android.graphics.Color.parseColor("#94a3b8"))
-        setPadding(0, 16, 0, 16)
+    /* ── Helpers de layout ───────────────────────────────── */
+    private fun sectionTitle(label: String): TextView = TextView(this).apply {
+        text = label.uppercase()
+        textSize = 12f
+        typeface = Typeface.DEFAULT_BOLD
+        setTextColor(C_ACCENT)
+        letterSpacing = 0.08f
+        setPadding(0, 24, 0, 16)
     }
 
-    private fun actionButton(label: String, onClick: (View) -> Unit): Button = Button(this).apply {
-        text = label
-        textSize = 13f
-        setTextColor(android.graphics.Color.parseColor("#00d4ff"))
-        setBackgroundColor(android.graphics.Color.parseColor("#1a2235"))
-        isSingleLine = true
-        layoutParams = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            140
-        ).apply { topMargin = 12 }
-        setOnClickListener(onClick)
+    private fun actionButton(label: String, color: Int, onClick: (View) -> Unit): MaterialButton {
+        return MaterialButton(this).apply {
+            text = label
+            textSize = 13f
+            isSingleLine = true
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                150
+            ).apply { topMargin = 12 }
+            setTextColor(color)
+            setTextColor(C_PRIMARY)
+            val shape = GradientDrawable().apply {
+                setColor(Color.parseColor("#1A2235"))
+                cornerRadius = 18f
+            }
+            background = shape
+            setOnClickListener(onClick)
+        }
     }
 
     private fun out(): TextView = TextView(this).apply {
-        textSize = 11f
-        setTextColor(android.graphics.Color.parseColor("#e2e8f0"))
-        setPadding(20, 20, 20, 20)
-        background = android.graphics.drawable.GradientDrawable().apply {
-            setColor(android.graphics.Color.parseColor("#111827")); cornerRadius = 18f
+        textSize = 12f
+        setTextColor(C_PRIMARY)
+        setPadding(24, 24, 24, 24)
+        background = GradientDrawable().apply {
+            setColor(Color.parseColor("#111827"))
+            cornerRadius = 24f
         }
         layoutParams = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = 16 }
+        ).apply { topMargin = 20 }
         text = "Toque em um botão para consultar o Core…"
     }
 
