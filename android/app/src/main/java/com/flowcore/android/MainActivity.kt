@@ -41,18 +41,42 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-            setBackgroundColor(android.graphics.Color.parseColor("#0a0f1e"))
+        Thread.setDefaultUncaughtExceptionHandler { t, e ->
+            try {
+                val sw = java.io.StringWriter()
+                e.printStackTrace(java.io.PrintWriter(sw))
+                val log = "CRASH: ${t.name}\n${sw.toString()}"
+                android.util.Log.e("FlowCore", log)
+                getExternalFilesDir(null)?.let { dir ->
+                    java.io.File(dir, "crash.txt").writeText(log)
+                }
+            } catch (ignored: Throwable) {}
         }
-        setContentView(root)
-        renderHeader()
-        renderTabs()
-        showTab("radar")
+        try {
+            root = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+                setBackgroundColor(android.graphics.Color.parseColor("#0a0f1e"))
+            }
+            setContentView(root)
+            renderHeader()
+            renderTabs()
+            showTab("radar")
+        } catch (e: Exception) {
+            val tv = TextView(this).apply {
+                textSize = 14f
+                setTextColor(android.graphics.Color.RED)
+                setPadding(40, 40, 40, 40)
+                text = "Erro ao montar a tela:\n${e::class.java.name}\n${e.message}\nLog: ${getExternalFilesDir(null)}/crash.txt"
+            }
+            setContentView(tv)
+            val sw = java.io.StringWriter()
+            e.printStackTrace(java.io.PrintWriter(sw))
+            try { getExternalFilesDir(null)?.let { dir -> java.io.File(dir, "crash.txt").writeText(sw.toString()) } } catch (ignored: Throwable) {}
+        }
     }
 
     /* ── Header ───────────────────────────────────────────── */
