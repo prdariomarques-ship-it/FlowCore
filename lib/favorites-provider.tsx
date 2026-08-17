@@ -1,11 +1,9 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import {
-  FAVORITE_THEOLOGIANS_STORAGE_KEY,
-  parseFavoriteSlugs,
   toggleFavoriteSlug,
 } from "./favorites";
+import { loadFavoriteSlugs, saveFavoriteSlugs } from "./favorites-storage";
 
 type FavoritesContextValue = {
   favoriteSlugs: string[];
@@ -24,9 +22,9 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true;
 
-    void AsyncStorage.getItem(FAVORITE_THEOLOGIANS_STORAGE_KEY)
+    void loadFavoriteSlugs()
       .then((stored) => {
-        if (active) setFavoriteSlugs(parseFavoriteSlugs(stored));
+        if (active) setFavoriteSlugs(stored);
       })
       .catch(() => {
         if (active) setFavoriteSlugs([]);
@@ -46,7 +44,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
 
       setFavoriteSlugs((current) => {
         const next = toggleFavoriteSlug(current, slug);
-        void AsyncStorage.setItem(FAVORITE_THEOLOGIANS_STORAGE_KEY, JSON.stringify(next)).catch(() => undefined);
+        void saveFavoriteSlugs(next).catch(() => undefined);
         return next;
       });
     },

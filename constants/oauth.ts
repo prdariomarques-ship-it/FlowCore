@@ -2,16 +2,18 @@ import * as Linking from "expo-linking";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import * as ReactNative from "react-native";
+import { resolveGatewayUrl } from "./gateway";
 
 // Extract scheme from bundle ID (last segment timestamp, prefixed with "manus")
 // e.g., "space.manus.my.app.t20240115103045" -> "manus20240115103045"
 const bundleId = "com.app.teologoschat";
 const timestamp = bundleId.split(".").pop()?.replace(/^t/, "") ?? "";
 const schemeFromBundleId = `manus${timestamp}`;
-const configuredApiBaseUrl =
+const configuredApiBaseUrl = resolveGatewayUrl(
   typeof Constants.expoConfig?.extra?.apiBaseUrl === "string"
     ? Constants.expoConfig.extra.apiBaseUrl
-    : process.env.EXPO_PUBLIC_API_BASE_URL ?? "";
+    : process.env.EXPO_PUBLIC_API_BASE_URL,
+);
 
 const env = {
   portal: process.env.EXPO_PUBLIC_OAUTH_PORTAL_URL ?? "",

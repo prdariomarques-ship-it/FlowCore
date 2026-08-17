@@ -1,6 +1,7 @@
 // Load environment variables with proper priority (system > .env)
 import "./scripts/load-env.js";
 import type { ExpoConfig } from "expo/config";
+import { resolveGatewayUrl } from "./constants/gateway";
 
 // Bundle ID format: space.manus.<project_name_dots>.<timestamp>
 // e.g., "my-app" created at 2024-01-15 10:30:45 -> "space.manus.my.app.t20240115103045"
@@ -67,6 +68,7 @@ const config: ExpoConfig = {
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
     package: env.androidPackage,
+    versionCode: 3,
     permissions: ["POST_NOTIFICATIONS"],
     intentFilters: [
       {
@@ -129,7 +131,7 @@ const config: ExpoConfig = {
     reactCompiler: true,
   },
   extra: {
-    apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? "",
+    apiBaseUrl: resolveGatewayUrl(process.env.EXPO_PUBLIC_API_BASE_URL ?? process.env.API_BASE_URL),
     eas: {
       projectId: "eba23da4-d7bb-476d-ba2c-6545f5b9f827",
     },

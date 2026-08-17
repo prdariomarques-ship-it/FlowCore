@@ -2,6 +2,7 @@
   "name": "app-template",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "main": "expo-router/entry",
   "scripts": {
     "dev": "concurrently -k \"pnpm dev:server\" \"pnpm dev:metro\"",
@@ -76,7 +77,6 @@
     "@types/node": "^22.19.3",
     "@types/qrcode": "^1.5.6",
     "@types/react": "~19.1.17",
-    "@types/react-test-renderer": "19.0.0",
     "concurrently": "^9.2.1",
     "cross-env": "^7.0.3",
     "drizzle-kit": "^0.31.8",
@@ -85,7 +85,6 @@
     "eslint-config-expo": "~10.0.0",
     "prettier": "^3.7.4",
     "qrcode": "^1.5.4",
-    "react-test-renderer": "19.1.0",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.21.0",
     "typescript": "~5.9.3",
