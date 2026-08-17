@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { getPeriod, type Theologian } from "@/data/theologians";
+import { useFavorites } from "@/lib/favorites-provider";
 
 function normalize(value: string) {
   return value
@@ -17,6 +18,7 @@ export default function PeriodScreen() {
   const router = useRouter();
   const { id, q } = useLocalSearchParams<{ id?: string; q?: string }>();
   const period = getPeriod(id ?? "");
+  const { isFavorite, isReady: favoritesReady, toggleFavorite } = useFavorites();
   const query = typeof q === "string" ? q.trim() : "";
   const normalizedQuery = normalize(query);
 
@@ -46,29 +48,42 @@ export default function PeriodScreen() {
     );
   }
 
-  const renderTheologian = ({ item }: { item: Theologian }) => (
-    <Pressable
-      onPress={() => router.push(`/chat/${period.id}/${item.slug}` as never)}
-      style={({ pressed }) => [
-        { marginBottom: 12, opacity: pressed ? 0.78 : 1 },
-        pressed && { transform: [{ scale: 0.985 }] },
-      ]}
-    >
-      <View className="rounded-2xl border border-border bg-surface p-5">
+  const renderTheologian = ({ item }: { item: Theologian }) => {
+    const saved = isFavorite(item.slug);
+
+    return (
+      <View className="mb-3 rounded-2xl border border-border bg-surface p-5">
         <View className="flex-row items-start justify-between">
-          <View className="flex-1 pr-4">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Abrir conversa com ${item.name}`}
+            onPress={() => router.push(`/chat/${period.id}/${item.slug}` as never)}
+            style={({ pressed }) => [
+              { flex: 1, paddingRight: 12, opacity: pressed ? 0.78 : 1 },
+              pressed && { transform: [{ scale: 0.985 }] },
+            ]}
+          >
             <Text className="font-serif text-2xl font-semibold text-foreground">{item.name}</Text>
             <Text className="mt-1 text-xs font-semibold uppercase tracking-widest text-primary">{item.dates} · {item.tradition}</Text>
-          </View>
-          <View className="h-8 w-8 items-center justify-center rounded-full border border-border">
-            <Text className="text-lg text-primary">›</Text>
-          </View>
+            <Text className="mt-4 text-sm leading-5 text-muted">{item.summary}</Text>
+            <Text className="mt-4 text-xs font-bold uppercase tracking-widest text-primary">Abrir conversa</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={saved ? `Remover ${item.name} dos favoritos` : `Adicionar ${item.name} aos favoritos`}
+            accessibilityState={{ selected: saved }}
+            disabled={!favoritesReady}
+            onPress={() => toggleFavorite(item.slug)}
+            style={({ pressed }) => ({ opacity: !favoritesReady ? 0.4 : pressed ? 0.6 : 1 })}
+          >
+            <View className={`h-10 w-10 items-center justify-center rounded-full border ${saved ? "border-primary bg-primary/15" : "border-border bg-background"}`}>
+              <Text className="text-lg text-primary">{saved ? "★" : "☆"}</Text>
+            </View>
+          </Pressable>
         </View>
-        <Text className="mt-4 text-sm leading-5 text-muted">{item.summary}</Text>
-        <Text className="mt-4 text-xs font-bold uppercase tracking-widest text-primary">Abrir conversa</Text>
       </View>
-    </Pressable>
-  );
+    );
+  };
 
   return (
     <ScreenContainer className="px-5 pt-2" containerClassName="bg-background">

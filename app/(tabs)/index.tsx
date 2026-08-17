@@ -7,6 +7,7 @@ import * as WebBrowser from "expo-web-browser";
 import { getApiBaseUrl, loadApiBaseUrl, setApiBaseUrl } from "@/constants/oauth";
 import { ScreenContainer } from "@/components/screen-container";
 import { getAllTheologians, periods, type ChurchPeriod } from "@/data/theologians";
+import { useFavorites } from "@/lib/favorites-provider";
 
 const allTheologians = getAllTheologians();
 
@@ -24,6 +25,7 @@ export default function HomeScreen() {
   const [connectionOpen, setConnectionOpen] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<string | null>(null);
   const [testingConnection, setTestingConnection] = useState(false);
+  const { favoriteCount, isReady: favoritesReady } = useFavorites();
   const normalizedQuery = normalize(query.trim());
 
   useEffect(() => {
@@ -194,6 +196,28 @@ export default function HomeScreen() {
                 <Text className="text-xs font-semibold text-primary">Pesquisa ativa</Text>
               )}
             </View>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Abrir teólogos favoritos"
+              onPress={() => router.push("/favorites" as never)}
+              style={({ pressed }) => ({ marginTop: 16, opacity: pressed ? 0.72 : 1 })}
+            >
+              <View className="flex-row items-center rounded-2xl border border-primary/60 bg-primary/10 px-4 py-3">
+                <View className="mr-3 h-10 w-10 items-center justify-center rounded-full border border-primary/50 bg-background">
+                  <Text className="text-lg text-primary">★</Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="text-xs font-bold uppercase tracking-widest text-primary">Sua seleção</Text>
+                  <Text className="mt-1 text-sm text-foreground">
+                    {favoritesReady
+                      ? `${favoriteCount} ${favoriteCount === 1 ? "teólogo salvo" : "teólogos salvos"}`
+                      : "Carregando favoritos"}
+                  </Text>
+                </View>
+                <Text className="text-2xl text-primary">›</Text>
+              </View>
+            </Pressable>
 
             <View className="mt-4 rounded-2xl border border-border bg-surface p-4">
               <Pressable
