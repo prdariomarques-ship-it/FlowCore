@@ -20,8 +20,8 @@ android {
         applicationId = "com.flowcore.android"
         minSdk = 24
         targetSdk = 35
-        versionCode = 9
-        versionName = "1.9-theme-fix"
+        versionCode = 10
+        versionName = "1.10-connection-fix"
     }
 
     signingConfigs {

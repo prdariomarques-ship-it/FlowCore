@@ -4,16 +4,11 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
-import android.text.SpannableString
-import android.text.Spanned
-import android.text.method.LinkMovementMethod
 import android.text.method.ScrollingMovementMethod
-import android.text.style.ForegroundColorSpan
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
-import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -22,23 +17,21 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
 import com.google.android.material.button.MaterialButton
 import java.io.BufferedReader
-import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
 
 /**
- * FlowCore Android (redesign v1.8) — cliente do FlowCore Core rodando no Termux.
+ * FlowCore Android v1.10 — cliente do FlowCore Core (Termux / PC).
  * Abas: Radar (Macro Score + Regime) | Agente (chat LLM local-first) | Notas | Status
- * Visual: Material 3 dark com cartão de cabeçalho em gradiente, tabs em chips,
- * cartões elevados e saída em bloco de código.
+ * Visual: Material 3 dark — header em gradiente, tabs em chips fixas, cartões elevados.
  */
 class MainActivity : AppCompatActivity() {
 
     private val executor = Executors.newSingleThreadExecutor()
 
-    /** Base URL do Core — o FlowCore no Termux expõe a API em localhost:8080.
-     *  Editável via campo na aba Status, persistido em SharedPreferences. */
+    /** Base URL do Core. Editável na aba Status e na tela de primeiro uso.
+     *  Default: http://127.0.0.1:8080 (FlowCore no Termux). */
     private var baseUrl: String
         get() = getSharedPreferences("flowcore", 0).getString("base_url", "http://127.0.0.1:8080")!!
         set(value) = getSharedPreferences("flowcore", 0).edit().putString("base_url", value).apply()
@@ -51,13 +44,15 @@ class MainActivity : AppCompatActivity() {
     private val C_ACCENT = Color.parseColor("#00D4FF")
     private val C_VIOLET = Color.parseColor("#7C3AED")
     private val C_SUCCESS = Color.parseColor("#34D399")
-    private val C_ERROR = Color.parseColor("#F87171")
     private val C_ON_ACCENT = Color.parseColor("#06141F")
+    private val C_CARD = Color.parseColor("#1A2235")
+    private val C_CODE = Color.parseColor("#111827")
 
     private lateinit var root: LinearLayout
     private lateinit var tabsRow: LinearLayout
     private lateinit var content: LinearLayout
     private var currentTab = "radar"
+    private var bodyBuilt = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -85,6 +80,9 @@ class MainActivity : AppCompatActivity() {
             renderHeader()
             renderTabs()
             showTab("radar")
+            if (!hasConnection()) {
+                requestConnection()
+            }
         } catch (e: Exception) {
             val tv = TextView(this).apply {
                 textSize = 14f
@@ -98,6 +96,13 @@ class MainActivity : AppCompatActivity() {
             try { getExternalFilesDir(null)?.let { dir -> java.io.File(dir, "crash.txt").writeText(sw.toString()) } } catch (ignored: Throwable) {}
         }
     }
+
+    /** O Core ainda nunca respondeu nada (primeira conexão). */
+    private fun hasConnection(): Boolean =
+        getSharedPreferences("flowcore", 0).getBoolean("connected", false)
+
+    private fun setConnected() =
+        getSharedPreferences("flowcore", 0).edit().putBoolean("connected", true).apply()
 
     /* ── Header com gradiente e logo ─────────────────────── */
     private fun renderHeader() {
@@ -164,7 +169,7 @@ class MainActivity : AppCompatActivity() {
         root.addView(header)
     }
 
-    /* ── Tabs como chips Material ────────────────────────── */
+    /* ── Tabs como chips Material (adicionadas UMA única vez) ── */
     private fun renderTabs() {
         tabsRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -185,26 +190,19 @@ class MainActivity : AppCompatActivity() {
                 text = label
                 isSingleLine = true
                 textSize = 12f
+                val radius = 24f
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = radius
+                    setColor(if (key == currentTab) C_ACCENT else C_CARD)
+                }
+                setTextColor(if (key == currentTab) C_ON_ACCENT else C_SECONDARY)
                 layoutParams = LinearLayout.LayoutParams(0, 120).apply {
                     weight = 1f
                     marginStart = if (idx == 0) 0 else 12
                     marginEnd = if (idx == entries.size - 1) 0 else 0
                 }
-                if (key == currentTab) {
-                    setBackgroundColor(C_ACCENT)
-                    setTextColor(C_ON_ACCENT)
-                } else {
-                    setBackgroundColor(Color.parseColor("#1A2235"))
-                    setTextColor(C_SECONDARY)
-                }
-                val radius = 24f
-                val shape = GradientDrawable().apply {
-                    shape = GradientDrawable.RECTANGLE
-                    cornerRadius = radius
-                    if (key == currentTab) setColor(C_ACCENT) else setColor(Color.parseColor("#1A2235"))
-                }
-                background = shape
-                setOnClickListener { currentTab = key; renderTabs(); showTab(key) }
+                setOnClickListener { currentTab = key; paintTabs(); showTab(key) }
             }
             tabsRow.addView(btn)
         }
@@ -215,7 +213,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(36, 8, 36, 40)
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
+                ViewGroup.LayoutParams.WRAP_CONTENT
             )
         }
         root.addView(ScrollView(this).apply {
@@ -227,9 +225,20 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    private fun clearBody() {
-        while (root.childCount > 2) root.removeViewAt(2)
-        content.removeAllViews()
+    /** Apenas repinta o estado selecionado dos chips — não recria nada. */
+    private fun paintTabs() {
+        val entries = listOf("radar" to "Radar", "agente" to "Agente", "notas" to "Notas", "status" to "Status")
+        for (i in 0 until tabsRow.childCount) {
+            val btn = tabsRow.getChildAt(i) as MaterialButton
+            val (key, _) = entries[i]
+            val selected = key == currentTab
+            btn.background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 24f
+                setColor(if (selected) C_ACCENT else C_CARD)
+            }
+            btn.setTextColor(if (selected) C_ON_ACCENT else C_SECONDARY)
+        }
     }
 
     /* ── Conteúdo das abas ───────────────────────────────── */
@@ -238,10 +247,10 @@ class MainActivity : AppCompatActivity() {
         when (tab) {
             "radar" -> {
                 content.addView(sectionTitle("Macro Score · Regime de Mercado"))
-                content.addView(actionButton("Atualizar scores", C_ACCENT) { get("/api/macro-score/scores", it as TextView) })
-                content.addView(actionButton("Dimensões", C_ACCENT) { get("/api/macro-score/dimensions", it as TextView) })
-                content.addView(actionButton("Sinais de regime", C_ACCENT) { get("/api/regime/signals", it as TextView) })
-                content.addView(actionButton("Observer (eventos)", C_ACCENT) { get("/api/observer/events", it as TextView) })
+                content.addView(actionButton("Atualizar scores") { get("/api/macro-score/scores", it as TextView) })
+                content.addView(actionButton("Dimensões") { get("/api/macro-score/dimensions", it as TextView) })
+                content.addView(actionButton("Sinais de regime") { get("/api/regime/signals", it as TextView) })
+                content.addView(actionButton("Observer (eventos)") { get("/api/observer/events", it as TextView) })
                 content.addView(out())
             }
             "agente" -> {
@@ -252,7 +261,7 @@ class MainActivity : AppCompatActivity() {
                     movementMethod = ScrollingMovementMethod()
                     setPadding(28, 28, 28, 28)
                     background = GradientDrawable().apply {
-                        setColor(Color.parseColor("#111827"))
+                        setColor(C_CODE)
                         cornerRadius = 24f
                     }
                     layoutParams = ViewGroup.LayoutParams(
@@ -279,7 +288,7 @@ class MainActivity : AppCompatActivity() {
                     lp.marginEnd = 16
                     layoutParams = lp
                     background = GradientDrawable().apply {
-                        setColor(Color.parseColor("#1A2235"))
+                        setColor(C_CARD)
                         cornerRadius = 24f
                     }
                 }
@@ -307,66 +316,21 @@ class MainActivity : AppCompatActivity() {
             }
             "notas" -> {
                 content.addView(sectionTitle("Notas e Memórias"))
-                content.addView(actionButton("Listar notas", C_ACCENT) { get("/api/notes", it as TextView) })
-                content.addView(actionButton("Memórias", C_ACCENT) { get("/api/memories", it as TextView) })
+                content.addView(actionButton("Listar notas") { get("/api/notes", it as TextView) })
+                content.addView(actionButton("Memórias") { get("/api/memories", it as TextView) })
                 content.addView(out())
             }
             "status" -> {
                 content.addView(sectionTitle("Status do Core e Integrações"))
-                content.addView(actionButton("Health", C_SUCCESS) { get("/api/health", it as TextView) })
-                content.addView(actionButton("Status completo", C_SUCCESS) { get("/api/status", it as TextView) })
-                content.addView(actionButton("Integrações", C_SUCCESS) { get("/api/integrations/status", it as TextView) })
-                content.addView(actionButton("LLM Router", C_SUCCESS) { get("/api/llm/status", it as TextView) })
-                content.addView(actionButton("WhatsApp", C_SUCCESS) { get("/api/whatsapp/status", it as TextView) })
-                content.addView(actionButton("Telegram", C_SUCCESS) { get("/api/telegram/config", it as TextView) })
-                content.addView(actionButton("Outlook (não lidas)", C_SUCCESS) { get("/api/outlook/unread", it as TextView) })
+                content.addView(actionButton("Health") { get("/api/health", it as TextView) })
+                content.addView(actionButton("Status completo") { get("/api/status", it as TextView) })
+                content.addView(actionButton("Integrações") { get("/api/integrations/status", it as TextView) })
+                content.addView(actionButton("LLM Router") { get("/api/llm/status", it as TextView) })
+                content.addView(actionButton("WhatsApp") { get("/api/whatsapp/status", it as TextView) })
+                content.addView(actionButton("Telegram") { get("/api/telegram/config", it as TextView) })
                 content.addView(out())
                 content.addView(sectionTitle("Conexão com o Core"))
-                val urlRow = LinearLayout(this).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    layoutParams = LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                    ).apply { topMargin = 8 }
-                }
-                val et = EditText(this).apply {
-                    setText(baseUrl)
-                    hint = "http://127.0.0.1:8080"
-                    textSize = 12f
-                    setTextColor(C_PRIMARY)
-                    setHintTextColor(C_SECONDARY)
-                    isSingleLine = true
-                    val lp = LinearLayout.LayoutParams(0, 120)
-                    lp.weight = 1f
-                    lp.marginEnd = 16
-                    lp.topMargin = 24
-                    layoutParams = lp
-                    background = GradientDrawable().apply {
-                        setColor(Color.parseColor("#1A2235"))
-                        cornerRadius = 18f
-                    }
-                }
-                val save = MaterialButton(this).apply {
-                    text = "Salvar URL"
-                    textSize = 11f
-                    isSingleLine = true
-                    layoutParams = LinearLayout.LayoutParams(240, 120)
-                    setTextColor(Color.WHITE)
-                    background = GradientDrawable().apply {
-                        setColor(C_VIOLET)
-                        cornerRadius = 24f
-                    }
-                    setOnClickListener {
-                        val u = et.text.toString().trim().trimEnd('/')
-                        if (u.isNotEmpty()) {
-                            baseUrl = u
-                            Toast.makeText(this@MainActivity, "URL salva: $u", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }
-                urlRow.addView(et)
-                urlRow.addView(save)
-                content.addView(urlRow)
+                content.addView(connectionBox())
             }
         }
     }
@@ -381,7 +345,7 @@ class MainActivity : AppCompatActivity() {
         setPadding(0, 24, 0, 16)
     }
 
-    private fun actionButton(label: String, color: Int, onClick: (View) -> Unit): MaterialButton {
+    private fun actionButton(label: String, onClick: (View) -> Unit): MaterialButton {
         return MaterialButton(this).apply {
             text = label
             textSize = 13f
@@ -390,13 +354,11 @@ class MainActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 150
             ).apply { topMargin = 12 }
-            setTextColor(color)
             setTextColor(C_PRIMARY)
-            val shape = GradientDrawable().apply {
-                setColor(Color.parseColor("#1A2235"))
+            background = GradientDrawable().apply {
+                setColor(C_CARD)
                 cornerRadius = 18f
             }
-            background = shape
             setOnClickListener(onClick)
         }
     }
@@ -406,7 +368,7 @@ class MainActivity : AppCompatActivity() {
         setTextColor(C_PRIMARY)
         setPadding(24, 24, 24, 24)
         background = GradientDrawable().apply {
-            setColor(Color.parseColor("#111827"))
+            setColor(C_CODE)
             cornerRadius = 24f
         }
         layoutParams = LinearLayout.LayoutParams(
@@ -416,11 +378,185 @@ class MainActivity : AppCompatActivity() {
         text = "Toque em um botão para consultar o Core…"
     }
 
+    private fun connectionBox(): View {
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = 12 }
+        }
+        val hint = TextView(this).apply {
+            text = "Conectando ao Core em: $baseUrl"
+            textSize = 11f
+            setTextColor(C_SECONDARY)
+            setPadding(0, 0, 0, 12)
+        }
+        val urlRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+        val urlEt = EditText(this).apply {
+            setText(baseUrl)
+            setHint("http://127.0.0.1:8080")
+            textSize = 12f
+            setTextColor(C_PRIMARY)
+            setHintTextColor(C_SECONDARY)
+            isSingleLine = true
+            val lp = LinearLayout.LayoutParams(0, 120)
+            lp.weight = 1f
+            lp.marginEnd = 16
+            layoutParams = lp
+            background = GradientDrawable().apply {
+                setColor(C_CARD)
+                cornerRadius = 18f
+            }
+        }
+        val save = MaterialButton(this).apply {
+            text = "Salvar URL"
+            textSize = 11f
+            isSingleLine = true
+            layoutParams = LinearLayout.LayoutParams(240, 120)
+            setTextColor(C_ON_ACCENT)
+            background = GradientDrawable().apply {
+                setColor(C_ACCENT)
+                cornerRadius = 24f
+            }
+            setOnClickListener {
+                val u = urlEt.text.toString().trim().trimEnd('/')
+                if (u.isNotEmpty()) {
+                    baseUrl = u
+                    Toast.makeText(this@MainActivity, "URL salva: $u", Toast.LENGTH_SHORT).show()
+                    showTab("status")
+                }
+            }
+        }
+        urlRow.addView(urlEt)
+        urlRow.addView(save)
+        val test = MaterialButton(this).apply {
+            text = "Testar conexão"
+            textSize = 11f
+            isSingleLine = true
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                120
+            ).apply { topMargin = 12 }
+            setTextColor(C_ON_ACCENT)
+            background = GradientDrawable().apply {
+                setColor(C_VIOLET)
+                cornerRadius = 24f
+            }
+            setOnClickListener {
+                requestHealth()
+            }
+        }
+        box.addView(hint)
+        box.addView(urlRow)
+        box.addView(test)
+        return box
+    }
+
+    /** Tela de primeiro uso: pergunta a URL do Core antes de qualquer consulta. */
+    private fun requestConnection() {
+        val card = CardView(this).apply {
+            radius = 28f
+            cardElevation = 0f
+            setCardBackgroundColor(C_CARD)
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+        val inner = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(40, 48, 40, 48)
+        }
+        inner.addView(TextView(this).apply {
+            text = "CONFIGURAR CONEXÃO"
+            textSize = 13f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(C_ACCENT)
+            letterSpacing = 0.08f
+        })
+        inner.addView(TextView(this).apply {
+            text = "Informe o endereço do FlowCore Core.\nNo Termux: http://127.0.0.1:8080\nNa LAN (PC): http://IP_DO_PC:8090"
+            textSize = 13f
+            setTextColor(C_SECONDARY)
+            setPadding(0, 20, 0, 28)
+        })
+        val urlEt = EditText(this).apply {
+            setText(baseUrl)
+            textSize = 14f
+            setTextColor(C_PRIMARY)
+            setHintTextColor(C_SECONDARY)
+            isSingleLine = true
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                130
+            )
+            background = GradientDrawable().apply {
+                setColor(C_CODE)
+                cornerRadius = 20f
+            }
+        }
+        val btn = MaterialButton(this).apply {
+            text = "Conectar"
+            isSingleLine = true
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                140
+            ).apply { topMargin = 24 }
+            setTextColor(C_ON_ACCENT)
+            background = GradientDrawable().apply {
+                setColor(C_ACCENT)
+                cornerRadius = 24f
+            }
+            setOnClickListener {
+                val u = urlEt.text.toString().trim().trimEnd('/')
+                if (u.isNotEmpty()) {
+                    baseUrl = u
+                    setConnected()
+                    root.removeView(card)
+                    Toast.makeText(this@MainActivity, "Conectando em $u…", Toast.LENGTH_SHORT).show()
+                    requestHealth()
+                }
+            }
+        }
+        inner.addView(urlEt)
+        inner.addView(btn)
+        card.addView(inner)
+        content.addView(card)
+    }
+
+    /** GET simples: exibe o resultado no TextView e marca como conectado em caso de sucesso. */
     private fun get(endpoint: String, target: TextView) {
         target.text = "GET $endpoint …"
         executor.execute {
             val result = request("GET", endpoint, null)
-            runOnUiThread { target.text = formatJson(result) }
+            runOnUiThread {
+                target.text = formatJson(result)
+                if (!result.startsWith("HTTP") && !result.contains("Exception") && !result.contains("ConnectException")) {
+                    setConnected()
+                }
+            }
+        }
+    }
+
+    /** Health sem alvo de exibição — usado pelo botão "Testar conexão". */
+    private fun requestHealth() {
+        executor.execute {
+            val result = request("GET", "/api/health", null)
+            runOnUiThread {
+                if (!result.startsWith("HTTP") && !result.contains("Exception") && !result.contains("ConnectException")) {
+                    setConnected()
+                    Toast.makeText(this, "Conectado ao Core em $baseUrl", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, "Falha: $result", Toast.LENGTH_LONG).show()
+                }
+            }
         }
     }
 
@@ -433,6 +569,7 @@ class MainActivity : AppCompatActivity() {
                     chat.append("Erro: $result\n\n")
                     return@runOnUiThread
                 }
+                setConnected()
                 val answer = try {
                     val root = org.json.JSONObject(result)
                     root.optString("answer", result)
