@@ -348,6 +348,7 @@ class MainActivity : AppCompatActivity() {
     private fun actionButton(label: String, onClick: (View) -> Unit): MaterialButton {
         return MaterialButton(this).apply {
             text = label
+            tag = label
             textSize = 13f
             isSingleLine = true
             layoutParams = LinearLayout.LayoutParams(
@@ -375,6 +376,7 @@ class MainActivity : AppCompatActivity() {
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         ).apply { topMargin = 20 }
+        tag = "out"
         text = "Toque em um botão para consultar o Core…"
     }
 
@@ -531,18 +533,31 @@ class MainActivity : AppCompatActivity() {
         content.addView(card)
     }
 
-    /** GET simples: exibe o resultado no TextView e marca como conectado em caso de sucesso. */
-    private fun get(endpoint: String, target: TextView) {
-        target.text = "GET $endpoint …"
+    /** GET simples: marca o botão clicado com "…" e exibe o resultado no bloco de saída, marcando conectado em caso de sucesso. */
+    private fun get(endpoint: String, clicked: View) {
+        (clicked as? MaterialButton)?.text = "…"
+        val display = findOutTextView()
+        display?.text = "GET $endpoint…"
         executor.execute {
             val result = request("GET", endpoint, null)
             runOnUiThread {
-                target.text = formatJson(result)
+                (clicked as? MaterialButton)?.text = clicked.tag as? String ?: ""
+                display?.text = formatJson(result)
                 if (!result.startsWith("HTTP") && !result.contains("Exception") && !result.contains("ConnectException")) {
                     setConnected()
                 }
             }
         }
+    }
+    private fun findOutTextView(): TextView? {
+        val stack = java.util.ArrayDeque<View>()
+        stack.add(root)
+        while (stack.isNotEmpty()) {
+            val v = stack.pop()
+            if (v is TextView && v.tag == "out") return v
+            if (v is ViewGroup) for (i in 0 until v.childCount) stack.add(v.getChildAt(i))
+        }
+        return null
     }
 
     /** Health sem alvo de exibição — usado pelo botão "Testar conexão". */
