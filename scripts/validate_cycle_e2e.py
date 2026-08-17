@@ -160,7 +160,13 @@ try:
     rows = conn.execute(
         "SELECT COUNT(*) FROM market_events WHERE timestamp > datetime('now', '-1 hour')"
     ).fetchone()[0]
-    hist = conn.execute("SELECT COUNT(*) FROM macro_score_history").fetchone()[0]
+    try:
+        # Table is created lazily by score_history.record_scores() — absent
+        # on a fresh install/CI run until a dimension has a real score to
+        # persist (all "insufficient_data" is expected with no prior history).
+        hist = conn.execute("SELECT COUNT(*) FROM macro_score_history").fetchone()[0]
+    except sqlite3.OperationalError:
+        hist = 0
     report(
         "10. HISTORICAL DATA (SQLite real)",
         PASS,
