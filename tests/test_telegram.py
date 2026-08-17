@@ -165,6 +165,10 @@ class TestBuildBriefingMessage:
     providers mocked (no network) — verifies structure and HTML escaping."""
 
     def test_builds_message_with_regime_and_escaping(self, monkeypatch):
+        # market_intelligence.briefing needs pandas/yfinance (API tier) — skip
+        # on the core tier (requirements-core.txt, Android/Termux) instead of
+        # failing the whole "Core tests" CI job over an unmet optional dep.
+        pytest.importorskip("pandas")
         from runtime.telegram import build_briefing_message
 
         def fake_briefing():
