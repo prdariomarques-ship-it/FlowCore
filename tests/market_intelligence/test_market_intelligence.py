@@ -88,7 +88,11 @@ class TestYieldCurve:
 
         curve = build_yield_curve()
         assert curve.state in {
-            "normal", "flat", "inverted", "steepening", "flattening",
+            "normal",
+            "flat",
+            "inverted",
+            "steepening",
+            "flattening",
             "insufficient_data",
         }
         d = curve.to_dict()

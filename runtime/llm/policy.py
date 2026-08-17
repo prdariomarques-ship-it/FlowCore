@@ -30,9 +30,7 @@ class LocalFirstPolicy(RoutingPolicy):
 
     def __init__(self, provider_order: tuple[str, ...] | None = None) -> None:
         configured = provider_order or tuple(
-            name.strip()
-            for name in os.getenv("FLOWCORE_LLM_PROVIDER_ORDER", "").split(",")
-            if name.strip()
+            name.strip() for name in os.getenv("FLOWCORE_LLM_PROVIDER_ORDER", "").split(",") if name.strip()
         )
         self.provider_order = configured or self.DEFAULT_ORDER
 

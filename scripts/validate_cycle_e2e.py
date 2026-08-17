@@ -9,6 +9,7 @@ Usage:
 The --ask flag adds one /api/ask round-trip against the running FlowCore
 server (requires FLOWCORE_API_TOKEN set). Everything else runs in-process.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -29,7 +30,7 @@ results: list[tuple[str, str, str]] = []  # (stage, status, evidence)
 
 def report(stage: str, status: str, evidence: str) -> None:
     results.append((stage, status, evidence))
-    tag = {"PASS": "\U0001F7E2", "WARN": "\U0001F7E1", "FAIL": "\U0001F534"}[status]
+    tag = {"PASS": "\U0001f7e2", "WARN": "\U0001f7e1", "FAIL": "\U0001f534"}[status]
     print(f"{tag} {stage}: {evidence}")
 
 
@@ -133,8 +134,7 @@ try:
     report(
         "8. ALERTA (regras reais)",
         PASS if fired is not None else WARN,
-        f"avaliadas: {len(fired)} alertas disparados agora"
-        " (0 = sem violações hoje)",
+        f"avaliadas: {len(fired)} alertas disparados agora (0 = sem violações hoje)",
     )
 except Exception as e:
     report("8. ALERTA", FAIL, f"erro: {e}")
@@ -157,9 +157,7 @@ except Exception as e:
 try:
     db = str(ROOT / "data" / "flowcore.db")
     conn = sqlite3.connect(db)
-    rows = conn.execute(
-        "SELECT COUNT(*) FROM market_events WHERE timestamp > datetime('now', '-1 hour')"
-    ).fetchone()[0]
+    rows = conn.execute("SELECT COUNT(*) FROM market_events WHERE timestamp > datetime('now', '-1 hour')").fetchone()[0]
     try:
         # Table is created lazily by score_history.record_scores() — absent
         # on a fresh install/CI run until a dimension has a real score to
@@ -193,8 +191,8 @@ if "--ask" in sys.argv:
         report(
             "11. AGENTE (/api/ask E2E)",
             PASS,
-            f"HTTP {r.status} em {time.time()-t0:.0f}s; "
-            f"tool_used={body.get('tool_used','?')}; model={body.get('model','?')}",
+            f"HTTP {r.status} em {time.time() - t0:.0f}s; "
+            f"tool_used={body.get('tool_used', '?')}; model={body.get('model', '?')}",
         )
     except Exception as e:
         report("11. AGENTE (/api/ask E2E)", FAIL, f"erro: {e}")

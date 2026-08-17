@@ -63,7 +63,8 @@ class DocumentRepository:
         await self.ensure_table()
         async with aiosqlite.connect(self._db_path) as db:
             cursor = await db.execute(
-                "SELECT id, title, content, source, created_at FROM documents ORDER BY created_at DESC")
+                "SELECT id, title, content, source, created_at FROM documents ORDER BY created_at DESC"
+            )
             rows = await cursor.fetchall()
             return [{"id": r[0], "title": r[1], "content": r[2], "source": r[3], "created_at": r[4]} for r in rows]
 

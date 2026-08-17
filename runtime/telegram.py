@@ -113,6 +113,7 @@ def build_briefing_message() -> str:
         "bearish": "📉 BAIXA",
         "insufficient_data": "❓ SEM DADOS",
     }
+
     def status_label(v: str | dict) -> str:
         if isinstance(v, dict):
             v = v.get("status", v.get("regime", ""))
@@ -216,9 +217,7 @@ def send_briefing(chat_id: str | None = None, timeout: float = 15) -> dict[str, 
         raise TelegramNotConfiguredError("TELEGRAM_BOT_TOKEN not set. Add the @dario_spcx_monitor_bot token to .env.")
     targets = _resolve_chat_id(chat_id)
     if not targets:
-        raise TelegramNotConfiguredError(
-            "chat_id not provided and TELEGRAM_CHAT_ID / TELEGRAM_CHAT_ID_SML not set."
-        )
+        raise TelegramNotConfiguredError("chat_id not provided and TELEGRAM_CHAT_ID / TELEGRAM_CHAT_ID_SML not set.")
     last_result: dict[str, Any] | None = None
     for target in targets:
         last_result = _call(

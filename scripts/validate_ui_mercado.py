@@ -6,10 +6,8 @@
    reais do /api (executados localmente contra a API no ar) e verifica
    que o HTML renderizado usa apenas classes CSS existentes.
 """
+
 from __future__ import annotations
-import json
-import re
-import sys
 from pathlib import Path
 
 import requests
@@ -78,7 +76,10 @@ def check_rendered_output() -> list[str]:
             r = requests.get(BASE + "/api/portfolios/1/impact", timeout=15)
             if r.status_code == 200:
                 d = r.json()
-                print(f"[OK] /api/portfolios/1/impact: risk={d.get('portfolio_risk_score')} impact={d.get('overall_impact')}")
+                print(
+                    f"[OK] /api/portfolios/1/impact: "
+                    f"risk={d.get('portfolio_risk_score')} impact={d.get('overall_impact')}"
+                )
             else:
                 issues.append(f"/api/portfolios/1/impact: HTTP {r.status_code}")
         except requests.ConnectionError:

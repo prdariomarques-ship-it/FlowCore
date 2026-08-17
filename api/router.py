@@ -996,6 +996,7 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             return {"notes": await service.list_notes(kind=kind)}
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+
     @app.delete("/api/notes/{note_id}")
     async def delete_note(note_id: int):
         """Delete a note/todo/agenda document — same source of truth consumed
@@ -1212,58 +1213,67 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     @app.get("/api/market/asset-classes")
     async def market_asset_classes():
         from runtime.market_intelligence.asset_classes import analyze_asset_classes
+
         return analyze_asset_classes()
 
     @app.get("/api/market/yield-curve")
     async def market_yield_curve():
         from runtime.market_intelligence.yield_curve import build_yield_curve
+
         return build_yield_curve().to_dict()
 
     @app.get("/api/market/fx")
     async def market_fx():
         from runtime.market_intelligence.fx_analysis import analyze_fx
+
         return analyze_fx()
 
     @app.get("/api/market/watchlists")
     async def market_list_watchlists():
         from runtime.market_intelligence.watchlist import list_watchlists
+
         return list_watchlists()
 
     @app.get("/api/market/watchlist/{watchlist}")
     async def market_watchlist(watchlist: str):
         from runtime.market_intelligence.watchlist import snapshot
+
         return snapshot(watchlist)
 
     @app.get("/api/market/alerts")
     async def market_alerts():
         from runtime.market_intelligence.alerts import evaluate_alerts, list_alerts
-        return {"fired_now": evaluate_alerts(),
-                "history": list_alerts()}
+
+        return {"fired_now": evaluate_alerts(), "history": list_alerts()}
 
     @app.get("/api/market/calendar")
     async def market_calendar():
         from runtime.market_intelligence.calendar import today_events
+
         return {"events": today_events()}
 
     @app.get("/api/market/briefing")
     async def market_briefing():
         from runtime.market_intelligence.briefing import build_briefing
+
         return build_briefing()
+
     @app.get("/api/market/correlation")
     async def market_correlation(symbols: str = "", days: int = 60):
         """Correlation matrix over real daily closes (honest dropped list)."""
         from runtime.market_intelligence.risk import correlation_matrix
+
         if not symbols:
             symbols = "^GSPC,^BVSP,USDBRL=X,GC=F,BZ=F,^TNX"
-        return correlation_matrix([s.strip() for s in symbols.split(",") if s.strip()],
-                                  days=days)
+        return correlation_matrix([s.strip() for s in symbols.split(",") if s.strip()], days=days)
+
     @app.get("/api/market/risk")
     async def market_risk(holdings: str = "", days: int = 60):
         """Risk decomposition for `symbol=weight` pairs (CSV)."""
         from runtime.market_intelligence.risk import risk_contribution
+
         if not holdings:
-            return {"error": "invalid_request",
-                    "detail": "informe holdings como symbol=peso, ex: ^GSPC=1.0,GC=F=0.3"}
+            return {"error": "invalid_request", "detail": "informe holdings como symbol=peso, ex: ^GSPC=1.0,GC=F=0.3"}
         parsed: dict[str, float] = {}
         for pair in holdings.split(","):
             if "=" not in pair:
@@ -1274,26 +1284,32 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             except ValueError:
                 return {"error": "invalid_request", "detail": f"peso inválido: {w!r}"}
         return risk_contribution(parsed, days=days)
+
     @app.get("/api/market/rebalancing")
     async def market_rebalancing(holdings: str = "", target: str = ""):
         """Deterministic target-vs-current deviation (BUY/REDUCE/HOLD/WATCH)."""
         import json as _json
         from runtime.market_intelligence.rebalance import analyze_rebalancing
+
         try:
             h = _json.loads(holdings) if holdings else None
             t = _json.loads(target) if target else None
         except Exception:
-            return {"error": "invalid_request",
-                    "detail": "holdings/target devem ser JSON válidos"}
+            return {"error": "invalid_request", "detail": "holdings/target devem ser JSON válidos"}
         return analyze_rebalancing(h, t)
+
     @app.get("/api/market/news")
     async def market_news(groups: str = "", max_per_group: int = 6):
         """News across groups (brazil|us_equities|rates|commodities|fx|global)."""
         from runtime.market_intelligence.news import fetch_news
+
         g = [s.strip() for s in groups.split(",") if s.strip()] if groups else None
         return fetch_news(g, max_per_group=max_per_group)
+
     @app.get("/api/market/scores/history")
     async def market_scores_history(dimension: str = "", days: int = 60):
         from runtime.market_intelligence.score_history import score_history
+
         return score_history(dimension or None, days=days)
+
     return app

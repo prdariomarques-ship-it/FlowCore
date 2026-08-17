@@ -17,6 +17,7 @@ Usage inside the router:
         require_api_token(Request)  # raises HTTPException 401 if invalid
         ...
 """
+
 from __future__ import annotations
 
 import os

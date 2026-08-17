@@ -105,8 +105,7 @@ class TestDefaultObservers:
         # The original 7 core sources are preserved (backward compatibility);
         # the set was expanded to BR/US/EU/Asia equities, rates, FX and
         # commodities — assert the superset property and a minimum count.
-        assert {"treasury", "dollar", "vix", "oil", "gold", "usd_jpy",
-                "treasury_30y"} <= sources
+        assert {"treasury", "dollar", "vix", "oil", "gold", "usd_jpy", "treasury_30y"} <= sources
         assert len(sources) >= 25
 
     def test_usd_jpy_and_treasury_30y_are_real_yfinance_symbols(self):

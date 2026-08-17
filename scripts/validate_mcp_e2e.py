@@ -5,6 +5,7 @@ Usa o próprio SDK `mcp` (ClientSession + stdio transport) como faria
 qualquer cliente real — inclusive Claude Code. Valida handshake e
 chama uma amostra de ferramentas com dados reais.
 """
+
 from __future__ import annotations
 import asyncio
 import json
@@ -14,8 +15,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
+from mcp import ClientSession, StdioServerParameters  # noqa: E402
+from mcp.client.stdio import stdio_client  # noqa: E402
 
 
 async def main() -> int:
@@ -28,8 +29,11 @@ async def main() -> int:
             print(f"initialize OK — total ferramentas MCP: {len(tools)}")
 
             sample_names = [
-                "flowcore_macro_score_scores", "flowcore_observer_registry",
-                "flowcore_portfolio_list", "flowcore_regime_signals"]
+                "flowcore_macro_score_scores",
+                "flowcore_observer_registry",
+                "flowcore_portfolio_list",
+                "flowcore_regime_signals",
+            ]
             for name in sample_names:
                 t = next((t for t in tools if t.name == name), None)
                 if t:

@@ -181,10 +181,12 @@ class TestBuildBriefingMessage:
             }
 
         def fake_fetch_news(max_per_group=2):
-            return {"items": [
-                {"category": "brasil", "title": "Banco Central <mantém> Selic & sinaliza"},
-                {"category": "usa", "title": "Fed keeps rates on hold"},
-            ]}
+            return {
+                "items": [
+                    {"category": "brasil", "title": "Banco Central <mantém> Selic & sinaliza"},
+                    {"category": "usa", "title": "Fed keeps rates on hold"},
+                ]
+            }
 
         def fake_classify_all():
             return {
@@ -193,9 +195,11 @@ class TestBuildBriefingMessage:
                 "risk_sentiment": {"status": "elevated"},
             }
 
-        with patch("runtime.market_intelligence.briefing.build_briefing", side_effect=fake_briefing), \
-             patch("runtime.market_intelligence.news.fetch_news", side_effect=fake_fetch_news), \
-             patch("runtime.regime.engine.RegimeEngine") as _mock_engine:
+        with (
+            patch("runtime.market_intelligence.briefing.build_briefing", side_effect=fake_briefing),
+            patch("runtime.market_intelligence.news.fetch_news", side_effect=fake_fetch_news),
+            patch("runtime.regime.engine.RegimeEngine") as _mock_engine,
+        ):
             _mock_engine.return_value.classify_all.return_value = fake_classify_all()
             msg = build_briefing_message()
 
@@ -212,4 +216,5 @@ class TestBuildBriefingMessage:
 
     def test_escape_covers_entities(self):
         from runtime.telegram import _escape
+
         assert _escape("<b>x&y</b>") == "&lt;b&gt;x&amp;y&lt;/b&gt;"

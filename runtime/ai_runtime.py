@@ -28,6 +28,7 @@ Responsabilidades deste módulo:
 
 Nenhuma dependência nova: só urllib stdlib + os módulos runtime já existentes.
 """
+
 from __future__ import annotations
 
 import time
@@ -75,14 +76,14 @@ def _gb(size_bytes: int | None) -> str:
     """Formata bytes -> string com 2 casas decimais em GB."""
     if not size_bytes:
         return "?"
-    return f"{size_bytes / (1024 ** 3):.2f}"
+    return f"{size_bytes / (1024**3):.2f}"
 
 
 def _ram_gb(used: int | None) -> str:
     """Formata bytes de VRAM/RAM usados -> string em GB."""
     if not used:
         return "0.00"
-    return f"{used / (1024 ** 3):.2f}"
+    return f"{used / (1024**3):.2f}"
 
 
 def model_list() -> dict:
@@ -252,7 +253,6 @@ def ai_runtime_health() -> dict:
         loaded = list_loaded_models(base_url)
     except OllamaError:
         pass
-
 
     registry = get_config().get("_llm_registry") if isinstance(get_config(), dict) else None
     # O registry real vive em service.py (_llm_registry); aqui aceitamos um

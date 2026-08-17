@@ -4,6 +4,7 @@ All Ollama HTTP calls (``/api/tags``, ``/api/ps``, ``/api/generate``) are
 mocked -- the module only composes stdlib urllib + runtime.ollama helpers,
 whose own behavior is covered by tests/llm/test_ollama_provider.py.
 """
+
 from __future__ import annotations
 
 import json
@@ -56,9 +57,11 @@ def _ollama_mocks(tags: dict = TAGS_RESPONSE, ps: dict = PS_RESPONSE, generate_o
 
 @pytest.fixture(autouse=True)
 def _patch_discovery():
-    with mock.patch("runtime.ai_runtime._ollama_base_url", return_value="http://127.0.0.1:11434"), \
-         mock.patch("runtime.ai_runtime.ensure_model_loaded"), \
-         mock.patch("runtime.ai_runtime.discover_default_model", return_value="qwen3:4b"):
+    with (
+        mock.patch("runtime.ai_runtime._ollama_base_url", return_value="http://127.0.0.1:11434"),
+        mock.patch("runtime.ai_runtime.ensure_model_loaded"),
+        mock.patch("runtime.ai_runtime.discover_default_model", return_value="qwen3:4b"),
+    ):
         yield
 
 

@@ -36,14 +36,12 @@ _CATEGORY_KEYWORDS: list[tuple[str, list[str]]] = [
     ("copom", ["copom", "selic", "bc do brasil", "banco central"]),
     ("ecb", ["ecb", "lagarde", "european central bank"]),
     ("boj", ["boj", "bank of japan", "ueda"]),
-    ("geopolitics", ["war", "conflict", "sanctions", "tariff", "trade war",
-                     "geopolitical", "missile", "invasion"]),
+    ("geopolitics", ["war", "conflict", "sanctions", "tariff", "trade war", "geopolitical", "missile", "invasion"]),
     ("commodities", ["oil", "crude", "gold", "copper", "commodity", "brent", "wti"]),
     ("fixed_income", ["treasury", "yield", "bond", "debt", "default"]),
     ("inflation", ["cpi", "inflation", "ipca", "pce", "price index"]),
     ("employment", ["payroll", "jobs", "unemployment", "jobless"]),
-    ("technology", ["ai", "nvidia", "chip", "semiconductor", "tech", "apple",
-                    "openai", "datacenter"]),
+    ("technology", ["ai", "nvidia", "chip", "semiconductor", "tech", "apple", "openai", "datacenter"]),
     ("banking", ["bank", "credit", "lending", "basel"]),
     ("brazil", ["brazil", "brasil", "ibovespa", "real", "lula"]),
 ]
@@ -72,16 +70,18 @@ def _fetch_news(symbol: str) -> list[dict]:
             if isinstance(cu, dict):
                 link = cu.get("url", "") or cu.get("raw", "")
             link = link or content.get("previewUrl") or it.get("link") or ""
-            ts = (content.get("pubDate") or it.get("providerPublishTime"))
+            ts = content.get("pubDate") or it.get("providerPublishTime")
             if isinstance(ts, (int, float)):
                 ts = _dt.datetime.fromtimestamp(ts, tz=_dt.timezone.utc).isoformat()
-            out.append({
-                "headline": title,
-                "publisher": pub or (it.get("publisher") or ""),
-                "link": link,
-                "timestamp": ts or "",
-                "related_symbol": symbol,
-            })
+            out.append(
+                {
+                    "headline": title,
+                    "publisher": pub or (it.get("publisher") or ""),
+                    "link": link,
+                    "timestamp": ts or "",
+                    "related_symbol": symbol,
+                }
+            )
         except Exception:  # noqa: BLE001
             continue
     return out
@@ -104,8 +104,7 @@ def fetch_news(symbols: list[str] | None = None, max_per_group: int = 6) -> dict
     items: list[dict] = []
     seen: set[tuple[str, str]] = set()
     with ThreadPoolExecutor(max_workers=6) as ex:
-        futures = {ex.submit(_fetch_news, s): s
-                   for syms in todo.values() for s in syms}
+        futures = {ex.submit(_fetch_news, s): s for syms in todo.values() for s in syms}
         for fut in as_completed(futures):
             for it in fut.result():
                 key = (it["headline"][:80].lower(), it["publisher"].lower())
@@ -118,8 +117,7 @@ def fetch_news(symbols: list[str] | None = None, max_per_group: int = 6) -> dict
 
     items.sort(key=lambda x: x["timestamp"], reverse=True)
     per_group = max_per_group * len(groups)
-    return {"items": items[:per_group or len(items)],
-            "fetched_at": _dt.datetime.now(_dt.timezone.utc).isoformat()}
+    return {"items": items[: per_group or len(items)], "fetched_at": _dt.datetime.now(_dt.timezone.utc).isoformat()}
 
 
 def _categorize(headline: str) -> str:

@@ -19,6 +19,7 @@ com as seguintes garantias:
   erros por fonte; `flowcore.py observer events <source>` mostra o
   histórico real.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -44,6 +45,7 @@ LOG_LINES = 80  # manter histórico de status enxuto
 
 def _safe_import_repo():
     from storage import EventRepository
+
     return EventRepository()
 
 
@@ -71,7 +73,6 @@ def _is_forced() -> bool:
 
 async def _run_source(obs) -> dict:
     """Executa uma fonte com retry. Retorna status por fonte."""
-    from storage import EventRepository
 
     repo = _safe_import_repo()
     await repo.ensure_tables()
@@ -132,7 +133,6 @@ async def _run_source(obs) -> dict:
 
 
 async def main() -> int:
-    force = "--force" in sys.argv
     sources = [a for a in sys.argv[1:] if a != "--force"]
     observers = registry.all()
     if sources:
@@ -152,15 +152,16 @@ async def main() -> int:
         results.append(result)
         status = result["status"]
         if status == "ok":
-            print(f"OK      {obs.source:<10} {result['events']} evento(s)"
-                  + (f" (tentativa {result['attempt']})" if result["attempt"] > 1 else ""))
+            print(
+                f"OK      {obs.source:<10} {result['events']} evento(s)"
+                + (f" (tentativa {result['attempt']})" if result["attempt"] > 1 else "")
+            )
         elif status == "skipped_fresh":
             print(f"PULADO  {obs.source:<10} dado recente (< {MIN_AGE_SECONDS}s) — use --force para forçar")
         elif status == "empty":
             print(f"VAZIO   {obs.source:<10} sem eventos neste ciclo")
         else:
-            print(f"FALHOU  {obs.source:<10} após {MAX_ATTEMPTS} tentativas: {result['error']}",
-                  file=sys.stderr)
+            print(f"FALHOU  {obs.source:<10} após {MAX_ATTEMPTS} tentativas: {result['error']}", file=sys.stderr)
     duration = time.monotonic() - started
 
     ok = sum(1 for r in results if r["status"] == "ok")

@@ -16,10 +16,9 @@ Testes:
 
 Cleanup: remove dados de teste criados.
 """
+
 from __future__ import annotations
-import json
 import sys
-import time
 from pathlib import Path
 
 import requests
@@ -66,7 +65,6 @@ def delete(path: str, expect=200):
 
 def main() -> int:
     rc = 0
-    failures: list[str] = []
 
     # Teste 1: criar carteira (simula Web) e verificar leitura (Mobile/Agent)
     step("Teste 1 — Criar carteira (Web) e verificar leitura (Mobile/Agent)")
@@ -81,14 +79,15 @@ def main() -> int:
             fail("carteira não aparece na listagem")
             rc = 1
     except Exception as e:
-        fail(str(e)); rc = 1; pid = None
+        fail(str(e))
+        rc = 1
+        pid = None
 
     # Teste 2: adicionar ativo (simula Mobile) e verificar leitura (Web/Agent)
     step("Teste 2 — Adicionar ativo (Mobile) e verificar leitura (Web/Agent)")
     if pid:
         try:
-            h = post(f"/api/portfolios/{pid}/holdings",
-                     {"symbol": "NVDA", "quantity": 8, "average_cost": 130})
+            h = post(f"/api/portfolios/{pid}/holdings", {"symbol": "NVDA", "quantity": 8, "average_cost": 130})
             ok(f"holding adicionado id={h['id']} ({h['symbol']} ×{h['quantity']})")
             hl = get(f"/api/portfolios/{pid}/holdings")["holdings"]
             if any(x["symbol"] == "NVDA" for x in hl):
@@ -97,7 +96,8 @@ def main() -> int:
                 fail("holding não aparece")
                 rc = 1
         except Exception as e:
-            fail(str(e)); rc = 1
+            fail(str(e))
+            rc = 1
 
     # Teste 3: alterar carteira → Agent consulta summary/impact
     step("Teste 3 — Alterar carteira e Agent consultar summary/impact")
@@ -108,7 +108,8 @@ def main() -> int:
             imp = get(f"/api/portfolios/{pid}/impact")
             ok(f"impact: risco={imp.get('portfolio_risk_score')} impacto={imp.get('overall_impact')}")
         except Exception as e:
-            fail(str(e)); rc = 1
+            fail(str(e))
+            rc = 1
 
     # Teste 4: criar memória (Mobile) → Agent consulta
     step("Teste 4 — Criar memória (Mobile) e Agent consultar")
@@ -121,7 +122,8 @@ def main() -> int:
             fail("memória não visível")
             rc = 1
     except Exception as e:
-        fail(str(e)); rc = 1
+        fail(str(e))
+        rc = 1
 
     # Teste 5: criar nota (Web) → Mobile consulta
     step("Teste 5 — Criar nota (Web) e Mobile consultar")
@@ -134,7 +136,8 @@ def main() -> int:
             fail("nota não visível")
             rc = 1
     except Exception as e:
-        fail(str(e)); rc = 1
+        fail(str(e))
+        rc = 1
 
     # Teste 6: Agent executar consulta de regime (ferramentas reais)
     step("Teste 6 — Agent consulta ferramentas reais (regime/macro)")
@@ -146,7 +149,8 @@ def main() -> int:
         dims = get("/api/macro-score/dimensions")["dimensions"]
         ok(f"dimensões: {list(dims.keys())}")
     except Exception as e:
-        fail(str(e)); rc = 1
+        fail(str(e))
+        rc = 1
 
     # Teste 7: mercado atualiza → todos veem
     step("Teste 7 — Ingestão de mercado atualiza dados vistos por todas as interfaces")
@@ -155,8 +159,13 @@ def main() -> int:
         n_before = len(before)
         # executa a ingestão (mesmo job que o cron usa)
         import subprocess
-        subprocess.run([sys.executable, str(Path(__file__).parent / "ingest_observers.py")],
-                       check=True, capture_output=True, timeout=300)
+
+        subprocess.run(
+            [sys.executable, str(Path(__file__).parent / "ingest_observers.py")],
+            check=True,
+            capture_output=True,
+            timeout=300,
+        )
         after = get("/api/observer/events")["events"]
         if len(after) > n_before:
             ok(f"eventos: {n_before} → {len(after)} (nova coleta visível)")
@@ -165,7 +174,8 @@ def main() -> int:
         mk = get("/api/macro-score/scores")["scores"]
         ok(f"macro score recalculado: {[s['status'] for s in mk]}")
     except Exception as e:
-        fail(str(e)); rc = 1
+        fail(str(e))
+        rc = 1
 
     # Cleanup
     step("Cleanup — remover dados de teste")
@@ -176,7 +186,8 @@ def main() -> int:
             delete(f"/api/portfolios/{pid}")
             ok(f"carteira {pid} e holdings removidos")
         except Exception as e:
-            fail(str(e)); rc = 1
+            fail(str(e))
+            rc = 1
     try:
         # Memórias não têm rota DELETE (append-only) — apenas anotar
         mems = get("/api/memories")["memories"]
@@ -197,10 +208,10 @@ def main() -> int:
         if mem_tests:
             ok(f"memórias de teste ainda em disco ({len(mem_tests)}) — limpar via storage/memories.json")
     except Exception as e:
-        fail(str(e)); rc = 1
+        fail(str(e))
+        rc = 1
 
     print("\n" + ("=" * 50))
-    n_fail = LOG.count("FALHA") + sum(1 for l in LOG if l.startswith("FALHA"))
     print(f"{'TODOS OS TESTES PASSARAM' if rc == 0 else 'HÁ FALHAS A CORRIGIR'}")
     return rc
 

@@ -71,6 +71,5 @@ class TestDefaultRegistry:
         # The original 7 core observers remain registered (backward
         # compatibility); the registry was expanded with BR/US/EU/Asia
         # equities, rates, FX and commodities observers.
-        assert {"treasury", "dollar", "vix", "oil", "gold", "usd_jpy",
-                "treasury_30y"} <= names
+        assert {"treasury", "dollar", "vix", "oil", "gold", "usd_jpy", "treasury_30y"} <= names
         assert len(names) >= 25

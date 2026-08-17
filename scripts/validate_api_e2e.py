@@ -2,14 +2,16 @@
 """Validação E2E dos endpoints REST do FlowCore (unit+integração, sem servidor).
 Usa FastAPI TestClient contra o app construído em service.py, com o banco real.
 """
+
 from __future__ import annotations
 import sys
 from pathlib import Path
+
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from api.router import create_app  # noqa: E402 — constrói o app FastAPI
-from fastapi.testclient import TestClient
+from fastapi.testclient import TestClient  # noqa: E402
 
 client = TestClient(create_app())
 

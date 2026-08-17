@@ -81,6 +81,7 @@ class MacroScoreEngine:
         # must never break the live scores.
         try:
             from runtime.market_intelligence.score_history import record_scores
+
             record_scores([s.to_dict() for s in scores])
         except Exception:  # noqa: BLE001
             pass
