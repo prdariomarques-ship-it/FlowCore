@@ -554,7 +554,10 @@ class MainActivity : AppCompatActivity() {
                     setConnected()
                     Toast.makeText(this, "Conectado ao Core em $baseUrl", Toast.LENGTH_SHORT).show()
                 } else {
-                    Toast.makeText(this, "Falha: $result", Toast.LENGTH_LONG).show()
+                    val hint = if (result.contains("ConnectException") || result.contains("SocketTimeoutException")) {
+                        "Não alcançou $baseUrl.\nVerifique: mesmo Wi-Fi do PC (não 5G) e firewall."
+                    } else { result }
+                    Toast.makeText(this, "Falha: $hint", Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -583,7 +586,7 @@ class MainActivity : AppCompatActivity() {
         val connection = (URL(baseUrl + endpoint).openConnection() as HttpURLConnection)
         return try {
             connection.requestMethod = method
-            connection.connectTimeout = 8000
+            connection.connectTimeout = 15000
             connection.readTimeout = 90000
             connection.setRequestProperty("Content-Type", "application/json")
             val token = apiToken
