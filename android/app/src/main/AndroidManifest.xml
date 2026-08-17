@@ -6,7 +6,7 @@
         android:label="FlowCore"
         android:usesCleartextTraffic="true"
         android:supportsRtl="true"
-        android:theme="@style/Theme.AppCompat.NoActionBar">
+        android:theme="@style/Theme.FlowCore">
         <activity
             android:name=".MainActivity"
             android:exported="true">
