@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { getTheologian, getPeriod } from "@/data/theologians";
+import { getPeriodRoute } from "@/lib/navigation";
 import { getApiBaseUrl } from "@/constants/oauth";
 import { trpc } from "@/lib/trpc";
 
@@ -55,11 +56,15 @@ export default function ChatScreen() {
         .join("")
     : "?";
 
+  const returnToPeriod = () => {
+    router.replace(getPeriodRoute(periodId));
+  };
+
   if (!theologian || !period) {
     return (
       <ScreenContainer className="items-center justify-center px-6" containerClassName="bg-background">
         <Text className="font-serif text-2xl text-foreground">Pensador não encontrado</Text>
-        <Pressable onPress={() => router.back()} style={({ pressed }) => ({ opacity: pressed ? 0.65 : 1 })}>
+        <Pressable onPress={() => router.replace("/")} style={({ pressed }) => ({ opacity: pressed ? 0.65 : 1 })}>
           <View className="mt-5 rounded-full bg-primary px-5 py-3">
             <Text className="font-bold text-background">Voltar</Text>
           </View>
@@ -128,7 +133,7 @@ export default function ChatScreen() {
       <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View className="border-b border-border bg-surface px-5 pb-4 pt-2">
           <View className="flex-row items-center">
-            <Pressable onPress={() => router.back()} style={({ pressed }) => ({ opacity: pressed ? 0.55 : 1 })}>
+            <Pressable onPress={returnToPeriod} style={({ pressed }) => ({ opacity: pressed ? 0.55 : 1 })}>
               <View className="mr-3 h-9 w-9 items-center justify-center rounded-full border border-border">
                 <Text className="text-2xl text-primary">‹</Text>
               </View>

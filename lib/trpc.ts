@@ -31,7 +31,9 @@ export function createTRPCClient() {
           const token = await Auth.getSessionToken();
           return token ? { Authorization: `Bearer ${token}` } : {};
         },
-        // Custom fetch to include credentials for cookie-based auth
+        // The public chat gateway does not require a user session. Omitting
+        // credentials keeps browser builds compatible with a permissive CORS
+        // policy while Android requests remain unchanged.
         fetch(url, options) {
           const rawUrl = String(url);
           const baseUrl = getApiBaseUrl();
@@ -41,7 +43,7 @@ export function createTRPCClient() {
             : rawUrl;
           return fetch(targetUrl, {
             ...options,
-            credentials: "include",
+            credentials: "omit",
           });
         },
       }),
