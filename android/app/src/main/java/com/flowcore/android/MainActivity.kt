@@ -127,6 +127,12 @@ class MainActivity : AppCompatActivity() {
         root.addView(header)
     }
 
+    private fun clearBody() {
+        // Remove tudo exceto o header (primeiro filho do root)
+        while (root.childCount > 1) root.removeViewAt(1)
+        content.removeAllViews()
+    }
+
     /* ── Tabs ─────────────────────────────────────────────── */
     private fun renderTabs() {
         val tabs = LinearLayout(this).apply {
@@ -152,7 +158,7 @@ class MainActivity : AppCompatActivity() {
                 lp.marginEnd = 10
                 lp.topMargin = 12
                 layoutParams = lp
-                setOnClickListener { currentTab = key; renderTabs(); content.removeAllViews(); showTab(key) }
+                setOnClickListener { currentTab = key; clearBody(); renderTabs(); showTab(key) }
             }
             tabs.addView(btn)
         }
