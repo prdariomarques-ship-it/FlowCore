@@ -96,6 +96,10 @@ def default_yfinance_observers() -> list[YFinanceObserver]:
         ),
         YFinanceObserver(source="dax", category="equities", symbol="^GDAXI", event_name="price_change", unit="price"),
         YFinanceObserver(source="ftse", category="equities", symbol="^FTSE", event_name="price_change", unit="price"),
+        # Itália — verificado via yfinance em 2026-08-17 (FTSEMIB.MI)
+        YFinanceObserver(
+            source="ftsemib", category="equities", symbol="FTSEMIB.MI", event_name="price_change", unit="price"
+        ),
         YFinanceObserver(source="eurusd", category="fx", symbol="EURUSD=X", event_name="fx_change", unit="price"),
         # Ásia
         YFinanceObserver(
