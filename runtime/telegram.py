@@ -191,6 +191,72 @@ def build_briefing_message() -> str:
     return msg[:4095]
 
 
+def build_b3_summary_message() -> str:
+    """Compose a focused B3/Ibovespa summary (separate from the broad Dario OS
+    briefing — sent via the dedicated @dariozcodebot instead of the SPC-X bot).
+
+    Ibovespa (from asset_classes) + USD/BRL (from fx_analysis). Missing deltas
+    ("no_data" posture, e.g. Ibovespa on a short history window) are reported
+    honestly as "sem variação disponível", never interpolated.
+    """
+    from runtime.market_intelligence.asset_classes import analyze_asset_classes
+    from runtime.market_intelligence.fx_analysis import analyze_fx
+
+    lines = ["🇧🇷 <b>DARIO OS — RADAR B3</b>", ""]
+
+    try:
+        ac = analyze_asset_classes()
+        sources = ac.get("classes", {}).get("equities", {}).get("sources", [])
+        ibov = next((s for s in sources if s.get("source") == "ibovespa"), None)
+        if ibov and ibov.get("value") is not None:
+            value = f"{ibov['value']:,.0f}".replace(",", ".")
+            delta = ibov.get("delta")
+            delta_txt = f"{delta:+.2f}%" if delta is not None else "sem variação disponível"
+            lines.append(f"📊 <b>IBOVESPA:</b> {value} pts ({delta_txt})")
+        else:
+            lines.append("📊 <b>IBOVESPA:</b> sem dados no momento")
+    except Exception as e:  # noqa: BLE001
+        lines.append(f"📊 <b>IBOVESPA:</b> erro ao consultar ({_escape(str(e))})")
+
+    try:
+        fx = analyze_fx()
+        brl = next((p for p in fx.get("pairs", []) if p.get("source") == "dollar"), None)
+        if brl and brl.get("level") is not None:
+            delta = brl.get("delta_pct_1d")
+            delta_txt = f"{delta:+.2f}%" if delta is not None else "sem variação disponível"
+            lines.append(f"💵 <b>USD/BRL:</b> R$ {brl['level']:.4f} ({delta_txt})")
+        else:
+            lines.append("💵 <b>USD/BRL:</b> sem dados no momento")
+    except Exception as e:  # noqa: BLE001
+        lines.append(f"💵 <b>USD/BRL:</b> erro ao consultar ({_escape(str(e))})")
+
+    return "\n".join(lines)[:4095]
+
+
+def send_b3_summary(chat_id: str | None = None, timeout: float = 15) -> dict[str, Any]:
+    """Send the B3/Ibovespa summary via the dedicated @dariozcodebot.
+
+    Separate token/chat pair (TELEGRAM_BOT_TOKEN_B3 / TELEGRAM_CHAT_ID_B3) —
+    intentionally not reusing TELEGRAM_BOT_TOKEN (the SPC-X bot), so the two
+    feeds stay independently configurable/toggleable.
+    """
+    token = os.getenv("TELEGRAM_BOT_TOKEN_B3")
+    if not token:
+        raise TelegramNotConfiguredError("TELEGRAM_BOT_TOKEN_B3 not set. Add the @dariozcodebot token to .env.")
+    resolved_chat_id = chat_id or os.getenv("TELEGRAM_CHAT_ID_B3")
+    if not resolved_chat_id:
+        raise TelegramNotConfiguredError(
+            "chat_id not provided and TELEGRAM_CHAT_ID_B3 not set. Add the @dariozcodebot chat id to .env "
+            "or pass chat_id explicitly."
+        )
+    return _call(
+        "sendMessage",
+        token,
+        {"chat_id": resolved_chat_id, "text": build_b3_summary_message(), "parse_mode": "HTML"},
+        timeout=timeout,
+    )
+
+
 def _resolve_chat_id(chat_id: str | None, extra_env: str | None = None) -> list[str]:
     """Resolve destination chat(s). If multiple envs are configured (primary + SML),
     the briefing goes to all of them — SPC-X and SML receive the same digest."""

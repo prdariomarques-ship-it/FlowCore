@@ -218,3 +218,84 @@ class TestBuildBriefingMessage:
         from runtime.telegram import _escape
 
         assert _escape("<b>x&y</b>") == "&lt;b&gt;x&amp;y&lt;/b&gt;"
+
+
+class TestBuildB3SummaryMessage:
+    """B3/Ibovespa summary — separate, focused feed sent via @dariozcodebot."""
+
+    def test_builds_message_with_data(self, monkeypatch):
+        pytest.importorskip("pandas")
+        from runtime.telegram import build_b3_summary_message
+
+        def fake_asset_classes():
+            return {
+                "classes": {
+                    "equities": {
+                        "sources": [
+                            {"source": "ibovespa", "value": 166934.2, "delta": 1.23},
+                            {"source": "sp500", "value": 7785.75, "delta": 0.5},
+                        ]
+                    }
+                }
+            }
+
+        def fake_fx():
+            return {"pairs": [{"source": "dollar", "level": 5.2131, "delta_pct_1d": -0.26}]}
+
+        monkeypatch.setattr("runtime.market_intelligence.asset_classes.analyze_asset_classes", fake_asset_classes)
+        monkeypatch.setattr("runtime.market_intelligence.fx_analysis.analyze_fx", fake_fx)
+
+        msg = build_b3_summary_message()
+
+        assert "DARIO OS — RADAR B3" in msg
+        assert "IBOVESPA" in msg and "166.934" in msg and "+1.23%" in msg
+        assert "USD/BRL" in msg and "5.2131" in msg and "-0.26%" in msg
+        assert len(msg) <= 4095
+
+    def test_handles_missing_ibovespa_delta_honestly(self, monkeypatch):
+        pytest.importorskip("pandas")
+        from runtime.telegram import build_b3_summary_message
+
+        def fake_asset_classes():
+            return {"classes": {"equities": {"sources": [{"source": "ibovespa", "value": 166934.2, "delta": None}]}}}
+
+        def fake_fx():
+            return {"pairs": []}
+
+        monkeypatch.setattr("runtime.market_intelligence.asset_classes.analyze_asset_classes", fake_asset_classes)
+        monkeypatch.setattr("runtime.market_intelligence.fx_analysis.analyze_fx", fake_fx)
+
+        msg = build_b3_summary_message()
+
+        assert "sem variação disponível" in msg
+        assert "USD/BRL" in msg and "sem dados no momento" in msg
+
+
+class TestSendB3Summary:
+    def test_raises_without_token(self):
+        from runtime.telegram import TelegramNotConfiguredError, send_b3_summary
+
+        with pytest.raises(TelegramNotConfiguredError):
+            send_b3_summary()
+
+    def test_raises_without_chat_id(self, monkeypatch):
+        from runtime.telegram import TelegramNotConfiguredError, send_b3_summary
+
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN_B3", "tok")
+        with pytest.raises(TelegramNotConfiguredError):
+            send_b3_summary()
+
+    def test_success(self, monkeypatch):
+        pytest.importorskip("pandas")
+        from runtime.telegram import send_b3_summary
+
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN_B3", "tok")
+        monkeypatch.setenv("TELEGRAM_CHAT_ID_B3", "883232211")
+        monkeypatch.setattr("runtime.telegram.build_b3_summary_message", lambda: "🇧🇷 <b>DARIO OS — RADAR B3</b>")
+        payload = {"ok": True, "result": {"message_id": 99}}
+        with patch("runtime.telegram.urllib.request.urlopen", return_value=_mock_urlopen(payload)) as m:
+            result = send_b3_summary()
+        assert result["message_id"] == 99
+        req = m.call_args[0][0]
+        body = json.loads(req.data.decode("utf-8"))
+        assert body["chat_id"] == "883232211"
