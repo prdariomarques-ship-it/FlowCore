@@ -60,6 +60,56 @@ class TestAsk:
 
 # ── /api/ai-runtime/* ────────────────────────────────────────────────────────
 
+class TestAIRuntimeConfig:
+    def test_config_get_returns_200(self):
+        r = _client().get("/api/ai-runtime/config")
+        assert r.status_code == 200
+        data = r.json()
+        assert "ollama_url" in data
+        assert "model" in data
+        assert "default_url" in data
+
+    def test_config_patch_saves_tailscale_url(self, tmp_path, monkeypatch):
+        import api.dashboard_routes as dr
+        monkeypatch.setattr(dr, "_DATA_DIR", tmp_path / ".flowcore")
+        (tmp_path / ".flowcore").mkdir(parents=True)
+
+        from fastapi.testclient import TestClient
+        from api.router import create_app
+        c = TestClient(create_app(version="test"))
+
+        r = c.patch("/api/ai-runtime/config", json={"ollama_url": "http://100.64.0.2:11434"})
+        assert r.status_code == 200
+        assert r.json()["ollama_url"] == "http://100.64.0.2:11434"
+        assert r.json()["saved"] is True
+
+        r2 = c.get("/api/ai-runtime/config")
+        assert r2.json()["ollama_url"] == "http://100.64.0.2:11434"
+
+    def test_config_patch_model_only(self, tmp_path, monkeypatch):
+        import api.dashboard_routes as dr
+        monkeypatch.setattr(dr, "_DATA_DIR", tmp_path / ".flowcore")
+        (tmp_path / ".flowcore").mkdir(parents=True)
+
+        from fastapi.testclient import TestClient
+        from api.router import create_app
+        c = TestClient(create_app(version="test"))
+        r = c.patch("/api/ai-runtime/config", json={"model": "qwen3:8b"})
+        assert r.status_code == 200
+        assert r.json()["model"] == "qwen3:8b"
+
+    def test_config_url_trailing_slash_stripped(self, tmp_path, monkeypatch):
+        import api.dashboard_routes as dr
+        monkeypatch.setattr(dr, "_DATA_DIR", tmp_path / ".flowcore")
+        (tmp_path / ".flowcore").mkdir(parents=True)
+
+        from fastapi.testclient import TestClient
+        from api.router import create_app
+        c = TestClient(create_app(version="test"))
+        r = c.patch("/api/ai-runtime/config", json={"ollama_url": "http://100.64.0.2:11434/"})
+        assert r.json()["ollama_url"] == "http://100.64.0.2:11434"
+
+
 class TestAIRuntime:
     def test_models_returns_200(self):
         r = _client().get("/api/ai-runtime/models")

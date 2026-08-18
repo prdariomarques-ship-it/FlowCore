@@ -14,6 +14,19 @@ Implements all endpoints consumed by the Web Dashboard v4:
 Endpoints marked [STUB] return empty but correctly-shaped JSON so the
 dashboard never crashes on first deploy. Replace stub bodies with real
 domain module calls as each integration is rolled out.
+
+Ollama URL configuration
+------------------------
+By default all /api/ai-runtime/* and /api/ask calls use localhost:11434.
+To point to an Ollama running on another machine (e.g. a PC reachable via
+Tailscale), create ~/.flowcore/ai.json with:
+
+    {
+        "ollama_url": "http://100.x.y.z:11434",
+        "model": "phi4-mini"
+    }
+
+The URL is read at request time — no restart needed after editing the file.
 """
 from __future__ import annotations
 
@@ -25,7 +38,7 @@ from typing import Any
 from fastapi import HTTPException, Query
 from pydantic import BaseModel
 
-_OLLAMA_BASE = "http://localhost:11434"
+_OLLAMA_DEFAULT = "http://localhost:11434"
 _DATA_DIR = Path.home() / ".flowcore"
 
 
@@ -42,14 +55,25 @@ class ModelAction(BaseModel):
     keep_alive: str = "5m"
 
 
+class AIConfig(BaseModel):
+    ollama_url: str | None = None
+    model: str | None = None
+
+
 # ── Shared helpers ─────────────────────────────────────────────────────────────
 
 def _ollama(method: str, path: str, body: dict | None = None, timeout: int = 30) -> dict:
-    """Call the local Ollama HTTP API; raises RuntimeError if unavailable."""
+    """Call the Ollama HTTP API; raises RuntimeError if unavailable.
+
+    The base URL is read from ~/.flowcore/ai.json["ollama_url"] at call time
+    so it can be changed (e.g. to a Tailscale IP) without restarting FlowCore.
+    """
     import urllib.error
     import urllib.request
 
-    url = f"{_OLLAMA_BASE}{path}"
+    cfg = _read_json("ai.json", {})
+    base = cfg.get("ollama_url", _OLLAMA_DEFAULT).rstrip("/")
+    url = f"{base}{path}"
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(
         url, data=data, method=method,
@@ -123,6 +147,29 @@ def register_dashboard_routes(app, version: str) -> None:
             raise HTTPException(status_code=500, detail=str(exc))
 
     # ── AI runtime / Ollama model management ─────────────────────────────────
+
+    @app.get("/api/ai-runtime/config")
+    async def ai_config_get():
+        """Return current AI runtime config (ollama_url, default model)."""
+        cfg = _read_json("ai.json", {})
+        return {
+            "ollama_url": cfg.get("ollama_url", _OLLAMA_DEFAULT),
+            "model": cfg.get("model", "phi4-mini"),
+            "default_url": _OLLAMA_DEFAULT,
+        }
+
+    @app.patch("/api/ai-runtime/config")
+    async def ai_config_patch(data: AIConfig):
+        """Update AI runtime config without restarting FlowCore."""
+        cfg = _read_json("ai.json", {})
+        if data.ollama_url is not None:
+            cfg["ollama_url"] = data.ollama_url.rstrip("/")
+        if data.model is not None:
+            cfg["model"] = data.model
+        config_path = _DATA_DIR / "ai.json"
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        config_path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False))
+        return {"saved": True, **cfg}
 
     @app.get("/api/ai-runtime/models")
     async def ai_models():
