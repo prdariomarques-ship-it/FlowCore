@@ -28,6 +28,10 @@ PROBE_TIMEOUT = 1.5  # segundos por candidato
 # chamada, então 30s era curto demais).
 DEFAULT_GENERATE_TIMEOUT = float(os.getenv("FLOWCORE_OLLAMA_TIMEOUT", "180"))
 
+# Timeout específico para a chamada de inferência (não de carregamento de modelo).
+# Local-first: se o Ollama não responder em 10s, cai para OpenRouter em vez de bloquear.
+DEFAULT_INFERENCE_TIMEOUT = float(os.getenv("FLOWCORE_OLLAMA_INFERENCE_TIMEOUT", "10.0"))
+
 WARMUP_POLL_INTERVAL = 2  # segundos entre checagens de /api/ps durante o warm-up
 
 # Ordem de preferência ao escolher automaticamente um modelo instalado.
@@ -322,17 +326,24 @@ def ensure_model_loaded(base_url: str, model: str, timeout: float = DEFAULT_GENE
     )
 
 
-def generate(base_url: str, model: str, prompt: str, timeout: float = DEFAULT_GENERATE_TIMEOUT) -> str:
+def generate(
+    base_url: str,
+    model: str,
+    prompt: str,
+    timeout: float = DEFAULT_GENERATE_TIMEOUT,
+    inference_timeout: float | None = None,
+) -> str:
     """Executa uma chamada de geração completa: garante o modelo carregado
     (ver ensure_model_loaded) e então chama /api/generate.
 
-    Timeout é configurável (padrão DEFAULT_GENERATE_TIMEOUT, ajustável via
-    FLOWCORE_OLLAMA_TIMEOUT). Erros são classificados em subclasses de
-    OllamaError — OllamaUnreachableError, OllamaModelNotInstalledError,
-    OllamaSubscriptionRequiredError, OllamaModelLoadTimeoutError — em vez
-    de um genérico "Ollama unavailable".
+    `timeout` controla tanto o carregamento do modelo quanto a inferência
+    quando `inference_timeout` não é passado. `inference_timeout` permite
+    um timeout mais curto só para a chamada HTTP de geração (local-first:
+    10s padrão via DEFAULT_INFERENCE_TIMEOUT), sem afetar o tempo de
+    carregamento do modelo em memória.
     """
     ensure_model_loaded(base_url, model, timeout=timeout)
+    _infer_t = inference_timeout if inference_timeout is not None else timeout
 
     payload = json.dumps({"model": model, "prompt": prompt, "stream": False})
     request = urllib.request.Request(
@@ -341,7 +352,7 @@ def generate(base_url: str, model: str, prompt: str, timeout: float = DEFAULT_GE
         headers={"Content-Type": "application/json"},
     )
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with urllib.request.urlopen(request, timeout=_infer_t) as response:
             data = json.loads(response.read().decode("utf-8"))
             return data.get("response", "").strip()
     except urllib.error.HTTPError as e:

@@ -22,7 +22,7 @@
   "llm": {
     "retry": {
       "enabled": true,
-      "max_attempts": 3,
+      "max_attempts": 2,
       "backoff": "exponential",
       "initial_delay_ms": 250,
       "max_delay_ms": 5000,

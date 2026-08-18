@@ -131,6 +131,8 @@ Endpoints (LLM Router — provider-agnostic LLM access, added after Sprint 25):
 from __future__ import annotations
 
 import asyncio
+import json
+import os
 import time
 from pathlib import Path
 
@@ -1296,4 +1298,186 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     async def market_scores_history(dimension: str = "", days: int = 60):
         from runtime.market_intelligence.score_history import score_history
         return score_history(dimension or None, days=days)
+
+    # ── Doctor (Fase 3) ───────────────────────────────────────────────────────
+    @app.get("/api/doctor/{check_name}")
+    async def run_doctor_check(check_name: str):
+        from doctor.service import DoctorService
+        report = DoctorService().run(verbose=False)
+        matches = [c for c in report.checks if check_name.lower() in c.name.lower()]
+        if not matches:
+            raise HTTPException(status_code=404, detail=f"No doctor check matching '{check_name}'")
+        return {
+            "check": check_name,
+            "checks": [
+                {"name": c.name, "status": c.status.value, "message": c.message, "fix": c.fix}
+                for c in matches
+            ],
+        }
+
+    # ── Logs (Fase 3) ─────────────────────────────────────────────────────────
+    @app.get("/api/logs")
+    async def get_logs(
+        level: str | None = Query(None),
+        since: float | None = Query(None),
+        limit: int = Query(200, le=2000),
+    ):
+        import datetime as _dt
+        log_path = Path(__file__).resolve().parent.parent / "logs" / "flowcore.log"
+        if not log_path.exists():
+            log_path = Path.home() / ".flowcore" / "flowcore.log"
+        if not log_path.exists():
+            return {"lines": [], "total": 0, "log_file": str(log_path), "exists": False}
+        try:
+            lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            return {"lines": [], "total": 0, "log_file": str(log_path), "exists": True, "error": "unreadable"}
+        if level:
+            lines = [ln for ln in lines if level.upper() in ln.upper()]
+        if since:
+            cutoff = _dt.datetime.fromtimestamp(since).strftime("%Y-%m-%d %H:%M:%S")
+            lines = [ln for ln in lines if ln[:19] >= cutoff]
+        lines = lines[-limit:]
+        return {"lines": lines, "total": len(lines), "log_file": str(log_path), "exists": True}
+
+    # ── Scheduler (Fase 3) ────────────────────────────────────────────────────
+    @app.get("/api/scheduler/jobs")
+    async def scheduler_list_jobs():
+        from runtime.job_scheduler import JobScheduler
+        sched = JobScheduler()
+        return {"jobs": sched.list_jobs()}
+
+    @app.post("/api/scheduler/{job_id}/run")
+    async def scheduler_run_job(job_id: str):
+        from runtime.job_scheduler import JobScheduler
+        sched = JobScheduler()
+        if job_id not in sched._jobs:
+            raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+        return sched.run_now(job_id)
+
+    @app.post("/api/scheduler/{job_id}/pause")
+    async def scheduler_pause_job(job_id: str):
+        from runtime.job_scheduler import JobScheduler
+        sched = JobScheduler()
+        if job_id not in sched._jobs:
+            raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+        job = sched._jobs[job_id]
+        job.enabled = not job.enabled
+        sched._save()
+        return {"job_id": job_id, "name": job.name, "enabled": job.enabled}
+
+    # ── Observer ingest (Fase 3) ──────────────────────────────────────────────
+    @app.post("/api/observer/ingest")
+    async def observer_ingest(source: str = Query("manual")):
+        try:
+            if source == "manual":
+                events = await service.observer_events()
+            else:
+                events = await service.observer_source_events(source)
+            return {"ingested": len(events) if isinstance(events, list) else 0, "source": source}
+        except Exception:
+            return {"ingested": 0, "source": source}
+
+    # ── WhatsApp QR (Fase 3) ──────────────────────────────────────────────────
+    @app.get("/api/whatsapp/qr")
+    async def whatsapp_qr_get():
+        wa_cfg = Path.home() / ".flowcore" / "whatsapp.json"
+        if wa_cfg.exists():
+            try:
+                data = json.loads(wa_cfg.read_text())
+                return {
+                    "configured": True,
+                    "status": data.get("status", "unknown"),
+                    "qr": data.get("qr"),
+                    "phone": data.get("phone"),
+                }
+            except Exception:
+                pass
+        return {"configured": False, "status": "unconfigured", "qr": None, "phone": None}
+
+    @app.post("/api/whatsapp/qr")
+    async def whatsapp_qr_post():
+        try:
+            from runtime.whatsapp import get_status
+            status = get_status()
+            return {"status": status.get("state", "unknown"), "qr": status.get("qr")}
+        except Exception as e:
+            return {"status": "error", "qr": None, "error": str(e)}
+
+    # ── Telegram bots (Fase 3 / BLOCO 3) ─────────────────────────────────────
+    @app.get("/api/telegram/bots")
+    async def telegram_bots():
+        from runtime.telegram import TelegramError, check_health, get_configuration
+        cfg = get_configuration()
+        bots: list[dict] = []
+        if cfg.get("token_set"):
+            try:
+                me = check_health()
+                bots.append({
+                    "name": "Telegram — Dario OS/SPC-X",
+                    "username": me.get("result", {}).get("username"),
+                    "ok": True,
+                    "chat_id": os.getenv("TELEGRAM_CHAT_ID"),
+                })
+            except TelegramError as e:
+                bots.append({"name": "Telegram — Dario OS/SPC-X", "ok": False, "error": str(e)})
+        b3_token = os.getenv("TELEGRAM_BOT_TOKEN_B3")
+        if b3_token:
+            try:
+                from runtime.telegram import _call
+                me2 = _call("getMe", b3_token)
+                bots.append({
+                    "name": "Telegram — B3/Ibovespa",
+                    "username": me2.get("result", {}).get("username"),
+                    "ok": True,
+                    "chat_id": os.getenv("TELEGRAM_CHAT_ID_B3"),
+                })
+            except TelegramError as e:
+                bots.append({"name": "Telegram — B3/Ibovespa", "ok": False, "error": str(e)})
+        else:
+            bots.append({
+                "name": "Telegram — B3/Ibovespa",
+                "ok": False,
+                "error": "TELEGRAM_BOT_TOKEN_B3 not set",
+            })
+        return {"bots": bots, "configured": any(b["ok"] for b in bots)}
+
+    # ── AI Runtime config — Tailscale-aware Ollama URL (Fase 3) ──────────────
+    @app.get("/api/ai-runtime/config")
+    async def ai_runtime_config_get(request: Request):
+        from api.auth import require_api_token
+        require_api_token(request)
+        cfg_path = Path.home() / ".flowcore" / "ai.json"
+        cfg: dict = {}
+        if cfg_path.exists():
+            try:
+                cfg = json.loads(cfg_path.read_text())
+            except Exception:
+                pass
+        return {
+            "ollama_url": cfg.get("ollama_url", "http://localhost:11434"),
+            "model": cfg.get("model", ""),
+            "default_url": "http://localhost:11434",
+        }
+
+    @app.patch("/api/ai-runtime/config")
+    async def ai_runtime_config_patch(request: Request):
+        from api.auth import require_api_token
+        require_api_token(request)
+        cfg_path = Path.home() / ".flowcore" / "ai.json"
+        cfg: dict = {}
+        if cfg_path.exists():
+            try:
+                cfg = json.loads(cfg_path.read_text())
+            except Exception:
+                pass
+        body = await request.json()
+        if body.get("ollama_url"):
+            cfg["ollama_url"] = body["ollama_url"].rstrip("/")
+        if body.get("model"):
+            cfg["model"] = body["model"]
+        cfg_path.parent.mkdir(parents=True, exist_ok=True)
+        cfg_path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False))
+        return {"saved": True, **cfg}
+
     return app

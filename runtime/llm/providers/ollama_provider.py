@@ -22,6 +22,7 @@ from runtime.llm.models import (
 )
 from runtime.llm.provider import LLMProvider
 from runtime.ollama import (
+    DEFAULT_INFERENCE_TIMEOUT,
     OllamaError,
     OllamaModelLoadTimeoutError,
     OllamaModelNotInstalledError,
@@ -53,8 +54,8 @@ class OllamaProvider(LLMProvider):
                 or request.model
                 or discover_default_model()
             )
-            kwargs = {"timeout": request.timeout} if request.timeout is not None else {}
-            text = ollama_generate(base_url, model, request.prompt, **kwargs)
+            inference_timeout = request.timeout if request.timeout is not None else DEFAULT_INFERENCE_TIMEOUT
+            text = ollama_generate(base_url, model, request.prompt, inference_timeout=inference_timeout)
         except OllamaSubscriptionRequiredError as e:
             raise LLMAuthenticationError(str(e)) from e
         except OllamaModelNotInstalledError as e:

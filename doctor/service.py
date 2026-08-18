@@ -139,6 +139,9 @@ class DoctorService:
             self._check_mcp_reachable,
             # ── AI Bridges ───────────────────────────────────────────────────
             self._check_ollama,
+            # ── Telegram Bots ────────────────────────────────────────────────
+            self._check_telegram_dario_os,
+            self._check_telegram_b3,
             # ── Termux Runtime (Sprint 10) ───────────────────────────────────
             self._check_rsync,
             self._check_cron,
@@ -676,3 +679,57 @@ class DoctorService:
             "config/default.json missing",
             fix="Restore from repository or re-clone FlowCore",
         )
+
+    # ── Telegram bot checks (Fase 3 / BLOCO 3) ───────────────────────────────
+
+    def _check_telegram_dario_os(self) -> CheckResult:
+        token = os.environ.get("TELEGRAM_BOT_TOKEN")
+        if not token:
+            return CheckResult(
+                "telegram_dario_os",
+                CheckStatus.WARN,
+                "TELEGRAM_BOT_TOKEN not set — Dario OS/SPC-X bot unconfigured",
+                fix="Add TELEGRAM_BOT_TOKEN=<token> to ~/FlowCore/.env",
+            )
+        try:
+            from runtime.telegram import _call
+            result = _call("getMe", token, timeout=5)
+            username = result.get("result", {}).get("username", "?")
+            return CheckResult(
+                "telegram_dario_os",
+                CheckStatus.OK,
+                f"Telegram — Dario OS/SPC-X: @{username} reachable",
+            )
+        except Exception as e:
+            return CheckResult(
+                "telegram_dario_os",
+                CheckStatus.FAIL,
+                f"Telegram — Dario OS/SPC-X: {e}",
+                fix="Verify TELEGRAM_BOT_TOKEN and network connectivity",
+            )
+
+    def _check_telegram_b3(self) -> CheckResult:
+        token = os.environ.get("TELEGRAM_BOT_TOKEN_B3")
+        if not token:
+            return CheckResult(
+                "telegram_b3",
+                CheckStatus.WARN,
+                "TELEGRAM_BOT_TOKEN_B3 not set — B3/Ibovespa bot unconfigured",
+                fix="Add TELEGRAM_BOT_TOKEN_B3=<token> to ~/FlowCore/.env",
+            )
+        try:
+            from runtime.telegram import _call
+            result = _call("getMe", token, timeout=5)
+            username = result.get("result", {}).get("username", "?")
+            return CheckResult(
+                "telegram_b3",
+                CheckStatus.OK,
+                f"Telegram — B3/Ibovespa: @{username} reachable",
+            )
+        except Exception as e:
+            return CheckResult(
+                "telegram_b3",
+                CheckStatus.FAIL,
+                f"Telegram — B3/Ibovespa: {e}",
+                fix="Verify TELEGRAM_BOT_TOKEN_B3 and network connectivity",
+            )
