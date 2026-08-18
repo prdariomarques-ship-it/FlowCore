@@ -37,8 +37,19 @@ Endpoints (Sprint 14 — Agent Runner):
   GET  /api/agent/tasks/{id}— get a specific task record
 
 Endpoints (Sprint 16 — Flow Execution Engine):
-  GET  /api/flows/{id}/run  — execute a flow (runs each step's agent in order)
+  POST /api/flows/{id}/run  — execute a flow (runs each step's agent in order)
   GET  /api/flows/{id}/runs — list run history for a flow
+
+Endpoints (Fase 3 — Dashboard v4 backend):
+  GET  /api/doctor/{check}           — run a named doctor check
+  GET  /api/logs                     — log viewer (?level=&since=&limit=)
+  GET  /api/scheduler/jobs           — list scheduled jobs
+  POST /api/scheduler/{id}/run       — run a job immediately
+  POST /api/scheduler/{id}/pause     — toggle job enabled/paused
+  POST /api/observer/ingest          — trigger observer ingestion (?source=)
+  GET  /api/telegram/chats           — list configured Telegram chats
+  GET  /api/whatsapp/qr              — WhatsApp session status / QR code
+  POST /api/whatsapp/qr              — request a new WhatsApp QR link
 """
 from __future__ import annotations
 
@@ -463,6 +474,158 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         from flows.store import FlowStore
         runs = FlowStore().list_runs(flow_id=flow_id, limit=limit)
         return {"runs": [r.to_dict() for r in runs]}
+
+    # ── Doctor — named check (Fase 3) ───────────────────────────────────────
+    @app.get("/api/doctor/{check_name}")
+    async def run_doctor_check(check_name: str):
+        try:
+            from doctor.service import DoctorService
+            report = DoctorService().run(verbose=False)
+            matches = [
+                c for c in report.checks
+                if check_name.lower() in c.name.lower()
+            ]
+            if not matches:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"No doctor check matching '{check_name}'",
+                )
+            return {
+                "check": check_name,
+                "checks": [
+                    {
+                        "name": c.name,
+                        "status": c.status.value,
+                        "message": c.message,
+                        "fix": c.fix,
+                    }
+                    for c in matches
+                ],
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # ── Logs viewer (Fase 3) ─────────────────────────────────────────────────
+    @app.get("/api/logs")
+    async def get_logs(
+        level: str | None = Query(None),
+        since: float | None = Query(None),
+        limit: int = Query(200, le=2000),
+    ):
+        log_path = Path(__file__).resolve().parent.parent / "logs" / "flowcore.log"
+        if not log_path.exists():
+            log_path = Path.home() / ".flowcore" / "flowcore.log"
+        if not log_path.exists():
+            return {"lines": [], "total": 0, "log_file": str(log_path), "exists": False}
+        try:
+            raw_lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+        lines = raw_lines
+        if level:
+            lvl = level.upper()
+            lines = [ln for ln in lines if lvl in ln]
+        lines = lines[-limit:]
+        return {"lines": lines, "total": len(lines), "log_file": str(log_path), "exists": True}
+
+    # ── Scheduler jobs admin (Fase 3) ────────────────────────────────────────
+    @app.get("/api/scheduler/jobs")
+    async def list_scheduler_jobs():
+        try:
+            from runtime.job_scheduler import JobScheduler
+            return {"jobs": JobScheduler().list_jobs()}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/api/scheduler/{job_id}/run")
+    async def scheduler_run_job(job_id: str):
+        try:
+            from runtime.job_scheduler import JobScheduler
+            result = JobScheduler().run_now(job_id)
+            return result
+        except KeyError:
+            raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/api/scheduler/{job_id}/pause")
+    async def scheduler_pause_job(job_id: str):
+        try:
+            from runtime.job_scheduler import JobScheduler
+            sched = JobScheduler()
+            if job_id not in sched._jobs:
+                raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+            job = sched._jobs[job_id]
+            job.enabled = not job.enabled
+            sched._save()
+            logger.info("Scheduler: job '{}' enabled={}", job_id, job.enabled)
+            return {"job_id": job_id, "enabled": job.enabled}
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # ── Observer ingestion trigger (Fase 3) ──────────────────────────────────
+    @app.post("/api/observer/ingest")
+    async def observer_ingest(source: str = Query("manual")):
+        try:
+            from observer.ingestor import Ingestor  # type: ignore[import]
+            result = Ingestor().ingest(source=source)
+            return {"ingested": True, "source": source, **result}
+        except ImportError:
+            return {
+                "ingested": False,
+                "source": source,
+                "message": "Observer module not installed on this instance",
+            }
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # ── Telegram chats config (Fase 3) ───────────────────────────────────────
+    @app.get("/api/telegram/chats")
+    async def telegram_chats():
+        config_path = Path.home() / ".flowcore" / "telegram.json"
+        if not config_path.exists():
+            return {"configured": False, "chats": []}
+        try:
+            data = json.loads(config_path.read_text(encoding="utf-8"))
+            return {"configured": True, "chats": data.get("chats", [])}
+        except Exception as e:
+            return {"configured": False, "chats": [], "error": str(e)}
+
+    # ── WhatsApp QR / session status (Fase 3) ────────────────────────────────
+    @app.get("/api/whatsapp/qr")
+    async def whatsapp_status():
+        config_path = Path.home() / ".flowcore" / "whatsapp.json"
+        if not config_path.exists():
+            return {"configured": False, "status": "not_configured", "qr": None}
+        try:
+            data = json.loads(config_path.read_text(encoding="utf-8"))
+            return {
+                "configured": True,
+                "status": data.get("status", "unknown"),
+                "qr": data.get("qr"),
+                "phone": data.get("phone"),
+            }
+        except Exception as e:
+            return {"configured": False, "status": "error", "error": str(e), "qr": None}
+
+    @app.post("/api/whatsapp/qr")
+    async def whatsapp_relink():
+        try:
+            from whatsapp.bridge import WhatsAppBridge  # type: ignore[import]
+            qr = WhatsAppBridge().request_qr()
+            return {"status": "qr_ready", "qr": qr}
+        except ImportError:
+            return {
+                "status": "not_configured",
+                "message": "WhatsApp bridge not running on this instance",
+                "qr": None,
+            }
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
     # ── Executions ──────────────────────────────────────────────────────
     @app.get("/api/executions")
