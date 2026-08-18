@@ -848,9 +848,42 @@ async def portfolio_summary(portfolio_id: int) -> dict:
 
 async def get_asset(symbol: str) -> dict:
     asset = await _portfolio_repo.get_asset(symbol)
-    if asset is None:
-        raise ValueError(f"Asset not found: {symbol}")
-    return asset
+    if asset is not None:
+        return asset
+    # yfinance fallback — accepts any valid ticker (PETR4, VALE3, ^BVSP, BTC-USD, etc.)
+    sym = symbol.upper()
+    try:
+        import yfinance as yf
+        ticker = yf.Ticker(sym)
+        info = ticker.info or {}
+        name = info.get("longName") or info.get("shortName") or sym
+        currency = info.get("currency")
+        sector = info.get("sector")
+        industry = info.get("industry")
+        country = info.get("country")
+        asset_class = (
+            "crypto" if info.get("quoteType") == "CRYPTOCURRENCY"
+            else "equity" if info.get("quoteType") == "EQUITY"
+            else info.get("quoteType", "").lower() or None
+        )
+        if name or currency:
+            return {
+                "symbol": sym,
+                "name": name,
+                "asset_class": asset_class,
+                "country": country,
+                "currency": currency,
+                "sector": sector,
+                "industry": industry,
+                "attributes": {},
+                "updated_at": None,
+                "source": "yfinance",
+            }
+    except ImportError:
+        pass
+    except Exception:
+        pass
+    raise ValueError(f"Asset not found: {symbol}")
 
 
 async def tag_asset(symbol: str, **attributes: Any) -> dict:
