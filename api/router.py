@@ -50,6 +50,23 @@ Endpoints (Fase 3 — Dashboard v4 backend):
   GET  /api/telegram/chats           — list configured Telegram chats
   GET  /api/whatsapp/qr              — WhatsApp session status / QR code
   POST /api/whatsapp/qr              — request a new WhatsApp QR link
+
+Endpoints (Dashboard v4 — AI, market, portfolio, integrations):
+  POST /api/ask                      — agent chat (Ollama-first)
+  GET  /api/ai-runtime/models        — list Ollama models
+  GET  /api/ai-runtime/memory        — loaded models / RAM usage
+  POST /api/ai-runtime/load          — load model into RAM
+  POST /api/ai-runtime/unload        — unload model
+  GET  /api/market/{fx,yield-curve,rebalancing,watchlists,alerts,calendar,news}
+  GET  /api/macro-score/{current,history}
+  GET  /api/regime/signals
+  GET  /api/portfolios               — list portfolios (file-backed)
+  GET  /api/portfolios/{id}/{summary,exposure,impact,decision,narrative}
+  GET  /api/assets/{symbol}
+  GET  /api/outlook/auth/status      — OAuth status
+  GET  /api/outlook/auth/start       — start OAuth flow
+  GET  /api/outlook/{inbox,search}
+  GET  /api/calendar/{today,week,next,search}
 """
 from __future__ import annotations
 
@@ -658,5 +675,9 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         if exec_id not in _executions:
             raise HTTPException(status_code=404, detail="Execution not found")
         return ExecutionResponse(**_executions[exec_id])
+
+    # ── Dashboard v4 routes (AI, market, portfolio, integrations) ──────────
+    from api.dashboard_routes import register_dashboard_routes
+    register_dashboard_routes(app, version)
 
     return app
