@@ -504,16 +504,24 @@ async def _check_whatsapp() -> dict:
     return {"status": "ok" if ok else "error", "detail": detail, "error": None if ok else detail}
 
 
-async def _check_telegram() -> dict:
-    """Fast, non-throwing Telegram bot reachability check."""
+async def _check_telegram_bot(token_env: str) -> dict:
+    """Fast, non-throwing Telegram bot reachability check for a given bot."""
     try:
         from runtime.telegram import check_health
 
-        result = await asyncio.to_thread(check_health)
+        result = await asyncio.to_thread(check_health, token_env)
         detail = result.get("username") or result.get("first_name") or "reachable"
         return {"status": "ok", "detail": detail, "error": None}
     except Exception as e:
         return {"status": "error", "detail": str(e), "error": str(e)}
+
+
+async def _check_telegram_spcx() -> dict:
+    return await _check_telegram_bot("TELEGRAM_BOT_TOKEN")
+
+
+async def _check_telegram_b3() -> dict:
+    return await _check_telegram_bot("TELEGRAM_BOT_TOKEN_B3")
 
 
 async def _check_ollama() -> dict:
@@ -615,7 +623,8 @@ async def integrations_status() -> list[dict]:
         ("Outlook Mailbox", _check_outlook_mailbox),
         ("Outlook Calendar", _check_outlook_calendar),
         ("WhatsApp", _check_whatsapp),
-        ("Telegram", _check_telegram),
+        ("Telegram — Dario OS/SPC-X", _check_telegram_spcx),
+        ("Telegram — B3/Ibovespa", _check_telegram_b3),
         ("Ollama", _check_ollama),
         ("Android", _check_android),
         ("MCP", _check_mcp),

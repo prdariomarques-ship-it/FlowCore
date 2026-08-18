@@ -57,11 +57,15 @@ def get_configuration() -> dict[str, Any]:
     return {"configured": token_set and chat_id_set, "token_set": token_set, "chat_id_set": chat_id_set}
 
 
-def check_health() -> dict[str, Any]:
-    """Is the bot token valid? Calls Telegram's getMe endpoint (real network call)."""
-    token = os.getenv("TELEGRAM_BOT_TOKEN")
+def check_health(token_env: str = "TELEGRAM_BOT_TOKEN") -> dict[str, Any]:
+    """Is the bot token valid? Calls Telegram's getMe endpoint (real network call).
+
+    token_env lets callers check a specific bot (e.g. TELEGRAM_BOT_TOKEN_B3 for
+    @dariozcodebot) instead of always the default SPC-X bot.
+    """
+    token = os.getenv(token_env)
     if not token:
-        raise TelegramNotConfiguredError("TELEGRAM_BOT_TOKEN not set. Add the @dario_spcx_monitor_bot token to .env.")
+        raise TelegramNotConfiguredError(f"{token_env} not set. Add the corresponding bot token to .env.")
     return _call("getMe", token)
 
 
