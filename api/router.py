@@ -1236,6 +1236,51 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         from runtime.market_intelligence.watchlist import snapshot
         return snapshot(watchlist)
 
+    @app.get("/api/market/alt")
+    async def market_alt_sources():
+        """Complementary market sources (TradingEconomics + Frankfurter).
+
+        These sources are *additive*: they never replace the yfinance
+        observers. Each page/rate is fetched independently, so one slow or
+        failing source degrades silently and the rest still returns data.
+        Useful on hosts where yfinance is slow or unreliable.
+        """
+        from datetime import UTC, datetime
+
+        from runtime.observers.providers.alt_provider import (
+            ObserverError,
+            fetch_frankfurter,
+            fetch_tradingeconomics,
+        )
+
+        te_pages = [
+            "brazil/government-bond-yield",
+            "brazil/currency",
+            "brazil/stock-market",
+            "germany/stock-market",
+            "united-kingdom/stock-market",
+            "euro-area/stock-market",
+        ]
+        te_result: dict = {}
+        for page in te_pages:
+            try:
+                te_result[page] = fetch_tradingeconomics(page)
+            except (ObserverError, Exception):
+                te_result[page] = None
+
+        fx_result: dict = {}
+        try:
+            fx_result = fetch_frankfurter("BRL,EUR", "USD")
+        except (ObserverError, Exception):
+            fx_result = None
+
+        sources = {"tradingeconomics": te_result, "frankfurter": fx_result}
+        return {
+            "sources": sources,
+            "available_te_pages": te_pages,
+            "updated_at": datetime.now(UTC).isoformat(),
+        }
+
     @app.get("/api/market/alerts")
     async def market_alerts():
         from runtime.market_intelligence.alerts import evaluate_alerts, list_alerts
