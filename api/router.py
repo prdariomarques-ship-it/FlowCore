@@ -989,6 +989,19 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         except ProductMappingError as e:
             raise HTTPException(status_code=404, detail=str(e))
 
+    # ── Decision Log (persistent ledger with realised return + alpha) ───
+    @app.get("/api/decision-log")
+    async def decision_log_list(open_only: bool = Query(False), limit: int = Query(100)):
+        """Persistent, auditable decision ledger (TradingAgents-style) with
+        realised return & alpha vs benchmark. Numbers are code-calculated."""
+        from runtime.decisions.decision_log import DecisionLog
+        log = DecisionLog()
+        return {"entries": [e.to_json() for e in log.entries(limit=limit, open_only=open_only)]}
+    @app.post("/api/decision-log/resolve")
+    async def decision_log_resolve():
+        """Recompute realised returns + alpha for every open decision."""
+        from runtime.decisions.decision_log import DecisionLog
+        return {"resolved": DecisionLog().resolve_open()}
     @app.get("/api/portfolios/{portfolio_id}/narrative")
     async def portfolio_narrative(portfolio_id: int, shelf: str = DEFAULT_SHELF):
         try:
