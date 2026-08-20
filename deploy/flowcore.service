@@ -1,0 +1,24 @@
+[Unit]
+Description=FlowCore Market Radar API
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+WorkingDirectory=/home/%u/FlowCore
+EnvironmentFile=-/home/%u/FlowCore/.env
+Environment="FLOWCORE_OLLAMA=http://127.0.0.1:11434"
+Environment="FLOWCORE_OLLAMA_TIMEOUT=10"
+Environment="FLOWCORE_AGENT_ALLOW_CLOUD=true"
+Environment="FLOWCORE_MODEL=qwen3:4b"
+ExecStart=/home/%u/miniconda3/bin/python3 /home/%u/FlowCore/flowcore.py serve
+Restart=always
+RestartSec=8
+StandardOutput=append:/home/%u/flowcore.log
+StandardError=append:/home/%u/flowcore.log
+TimeoutStartSec=90
+
+[Install]
+WantedBy=default.target
