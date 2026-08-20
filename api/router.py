@@ -1401,6 +1401,8 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         if not log_path.exists():
             log_path = Path.home() / ".flowcore" / "flowcore.log"
         if not log_path.exists():
+            log_path = Path.home() / "flowcore.log"  # nohup fallback (DMN)
+        if not log_path.exists():
             return {"lines": [], "total": 0, "log_file": str(log_path), "exists": False}
         try:
             lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
