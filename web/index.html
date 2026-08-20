@@ -298,6 +298,7 @@ footer{padding:26px 16px 60px;text-align:center;color:var(--text3);font-size:11.
     <div id="decision-score" class="section-gap"></div>
     <div id="decision-queue" class="section-gap"></div>
     <div id="decision-reasons" class="section-gap"></div>
+    <div id="decision-log" class="section-gap"></div>
     <div id="decision-empty" class="section-gap" style="display:none"><div class="empty">Sem carteira selecionada — crie posições na aba Carteira primeiro.</div></div>
   </section>
 
@@ -549,7 +550,7 @@ footer{padding:26px 16px 60px;text-align:center;color:var(--text3);font-size:11.
   </section>
 </main>
 
-<footer>FlowCore · UI Material 3 Dark · Market Radar + Personal Agent · <span id="foot-ver">verificando…</span></footer>
+<footer>FlowCore · UI Material 3 Dark · Market Radar + Personal Agent · <span id="foot-ver">verificando…</span><br><span style="opacity:.75">⚠ Uso educacional e de pesquisa — não constitui recomendação de investimento. Números são calculados por código; narrativas são assistidas por LLM; todo output rastreia a proveniência dos dados.</span></footer>
 
 <div class="toast" id="toast"></div>
 
@@ -619,7 +620,23 @@ document.querySelectorAll('#tabs button').forEach((b) => b.addEventListener('cli
   $('page-' + b.dataset.page).classList.add('active');
   window.scrollTo({ top: 0 });
   const _p = b.dataset.page;
-  if (_p === 'decision' && !_lazyLoaded.decision) { _lazyLoaded.decision = true; fillPortfolioSelects().then(() => loadDecision()); fillShelfSelects(); }
+  if (_p === 'decision' && !_lazyLoaded.decision) { _lazyLoaded.decision = true; fillPortfolioSelects().then(() => loadDecision()); fillShelfSelects(); loadDecisionLog(); }
+  async function loadDecisionLog() {
+    try {
+      const j = await safeFetch(`/api/decision-log?limit=25`, 30000);
+      if (!j || !j.entries || !j.entries.length) return;
+      const rows = j.entries.map(e => {
+        const pos = e.resolution && (e.resolution.return_pct || 0) >= 0;
+        const neg = e.resolution && (e.resolution.return_pct || 0) < 0;
+        return `<div class="card" style="padding:12px 15px"><div style="font-weight:700;color:var(--accent)">🧭 ${e.symbol} · ${e.kind === 'risk' ? 'RISCO' : 'OPORTUNIDADE'} · ${e.action}</div>
+        <div style="color:var(--text2);font-size:12.5px;margin-top:3px">${e.ts.slice(0,19).replace('T',' ')} · confiança ${(e.confidence*100).toFixed(0)}% · prioridade ${e.priority.toFixed(1)} · materialidade ${e.materiality}</div>
+        ${e.entry_price ? `<div style="color:var(--text2);font-size:12.5px">Preço na decisão: ${e.entry_price.toFixed(2)}${e.benchmark ? ` · benchmark ${e.benchmark}: ${e.benchmark_price ? Number(e.benchmark_price).toFixed(0) : '—'}` : ''}</div>` : ''}
+        ${e.resolution && Object.keys(e.resolution).length ? `<div style="margin-top:5px;font-size:12.5px;color:${pos ? 'var(--green)' : neg ? 'var(--red)' : 'var(--text2)'}">Retorno: ${e.resolution.return_pct ?? '—'}% · benchmark ${e.resolution.benchmark_return_pct ?? '—'}% · α ${e.resolution.alpha_pct ?? '—'}%</div>` : ''}</div>`;
+      }).join('');
+      const el = $('decision-log');
+      if (el) el.innerHTML = '<h2>Diário de Decisões<span class="sub">/api/decision-log — retorno realizado e α vs benchmark (ledger persistente)</span></h2>' + '<div style="display:grid;gap:10px">' + rows + '</div>';
+    } catch (err) { /* ledger opcional — não quebra a aba */ }
+  }
   if (_p === 'impact' && !_lazyLoaded.impact) { _lazyLoaded.impact = true; fillPortfolioSelects().then(() => loadImpact()); fillShelfSelects(); }
   if (_p === 'status' && !_lazyLoaded.status) { _lazyLoaded.status = true; loadDoctor().catch(() => {}); loadScheduler().catch(() => {}); }
 }));
