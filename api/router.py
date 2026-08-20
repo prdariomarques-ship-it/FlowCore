@@ -137,7 +137,7 @@ import time
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response as _StaticResponse
 from loguru import logger
 from pydantic import BaseModel, create_model
 
@@ -146,6 +146,15 @@ from runtime.portfolio.attributes import ASSET_ATTRIBUTE_FIELDS
 from runtime.product_mapping import DEFAULT_SHELF, ProductMappingError
 
 _WEB_DIR = Path(__file__).resolve().parent.parent / "web"
+
+
+# ---------------------------------------------------------------------------
+# Web dashboard (served statically so the panel works over the Cloudflare
+# tunnel on the user's PC — no separate web server needed)
+# ---------------------------------------------------------------------------
+
+
+# /web/static/* é registrado dentro de create_app() junto com serve_ui (ver linha ~300)
 
 
 # ---------------------------------------------------------------------------
@@ -268,6 +277,26 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         if not index.exists():
             return HTMLResponse("<h2>FlowCore UI not found — run from project root</h2>", 404)
         return HTMLResponse(index.read_text(encoding="utf-8"))
+
+    # ── Web static assets (images/css/js beside index.html) ────────────
+    @app.get("/web/static/{filepath:path}", include_in_schema=False)
+    async def _web_static(filepath: str):
+        target = (_WEB_DIR / filepath).resolve()
+        if not str(target).startswith(str(_WEB_DIR.resolve())) or not target.is_file():
+            raise HTTPException(status_code=404, detail="Not found")
+        media = {
+            ".html": "text/html; charset=utf-8",
+            ".js": "application/javascript; charset=utf-8",
+            ".css": "text/css; charset=utf-8",
+            ".json": "application/json; charset=utf-8",
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".svg": "image/svg+xml",
+            ".ico": "image/x-icon",
+            ".webp": "image/webp",
+        }
+        return _StaticResponse(target.read_bytes(), media_type=media.get(target.suffix, "application/octet-stream"))
 
     # ── Health ──────────────────────────────────────────────────────────
     @app.get("/api/health", response_model=HealthResponse)
