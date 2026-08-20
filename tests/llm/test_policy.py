@@ -1,5 +1,8 @@
-"""Tests for runtime.llm.policy.LocalFirstPolicy -- the Policy Engine's
-default: local-first, cloud only ever opt-in, never a silent fallback.
+"""Tests for runtime.llm.policy.LocalFirstPolicy and agent_ask cloud env var.
+
+Default semantics (no allow_cloud key): local providers only — cloud is
+never a silent fallback. Cloud requires an explicit opt-in via
+metadata["allow_cloud"]=True or the FLOWCORE_AGENT_ALLOW_CLOUD env var.
 """
 
 from __future__ import annotations
@@ -66,3 +69,49 @@ class TestLocalFirstPolicy:
 
         policy = LocalFirstPolicy(("openrouter", "deepseek"))
         assert policy.choose(LLMRequest(prompt="x"), ["openrouter", "deepseek"]) == []
+
+
+class TestAgentAskCloudEnvVar:
+    """FLOWCORE_AGENT_ALLOW_CLOUD env var gates cloud fallback in agent_ask()."""
+
+    def _get_meta(self, monkeypatch, value=None):
+        """Call _agent_ask_metadata() with a fresh env state."""
+        import os
+        if value is None:
+            monkeypatch.delenv("FLOWCORE_AGENT_ALLOW_CLOUD", raising=False)
+        else:
+            monkeypatch.setenv("FLOWCORE_AGENT_ALLOW_CLOUD", value)
+        # _agent_ask_metadata reads os.getenv() at call time — no reload needed.
+        import service as svc
+        return svc._agent_ask_metadata()
+
+    def test_local_only_when_env_absent(self, monkeypatch):
+        """Without FLOWCORE_AGENT_ALLOW_CLOUD, no allow_cloud key in metadata."""
+        meta = self._get_meta(monkeypatch)
+        assert not meta.get("allow_cloud")
+
+    def test_cloud_enabled_when_env_true(self, monkeypatch):
+        meta = self._get_meta(monkeypatch, "true")
+        assert meta.get("allow_cloud") is True
+
+    def test_cloud_enabled_when_env_1(self, monkeypatch):
+        meta = self._get_meta(monkeypatch, "1")
+        assert meta.get("allow_cloud") is True
+
+    def test_cloud_enabled_when_env_yes(self, monkeypatch):
+        meta = self._get_meta(monkeypatch, "yes")
+        assert meta.get("allow_cloud") is True
+
+    def test_local_only_when_env_false(self, monkeypatch):
+        meta = self._get_meta(monkeypatch, "false")
+        assert not meta.get("allow_cloud")
+
+    def test_local_only_when_env_empty(self, monkeypatch):
+        meta = self._get_meta(monkeypatch, "")
+        assert not meta.get("allow_cloud")
+
+    def test_purpose_key_always_present(self, monkeypatch):
+        """purpose key must always be in metadata regardless of cloud setting."""
+        for val in (None, "true", "false"):
+            meta = self._get_meta(monkeypatch, val)
+            assert meta.get("purpose") == "chat"

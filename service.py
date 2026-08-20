@@ -1292,13 +1292,45 @@ _agent_tools = [
 _agent_engine = AgentEngine(_llm_router, _agent_tools)
 
 
+def _agent_ask_metadata() -> dict:
+    """Base LLMRequest metadata for agent_ask().
+
+    FLOWCORE_AGENT_ALLOW_CLOUD=true/1/yes enables OpenRouter as a fallback
+    when the local Ollama cannot serve the request (model not installed,
+    unreachable, timed out). When the env var is absent or false, agent_ask
+    stays local-only — the original default behaviour.
+    """
+    allow = os.getenv("FLOWCORE_AGENT_ALLOW_CLOUD", "").strip().lower()
+    meta: dict = {"purpose": "chat"}
+    if allow in ("true", "1", "yes"):
+        meta["allow_cloud"] = True
+    return meta
+
+
 async def agent_ask(question: str, timeout: float | None = None) -> dict:
     """Same LLMRouter, same LLMError contract as ask() -- callers (CLI,
     FastAPI, MCP) catch LLMError exactly like they already did for ask().
     Superset of ask(): when no tool applies, the LLM answers directly
-    from the same RAG context ask() would have used."""
+    from the same RAG context ask() would have used.
+
+    Cloud fallback: when FLOWCORE_AGENT_ALLOW_CLOUD=true the router will
+    fall through to OpenRouter if the local Ollama fails (model not installed,
+    unreachable, timed out). Default behaviour remains local-only.
+    """
+    meta = _agent_ask_metadata()
+    allow_cloud = bool(meta.get("allow_cloud"))
     context = await build_rag_context(5)
-    result = await _agent_engine.handle(question, context=context, timeout=timeout)
+    if allow_cloud:
+        previous_policy = _agent_engine._router._policy
+        _agent_engine._router._policy = _AiRuntimePolicy(
+            previous_policy, allow_cloud=True
+        )
+        try:
+            result = await _agent_engine.handle(question, context=context, timeout=timeout)
+        finally:
+            _agent_engine._router._policy = previous_policy
+    else:
+        result = await _agent_engine.handle(question, context=context, timeout=timeout)
     return result.to_dict()
 
 
