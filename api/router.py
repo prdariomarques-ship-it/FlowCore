@@ -308,6 +308,16 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             platform=_platform,
         )
 
+    # ── Discover (APK auto-config) ──────────────────────────────────────
+    @app.get("/api/discover")
+    async def discover(request: Request):
+        return {
+            "url": str(request.base_url).rstrip("/"),
+            "version": version,
+            "platform": _platform,
+            "status": "ok",
+        }
+
     # ── Comprehensive status (for web UI) ───────────────────────────────
     @app.get("/api/status")
     async def status():

@@ -560,13 +560,16 @@ const API = (() => {
   /* ── Modo app Android (WebView + bridge nativa window.FlowCore) ── */
   const isApp = typeof window.FlowCore !== 'undefined';
   const appConfig = isApp ? (() => { try { return JSON.parse(window.FlowCore.getConfig()); } catch (e) { return {}; } })() : {};
-  const base = isApp ? (appConfig.base_url || '') : window.location.origin;
+  /* B6-fix: `base` é let para que setBase() funcione em modo browser */
+  let base = isApp ? (appConfig.base_url || '') : (localStorage.getItem('fc_base') || window.location.origin);
   let token = isApp ? (appConfig.api_token || '') : (localStorage.getItem('fc_token') || '');
   const headers = () => {
     const hd = { 'Content-Type': 'application/json', Accept: 'application/json' };
     if (token) hd['X-FlowCore-Token'] = token;
     return hd;
   };
+  /* B1/B5-fix: appFetch delega ao bridge nativo (síncrono por natureza);
+     rejeita em HTTP 4xx/5xx para que safeFetch exiba estado de erro. */
   const appFetch = (path, method, body, ms) => {
     return new Promise((resolve, reject) => {
       const t = setTimeout(() => reject(new DOMException('', 'TimeoutError')), ms);
@@ -576,17 +579,18 @@ const API = (() => {
         clearTimeout(t);
         if (j.http_code >= 200 && j.http_code < 300) resolve(JSON.parse(j.body));
         else if (j.http_code === 0) reject(new DOMException('', 'NetworkError'));
-        else resolve(JSON.parse(j.body));
+        else reject(Object.assign(new Error(`HTTP ${j.http_code}`), { http_code: j.http_code, body: j.body }));
       } catch (e) { clearTimeout(t); reject(e); }
     });
   };
   return {
-    base,
+    get base() { return base; },
     getToken: () => token,
     setToken: (t) => { token = (t || '').trim(); if (isApp) window.FlowCore.setToken(token); else localStorage.setItem('fc_token', token); },
-    setBase: (u) => { if (isApp) window.FlowCore.setBaseUrl(u); },
-    get: (path, ms = 60000) => isApp ? appFetch(path, 'GET', null, ms) : fetch(base + path, { headers: headers(), signal: AbortSignal.timeout(ms) }).then(r => r.json()),
-    post: (path, body, ms = 600000) => isApp ? appFetch(path, 'POST', body, ms) : fetch(base + path, { method: 'POST', headers: headers(), signal: AbortSignal.timeout(ms), body: JSON.stringify(body) }).then(r => r.json()),
+    /* B6-fix: atualiza `base` em ambos os modos */
+    setBase: (u) => { base = (u || '').replace(/\/$/, ''); if (isApp) window.FlowCore.setBaseUrl(base); },
+    get: (path, ms = 60000) => isApp ? appFetch(path, 'GET', null, ms) : fetch(base + path, { headers: headers(), signal: AbortSignal.timeout(ms) }).then(r => r.ok ? r.json() : r.json().then(j => Promise.reject(Object.assign(new Error(`HTTP ${r.status}`), j)))),
+    post: (path, body, ms = 600000) => isApp ? appFetch(path, 'POST', body, ms) : fetch(base + path, { method: 'POST', headers: headers(), signal: AbortSignal.timeout(ms), body: JSON.stringify(body) }).then(r => r.ok ? r.json() : r.json().then(j => Promise.reject(Object.assign(new Error(`HTTP ${r.status}`), j)))),
     del: (path) => isApp ? appFetch(path, 'DELETE', null, 45000) : fetch(base + path, { headers: headers() }).then(r => r.json()),
     delete: (path, ms = 45000) => isApp ? appFetch(path, 'DELETE', null, ms) : fetch(base + path, { method: 'DELETE', headers: headers(), signal: AbortSignal.timeout(ms) }).then(r => r.json()),
   };
@@ -666,13 +670,16 @@ function errBox(prefix) {
 
 /* ══════ RADAR ══════ */
 async function loadRadar() {
-  const [watchlists, alerts, calendar, alt, news, briefing] = await Promise.all([
+  /* B2-fix: FX e yield-curve em paralelo com os demais painéis */
+  const [watchlists, alerts, calendar, alt, news, briefing, fx, yc] = await Promise.all([
     safeFetch('/api/market/watchlists', 25000),
     safeFetch('/api/market/alerts', 30000),
     safeFetch('/api/market/calendar', 25000),
     safeFetch('/api/market/alt', 90000),
     safeFetch('/api/market/news', 45000),
     safeFetch('/api/market/briefing', 60000),
+    safeFetch('/api/market/fx', 60000),
+    safeFetch('/api/market/yield-curve', 60000),
   ]);
 
   // Fontes alternativas — shape: {sources:{tradingeconomics:{page:{value,delta_pct,date}},frankfurter:{base,date,rates}}}
@@ -747,18 +754,18 @@ async function loadRadar() {
     } else $('news-list').innerHTML = `<div class="empty">Nenhuma notícia retornada neste momento.<br><small>obtido em ${esc((news.fetched_at || '').slice(0, 19))}</small></div>`;
   } else $('news-list').innerHTML = errBox('Notícias');
 
-  // Briefing — shape: {lines:[string], fetched_at} (linha por linha do resumo)
+  // Briefing — shape: {lines:[string], generated_at} (linha por linha do resumo)
   if (briefing && !briefing._error) {
     if (Array.isArray(briefing.lines) && briefing.lines.length) {
       $('briefing-list').innerHTML = briefing.lines.map((l) =>
         l.startsWith('  ') ? `<div style="padding-left:14px;font-size:12.5px;color:var(--text2)">${esc(String(l))}</div>`
                            : `<div style="padding:3px 0;font-size:13px">${esc(String(l))}</div>`).join('')
-        + (briefing.fetched_at ? `<div style="font-size:11px;color:var(--text3);margin-top:8px">gerado em ${esc(String(briefing.fetched_at).slice(0, 19))}</div>` : '');
+        /* B4-fix: chave correta é generated_at (não fetched_at) */
+        + (briefing.generated_at ? `<div style="font-size:11px;color:var(--text3);margin-top:8px">gerado em ${esc(String(briefing.generated_at).slice(0, 19))}</div>` : '');
     } else $('briefing-list').innerHTML = `<div class="empty">Briefing vazio neste momento.<br><small>as fontes de mercado (curva, dólar, classes de ativos) retornaram sem dados.</small></div>`;
   } else $('briefing-list').innerHTML = errBox('Briefing diário');
 
   // FX — shape: {pairs:[{source,name,level,delta_pct_1d,usd_regime}], dxy_delta}
-  const fx = await safeFetch('/api/market/fx', 60000);
   if (fx && !fx._error && fx.pairs && fx.pairs.length) {
     $('fx-list').innerHTML = `<div class="grid g-3" style="margin-bottom:10px">
       ${fx.pairs.map((p) => `<div class="stat">
@@ -770,7 +777,6 @@ async function loadRadar() {
   } else $('fx-list').innerHTML = `<div class="empty">Câmbio indisponível no momento.<br><small>o fx engine lê os observers (dólar, pares) — se os observers não responderem, este painel fica vazio.</small></div>`;
 
   // Yield curve — shape: {points:[{source,label,yield_pct,previous_close}], slope_10y_2y_bps, shape, interpretation}
-  const yc = await safeFetch('/api/market/yield-curve', 60000);
   if (yc && !yc._error && yc.points && yc.points.length) {
     const maxY = Math.max(...yc.points.map((p) => p.yield_pct || 0)) || 5;
     $('yield-list').innerHTML = `<div class="grid g-3" style="margin-bottom:10px">
