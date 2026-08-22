@@ -156,20 +156,22 @@ done
 ok "Diretorios ~/AI criados"
 
 # ──────────────────────────────────────────────
-# ETAPA 9 — Instalar gpu-check.sh
+# ETAPA 9 — Instalar scripts de diagnóstico
 # ──────────────────────────────────────────────
-section "ETAPA 9 — Script gpu-check.sh"
+section "ETAPA 9 — Scripts de diagnóstico"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-GPU_CHECK_SRC="$SCRIPT_DIR/gpu-check.sh"
-GPU_CHECK_DST="$HOME/AI/scripts/gpu-check.sh"
 
-if [[ -f "$GPU_CHECK_SRC" ]]; then
-    cp "$GPU_CHECK_SRC" "$GPU_CHECK_DST"
-    chmod +x "$GPU_CHECK_DST"
-    ok "gpu-check.sh instalado em ~/AI/scripts/"
-else
-    warn "gpu-check.sh nao encontrado em $SCRIPT_DIR — copie-o manualmente para ~/AI/scripts/"
-fi
+for SCRIPT_NAME in gpu-check.sh generate-report.sh; do
+    SRC="$SCRIPT_DIR/$SCRIPT_NAME"
+    DST="$HOME/AI/scripts/$SCRIPT_NAME"
+    if [[ -f "$SRC" ]]; then
+        cp "$SRC" "$DST"
+        chmod +x "$DST"
+        ok "$SCRIPT_NAME instalado em ~/AI/scripts/"
+    else
+        warn "$SCRIPT_NAME nao encontrado em $SCRIPT_DIR — copie-o manualmente para ~/AI/scripts/"
+    fi
+done
 
 # ──────────────────────────────────────────────
 # ETAPA 10 — Docker (verificacao apenas)
@@ -189,8 +191,10 @@ fi
 section "Setup concluido"
 echo ""
 echo "Proximos passos:"
-echo "  1. Execute o diagnostico completo:  ~/AI/scripts/gpu-check.sh"
-echo "  2. Teste Ollama com GPU:            ollama run qwen3:8b"
+echo "  1. Diagnostico resumido:            ~/AI/scripts/gpu-check.sh"
+echo "  2. Relatorio final preenchido:      ~/AI/scripts/generate-report.sh"
+echo "     (salvar em arquivo:              ~/AI/scripts/generate-report.sh | tee ~/AI/logs/relatorio-\$(date +%Y-%m-%d).txt)"
+echo "  3. Teste Ollama com GPU:            ollama run qwen3:8b"
 echo "     (monitore em outro terminal:      watch -n 1 nvidia-smi)"
-echo "  3. Para ativar o venv em novas sessoes: source ~/ai-env/bin/activate"
+echo "  4. Para ativar o venv em novas sessoes: source ~/ai-env/bin/activate"
 echo ""

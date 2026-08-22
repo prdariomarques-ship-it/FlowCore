@@ -458,82 +458,68 @@ versão Python, PyTorch, Ollama. Não altera nenhuma configuração.
 
 ## Etapa 14 — Relatório final
 
-Execute e documente os resultados:
+Use o script gerador de relatório incluído neste repositório. Ele coleta todos
+os dados automaticamente e imprime o relatório completo preenchido com valores reais.
+
+### Gerar e salvar o relatório
 
 ```bash
-# Diagnóstico completo
-~/AI/scripts/gpu-check.sh
+# Exibir no terminal
+~/AI/scripts/generate-report.sh
 
-# Confirmação PyTorch
-source ~/ai-env/bin/activate
-python -c "
-import torch
-x = torch.randn(5000, 5000, device='cuda')
-y = torch.matmul(x, x)
-torch.cuda.synchronize()
-print('CUDA TESTE: OK')
-print('GPU:', torch.cuda.get_device_name(0))
-"
-
-# Status Ollama
-ollama --version
-systemctl status ollama --no-pager
-
-# Docker
-docker --version
+# Salvar em arquivo (e exibir ao mesmo tempo)
+~/AI/scripts/generate-report.sh | tee ~/AI/logs/relatorio-$(date +%Y-%m-%d).txt
 ```
 
-### Template de relatório
+O script cobre automaticamente:
+- Hardware (GPU, VRAM, driver, CUDA, temperatura, consumo, arquitetura)
+- WSL (versão, distro, kernel)
+- Python (versão, status do venv)
+- PyTorch (versão, CUDA, GPU detectada, **teste real de multiplicação matricial na GPU**)
+- Ollama (versão, serviço, modelos baixados, uso de GPU)
+- Docker (versão, daemon acessível)
+- Classificação final: **APROVADA / APROVADA COM RESSALVAS / NÃO APROVADA**
+
+### Instalar o script (se ainda não foi feito pelo setup-wsl-ai.sh)
+
+```bash
+cp scripts/wsl/generate-report.sh ~/AI/scripts/generate-report.sh
+chmod +x ~/AI/scripts/generate-report.sh
+```
+
+### Saída esperada (máquina aprovada)
 
 ```
-=== RELATÓRIO FINAL — MÁQUINA IA LOCAL ===
-Data: _______________
+╔═══════════════════════════════════════════════════════════════════╗
+║    RELATÓRIO FINAL — MÁQUINA IA LOCAL (FlowCore)                 ║
+║    Gerado em: 2025-XX-XX XX:XX:XX                                ║
+╚═══════════════════════════════════════════════════════════════════╝
 
-HARDWARE
-  CPU       : AMD Ryzen 7 5700X
-  RAM       : 32 GB DDR4
-  GPU       : NVIDIA GeForce RTX 3060
-  VRAM      : 12288 MiB
-  SSD       : ___ GB NVMe
-  OS        : Windows 11 Build ___
+── HARDWARE ──────────────────────────────────────────────────────────
+GPU         : NVIDIA GeForce RTX 3060
+VRAM        : 12288 MiB
+Driver      : 570.xx.xx
+CUDA sup.   : 12.8
+Arquitet.   : Ampere
+Temp idle   : 4X °C
+GPU no WSL  : SIM
 
-NVIDIA
-  Driver    : ___
-  CUDA sup. : ___
-  Temp idle : ___ °C
-  Estado    : OK / AVISO
+── PYTORCH ───────────────────────────────────────────────────────────
+Versão      : 2.x.x+cu128
+CUDA        : disponível
+GPU         : NVIDIA GeForce RTX 3060
+VRAM        : 11.99 GB
+Teste CUDA  : APROVADO
 
-WSL
-  Versão    : ___
-  Distro    : Ubuntu ___
-  Kernel    : ___
-  GPU WSL   : detectada / NÃO detectada
+── OLLAMA ────────────────────────────────────────────────────────────
+Versão      : 0.x.x
+Serviço     : ativo (systemd)
+GPU         : RTX 3060 (VRAM aumentou durante inferência)
+Teste       : APROVADO (qwen3:8b rodou na GPU)
 
-PYTHON
-  Versão    : ___
-  venv      : ~/ai-env — ativo
-
-PYTORCH
-  Versão    : ___
-  CUDA      : True / False
-  GPU       : ___
-  VRAM      : ___ GB
-  Teste     : APROVADO / REPROVADO
-
-OLLAMA
-  Versão    : ___
-  Serviço   : ativo / inativo
-  GPU       : utilizada / CPU apenas
-  Qwen3:8b  : APROVADO / REPROVADO
-
-DOCKER
-  Versão    : ___
-  Estado    : funcionando / não instalado
-
-RESULTADO FINAL
-  [ ] APROVADA PARA IA LOCAL
-  [ ] APROVADA COM RESSALVAS — ___
-  [ ] NÃO APROVADA — ___
+═══════════════════════════════════════════════════════════════════════
+  RESULTADO FINAL: APROVADA PARA IA LOCAL
+═══════════════════════════════════════════════════════════════════════
 ```
 
 ---
