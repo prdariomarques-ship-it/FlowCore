@@ -47,31 +47,150 @@ nvidia-smi
 
 ## Etapa 2 — WSL2
 
-### Verificar se já está instalado
+> **Pré-requisito:** Windows 10 versão 2004+ (Build 19041+) ou Windows 11.
+> Para versões anteriores: [instalação manual](https://learn.microsoft.com/pt-br/windows/wsl/install-manual).
+
+---
+
+### 2.1 — Verificar se o WSL já está instalado
 
 ```powershell
-wsl -l -v
+wsl --list --verbose
 ```
 
-Se o Ubuntu aparecer com `VERSION 2`, o WSL2 já está configurado. **Pule para a Etapa 3.**
+Interprete a saída:
 
-### Instalar (se necessário)
+| Cenário | O que você vê | Ação |
+|---|---|---|
+| WSL2 pronto | Ubuntu com `VERSION 2` e `STATE Running/Stopped` | Pule para a Etapa 3 |
+| WSL1 instalado | Ubuntu com `VERSION 1` | Atualize para WSL2 (seção 2.4) |
+| Nenhuma distro | Saída vazia ou erro | Instale (seção 2.2) |
+| WSL não instalado | Comando não reconhecido | Instale (seção 2.2) |
+
+---
+
+### 2.2 — Instalar o WSL (novo)
+
+Abra o PowerShell **como Administrador** e execute:
 
 ```powershell
 wsl --install
 ```
 
-Reinicie quando solicitado. Após reiniciar:
+Esse único comando:
+- Habilita os componentes opcionais necessários
+- Instala o Ubuntu por padrão
+- Configura WSL 2 como padrão
+
+Reinicie o computador quando solicitado. Na primeira abertura do Ubuntu, crie seu usuário e senha Linux.
+
+> **Se `wsl --install` exibir texto de ajuda** em vez de instalar, o WSL já está presente.
+> Nesse caso, liste as distribuições disponíveis e instale:
+> ```powershell
+> wsl --list --online
+> wsl --install -d Ubuntu
+> ```
+
+> **Se a instalação travar em 0%:**
+> ```powershell
+> wsl --install --web-download -d Ubuntu
+> ```
+
+---
+
+### 2.3 — Escolher uma distribuição diferente (opcional)
+
+Para ver todas as distribuições disponíveis:
+
+```powershell
+wsl --list --online
+```
+
+Para instalar uma específica:
+
+```powershell
+wsl --install -d <NomeDaDistro>
+```
+
+Para este guia de IA, **Ubuntu é a escolha recomendada** (melhor suporte a drivers NVIDIA e CUDA no WSL).
+
+---
+
+### 2.4 — Atualizar WSL 1 para WSL 2
+
+Se já houver Ubuntu instalado com `VERSION 1`:
+
+```powershell
+# Definir WSL2 como padrão para novas instalações
+wsl --set-default-version 2
+
+# Atualizar a distribuição existente
+wsl --set-version Ubuntu 2
+```
+
+Verifique após a conversão:
 
 ```powershell
 wsl -l -v
 ```
 
-Confirme que o Ubuntu está com `VERSION 2`. Se estiver com versão 1:
+A coluna `VERSION` deve exibir `2`.
+
+> Se receber erro sobre a Plataforma de Máquina Virtual:
+> ```powershell
+> dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
+> ```
+> Reinicie e tente novamente.
+
+---
+
+### 2.5 — Comandos de referência WSL
 
 ```powershell
-wsl --set-version Ubuntu 2
+wsl --status                        # Versão padrão do WSL e configurações
+wsl --version                       # Versão do binário WSL
+wsl -l -v                           # Listar distribuições instaladas e versão
+wsl --list --online                 # Distribuições disponíveis para download
+wsl --set-default-version 2         # Definir WSL2 como padrão
+wsl --set-version Ubuntu 2          # Converter distribuição existente para WSL2
+wsl --set-default Ubuntu            # Definir Ubuntu como distribuição padrão
+wsl --distribution Ubuntu           # Abrir Ubuntu sem alterar o padrão
+wsl --update                        # Atualizar o kernel do WSL
+wsl --shutdown                      # Encerrar todas as distribuições em execução
 ```
+
+---
+
+### 2.6 — Instalação offline (sem acesso à loja)
+
+Se a máquina não tiver acesso à Microsoft Store:
+
+1. Baixe o MSI mais recente do WSL: [github.com/microsoft/WSL/releases](https://github.com/microsoft/WSL/releases)
+2. Habilite a Plataforma de Máquina Virtual (PowerShell como Admin):
+   ```powershell
+   dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
+   ```
+3. Reinicie o computador
+4. Instale a distribuição via arquivo `.wsl` (disponível em [DistributionInfo.json](https://github.com/microsoft/WSL/blob/master/distributions/DistributionInfo.json))
+
+---
+
+### 2.7 — Verificação final
+
+Após instalar e reiniciar:
+
+```powershell
+wsl -l -v
+```
+
+Resultado esperado:
+
+```
+  NAME      STATE           VERSION
+* Ubuntu    Stopped         2
+```
+
+Confirme que `VERSION` é `2`. Só então avance para a Etapa 3.
 
 ---
 
@@ -434,8 +553,20 @@ RESULTADO FINAL
 
 ## Referências
 
-- PyTorch: https://pytorch.org/get-started/locally/
+**WSL (Microsoft oficial)**
+- Instalar WSL: https://learn.microsoft.com/pt-br/windows/wsl/install
+- Instalação manual (builds antigos): https://learn.microsoft.com/pt-br/windows/wsl/install-manual
+- Comandos básicos WSL: https://learn.microsoft.com/pt-br/windows/wsl/basic-commands
+- WSL 1 vs WSL 2: https://learn.microsoft.com/pt-br/windows/wsl/compare-versions
+- Boas práticas de ambiente WSL: https://learn.microsoft.com/pt-br/windows/wsl/setup/environment
+- Solução de problemas WSL: https://learn.microsoft.com/pt-br/windows/wsl/troubleshooting
+- Releases do WSL no GitHub: https://github.com/microsoft/WSL/releases
+
+**IA e GPU**
+- PyTorch (get started): https://pytorch.org/get-started/locally/
+- CUDA WSL User Guide (NVIDIA): https://docs.nvidia.com/cuda/wsl-user-guide/
 - Ollama: https://ollama.com
-- WSL: https://learn.microsoft.com/windows/wsl/
-- Docker Desktop WSL: https://docs.docker.com/desktop/wsl/
-- NVIDIA CUDA WSL: https://docs.nvidia.com/cuda/wsl-user-guide/
+
+**Docker**
+- Docker Desktop para Windows: https://docs.docker.com/desktop/install/windows-install/
+- Docker Desktop + WSL2: https://docs.docker.com/desktop/wsl/
