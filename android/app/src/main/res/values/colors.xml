@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FlowCore — paleta moderna (azul profundo + ciano elétrico) -->
+    <color name="bg_primary">#0A0F1E</color>
+    <color name="bg_surface">#111827</color>
+    <color name="bg_elevated">#1A2235</color>
+    <color name="accent">#00D4FF</color>
+    <color name="accent_violet">#7C3AED</color>
+    <color name="text_primary">#EEF2FF</color>
+    <color name="text_secondary">#94A3B8</color>
+    <color name="text_on_accent">#06141F</color>
+    <color name="success">#34D399</color>
+    <color name="warning">#FBBF24</color>
+    <color name="error">#F87171</color>
+    <color name="divider">#1E293B</color>
+    <color name="chip_selected">#0E2A47</color>
+    <color name="chip_unselected">#1A2235</color>
+</resources>

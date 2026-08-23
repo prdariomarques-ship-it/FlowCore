@@ -1,0 +1,67 @@
+name: Build APK
+
+on:
+  push:
+    branches:
+      - fix/apk-v15-panel-timeouts
+      - main
+      - manus/android-app
+    paths:
+      - 'android/**'
+      - 'web/index.html'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Generate debug keystore
+        run: |
+          keytool -genkeypair -v \
+            -keystore flowcore-debug.keystore \
+            -alias flowcore \
+            -keyalg RSA -keysize 2048 \
+            -validity 10000 \
+            -storepass android \
+            -keypass android \
+            -dname "CN=FlowCore Debug, OU=Dev, O=FlowCore, L=BR, ST=BR, C=BR"
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('android/**/*.gradle.kts', 'android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-
+
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Rename APK
+        run: |
+          VERSION=$(grep versionName android/app/build.gradle.kts | grep -oP '(?<=")\d+\.\d+')
+          mv android/app/build/outputs/apk/debug/app-debug.apk \
+             android/app/build/outputs/apk/debug/FlowCore-v${VERSION}-debug.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FlowCore-APK
+          path: android/app/build/outputs/apk/debug/FlowCore-v*-debug.apk
+          retention-days: 30
