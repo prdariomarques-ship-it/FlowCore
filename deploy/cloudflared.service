@@ -1,0 +1,23 @@
+[Unit]
+Description=Cloudflare Tunnel -> FlowCore
+After=network-online.target flowcore.service
+Requires=flowcore.service
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+# Token-based named tunnel (permanent URL).
+# Create ~/.config/cloudflared/tunnel-token with:
+#   TUNNEL_TOKEN=eyJhIjoiXXXX...
+# Obtain the token at: Zero Trust → Networks → Tunnels → (your tunnel) → Configure → Token
+EnvironmentFile=-/home/%u/.config/cloudflared/tunnel-token
+ExecStart=/usr/local/bin/cloudflared tunnel run --token ${TUNNEL_TOKEN}
+Restart=always
+RestartSec=10
+StandardOutput=append:/home/%u/tunnel.log
+StandardError=append:/home/%u/tunnel.log
+TimeoutStartSec=60
+
+[Install]
+WantedBy=default.target
