@@ -24,23 +24,12 @@ android {
         versionName = "1.15"
     }
 
-    signingConfigs {
-        getByName("debug") {
-            val ks = rootProject.file("flowcore-debug.keystore")
-            storeFile = if (ks.exists()) ks else null
-            storePassword = "android"
-            keyAlias = "flowcore"
-            keyPassword = "android"
-        }
-    }
-
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
         }
         debug {
-            signingConfig = signingConfigs.getByName("debug")
+            // usa o keystore de debug padrão do Android (~/.android/debug.keystore)
         }
     }
 }

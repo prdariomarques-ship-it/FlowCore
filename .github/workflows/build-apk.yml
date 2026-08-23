@@ -26,17 +26,6 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Generate debug keystore
-        run: |
-          keytool -genkeypair -v \
-            -keystore flowcore-debug.keystore \
-            -alias flowcore \
-            -keyalg RSA -keysize 2048 \
-            -validity 10000 \
-            -storepass android \
-            -keypass android \
-            -dname "CN=FlowCore Debug, OU=Dev, O=FlowCore, L=BR, ST=BR, C=BR"
-
       - name: Cache Gradle
         uses: actions/cache@v4
         with:
