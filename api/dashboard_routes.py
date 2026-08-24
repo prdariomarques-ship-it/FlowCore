@@ -1,8 +1,8 @@
 """FlowCore Dashboard v4 routes.
 
 Implements all endpoints consumed by the Web Dashboard v4:
-  - /api/ask              — agent chat (Ollama-first, graceful fallback)
-  - /api/ai-runtime/*     — Ollama model management
+  - /api/ask              — agent chat (OpenAI → Ollama fallback chain)
+  - /api/ai-runtime/*     — AI model management
   - /api/market/*         — market data [STUB — populated by market engine]
   - /api/macro-score/*    — macro scoring [STUB]
   - /api/regime/signals   — SCPX regime [STUB]
@@ -15,18 +15,23 @@ Endpoints marked [STUB] return empty but correctly-shaped JSON so the
 dashboard never crashes on first deploy. Replace stub bodies with real
 domain module calls as each integration is rolled out.
 
-Ollama URL configuration
-------------------------
-By default all /api/ai-runtime/* and /api/ask calls use localhost:11434.
-To point to an Ollama running on another machine (e.g. a PC reachable via
-Tailscale), create ~/.flowcore/ai.json with:
+AI provider configuration  (~/.flowcore/ai.json)
+-------------------------------------------------
+Two provider slots — the first that is configured and reachable wins.
 
+OpenAI-compatible (e.g. Hermes Agent / LM Studio / Jan):
     {
-        "ollama_url": "http://100.x.y.z:11434",
-        "model": "phi4-mini"
+        "openai_url":   "http://192.168.x.y:PORT",
+        "openai_model": "nemotron-3.5-lightning"
     }
 
-The URL is read at request time — no restart needed after editing the file.
+Ollama (local or remote via Tailscale):
+    {
+        "ollama_url": "http://100.x.y.z:11434",
+        "model":      "qwen3:4b"
+    }
+
+All values are read at request time — no restart needed after editing.
 """
 from __future__ import annotations
 
@@ -58,22 +63,17 @@ class ModelAction(BaseModel):
 class AIConfig(BaseModel):
     ollama_url: str | None = None
     model: str | None = None
+    openai_url: str | None = None
+    openai_model: str | None = None
 
 
 # ── Shared helpers ─────────────────────────────────────────────────────────────
 
-def _ollama(method: str, path: str, body: dict | None = None, timeout: int = 30) -> dict:
-    """Call the Ollama HTTP API; raises RuntimeError if unavailable.
-
-    The base URL is read from ~/.flowcore/ai.json["ollama_url"] at call time
-    so it can be changed (e.g. to a Tailscale IP) without restarting FlowCore.
-    """
+def _http_json(method: str, url: str, body: dict | None = None, timeout: int = 30) -> dict:
+    """Raw HTTP JSON call used by both providers."""
     import urllib.error
     import urllib.request
 
-    cfg = _read_json("ai.json", {})
-    base = cfg.get("ollama_url", _OLLAMA_DEFAULT).rstrip("/")
-    url = f"{base}{path}"
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(
         url, data=data, method=method,
@@ -83,7 +83,39 @@ def _ollama(method: str, path: str, body: dict | None = None, timeout: int = 30)
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read())
     except urllib.error.URLError as exc:
-        raise RuntimeError(f"Ollama unavailable: {exc}") from exc
+        raise RuntimeError(f"HTTP error: {exc}") from exc
+
+
+def _openai_chat(messages: list[dict], model: str, timeout: int = 90) -> str:
+    """Call an OpenAI-compatible /v1/chat/completions endpoint.
+
+    The base URL is read from ~/.flowcore/ai.json["openai_url"] at call time.
+    Raises RuntimeError if openai_url is not configured or request fails.
+    """
+    cfg = _read_json("ai.json", {})
+    base = cfg.get("openai_url", "").rstrip("/")
+    if not base:
+        raise RuntimeError("openai_url not configured")
+    resolved_model = model or cfg.get("openai_model", "")
+    url = f"{base}/v1/chat/completions"
+    resp = _http_json("POST", url, {
+        "model": resolved_model,
+        "messages": messages,
+        "stream": False,
+    }, timeout=timeout)
+    return resp["choices"][0]["message"]["content"]
+
+
+def _ollama(method: str, path: str, body: dict | None = None, timeout: int = 30) -> dict:
+    """Call the Ollama HTTP API; raises RuntimeError if unavailable.
+
+    The base URL is read from ~/.flowcore/ai.json["ollama_url"] at call time
+    so it can be changed (e.g. to a Tailscale IP) without restarting FlowCore.
+    """
+    cfg = _read_json("ai.json", {})
+    base = cfg.get("ollama_url", _OLLAMA_DEFAULT).rstrip("/")
+    url = f"{base}{path}"
+    return _http_json(method, url, body, timeout)
 
 
 def _read_json(filename: str, default: Any = None) -> Any:
@@ -124,10 +156,20 @@ def register_dashboard_routes(app, version: str) -> None:
         except Exception:
             pass
 
-        # Ollama fallback
         cfg = _read_json("ai.json", {})
-        model = data.model or cfg.get("model", "llama3")
         messages = data.history + [{"role": "user", "content": data.question}]
+
+        # OpenAI-compatible provider (Hermes Agent, LM Studio, Jan, …)
+        if cfg.get("openai_url"):
+            oai_model = data.model or cfg.get("openai_model", "")
+            try:
+                answer = _openai_chat(messages, oai_model, timeout=90)
+                return {"answer": answer, "provider": "openai-compat", "model": oai_model}
+            except Exception:
+                pass  # fall through to Ollama
+
+        # Ollama fallback
+        model = data.model or cfg.get("model", "llama3")
         try:
             resp = _ollama("POST", "/api/chat", {
                 "model": model,
@@ -138,7 +180,7 @@ def register_dashboard_routes(app, version: str) -> None:
             return {"answer": answer, "provider": "ollama", "model": model}
         except RuntimeError as exc:
             return {
-                "answer": "Ollama não está em execução neste servidor. Inicie-o com `ollama serve`.",
+                "answer": "Nenhum provider de IA disponível. Configure openai_url ou inicie o Ollama.",
                 "provider": "unavailable",
                 "model": model,
                 "error": str(exc),
@@ -150,11 +192,15 @@ def register_dashboard_routes(app, version: str) -> None:
 
     @app.get("/api/ai-runtime/config")
     async def ai_config_get():
-        """Return current AI runtime config (ollama_url, default model)."""
+        """Return current AI runtime config."""
         cfg = _read_json("ai.json", {})
+        active = "openai-compat" if cfg.get("openai_url") else "ollama"
         return {
+            "active_provider": active,
             "ollama_url": cfg.get("ollama_url", _OLLAMA_DEFAULT),
             "model": cfg.get("model", "phi4-mini"),
+            "openai_url": cfg.get("openai_url", ""),
+            "openai_model": cfg.get("openai_model", ""),
             "default_url": _OLLAMA_DEFAULT,
         }
 
@@ -166,6 +212,10 @@ def register_dashboard_routes(app, version: str) -> None:
             cfg["ollama_url"] = data.ollama_url.rstrip("/")
         if data.model is not None:
             cfg["model"] = data.model
+        if data.openai_url is not None:
+            cfg["openai_url"] = data.openai_url.rstrip("/") if data.openai_url else ""
+        if data.openai_model is not None:
+            cfg["openai_model"] = data.openai_model
         config_path = _DATA_DIR / "ai.json"
         config_path.parent.mkdir(parents=True, exist_ok=True)
         config_path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False))
