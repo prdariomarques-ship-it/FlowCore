@@ -5,10 +5,11 @@
 # This script runs automatically when Android boots (requires Termux:Boot app).
 # It starts sshd and the FlowCore daemon + API server.
 
-set -euo pipefail
+set -uo pipefail
 
 FLOWCORE_DIR="$HOME/FlowCore"
 LOG="$HOME/.flowcore/boot.log"
+CF_TOKEN_FILE="$HOME/.config/cloudflared/tunnel-token"
 
 mkdir -p "$HOME/.flowcore"
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Boot script started" >> "$LOG"
@@ -36,8 +37,23 @@ if [ -d "$FLOWCORE_DIR" ]; then
     nohup python3 flowcore.py serve >> "$HOME/.flowcore/api.log" 2>&1 &
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] FlowCore API server started" >> "$LOG"
 
-    # ── 6. Send boot notification ─────────────────────────────────────────────
+    # ── 6. Start cloudflared tunnel ───────────────────────────────────────────
     sleep 3
+    if [ -f "$CF_TOKEN_FILE" ]; then
+        set -a; source "$CF_TOKEN_FILE"; set +a
+        if [ -n "${TUNNEL_TOKEN:-}" ]; then
+            nohup cloudflared tunnel run --token "$TUNNEL_TOKEN" \
+                >> "$HOME/.flowcore/tunnel_watchdog.log" 2>&1 &
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] cloudflared tunnel started" >> "$LOG"
+        else
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] WARNING: TUNNEL_TOKEN vazio em $CF_TOKEN_FILE" >> "$LOG"
+        fi
+    else
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] INFO: $CF_TOKEN_FILE não encontrado — tunnel ignorado" >> "$LOG"
+    fi
+
+    # ── 7. Send boot notification ─────────────────────────────────────────────
+    sleep 2
     termux-notification \
         --id 1 \
         --title "FlowCore" \

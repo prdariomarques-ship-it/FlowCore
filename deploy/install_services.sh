@@ -1,4 +1,8 @@
 #!/bin/bash
+# Instala FlowCore e cloudflared como serviços systemd (Linux/WSL2/DMN).
+# Para Termux (Android), use em vez deste:
+#   deploy/termux_watchdog.sh   — watchdog de processo (foreground ou boot)
+#   tools/boot.sh               — script Termux:Boot (copia para ~/.termux/boot/)
 set -e
 REPO="$HOME/FlowCore"
 SYSTEMD_DIR="$HOME/.config/systemd/user"
