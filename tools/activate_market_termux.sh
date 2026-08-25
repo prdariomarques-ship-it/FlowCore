@@ -18,7 +18,17 @@ git fetch origin "$BRANCH"
 git checkout "$BRANCH"
 git pull --ff-only origin "$BRANCH"
 
-python3 -m pip install --upgrade yfinance
+# yfinance requer lxml. No Termux ARM64 o lxml é compilado localmente, então
+# as bibliotecas e cabeçalhos do sistema precisam existir antes do pip.
+if command -v pkg >/dev/null 2>&1; then
+  pkg install -y libxml2 libxslt clang pkg-config
+fi
+
+export CFLAGS="${CFLAGS:-} -I${PREFIX:-/data/data/com.termux/files/usr}/include"
+export LDFLAGS="${LDFLAGS:-} -L${PREFIX:-/data/data/com.termux/files/usr}/lib"
+python3 -m pip install --upgrade pip setuptools wheel
+python3 -m pip install --no-cache-dir lxml
+python3 -m pip install --no-cache-dir --upgrade yfinance
 
 mkdir -p "$HOME/.termux/boot"
 cp tools/boot.sh "$BOOT"
