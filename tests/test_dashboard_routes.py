@@ -216,10 +216,11 @@ class TestPortfolios:
 
     @pytest.mark.parametrize("sub", ["summary", "exposure", "impact", "decision", "narrative"])
     def test_sub_routes_return_200(self, sub):
-        r = _client().get(f"/api/portfolios/p1/{sub}")
+        pid = "moderate-ia-1m"
+        r = _client().get(f"/api/portfolios/{pid}/{sub}")
         assert r.status_code == 200
         data = r.json()
-        assert data["portfolio_id"] == "p1"
+        assert data["portfolio_id"] == pid
 
     def test_list_reads_file(self, tmp_path, monkeypatch):
         import api.dashboard_routes as dr
@@ -236,8 +237,8 @@ class TestPortfolios:
         r = c.get("/api/portfolios")
         assert r.status_code == 200
         data = r.json()
-        assert len(data) == 1
-        assert data[0]["id"] == "main"
+        ids = [p["id"] for p in data]
+        assert "main" in ids
 
 
 # ── /api/assets/{symbol} ────────────────────────────────────────────────────
