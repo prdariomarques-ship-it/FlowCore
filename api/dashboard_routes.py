@@ -335,47 +335,110 @@ def register_dashboard_routes(app, version: str) -> None:
         except RuntimeError as exc:
             return {"unloaded": False, "model": data.model, "error": str(exc)}
 
-    # ── Market data [STUB] ────────────────────────────────────────────────────
+    # ── Market intelligence — common source for dashboard, APK and Telegram ──
+
+    def _market_unavailable(name: str, exc: Exception) -> dict:
+        return {
+            "available": False,
+            "source": "market_intelligence",
+            "updated_at": time.time(),
+            "error": f"{name}: {type(exc).__name__}",
+        }
 
     @app.get("/api/market/fx")
     async def market_fx():
-        return {
-            "pairs": [],
-            "usd_regime": "neutral",
-            "updated_at": time.time(),
-            "stub": True,
-        }
+        try:
+            from runtime.market_intelligence.fx_analysis import analyze_fx
+            return {**analyze_fx(), "available": True, "updated_at": time.time(), "stub": False}
+        except Exception as exc:
+            return {"pairs": [], "usd_regime": "unknown", "stub": False, **_market_unavailable("fx", exc)}
 
     @app.get("/api/market/yield-curve")
     async def market_yield_curve():
-        return {
-            "points": [],
-            "slope_10y_2y_bps": None,
-            "shape": "unknown",
-            "interpretation": "",
-            "updated_at": time.time(),
-            "stub": True,
-        }
-
-    @app.get("/api/market/rebalancing")
-    async def market_rebalancing():
-        return {"actions": [], "updated_at": time.time(), "stub": True}
+        try:
+            from runtime.market_intelligence.yield_curve import build_yield_curve
+            return {**build_yield_curve().to_dict(), "available": True, "updated_at": time.time(), "stub": False}
+        except Exception as exc:
+            return {"points": [], "slope_10y_2y_bps": None, "shape": None, "interpretation": None, "stub": False, **_market_unavailable("yield_curve", exc)}
 
     @app.get("/api/market/watchlists")
     async def market_watchlists():
-        return {"watchlists": [], "updated_at": time.time(), "stub": True}
+        try:
+            from runtime.market_intelligence.watchlist import list_watchlists
+            return {**list_watchlists(), "available": True, "updated_at": time.time(), "stub": False}
+        except Exception as exc:
+            return {"watchlists": [], "stub": False, **_market_unavailable("watchlists", exc)}
+
+    @app.get("/api/market/watchlist/{watchlist}")
+    async def market_watchlist_snapshot(watchlist: str):
+        try:
+            from runtime.market_intelligence.watchlist import snapshot
+            return {**snapshot(watchlist), "available": True, "updated_at": time.time(), "stub": False}
+        except Exception as exc:
+            return {"watchlist": watchlist, "items": [], "stub": False, **_market_unavailable("watchlist", exc)}
+
+    @app.get("/api/market/asset-classes")
+    async def market_asset_classes():
+        try:
+            from runtime.market_intelligence.asset_classes import analyze_asset_classes
+            return {**analyze_asset_classes(), "available": True, "updated_at": time.time(), "stub": False}
+        except Exception as exc:
+            return {"classes": {}, "stub": False, **_market_unavailable("asset_classes", exc)}
+
+    @app.get("/api/market/briefing")
+    async def market_briefing():
+        try:
+            from runtime.market_intelligence.briefing import build_briefing
+            return {**build_briefing(), "available": True, "stub": False}
+        except Exception as exc:
+            return {"lines": [], "stub": False, **_market_unavailable("briefing", exc)}
+
+    @app.get("/api/market/overview")
+    async def market_overview():
+        """Compact, cross-channel market feed used by the APK and Telegram briefing."""
+        try:
+            from runtime.market_intelligence.watchlist import snapshot
+            from runtime.market_intelligence.alerts import evaluate_alerts, list_alerts
+            overview = snapshot("default")
+            fired_now = evaluate_alerts()
+            return {
+                "items": overview.get("items", []),
+                "alerts": [*fired_now, *list_alerts(limit=8)],
+                "available": True,
+                "updated_at": time.time(),
+                "source": "market_intelligence",
+                "stub": False,
+            }
+        except Exception as exc:
+            return {"items": [], "alerts": [], "source": "market_intelligence", "stub": False, **_market_unavailable("overview", exc)}
+
+    @app.get("/api/market/rebalancing")
+    async def market_rebalancing():
+        return {"actions": [], "updated_at": time.time(), "mode": "requires_positions", "stub": False}
 
     @app.get("/api/market/alerts")
     async def market_alerts():
-        return {"alerts": [], "updated_at": time.time(), "stub": True}
+        try:
+            from runtime.market_intelligence.alerts import evaluate_alerts, list_alerts
+            return {"fired_now": evaluate_alerts(), "alerts": list_alerts(), "available": True, "updated_at": time.time(), "stub": False}
+        except Exception as exc:
+            return {"fired_now": [], "alerts": [], "stub": False, **_market_unavailable("alerts", exc)}
 
     @app.get("/api/market/calendar")
     async def market_economic_calendar():
-        return {"events": [], "updated_at": time.time(), "stub": True}
+        try:
+            from runtime.market_intelligence.calendar import today_events
+            return {"events": today_events(), "available": True, "updated_at": time.time(), "stub": False}
+        except Exception as exc:
+            return {"events": [], "stub": False, **_market_unavailable("calendar", exc)}
 
     @app.get("/api/market/news")
     async def market_news():
-        return {"groups": [], "updated_at": time.time(), "stub": True}
+        try:
+            from runtime.market_intelligence.news import fetch_news
+            return {**fetch_news(max_per_group=3), "available": True, "updated_at": time.time(), "stub": False}
+        except Exception as exc:
+            return {"items": [], "groups": [], "stub": False, **_market_unavailable("news", exc)}
 
     # ── Macro score [STUB] ────────────────────────────────────────────────────
 
