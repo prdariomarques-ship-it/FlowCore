@@ -616,3 +616,75 @@ def register_dashboard_routes(app, version: str) -> None:
     @app.get("/api/calendar/search")
     async def calendar_search(q: str = Query(..., min_length=1)):
         return {"query": q, "events": [], "stub": True}
+
+    # ── Android TTS / SMS / Contacts ──────────────────────────────────────────
+
+    class TTSRequest(BaseModel):
+        text: str
+        language: str = "pt-BR"
+        pitch: float = 1.0
+        rate: float = 1.0
+
+    class SMSSendRequest(BaseModel):
+        number: str
+        message: str
+
+    @app.post("/api/android/tts")
+    async def android_tts(data: TTSRequest):
+        if not data.text.strip():
+            raise HTTPException(status_code=422, detail="text is required")
+        try:
+            from capability.adapters.android import AndroidTTSAdapter
+            adapter = AndroidTTSAdapter()
+            if not adapter.is_available():
+                return {"spoken": False, "error": "termux-tts-speak not available",
+                        "corrective_action": "pkg install termux-api"}
+            result = adapter.speak(data.text, language=data.language,
+                                   pitch=data.pitch, rate=data.rate)
+            return {"spoken": result.success, "error": result.error if not result.success else None}
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=str(exc))
+
+    @app.get("/api/android/sms")
+    async def android_sms_inbox(limit: int = Query(20, le=100), offset: int = Query(0, ge=0)):
+        try:
+            from capability.adapters.android import AndroidSMSAdapter
+            adapter = AndroidSMSAdapter()
+            if not adapter.is_available():
+                return {"messages": [], "error": "termux-sms-send not available",
+                        "corrective_action": "pkg install termux-api"}
+            result = adapter.inbox(limit=limit, offset=offset)
+            if result.success:
+                return result.data
+            return {"messages": [], "error": result.error}
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=str(exc))
+
+    @app.post("/api/android/sms")
+    async def android_sms_send(data: SMSSendRequest):
+        if not data.number.strip() or not data.message.strip():
+            raise HTTPException(status_code=422, detail="number and message are required")
+        try:
+            from capability.adapters.android import AndroidSMSAdapter
+            adapter = AndroidSMSAdapter()
+            if not adapter.is_available():
+                return {"sent": False, "error": "termux-sms-send not available"}
+            result = adapter.send(data.number, data.message)
+            return {"sent": result.success, "error": result.error if not result.success else None}
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=str(exc))
+
+    @app.get("/api/android/contacts")
+    async def android_contacts(q: str = Query(None)):
+        try:
+            from capability.adapters.android import AndroidContactAdapter
+            adapter = AndroidContactAdapter()
+            if not adapter.is_available():
+                return {"contacts": [], "error": "termux-contact-list not available",
+                        "corrective_action": "pkg install termux-api"}
+            result = adapter.find(q) if q else adapter.list_contacts()
+            if result.success:
+                return result.data
+            return {"contacts": [], "error": result.error}
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=str(exc))

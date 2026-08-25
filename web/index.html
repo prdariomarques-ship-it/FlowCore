@@ -106,8 +106,6 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .sys-card{background:var(--bg3);border-radius:10px;padding:12px;text-align:center}
 .sys-val{font-size:26px;font-weight:700;color:var(--accent)}
 .sys-lbl{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
-.battery-bar{width:100%;height:6px;background:var(--border);border-radius:3px;margin-top:8px;overflow:hidden}
-.battery-fill{height:100%;border-radius:3px;transition:width .5s}
 
 /* Search results */
 .sr-section{margin-bottom:14px}
@@ -249,10 +247,6 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
     <div class="gap">
       <div class="card"><div class="ch"><span class="ct">Daemon FlowCore</span><span class="ci">⚙</span></div><div class="row"><span class="rl">Estado</span><span class="rv" id="d-state"><span class="tag ty">─</span></span></div><div class="row"><span class="rl">PID / uptime / ciclo</span><span class="rv" id="d-pid">─</span></div><div class="row"><span class="rl">Detalhe</span><span class="rv" id="d-up" style="color:var(--text2)">─</span></div><div class="row"><span class="rl">Heartbeat</span><span class="rv" id="d-cyc" style="color:var(--text2)">─</span></div><div class="btns"><button class="btn bg" onclick="da('start')">▶ Iniciar</button><button class="btn br" onclick="da('stop')">■ Parar</button></div></div>
       <div class="card"><div class="ch"><span class="ct">Notificação Android</span><span class="ci">🔔</span></div><div class="ir"><input class="if" id="n-text" placeholder="Mensagem para o Android..."><button class="bs2" onclick="sendNotify()">🔔</button></div><div class="row" style="padding-top:0;border:none"><span class="rl">via Termux API</span><span class="tag ty" id="n-status">nativo Android</span></div></div>
-      <div class="card" id="sys-battery-card">
-        <div class="ch"><span class="ct">Bateria</span><span class="ci">🔋</span></div>
-        <div class="sk"></div><div class="sk"></div>
-      </div>
       <div class="card" id="sys-storage-card">
         <div class="ch"><span class="ct">Armazenamento</span><span class="ci">💾</span></div>
         <div class="sk"></div>
@@ -512,31 +506,11 @@ async function loadSys(){
     renderSys(sys);
     renderPassport(pp);
   }catch(e){
-    document.getElementById('sys-battery-card').querySelector('.ch').insertAdjacentHTML('afterend','<div class="empty">Sem dados</div>');
+    document.getElementById('sys-storage-card').querySelector('.ch').insertAdjacentHTML('afterend','<div class="empty">Sem dados</div>');
   }
 }
 
 function renderSys(s){
-  // Battery
-  const bc=document.getElementById('sys-battery-card');
-  const bat=s.battery||{};
-  const pct=bat.percentage??null;
-  const status=bat.status||'';
-  const health=bat.health||'';
-  bc.innerHTML=`<div class="ch"><span class="ct">Bateria</span><span class="ci">🔋</span></div>`;
-  if(pct!==null){
-    const color=pct>50?'var(--green)':pct>20?'var(--yellow)':'var(--red)';
-    bc.innerHTML+=`
-      <div class="sys-grid">
-        <div class="sys-card"><div class="sys-val" style="color:${color}">${pct}%</div><div class="sys-lbl">Nível</div></div>
-        <div class="sys-card"><div class="sys-val" style="font-size:16px">${status}</div><div class="sys-lbl">Estado</div></div>
-      </div>
-      <div class="battery-bar" style="margin-top:12px"><div class="battery-fill" style="width:${pct}%;background:${color}"></div></div>
-      ${health?`<div style="margin-top:8px;font-size:12px;color:var(--text2)">Saúde: ${health}</div>`:''}`;
-  }else{
-    bc.innerHTML+=`<div class="empty">termux-battery-status não disponível</div>`;
-  }
-
   // Storage
   const sc=document.getElementById('sys-storage-card');
   const st=s.storage||{};

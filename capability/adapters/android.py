@@ -396,6 +396,126 @@ class AndroidStorageAdapter(CapabilityAdapter):
             return CapabilityResult.fail(str(e), self.name)
 
 
+# ── TTS (Text-to-Speech) ──────────────────────────────────────────────────────
+
+class AndroidTTSAdapter(CapabilityAdapter):
+    """Speak text aloud using termux-tts-speak (Termux:API required)."""
+
+    name = "android.tts"
+    priority = 100
+
+    def is_available(self) -> bool:
+        return _in_termux() and is_available("termux-tts-speak")
+
+    def speak(self, text: str, *, language: str = "pt-BR", pitch: float = 1.0,
+              rate: float = 1.0) -> CapabilityResult:
+        if not text.strip():
+            return CapabilityResult.fail("Empty text", self.name)
+        cmd = [
+            "termux-tts-speak",
+            "-l", language,
+            "-p", str(pitch),
+            "-r", str(rate),
+            text,
+        ]
+        result = run(cmd, timeout=60)
+        if result.success:
+            return CapabilityResult.ok({"spoken": True, "text": text[:80],
+                                        "language": language}, self.name)
+        return CapabilityResult.fail(result.stderr or "TTS failed", self.name,
+            reason="termux-tts-speak returned non-zero",
+            diagnosis=result.stderr,
+            corrective_action=(
+                "pkg install termux-api && "
+                "Settings → Apps → Termux → Permissions → allow all → "
+                "install a TTS engine (e.g. Google TTS) on Android"
+            ))
+
+
+# ── SMS ───────────────────────────────────────────────────────────────────────
+
+class AndroidSMSAdapter(CapabilityAdapter):
+    """Send and read SMS via termux-sms-send / termux-sms-inbox (Termux:API required)."""
+
+    name = "android.sms"
+    priority = 100
+
+    def is_available(self) -> bool:
+        return _in_termux() and is_available("termux-sms-send")
+
+    def send(self, number: str, message: str) -> CapabilityResult:
+        if not number.strip() or not message.strip():
+            return CapabilityResult.fail("number and message are required", self.name)
+        result = run(["termux-sms-send", "-n", number, message], timeout=30)
+        if result.success:
+            return CapabilityResult.ok({"sent": True, "to": number,
+                                        "chars": len(message)}, self.name)
+        return CapabilityResult.fail(result.stderr or "SMS send failed", self.name,
+            reason="termux-sms-send returned non-zero",
+            diagnosis=result.stderr,
+            corrective_action=(
+                "pkg install termux-api && "
+                "Settings → Apps → Termux → Permissions → SEND_SMS → Allow"
+            ))
+
+    def inbox(self, *, limit: int = 20, offset: int = 0) -> CapabilityResult:
+        if not is_available("termux-sms-inbox"):
+            return CapabilityResult.fail("termux-sms-inbox not found", self.name,
+                corrective_action="pkg install termux-api")
+        result = run(["termux-sms-inbox", "-l", str(limit), "-o", str(offset)], timeout=10)
+        if not result.success:
+            return CapabilityResult.fail(result.stderr or "inbox read failed", self.name,
+                corrective_action=(
+                    "Settings → Apps → Termux → Permissions → READ_SMS → Allow"
+                ))
+        try:
+            messages = json.loads(result.stdout)
+            return CapabilityResult.ok({"messages": messages,
+                                        "count": len(messages)}, self.name)
+        except json.JSONDecodeError as e:
+            return CapabilityResult.fail(f"JSON parse error: {e}", self.name,
+                diagnosis=result.stdout[:200])
+
+
+# ── Contacts ──────────────────────────────────────────────────────────────────
+
+class AndroidContactAdapter(CapabilityAdapter):
+    """Read device contacts via termux-contact-list (Termux:API required)."""
+
+    name = "android.contacts"
+    priority = 100
+
+    def is_available(self) -> bool:
+        return _in_termux() and is_available("termux-contact-list")
+
+    def list_contacts(self) -> CapabilityResult:
+        result = run(["termux-contact-list"], timeout=10)
+        if not result.success:
+            return CapabilityResult.fail(result.stderr or "contact list failed", self.name,
+                corrective_action=(
+                    "pkg install termux-api && "
+                    "Settings → Apps → Termux → Permissions → READ_CONTACTS → Allow"
+                ))
+        try:
+            contacts = json.loads(result.stdout)
+            return CapabilityResult.ok({"contacts": contacts,
+                                        "count": len(contacts)}, self.name)
+        except json.JSONDecodeError as e:
+            return CapabilityResult.fail(f"JSON parse error: {e}", self.name)
+
+    def find(self, query: str) -> CapabilityResult:
+        result = self.list_contacts()
+        if not result.success:
+            return result
+        q = query.lower()
+        matches = [
+            c for c in result.data.get("contacts", [])
+            if q in c.get("name", "").lower() or q in c.get("number", "").lower()
+        ]
+        return CapabilityResult.ok({"contacts": matches, "count": len(matches),
+                                    "query": query}, self.name)
+
+
 # ── All Android adapters (for registry auto-registration) ─────────────────────
 
 ANDROID_ADAPTERS: list[type[CapabilityAdapter]] = [
@@ -412,6 +532,9 @@ ANDROID_ADAPTERS: list[type[CapabilityAdapter]] = [
     AndroidPermissionAdapter,
     AndroidInfoAdapter,
     AndroidStorageAdapter,
+    AndroidTTSAdapter,
+    AndroidSMSAdapter,
+    AndroidContactAdapter,
 ]
 
 # Backward-compatible alias

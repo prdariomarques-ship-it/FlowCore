@@ -1,106 +1,172 @@
-# Install FlowCore on Android (Termux)
+# Instalar FlowCore no Android (Termux)
 
-> Copy-paste these commands directly into Termux.
+URL pública: **https://flowcore.admissaoazusa.com.br**
 
----
-
-## One-line install
-
-```bash
-pkg install python git && \
-git clone https://github.com/prdariomarques-ship-it/FlowCore.git && \
-cd FlowCore && \
-bash install.sh
-```
+> Copie e cole os comandos diretamente no Termux.
 
 ---
 
-## Step by step
-
-### 1. Install Termux packages
+## 1. Pacotes Termux necessários
 
 ```bash
 pkg update
-pkg install python git openssl
+pkg install python git openssl curl cloudflared
 ```
 
-### 2. Clone the repository
+**Capacidades Android (TTS, SMS, Contatos)** — requer o app Termux:API instalado pela F-Droid:
 
 ```bash
-git clone https://github.com/prdariomarques-ship-it/FlowCore.git
-cd FlowCore
+pkg install termux-api
 ```
 
-### 3. Run the installer
+---
+
+## 2. Clonar o repositório
 
 ```bash
-bash install.sh
+git clone https://github.com/prdariomarques-ship-it/FlowCore.git ~/FlowCore
+cd ~/FlowCore
+pip install -r requirements.txt
 ```
 
-### 4. Start FlowCore
+---
+
+## 3. Iniciar o FlowCore
 
 ```bash
-# Option A: Start the API server
 python3 flowcore.py serve
-
-# Option B: Start as background daemon
-python3 daemon.py start
 ```
 
-### 5. Verify it works
+Verificar:
 
 ```bash
-# Health check
-python3 flowcore.py health
-
-# Or with curl
 curl http://127.0.0.1:8080/api/health
 ```
 
 ---
 
-## Daily usage
+## 4. Cloudflare Tunnel (URL permanente)
+
+O túnel nomeado "núcleo de fluxo" expõe o FlowCore em:
+`https://flowcore.admissaoazusa.com.br`
+
+### 4.1. Salvar o token
 
 ```bash
-# Start daemon
-python3 daemon.py start
+mkdir -p ~/.config/cloudflared
+echo 'TUNNEL_TOKEN=<cole_o_token_aqui>' > ~/.config/cloudflared/tunnel-token
+chmod 600 ~/.config/cloudflared/tunnel-token
+```
 
-# Check status
-python3 daemon.py status
+Obter o token em: **Cloudflare Zero Trust → Redes → Túneis → núcleo de fluxo → Configurar → Token**
 
-# Stop daemon
-python3 daemon.py stop
+### 4.2. Testar o túnel manualmente
 
-# Restart daemon
-python3 daemon.py restart
+```bash
+source ~/.config/cloudflared/tunnel-token
+cloudflared tunnel run --token "$TUNNEL_TOKEN"
+```
+
+Em outro terminal, verificar:
+
+```bash
+curl https://flowcore.admissaoazusa.com.br/api/health
 ```
 
 ---
 
-## Maintenance
+## 5. Auto-start com Termux:Boot
+
+Instale o app **Termux:Boot** pela F-Droid e abra-o uma vez para ativar.
 
 ```bash
-# Diagnostics
-bash doctor.sh
+mkdir -p ~/.termux/boot
+cp ~/FlowCore/tools/boot.sh ~/.termux/boot/flowcore.sh
+chmod 700 ~/.termux/boot/flowcore.sh
+```
 
-# Security audit
-python3 scripts/audit.py
+O script `tools/boot.sh` inicia automaticamente ao ligar o celular:
+- FlowCore na porta 8080 (com loop de reinício)
+- Bots de Telegram em `~/.flowcore/bots/*.sh`
+- cloudflared após o FlowCore responder no health check
 
-# Update
-bash update.sh
+**Isenção de bateria (obrigatório):** Configurações → Aplicativos → Termux → Bateria → Sem restrições.
+Fazer o mesmo para Termux:Boot.
 
-# Repair
-bash repair.sh
+---
 
-# Optimize
-bash optimize.sh
+## 6. Bots de Telegram
+
+Cada bot é um script `.sh` executável em `~/.flowcore/bots/`:
+
+```bash
+mkdir -p ~/.flowcore/bots
+cat > ~/.flowcore/bots/meubot.sh <<'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+# Token em variável de ambiente ou arquivo privado — nunca no repositório
+exec python3 ~/caminho/do/bot.py
+EOF
+chmod +x ~/.flowcore/bots/meubot.sh
+```
+
+O `boot.sh` inicia cada bot e o reinicia automaticamente se ele cair.
+
+---
+
+## 7. Configurar provedor de IA (Hermes/Nemotron)
+
+Se o Hermes Agent estiver rodando no PC com Windows (API OpenAI-compatível):
+
+```bash
+curl -s -X PATCH http://127.0.0.1:8080/api/ai-runtime/config \
+  -H "Content-Type: application/json" \
+  -d '{"openai_url":"http://IP_DO_PC:PORTA","openai_model":"nemotron-3.5-lightning"}'
+```
+
+Substituir `IP_DO_PC` pelo IP local do PC na rede Wi-Fi.
+
+---
+
+## 8. Capacidades Android
+
+Disponíveis após instalar o Termux:API:
+
+| Endpoint | Descrição |
+|---|---|
+| `POST /api/android/tts` | Falar texto em voz alta (`{"text":"Olá"}`) |
+| `GET /api/android/sms` | Ler caixa de entrada de SMS |
+| `POST /api/android/sms` | Enviar SMS (`{"number":"+55...","message":"..."}`) |
+| `GET /api/android/contacts` | Listar ou buscar contatos (`?q=nome`) |
+
+---
+
+## 9. Logs
+
+```bash
+tail -f ~/.config/flowcore/flowcore.log
+tail -f ~/.config/flowcore/cloudflared.log
+tail -f ~/.config/flowcore/boot.log
 ```
 
 ---
 
-## Uninstall
+## 10. Atualizar FlowCore
 
 ```bash
-bash uninstall.sh          # Keep data and config
-bash uninstall.sh --purge  # Remove everything
+cd ~/FlowCore
+git pull origin main
+pip install -r requirements.txt
+# Reiniciar: matar o processo e deixar o boot.sh relançar, ou
+pkill -f 'flowcore.py serve' && python3 flowcore.py serve &
+```
+
+---
+
+## Desinstalar
+
+```bash
+pkill -f 'flowcore.py serve'
+pkill -f cloudflared
+rm -rf ~/.termux/boot/flowcore.sh
+# Repositório: rm -rf ~/FlowCore  (mantém ~/.config/flowcore e ~/.flowcore)
 ```
