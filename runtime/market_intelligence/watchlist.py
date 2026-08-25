@@ -11,6 +11,7 @@ degradation): a dead ticker never breaks the rest.
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -23,6 +24,9 @@ DEFAULT_WATCHLISTS: dict[str, list[str]] = {
     "brasil": ["^BVSP", "USDBRL=X", "^IRX", "^TNX"],
     "global_rates": ["^IRX", "^FVX", "^TNX", "^TYX", "DE10Y.F"],
     "commodities": ["GC=F", "CL=F", "SI=F", "HG=F", "PL=F", "BZ=F"],
+    # Compact operational feed for dashboard, Telegram and mobile clients.
+    # Detailed watchlists remain available through the endpoint below.
+    "mobile_core": ["^BVSP", "USDBRL=X", "^GSPC", "^TNX"],
 }
 
 
@@ -43,25 +47,32 @@ def snapshot(watchlist: str) -> dict:
     if symbols is None:
         return {"error": f"unknown watchlist: {watchlist}",
                 "available": list_watchlists()["watchlists"]}
-    items: list[WatchlistItem] = []
-    for symbol in symbols:
+    fetched: dict[str, WatchlistItem] = {}
+
+    def fetch_item(symbol: str) -> WatchlistItem:
         try:
-            q = fetch_quote(symbol)
+            q = fetch_quote(symbol, timeout=2.5, retries=0)
         except ObserverError:
-            items.append(WatchlistItem(symbol=symbol, level=None,
-                                       delta_pct_1d=None, status="no_data"))
-            continue
+            return WatchlistItem(symbol=symbol, level=None, delta_pct_1d=None, status="no_data")
         except Exception:
-            items.append(WatchlistItem(symbol=symbol, level=None,
-                                       delta_pct_1d=None, status="error"))
-            continue
+            return WatchlistItem(symbol=symbol, level=None, delta_pct_1d=None, status="error")
         price = q.get("price")
         prev = q.get("previous_close")
         delta = None
         if price is not None and prev:
             delta = round((price - prev) / prev * 100, 2)
-        items.append(WatchlistItem(symbol=symbol, level=price,
-                                   delta_pct_1d=delta, status="ok"))
+        return WatchlistItem(symbol=symbol, level=price, delta_pct_1d=delta, status="ok")
+
+    with ThreadPoolExecutor(max_workers=min(4, len(symbols))) as executor:
+        futures = {executor.submit(fetch_item, symbol): symbol for symbol in symbols}
+        for future in as_completed(futures):
+            symbol = futures[future]
+            try:
+                fetched[symbol] = future.result()
+            except Exception:
+                fetched[symbol] = WatchlistItem(symbol=symbol, level=None, delta_pct_1d=None, status="error")
+
+    items = [fetched[symbol] for symbol in symbols]
     return {"watchlist": watchlist,
             "items": [{"symbol": i.symbol, "level": i.level,
                        "delta_pct_1d": i.delta_pct_1d,

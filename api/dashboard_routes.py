@@ -397,13 +397,37 @@ def register_dashboard_routes(app, version: str) -> None:
     async def market_overview():
         """Compact, cross-channel market feed used by the APK and Telegram briefing."""
         try:
-            from runtime.market_intelligence.watchlist import snapshot
-            from runtime.market_intelligence.alerts import evaluate_alerts, list_alerts
-            overview = snapshot("default")
-            fired_now = evaluate_alerts()
+            from runtime.market_intelligence.alerts import list_alerts
+            from runtime.market_intelligence.source_catalog import source_snapshot
+            sources = source_snapshot()
+            items = []
+            for observation in sources.get("official_observations", []):
+                if not observation.get("available"):
+                    continue
+                if observation.get("instrument"):
+                    items.append({
+                        "symbol": observation["instrument"],
+                        "label": observation.get("label", observation["instrument"]),
+                        "level": observation.get("value"),
+                        "delta_pct_1d": None,
+                        "status": "ok",
+                        "source": observation.get("source"),
+                        "observation_date": observation.get("observation_date"),
+                    })
+                for point in observation.get("points", []):
+                    items.append({
+                        "symbol": point["instrument"],
+                        "label": point.get("label", point["instrument"]),
+                        "level": point.get("value"),
+                        "delta_pct_1d": None,
+                        "status": "ok",
+                        "source": point.get("source"),
+                        "observation_date": point.get("observation_date"),
+                    })
             return {
-                "items": overview.get("items", []),
-                "alerts": [*fired_now, *list_alerts(limit=8)],
+                "items": items,
+                "alerts": list_alerts(limit=8),
+                "sources": sources,
                 "available": True,
                 "updated_at": time.time(),
                 "source": "market_intelligence",
@@ -411,6 +435,15 @@ def register_dashboard_routes(app, version: str) -> None:
             }
         except Exception as exc:
             return {"items": [], "alerts": [], "source": "market_intelligence", "stub": False, **_market_unavailable("overview", exc)}
+
+    @app.get("/api/market/sources")
+    async def market_sources():
+        """Source catalog and official observations with provenance metadata."""
+        try:
+            from runtime.market_intelligence.source_catalog import source_snapshot
+            return {**source_snapshot(), "available": True, "stub": False}
+        except Exception as exc:
+            return {"catalog": [], "official_observations": [], "stub": False, **_market_unavailable("sources", exc)}
 
     @app.get("/api/market/rebalancing")
     async def market_rebalancing():

@@ -12,3 +12,7 @@
 - [x] Criar ícone próprio do FlowCore Mobile e atualizar a configuração do aplicativo
 - [x] Validar tipos, fluxos offline e retorno de API indisponível
 - [x] Preparar instruções de build do APK e cadastro seguro do novo computador no Tailscale
+- [ ] Corrigir a instalação de yfinance no Termux ARM64 sem compilação incompleta de lxml
+- [ ] Integrar fontes múltiplas de mercado com prioridade, timestamp, origem e alerta de divergência
+- [ ] Validar a nova DMN no Tailscale e documentar seu papel administrativo complementar ao Cloudflare
+- [x] Instalar, autenticar e confirmar a entrada do novo computador no Tailscale — DMN-1, Windows 11 25H2, 100.127.43.83
