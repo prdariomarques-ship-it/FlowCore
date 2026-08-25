@@ -43,12 +43,25 @@ if ! pgrep -f '[f]lowcore.sh' >/dev/null 2>&1; then
 fi
 
 printf 'Aguardando FlowCore atualizado...\n'
+ready=0
 for attempt in $(seq 1 24); do
   if curl -fsS --max-time 5 http://127.0.0.1:8080/api/health >/dev/null; then
+    ready=1
     break
   fi
   sleep 5
 done
+
+if [ "$ready" -ne 1 ]; then
+  echo "ERRO: FlowCore não abriu 127.0.0.1:8080 em 120 segundos." >&2
+  echo "--- PROCESSOS ---" >&2
+  pgrep -af 'flowcore.py|flowcore.sh|cloudflared' >&2 || true
+  echo "--- FLOWCORE LOG ---" >&2
+  tail -n 100 "$HOME/.config/flowcore/flowcore.log" >&2 2>/dev/null || true
+  echo "--- BOOT LOG ---" >&2
+  tail -n 60 "$HOME/.config/flowcore/boot.log" >&2 2>/dev/null || true
+  exit 1
+fi
 
 for path in /api/health /api/market/overview /api/market/briefing /api/portfolios/moderate-ia-1m/summary; do
   code="$(curl -sS -o /tmp/flowcore-market-check.json -w '%{http_code}' --max-time 45 "http://127.0.0.1:8080${path}" || true)"
