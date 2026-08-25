@@ -1,16 +1,12 @@
 import "./scripts/load-env.js";
 import type { ExpoConfig } from "expo/config";
 
-const rawBundleId = "space.manus.flowcore.mobile.t20260825";
-const bundleId = rawBundleId.replace(/[-_]/g, ".").replace(/[^a-zA-Z0-9.]/g, "").replace(/\.+/g, ".").replace(/^\.+|\.+$/g, "").toLowerCase();
-
 const env = {
   appName: "FlowCore Mobile",
   appSlug: "flowcore-mobile",
-  logoUrl: "/manus-storage/flowcore-mobile-icon_995887e5.png",
   scheme: "flowcoremobile",
-  iosBundleId: bundleId,
-  androidPackage: bundleId,
+  iosBundleId: "com.flowcore.mobile",
+  androidPackage: "com.flowcore.mobile",
 };
 
 const config: ExpoConfig = {
