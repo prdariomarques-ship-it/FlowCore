@@ -10,7 +10,7 @@ URL pública: **https://flowcore.admissaoazusa.com.br**
 
 ```bash
 pkg update
-pkg install python git openssl curl cloudflared
+pkg install python git openssl curl cloudflared libxml2 libxslt clang pkg-config
 ```
 
 **Capacidades Android (TTS, SMS, Contatos)** — requer o app Termux:API instalado pela F-Droid:
@@ -26,7 +26,8 @@ pkg install termux-api
 ```bash
 git clone https://github.com/prdariomarques-ship-it/FlowCore.git ~/FlowCore
 cd ~/FlowCore
-pip install -r requirements.txt
+git checkout claude/flowcore-architecture-consolidation-h95fi2
+pip install -r requirements-core.txt -r requirements-api.txt
 ```
 
 ---
@@ -41,6 +42,7 @@ Verificar:
 
 ```bash
 curl http://127.0.0.1:8080/api/health
+curl http://127.0.0.1:8080/api/market/snapshot
 ```
 
 ---
@@ -71,6 +73,7 @@ Em outro terminal, verificar:
 
 ```bash
 curl https://flowcore.admissaoazusa.com.br/api/health
+curl https://flowcore.admissaoazusa.com.br/api/market/snapshot
 ```
 
 ---
@@ -123,7 +126,13 @@ curl -s -X PATCH http://127.0.0.1:8080/api/ai-runtime/config \
   -d '{"openai_url":"http://IP_DO_PC:PORTA","openai_model":"nemotron-3.5-lightning"}'
 ```
 
-Substituir `IP_DO_PC` pelo IP local do PC na rede Wi-Fi.
+Substituir `IP_DO_PC` pelo IP privado do computador no Tailscale ou pelo IP local na mesma rede Wi-Fi. A API salva essa configuração em `~/.flowcore/ai.json`; tokens ou chaves do provedor não devem ser inseridos nesse arquivo ou nesta documentação.
+
+Verificar a configuração sem exibir credenciais:
+
+```bash
+curl -s http://127.0.0.1:8080/api/ai-runtime/config
+```
 
 ---
 
@@ -154,8 +163,10 @@ tail -f ~/.config/flowcore/boot.log
 
 ```bash
 cd ~/FlowCore
-git pull origin main
-pip install -r requirements.txt
+git fetch origin
+git checkout claude/flowcore-architecture-consolidation-h95fi2
+git pull --ff-only origin claude/flowcore-architecture-consolidation-h95fi2
+pip install -r requirements-core.txt -r requirements-api.txt
 # Reiniciar: matar o processo e deixar o boot.sh relançar, ou
 pkill -f 'flowcore.py serve' && python3 flowcore.py serve &
 ```

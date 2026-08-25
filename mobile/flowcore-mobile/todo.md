@@ -21,5 +21,5 @@
 - [x] Validar a linha de base dos testes do FlowCore antes de novas alterações — 313 testes aprovados
 - [x] Expor snapshot de mercado e macro com dados reais, origem e falha explícita — PTAX, Selic, IPCA e Ibovespa validados no dashboard local
 - [ ] Verificar a configuração persistente do provedor Hermes/Nemotron
-- [ ] Auditar o código de bots Telegram e documentar o estado encontrado
-- [ ] Revisar a documentação operacional para a URL pública permanente
+- [x] Auditar o código de bots Telegram e documentar o estado encontrado — integração de envio e boot versionados; scripts específicos permanecem apenas no Termux
+- [x] Revisar a documentação operacional para a URL pública permanente — guia do Termux atualizado para branch, fontes de mercado e IA
