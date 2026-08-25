@@ -363,7 +363,7 @@ def register_dashboard_routes(app, version: str) -> None:
             from runtime.market_intelligence.fx_analysis import analyze_fx
             return {**analyze_fx(), "available": True, "updated_at": time.time(), "stub": False}
         except Exception as exc:
-            return {"pairs": [], "usd_regime": "unknown", "stub": False, **_market_unavailable("fx", exc)}
+            return {"pairs": [], "usd_regime": "unknown", "dxy_delta_pct_1d": None, "stub": False, **_market_unavailable("fx", exc)}
 
     @app.get("/api/market/yield-curve")
     async def market_yield_curve():
