@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import json
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -45,6 +46,50 @@ from pydantic import BaseModel
 
 _OLLAMA_DEFAULT = "http://localhost:11434"
 _DATA_DIR = Path.home() / ".flowcore"
+_REFERENCE_PORTFOLIO = Path(__file__).resolve().parents[1] / "config" / "portfolio_moderate_1m.json"
+
+
+def _load_reference_portfolio() -> dict[str, Any]:
+    """Load the bundled reference portfolio without requiring live market data."""
+    runtime_copy = _DATA_DIR / "portfolio_moderate_1m.json"
+    for path in (runtime_copy, _REFERENCE_PORTFOLIO):
+        try:
+            if path.exists():
+                data = json.loads(path.read_text())
+                if isinstance(data, dict):
+                    return data
+        except (OSError, json.JSONDecodeError):
+            continue
+    return {"id": "moderate-ia-1m", "name": "Carteira Moderada — R$ 1 milhão", "reference_value": 1000000, "target_allocation": []}
+
+
+def _review_reference_portfolio(portfolio: dict[str, Any], events: list[str] | None = None, current: dict[str, float] | None = None) -> dict[str, Any]:
+    now = datetime.now(timezone.utc).isoformat()
+    allocation = portfolio.get("target_allocation", [])
+    events = events or []
+    current = current or {}
+    policy = portfolio.get("review_policy", {})
+    threshold = float(policy.get("rebalance_trigger_absolute_points", 3.0))
+    drift = []
+    alerts = []
+    for item in allocation:
+        target = float(item.get("weight", 0))
+        actual = float(current.get(item.get("id", ""), target if not current else 0))
+        points = round(actual - target, 2)
+        drift.append({"id": item.get("id"), "target_weight": target, "current_weight": actual, "drift_points": points, "outside_band": abs(points) >= threshold})
+        if current and abs(points) >= threshold:
+            alerts.append(f"Desvio de {points:+.2f} p.p. em {item.get('label', item.get('id'))}")
+    if not current:
+        alerts.extend(["Carteira de referência sem posições reais informadas", "Revisão de mercado ao vivo depende de uma fonte de dados configurada"])
+    if events:
+        alerts.extend([f"Evento recebido: {event}" for event in events])
+    return {
+        "portfolio_id": portfolio.get("id", "moderate-ia-1m"), "reviewed_at": now,
+        "mode": "review_and_alert_only", "live_data": bool(events), "orders_executed": False,
+        "status": "alert" if alerts and (events or current) else "reference_only",
+        "alerts": alerts, "events_received": events, "drift": drift,
+        "next_action": "Avaliar proposta e exigir aprovação humana antes de qualquer ordem" if alerts and (events or current) else "Configurar posições e fonte de dados antes de qualquer rebalanceamento",
+    }
 
 
 # ── Request schemas (module-level so FastAPI resolves them correctly) ──────────
@@ -65,6 +110,11 @@ class AIConfig(BaseModel):
     model: str | None = None
     openai_url: str | None = None
     openai_model: str | None = None
+
+
+class PortfolioReviewInput(BaseModel):
+    events: list[str] = []
+    current_allocation: dict[str, float] = {}
 
 
 # ── Shared helpers ─────────────────────────────────────────────────────────────
@@ -361,36 +411,45 @@ def register_dashboard_routes(app, version: str) -> None:
     @app.get("/api/portfolios")
     async def list_portfolios():
         data = _read_json("portfolios.json", [])
-        return data if isinstance(data, list) else []
+        portfolios = data if isinstance(data, list) else []
+        reference = _load_reference_portfolio()
+        if not any(p.get("id") == reference.get("id") for p in portfolios):
+            portfolios = [reference, *portfolios]
+        return portfolios
 
     @app.get("/api/portfolios/{portfolio_id}")
     async def get_portfolio(portfolio_id: str):
-        portfolios = _read_json("portfolios.json", [])
-        for p in (portfolios if isinstance(portfolios, list) else []):
+        portfolios = await list_portfolios()
+        for p in portfolios:
             if p.get("id") == portfolio_id:
                 return p
         raise HTTPException(status_code=404, detail="Portfolio not found")
 
     @app.get("/api/portfolios/{portfolio_id}/summary")
     async def portfolio_summary(portfolio_id: str):
+        portfolio = await get_portfolio(portfolio_id)
+        allocation = portfolio.get("target_allocation", [])
         return {
             "portfolio_id": portfolio_id,
-            "positions": [],
-            "total_value": 0,
-            "currency": "BRL",
-            "stub": True,
+            "positions": allocation,
+            "total_value": portfolio.get("reference_value", 0),
+            "currency": portfolio.get("currency", "BRL"),
+            "mode": "reference_target_allocation",
+            "stub": False,
         }
 
     @app.get("/api/portfolios/{portfolio_id}/exposure")
     async def portfolio_exposure(portfolio_id: str):
+        portfolio = await get_portfolio(portfolio_id)
+        grouped: dict[str, float] = {}
+        for item in portfolio.get("target_allocation", []):
+            key = item.get("class", "outros")
+            grouped[key] = grouped.get(key, 0) + float(item.get("weight", 0))
         return {
             "portfolio_id": portfolio_id,
-            "by_asset_class": [],
-            "by_sector": [],
-            "by_industry": [],
-            "by_country": [],
-            "by_currency": [],
-            "stub": True,
+            "by_asset_class": [{"label": k, "weight": round(v, 2)} for k, v in sorted(grouped.items())],
+            "by_sector": [], "by_industry": [], "by_country": [], "by_currency": [],
+            "mode": "reference_target_allocation", "stub": False,
         }
 
     @app.get("/api/portfolios/{portfolio_id}/impact")
@@ -399,25 +458,40 @@ def register_dashboard_routes(app, version: str) -> None:
 
     @app.get("/api/portfolios/{portfolio_id}/decision")
     async def portfolio_decision(portfolio_id: str):
+        portfolio = await get_portfolio(portfolio_id)
+        review = _review_reference_portfolio(portfolio)
         return {
             "portfolio_id": portfolio_id,
-            "decisions": [],
-            "readiness_score": None,
-            "sub_scores": {},
-            "top_risks": [],
-            "top_opportunities": [],
-            "stub": True,
+            "decisions": [{"type": "hold_reference", "label": "Manter alvos até receber posições reais e dados de mercado"}],
+            "readiness_score": 0,
+            "sub_scores": {"positions": 0, "market_data": 0, "suitability": 0},
+            "top_risks": review["alerts"],
+            "top_opportunities": ["Diversificação por indexador, geografia e classe de ativo"],
+            "review": review,
+            "stub": False,
         }
 
     @app.get("/api/portfolios/{portfolio_id}/narrative")
     async def portfolio_narrative(portfolio_id: str):
+        portfolio = await get_portfolio(portfolio_id)
         return {
             "portfolio_id": portfolio_id,
-            "narrative": "Portfolio analytics module not configured on this instance.",
-            "stub": True,
+            "narrative": "Carteira-modelo moderada de R$ 1 milhão com 45% em renda fixa brasileira, 15% em renda fixa internacional, 10% em multimercados, 25% em renda variável e 4,5% em alternativos. A parcela de IA é satélite, limitada a 7% do patrimônio.",
+            "review_policy": portfolio.get("review_policy", {}),
+            "stub": False,
         }
 
     # ── Assets [STUB] ─────────────────────────────────────────────────────────
+
+    @app.get("/api/portfolios/{portfolio_id}/review")
+    async def portfolio_review(portfolio_id: str):
+        portfolio = await get_portfolio(portfolio_id)
+        return _review_reference_portfolio(portfolio)
+
+    @app.post("/api/portfolios/{portfolio_id}/review")
+    async def portfolio_review_post(portfolio_id: str, data: PortfolioReviewInput):
+        portfolio = await get_portfolio(portfolio_id)
+        return _review_reference_portfolio(portfolio, data.events, data.current_allocation)
 
     @app.get("/api/assets/{symbol}")
     async def get_asset(symbol: str):

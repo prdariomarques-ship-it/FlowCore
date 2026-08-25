@@ -44,7 +44,25 @@ until curl -fsS --max-time 3 http://127.0.0.1:8080/api/health >/dev/null 2>&1; d
     sleep 5
 done
 
-echo "$(date -Is) FlowCore pronto — iniciando cloudflared" >> "$LOGDIR/boot.log"
+echo "$(date -Is) FlowCore pronto — iniciando serviços auxiliares" >> "$LOGDIR/boot.log"
+
+# Start configured Telegram bots. Each executable .sh file is an independent bot.
+# Tokens must remain in the bot's private environment/configuration; never put them in this repo.
+BOT_DIR="$HOME/.flowcore/bots"
+if [ -d "$BOT_DIR" ]; then
+    for bot in "$BOT_DIR"/*.sh; do
+        [ -x "$bot" ] || continue
+        bot_name="$(basename "$bot" .sh)"
+        (
+            while :; do
+                echo "$(date -Is) Iniciando bot $bot_name" >> "$LOGDIR/${bot_name}.log"
+                "$bot" >> "$LOGDIR/${bot_name}.log" 2>&1
+                echo "$(date -Is) Bot $bot_name encerrou; reiniciando em 10s" >> "$LOGDIR/${bot_name}.log"
+                sleep 10
+            done
+        ) &
+    done
+fi
 
 termux-notification \
     --id 1 \

@@ -152,6 +152,15 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .ks{flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:7px;border-radius:8px;font-size:12px;text-align:center;cursor:pointer;transition:all .2s}
 .ks.active{color:var(--accent);border-color:var(--accent);background:rgba(0,212,255,.08)}
 
+/* Finance */
+.metric-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.metric{background:var(--bg3);border-radius:10px;padding:12px}
+.metric strong{display:block;font-size:22px;color:var(--accent);margin-top:4px}
+.metric small{color:var(--text2);font-size:10px}
+.alloc-row{display:grid;grid-template-columns:1fr 42px;gap:8px;align-items:center;margin:9px 0;font-size:12px}
+.alloc-label{color:var(--text2)}
+.alloc-bar{grid-column:1/3;height:6px;background:var(--border);border-radius:6px;overflow:hidden;margin-top:-5px}
+.alloc-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:6px}
 /* Agents */
 .agent-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:13px;display:flex;align-items:center;justify-content:space-between;gap:10px}
 .agent-info{flex:1;min-width:0}
@@ -187,50 +196,59 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 
 <div class="wrap">
 
-  <!-- ══ HOME ══ -->
+  <!-- ══ VISÃO FINANCEIRA ══ -->
   <div class="page active" id="page-home">
     <div class="gap">
-      <!-- Stats -->
       <div class="card">
-        <div class="sg">
-          <div class="st"><div class="sv" id="s-caps">─</div><div class="sl">Caps</div></div>
-          <div class="st"><div class="sv" id="s-doc">─</div><div class="sl">Doctor</div></div>
-          <div class="st"><div class="sv" id="s-mem">─</div><div class="sl">Memórias</div></div>
-          <div class="st"><div class="sv" id="s-notes">─</div><div class="sl">Notas</div></div>
+        <div class="ch"><span class="ct">Visão financeira</span><span class="tag ty">Referência</span></div>
+        <div class="metric-grid">
+          <div class="metric"><small>Carteira-modelo</small><strong>R$ 1,0 mi</strong><span class="tag tp">Moderada</span></div>
+          <div class="metric"><small>Exposição IA</small><strong>7%</strong><span class="tag tg">Satélite</span></div>
+          <div class="metric"><small>Renda fixa total</small><strong>60%</strong><span class="tag tg">Âncora</span></div>
+          <div class="metric"><small>Revisão</small><strong id="review-status">Diária</strong><span class="tag ty">Sem ordens</span></div>
         </div>
       </div>
-
-      <!-- Daemon -->
       <div class="card">
-        <div class="ch"><span class="ct">Daemon</span><span class="ci">⚙️</span></div>
-        <div class="row"><span class="rl">Estado</span><span class="rv" id="d-state"><span class="tag ty">─</span></span></div>
-        <div class="row"><span class="rl">PID</span><span class="rv" id="d-pid" style="color:var(--text2)">─</span></div>
-        <div class="row"><span class="rl">Uptime</span><span class="rv" id="d-up" style="color:var(--text2)">─</span></div>
-        <div class="row"><span class="rl">Ciclo heartbeat</span><span class="rv" id="d-cyc" style="color:var(--text2)">─</span></div>
-        <div class="btns">
-          <button class="btn bg" onclick="da('start')">▶ Iniciar</button>
-          <button class="btn br" onclick="da('stop')">■ Parar</button>
-        </div>
+        <div class="ch"><span class="ct">Mercado</span><span class="ci">📈</span></div>
+        <div class="row"><span class="rl">Câmbio e curva</span><span class="tag ty">Aguardando fonte</span></div>
+        <div class="row"><span class="rl">Alertas de evento</span><span class="tag ty">Monitoramento</span></div>
+        <div class="row"><span class="rl">Dados ao vivo</span><span class="rv" style="color:var(--text2)">Não configurados</span></div>
       </div>
-
-      <!-- Notificação -->
       <div class="card">
-        <div class="ch"><span class="ct">Notificação Android</span><span class="ci">🔔</span></div>
-        <div class="ir">
-          <input class="if" id="n-text" placeholder="Mensagem para o Android...">
-          <button class="bs2" onclick="sendNotify()">🔔</button>
-        </div>
-        <div class="row" style="padding-top:0;border:none">
-          <span class="rl">via termux-notification</span>
-          <span class="tag ty" id="n-status">nativo Android</span>
-        </div>
+        <div class="ch"><span class="ct">Macro</span><span class="ci">🌐</span></div>
+        <div class="row"><span class="rl">Regime</span><span class="tag ty">Neutro / sem dados</span></div>
+        <div class="row"><span class="rl">Próxima revisão</span><span class="rv">Ao detectar evento</span></div>
+        <div class="row"><span class="rl">Interpretação</span><span class="rv" style="color:var(--text2)">Informacional</span></div>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="ct">IA no portfólio</span><span class="ci">🧠</span></div>
+        <div class="row"><span class="rl">Papel</span><span class="rv">Crescimento satélite</span></div>
+        <div class="row"><span class="rl">Limite operacional</span><span class="rv">4%–10%</span></div>
+        <div class="row"><span class="rl">Concentração por emissor</span><span class="rv">Máx. 2%</span></div>
       </div>
     </div>
   </div>
 
-  <!-- ══ SISTEMA ══ -->
-  <div class="page" id="page-sys">
+  <!-- ══ PORTFOLIO ══ -->
+  <div class="page" id="page-portfolio"><div class="gap">
+    <div class="card"><div class="ch"><span class="ct">Carteira moderada</span><span class="tag tp">R$ 1.000.000</span></div><div id="portfolio-summary"><div class="sk"></div><div class="sk"></div></div></div>
+    <div class="card"><div class="ch"><span class="ct">Alocação por classe</span><span class="ci">◒</span></div><div id="portfolio-exposure"><div class="sk"></div></div></div>
+    <div class="card"><div class="ch"><span class="ct">Revisão diária</span><button class="btn-sm" onclick="loadPortfolio(true)">↻ Revisar</button></div><div id="portfolio-review"><div class="empty">A revisão é informacional e não executa ordens.</div></div></div>
+  </div></div>
+
+  <!-- ══ IA ══ -->
+  <div class="page" id="page-ai"><div class="gap">
+    <div class="card"><div class="ch"><span class="ct">Exposição à inteligência artificial</span><span class="tag tg">7% alvo</span></div><div class="metric-grid"><div class="metric"><small>Valor de referência</small><strong>R$ 70 mil</strong></div><div class="metric"><small>Faixa permitida</small><strong>4%–10%</strong></div></div></div>
+    <div class="card"><div class="ch"><span class="ct">Subtemas acompanhados</span><span class="ci">◈</span></div><div class="row"><span class="rl">Semicondutores</span><span class="tag ty">Cíclico</span></div><div class="row"><span class="rl">Nuvem e infraestrutura</span><span class="tag tg">Estrutural</span></div><div class="row"><span class="rl">Software e aplicações</span><span class="tag tp">Crescimento</span></div><div class="row"><span class="rl">Risco principal</span><span class="rv" style="color:var(--text2)">Concentração/valuation</span></div></div>
+    <div class="card"><div class="ch"><span class="ct">Gatilhos de revisão</span><span class="ci">⚠</span></div><div class="empty">Resultados, guidance, regulação, mudança de capex, choque de crédito ou variação relevante do índice temático. O FlowCore apenas alerta e solicita confirmação humana.</div></div>
+  </div></div>
+
+
+  <!-- ══ ADMINISTRATIVO ══ -->
+  <div class="page" id="page-admin">
     <div class="gap">
+      <div class="card"><div class="ch"><span class="ct">Daemon FlowCore</span><span class="ci">⚙</span></div><div class="row"><span class="rl">Estado</span><span class="rv" id="d-state"><span class="tag ty">─</span></span></div><div class="row"><span class="rl">PID / uptime / ciclo</span><span class="rv" id="d-pid">─</span></div><div class="row"><span class="rl">Detalhe</span><span class="rv" id="d-up" style="color:var(--text2)">─</span></div><div class="row"><span class="rl">Heartbeat</span><span class="rv" id="d-cyc" style="color:var(--text2)">─</span></div><div class="btns"><button class="btn bg" onclick="da('start')">▶ Iniciar</button><button class="btn br" onclick="da('stop')">■ Parar</button></div></div>
+      <div class="card"><div class="ch"><span class="ct">Notificação Android</span><span class="ci">🔔</span></div><div class="ir"><input class="if" id="n-text" placeholder="Mensagem para o Android..."><button class="bs2" onclick="sendNotify()">🔔</button></div><div class="row" style="padding-top:0;border:none"><span class="rl">via Termux API</span><span class="tag ty" id="n-status">nativo Android</span></div></div>
       <div class="card" id="sys-battery-card">
         <div class="ch"><span class="ct">Bateria</span><span class="ci">🔋</span></div>
         <div class="sk"></div><div class="sk"></div>
@@ -362,14 +380,14 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 
 </div>
 
-<!-- Bottom nav -->
+  <!-- Bottom nav -->
 <div class="nav">
-  <button class="ni active" onclick="pg('home',this)"><span class="ni-icon">🏠</span><span>Início</span></button>
-  <button class="ni" onclick="pg('sys',this)"><span class="ni-icon">📊</span><span>Sistema</span></button>
-  <button class="ni" onclick="pg('caps',this)"><span class="ni-icon">⚡</span><span>Caps</span></button>
+  <button class="ni active" onclick="pg('home',this)"><span class="ni-icon">⌂</span><span>Visão</span></button>
+  <button class="ni" onclick="pg('portfolio',this)"><span class="ni-icon">◒</span><span>Carteira</span></button>
+  <button class="ni" onclick="pg('ai',this)"><span class="ni-icon">✦</span><span>IA</span></button>
   <button class="ni" onclick="pg('mem',this)"><span class="ni-icon">🧠</span><span>Memórias</span></button>
-  <button class="ni" onclick="pg('notes',this)"><span class="ni-icon">📝</span><span>Notas</span></button>
-  <button class="ni" onclick="pg('agents',this)"><span class="ni-icon">🤖</span><span>Agentes</span></button>
+  <button class="ni" onclick="pg('agents',this)"><span class="ni-icon">⚙</span><span>Agentes</span></button>
+  <button class="ni" onclick="pg('admin',this)"><span class="ni-icon">▣</span><span>Admin</span></button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -384,7 +402,8 @@ function pg(name,btn){
   document.querySelectorAll('.ni').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   btn.classList.add('active');
-  if(name==='sys') loadSys();
+  if(name==='admin') loadSys();
+  if(name==='portfolio') loadPortfolio();
   if(name==='notes') loadNotes();
   if(name==='agents'){loadAgents();loadFlows();}
 }
@@ -437,16 +456,19 @@ function renderStatus(s){
   const ok=chks.filter(c=>c.status==='ok').length;
   document.getElementById('s-doc').textContent=ok+'/'+chks.length;
 
-  // Daemon
+  // Daemon (renderizado apenas na tela Admin)
   const d=s.daemon||{};
-  if(d.running){
-    document.getElementById('d-state').innerHTML='<span class="tag tg">● Ativo</span>';
-    document.getElementById('d-pid').textContent=d.pid;
-    document.getElementById('d-up').textContent=fup(d.uptime||0);
-    document.getElementById('d-cyc').textContent='#'+(d.cycle||0);
-  }else{
-    document.getElementById('d-state').innerHTML='<span class="tag tr">○ Parado</span>';
-    ['d-pid','d-up','d-cyc'].forEach(id=>document.getElementById(id).textContent='─');
+  const dState=document.getElementById('d-state');
+  if(dState){
+    if(d.running){
+      dState.innerHTML='<span class="tag tg">● Ativo</span>';
+      document.getElementById('d-pid').textContent=d.pid;
+      document.getElementById('d-up').textContent=fup(d.uptime||0);
+      document.getElementById('d-cyc').textContent='#'+(d.cycle||0);
+    }else{
+      dState.innerHTML='<span class="tag tr">○ Parado</span>';
+      ['d-pid','d-up','d-cyc'].forEach(id=>document.getElementById(id).textContent='─');
+    }
   }
 
   // Caps grid
@@ -470,6 +492,17 @@ function renderStatus(s){
     cl.appendChild(el);
   }
   if(!chks.length) cl.innerHTML='<div class="empty">Doctor não disponível</div>';
+}
+
+/* ── Portfolio ── */
+async function loadPortfolio(){
+  try{
+    const [summary, exposure, review]=await Promise.all([api('/api/portfolios/moderate-ia-1m/summary'),api('/api/portfolios/moderate-ia-1m/exposure'),api('/api/portfolios/moderate-ia-1m/review')]);
+    const positions=summary.positions||[];
+    document.getElementById('portfolio-summary').innerHTML=positions.map(p=>`<div class="alloc-row"><span class="alloc-label">${p.label}</span><strong>${p.weight}%</strong><div class="alloc-bar"><div class="alloc-fill" style="width:${Math.min(p.weight*1.5,100)}%"></div></div></div>`).join('');
+    document.getElementById('portfolio-exposure').innerHTML=(exposure.by_asset_class||[]).map(p=>`<div class="row"><span class="rl">${p.label}</span><span class="rv">${p.weight}%</span></div>`).join('');
+    document.getElementById('portfolio-review').innerHTML=`<div class="row"><span class="rl">Status</span><span class="tag ty">${review.status}</span></div><div class="row"><span class="rl">Dados ao vivo</span><span class="rv">${review.live_data?'Sim':'Não'}</span></div><div class="row"><span class="rl">Ordens executadas</span><span class="rv">Não</span></div><div class="empty">${(review.alerts||[]).join('<br>')}<br><br>${review.next_action}</div>`;
+  }catch(e){document.getElementById('portfolio-summary').innerHTML='<div class="empty">Carteira indisponível: '+e.message+'</div>';}
 }
 
 /* ── System page ── */
