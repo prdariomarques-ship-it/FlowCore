@@ -1,67 +1,76 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # FlowCore — Termux:Boot startup script
-# Install: mkdir -p ~/.termux/boot && cp boot.sh ~/.termux/boot/flowcore.sh && chmod +x ~/.termux/boot/flowcore.sh
+# Install: mkdir -p ~/.termux/boot && cp tools/boot.sh ~/.termux/boot/flowcore.sh && chmod +x ~/.termux/boot/flowcore.sh
 #
-# This script runs automatically when Android boots (requires Termux:Boot app).
-# It starts sshd and the FlowCore daemon + API server.
+# Starts FlowCore and cloudflared after Android boot (requires Termux:Boot app).
+# Both processes are restarted automatically if they crash.
 
-set -uo pipefail
+set -u
 
-FLOWCORE_DIR="$HOME/FlowCore"
-LOG="$HOME/.flowcore/boot.log"
-CF_TOKEN_FILE="$HOME/.config/cloudflared/tunnel-token"
+BASE="$HOME/FlowCore"
+LOGDIR="$HOME/.config/flowcore"
+mkdir -p "$LOGDIR"
 
-mkdir -p "$HOME/.flowcore"
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Boot script started" >> "$LOG"
+command -v termux-wake-lock >/dev/null 2>&1 && termux-wake-lock
 
-# ── 1. Wake lock — keep CPU awake while starting ──────────────────────────────
-termux-wake-lock 2>/dev/null || true
+# Wait for the repo to be accessible after boot
+while [ ! -d "$BASE" ]; do
+    echo "$(date -Is) Repositório não encontrado: $BASE" >> "$LOGDIR/boot.log"
+    sleep 10
+done
 
-# ── 2. Start SSH daemon ───────────────────────────────────────────────────────
+cd "$BASE" || exit 1
+echo "$(date -Is) Boot script iniciado" >> "$LOGDIR/boot.log"
+
+# Start sshd if available
 if command -v sshd >/dev/null 2>&1; then
     sshd
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] sshd started" >> "$LOG"
+    echo "$(date -Is) sshd iniciado" >> "$LOGDIR/boot.log"
 fi
 
-# ── 3. Wait for storage to settle after boot ─────────────────────────────────
-sleep 5
-
-# ── 4. Start FlowCore daemon ──────────────────────────────────────────────────
-if [ -d "$FLOWCORE_DIR" ]; then
-    cd "$FLOWCORE_DIR"
-    python3 flowcore.py daemon start >> "$LOG" 2>&1 &
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] FlowCore daemon started" >> "$LOG"
-
-    # ── 5. Start API server (web UI on port 8080) ─────────────────────────────
-    sleep 2
-    nohup python3 flowcore.py serve >> "$HOME/.flowcore/api.log" 2>&1 &
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] FlowCore API server started" >> "$LOG"
-
-    # ── 6. Start cloudflared tunnel ───────────────────────────────────────────
-    sleep 3
-    if [ -f "$CF_TOKEN_FILE" ]; then
-        set -a; source "$CF_TOKEN_FILE"; set +a
-        if [ -n "${TUNNEL_TOKEN:-}" ]; then
-            nohup cloudflared tunnel run --token "$TUNNEL_TOKEN" \
-                >> "$HOME/.flowcore/tunnel_watchdog.log" 2>&1 &
-            echo "[$(date '+%Y-%m-%d %H:%M:%S')] cloudflared tunnel started" >> "$LOG"
-        else
-            echo "[$(date '+%Y-%m-%d %H:%M:%S')] WARNING: TUNNEL_TOKEN vazio em $CF_TOKEN_FILE" >> "$LOG"
-        fi
-    else
-        echo "[$(date '+%Y-%m-%d %H:%M:%S')] INFO: $CF_TOKEN_FILE não encontrado — tunnel ignorado" >> "$LOG"
+# Keep FlowCore running; restart on crash
+while :; do
+    if ! pgrep -f '[f]lowcore.py serve' >/dev/null 2>&1; then
+        echo "$(date -Is) Iniciando FlowCore" >> "$LOGDIR/flowcore.log"
+        python3 flowcore.py serve >> "$LOGDIR/flowcore.log" 2>&1
+        echo "$(date -Is) FlowCore encerrou; reiniciando em 5s" >> "$LOGDIR/flowcore.log"
     fi
+    sleep 5
+done &
 
-    # ── 7. Send boot notification ─────────────────────────────────────────────
-    sleep 2
-    termux-notification \
-        --id 1 \
-        --title "FlowCore" \
-        --content "✓ FlowCore iniciado — abre http://localhost:8080" \
-        2>/dev/null || true
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Boot notification sent" >> "$LOG"
-else
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] WARNING: $FLOWCORE_DIR not found" >> "$LOG"
+# Wait for FlowCore to be ready before starting cloudflared
+until curl -fsS --max-time 3 http://127.0.0.1:8080/api/health >/dev/null 2>&1; do
+    echo "$(date -Is) Aguardando FlowCore em 127.0.0.1:8080" >> "$LOGDIR/boot.log"
+    sleep 5
+done
+
+echo "$(date -Is) FlowCore pronto — iniciando cloudflared" >> "$LOGDIR/boot.log"
+
+termux-notification \
+    --id 1 \
+    --title "FlowCore" \
+    --content "FlowCore iniciado — https://flowcore.admissaoazusa.com.br" \
+    2>/dev/null || true
+
+TOKEN_FILE="$HOME/.config/cloudflared/tunnel-token"
+if [ ! -r "$TOKEN_FILE" ]; then
+    echo "$(date -Is) Token não encontrado: $TOKEN_FILE" >> "$LOGDIR/cloudflared.log"
+    exit 1
 fi
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Boot script complete" >> "$LOG"
+set -a
+. "$TOKEN_FILE"
+set +a
+
+if [ -z "${TUNNEL_TOKEN:-}" ]; then
+    echo "$(date -Is) TUNNEL_TOKEN vazio" >> "$LOGDIR/cloudflared.log"
+    exit 1
+fi
+
+# Keep cloudflared running; restart on crash
+while :; do
+    echo "$(date -Is) Iniciando cloudflared" >> "$LOGDIR/cloudflared.log"
+    cloudflared tunnel run --token "$TUNNEL_TOKEN" >> "$LOGDIR/cloudflared.log" 2>&1
+    echo "$(date -Is) cloudflared encerrou; reiniciando em 10s" >> "$LOGDIR/cloudflared.log"
+    sleep 10
+done
