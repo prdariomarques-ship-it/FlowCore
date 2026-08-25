@@ -117,6 +117,18 @@ class PortfolioReviewInput(BaseModel):
     current_allocation: dict[str, float] = {}
 
 
+class TTSRequest(BaseModel):
+    text: str
+    language: str = "pt-BR"
+    pitch: float = 1.0
+    rate: float = 1.0
+
+
+class SMSSendRequest(BaseModel):
+    number: str
+    message: str
+
+
 # ── Shared helpers ─────────────────────────────────────────────────────────────
 
 def _http_json(method: str, url: str, body: dict | None = None, timeout: int = 30) -> dict:
@@ -665,16 +677,6 @@ def register_dashboard_routes(app, version: str) -> None:
         return {"query": q, "events": [], "stub": True}
 
     # ── Android TTS / SMS / Contacts ──────────────────────────────────────────
-
-    class TTSRequest(BaseModel):
-        text: str
-        language: str = "pt-BR"
-        pitch: float = 1.0
-        rate: float = 1.0
-
-    class SMSSendRequest(BaseModel):
-        number: str
-        message: str
 
     @app.post("/api/android/tts")
     async def android_tts(data: TTSRequest):

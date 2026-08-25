@@ -20,6 +20,15 @@ def _client():
     return TestClient(create_app(version="test", platform_info={"os_name": "test"}))
 
 
+def test_route_models_are_module_level_for_fastapi_annotation_resolution():
+    """Python 3.13 resolves endpoint annotations after route registration."""
+    import api.dashboard_routes as dashboard_routes
+    assert dashboard_routes.TTSRequest.__module__ == "api.dashboard_routes"
+    assert dashboard_routes.SMSSendRequest.__module__ == "api.dashboard_routes"
+    client = _client()
+    assert client.get("/api/health").status_code == 200
+
+
 # ── /api/ask ─────────────────────────────────────────────────────────────────
 
 class TestAsk:
