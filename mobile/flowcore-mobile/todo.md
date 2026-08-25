@@ -17,6 +17,7 @@
 - [ ] Validar a nova DMN no Tailscale e documentar seu papel administrativo complementar ao Cloudflare
 - [x] Instalar, autenticar e confirmar a entrada do novo computador no Tailscale — DMN-1, Windows 11 25H2, 100.127.43.83
 - [ ] Diagnosticar e restaurar a inicialização local do FlowCore em 127.0.0.1:8080 no Termux
+- [ ] Remover a dependência de testes manuais em 127.0.0.1 e validar o FlowCore por Cloudflare e Tailscale
 - [ ] Localizar e anexar um APK FlowCore existente, caso haja artefato binário disponível
 - [x] Validar a linha de base dos testes do FlowCore antes de novas alterações — 313 testes aprovados
 - [x] Expor snapshot de mercado e macro com dados reais, origem e falha explícita — PTAX, Selic, IPCA e Ibovespa validados no dashboard local

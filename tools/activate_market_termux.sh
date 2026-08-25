@@ -7,6 +7,8 @@ set -eu
 BASE="$HOME/FlowCore"
 BRANCH="claude/flowcore-architecture-consolidation-h95fi2"
 BOOT="$HOME/.termux/boot/flowcore.sh"
+LOGDIR="$HOME/.config/flowcore"
+PUBLIC_URL="https://flowcore.admissaoazusa.com.br"
 
 if [ ! -d "$BASE/.git" ]; then
   echo "ERRO: repositório FlowCore não encontrado em $BASE" >&2
@@ -33,27 +35,39 @@ python3 -m pip install --no-cache-dir --upgrade yfinance
 mkdir -p "$HOME/.termux/boot"
 cp tools/boot.sh "$BOOT"
 chmod 700 "$BOOT"
+mkdir -p "$LOGDIR"
 
-# O loop de boot reconhece a ausência do processo e recria FlowCore com o código novo.
+# Inicia explicitamente na interface de rede. Cloudflare continua usando a origem local,
+# e o mesmo serviço passa a ser acessível pelo Tailscale em IP 100.x.x.x:8080.
+# Não depende do pgrep do Termux:Boot para a primeira inicialização.
 pkill -f '[p]ython3 flowcore.py serve' 2>/dev/null || true
+export FLOWCORE__API__HOST="${FLOWCORE_BIND_HOST:-0.0.0.0}"
+nohup python3 flowcore.py serve >> "$LOGDIR/flowcore.log" 2>&1 &
+FLOWCORE_PID=$!
+echo "FlowCore iniciado como PID $FLOWCORE_PID; aguardando confirmação interna..."
 
-# Se o Termux:Boot ainda não estiver ativo nesta sessão, iniciar o mesmo script manualmente.
+# O boot mantém cloudflared e bots persistentes. Se já estiver em execução, não cria duplicata.
 if ! pgrep -f '[f]lowcore.sh' >/dev/null 2>&1; then
   nohup "$BOOT" >/dev/null 2>&1 &
 fi
 
-printf 'Aguardando FlowCore atualizado...\n'
+printf 'Validando inicialização do FlowCore...\n'
 ready=0
-for attempt in $(seq 1 24); do
+for attempt in $(seq 1 12); do
   if curl -fsS --max-time 5 http://127.0.0.1:8080/api/health >/dev/null; then
     ready=1
     break
   fi
-  sleep 5
+  if ! kill -0 "$FLOWCORE_PID" 2>/dev/null; then
+    echo "ERRO: o processo FlowCore encerrou durante a inicialização." >&2
+    tail -n 120 "$LOGDIR/flowcore.log" >&2 2>/dev/null || true
+    exit 1
+  fi
+  sleep 2
 done
 
 if [ "$ready" -ne 1 ]; then
-  echo "ERRO: FlowCore não abriu 127.0.0.1:8080 em 120 segundos." >&2
+  echo "ERRO: FlowCore não respondeu após 24 segundos." >&2
   echo "--- PROCESSOS ---" >&2
   pgrep -af 'flowcore.py|flowcore.sh|cloudflared' >&2 || true
   echo "--- FLOWCORE LOG ---" >&2
@@ -63,7 +77,7 @@ if [ "$ready" -ne 1 ]; then
   exit 1
 fi
 
-for path in /api/health /api/market/overview /api/market/briefing /api/portfolios/moderate-ia-1m/summary; do
+for path in /api/health /api/market/snapshot /api/market/overview /api/market/briefing /api/portfolios/moderate-ia-1m/summary; do
   code="$(curl -sS -o /tmp/flowcore-market-check.json -w '%{http_code}' --max-time 45 "http://127.0.0.1:8080${path}" || true)"
   printf '%s HTTP %s\n' "$path" "$code"
   if [ "$code" != "200" ]; then
@@ -72,5 +86,11 @@ for path in /api/health /api/market/overview /api/market/briefing /api/portfolio
   fi
 done
 
-printf '\nFluxo local pronto. Agora confira o domínio público:\n'
-printf 'curl -s https://flowcore.admissaoazusa.com.br/api/market/overview\n'
+printf '\nFluxo FlowCore iniciado. Verificando o domínio público...\n'
+public_code="$(curl -sS -o /tmp/flowcore-public-check.json -w '%{http_code}' --max-time 25 "$PUBLIC_URL/api/market/snapshot" || true)"
+printf 'Cloudflare %s/api/market/snapshot HTTP %s\n' "$PUBLIC_URL" "$public_code"
+if [ "$public_code" != "200" ]; then
+  echo "O FlowCore está iniciado; o túnel pode levar alguns segundos para reconectar." >&2
+  echo "Consulte: tail -n 60 $LOGDIR/cloudflared.log" >&2
+fi
+printf 'Acesso privado Tailscale: http://<IP-TAILSCALE-DO-TELEFONE>:8080/api/market/snapshot\n'

@@ -10,6 +10,9 @@ set -u
 BASE="$HOME/FlowCore"
 LOGDIR="$HOME/.config/flowcore"
 mkdir -p "$LOGDIR"
+# Mantém Cloudflare compatível e permite acesso privado pelo IP Tailscale do telefone.
+# O padrão pode ser sobrescrito por FLOWCORE_BIND_HOST se for necessário restringir a interface.
+export FLOWCORE__API__HOST="${FLOWCORE_BIND_HOST:-0.0.0.0}"
 
 command -v termux-wake-lock >/dev/null 2>&1 && termux-wake-lock
 
@@ -20,7 +23,7 @@ while [ ! -d "$BASE" ]; do
 done
 
 cd "$BASE" || exit 1
-echo "$(date -Is) Boot script iniciado" >> "$LOGDIR/boot.log"
+echo "$(date -Is) Boot script iniciado; FlowCore em ${FLOWCORE__API__HOST}:8080" >> "$LOGDIR/boot.log"
 
 # Start sshd if available
 if command -v sshd >/dev/null 2>&1; then
@@ -38,9 +41,10 @@ while :; do
     sleep 5
 done &
 
-# Wait for FlowCore to be ready before starting cloudflared
+# Aguarda internamente o serviço antes de iniciar auxiliares. O acesso do operador
+# deve ser feito pelo domínio Cloudflare ou pelo IP Tailscale, não por localhost.
 until curl -fsS --max-time 3 http://127.0.0.1:8080/api/health >/dev/null 2>&1; do
-    echo "$(date -Is) Aguardando FlowCore em 127.0.0.1:8080" >> "$LOGDIR/boot.log"
+    echo "$(date -Is) Aguardando processo FlowCore" >> "$LOGDIR/boot.log"
     sleep 5
 done
 
