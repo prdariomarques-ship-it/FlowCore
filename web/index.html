@@ -208,15 +208,15 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
       </div>
       <div class="card">
         <div class="ch"><span class="ct">Mercado</span><span class="ci">📈</span></div>
-        <div class="row"><span class="rl">Câmbio e curva</span><span class="tag ty">Aguardando fonte</span></div>
-        <div class="row"><span class="rl">Alertas de evento</span><span class="tag ty">Monitoramento</span></div>
-        <div class="row"><span class="rl">Dados ao vivo</span><span class="rv" style="color:var(--text2)">Não configurados</span></div>
+        <div class="row"><span class="rl">USD/BRL PTAX</span><span class="rv" id="market-usd">A carregar…</span></div>
+        <div class="row"><span class="rl">Ibovespa</span><span class="rv" id="market-ibov">A carregar…</span></div>
+        <div class="row"><span class="rl">Atualização</span><span class="rv" id="market-updated" style="color:var(--text2)">A carregar…</span></div>
       </div>
       <div class="card">
         <div class="ch"><span class="ct">Macro</span><span class="ci">🌐</span></div>
-        <div class="row"><span class="rl">Regime</span><span class="tag ty">Neutro / sem dados</span></div>
-        <div class="row"><span class="rl">Próxima revisão</span><span class="rv">Ao detectar evento</span></div>
-        <div class="row"><span class="rl">Interpretação</span><span class="rv" style="color:var(--text2)">Informacional</span></div>
+        <div class="row"><span class="rl">Selic</span><span class="rv" id="macro-selic">A carregar…</span></div>
+        <div class="row"><span class="rl">IPCA acumulado 12m</span><span class="rv" id="macro-ipca">A carregar…</span></div>
+        <div class="row"><span class="rl">Fontes</span><span class="rv" id="macro-source" style="color:var(--text2)">BCB / Yahoo</span></div>
       </div>
       <div class="card">
         <div class="ch"><span class="ct">IA no portfólio</span><span class="ci">🧠</span></div>
@@ -420,6 +420,7 @@ async function api(path,opts={}){
 /* ── Refresh ── */
 async function refresh(){
   const dot=document.getElementById('dot');
+  loadMarketSnapshot();
   try{
     const [s,mems,notes]=await Promise.all([
       api('/api/status'),
@@ -436,6 +437,29 @@ async function refresh(){
   }catch(e){
     dot.classList.add('off');
     document.getElementById('last-upd').textContent='Sem ligação';
+  }
+}
+
+/* ── Mercado e macro — fontes públicas, sem valores sintetizados ── */
+function marketValue(value, suffix=''){
+  return value===null||value===undefined?'Sem dados':new Intl.NumberFormat('pt-BR',{maximumFractionDigits:2}).format(value)+suffix;
+}
+async function loadMarketSnapshot(){
+  const set=(id,value)=>{const e=document.getElementById(id);if(e)e.textContent=value;};
+  try{
+    const data=await api('/api/market/snapshot');
+    set('market-usd',marketValue(data.brl_usd,' R$'));
+    const ibov=data.ibov_last===null||data.ibov_last===undefined?'Sem dados':marketValue(data.ibov_last)+(data.ibov_change_pct===null||data.ibov_change_pct===undefined?'':' ('+(data.ibov_change_pct>=0?'+':'')+marketValue(data.ibov_change_pct,'%')+')');
+    set('market-ibov',ibov);
+    set('macro-selic',marketValue(data.selic_rate,'% a.a.'));
+    set('macro-ipca',marketValue(data.ipca_12m,'%'));
+    const sources=Object.values(data.observations||{}).filter(o=>o&&o.available).map(o=>o.source).filter(Boolean);
+    set('macro-source',sources.length?[...new Set(sources)].join(' / '):'Sem dados de fonte');
+    set('market-updated',data.timestamp?'Atualizado '+new Date(data.timestamp).toLocaleTimeString('pt-BR'):'Sem timestamp');
+  }catch(e){
+    ['market-usd','market-ibov','macro-selic','macro-ipca'].forEach(id=>set(id,'Sem dados'));
+    set('market-updated','Fonte indisponível');
+    set('macro-source','Sem dados de fonte');
   }
 }
 

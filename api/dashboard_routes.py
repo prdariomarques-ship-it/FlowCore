@@ -436,6 +436,20 @@ def register_dashboard_routes(app, version: str) -> None:
         except Exception as exc:
             return {"items": [], "alerts": [], "source": "market_intelligence", "stub": False, **_market_unavailable("overview", exc)}
 
+    @app.get("/api/market/snapshot")
+    async def market_snapshot():
+        """Public-source macro and market snapshot with field-level provenance."""
+        try:
+            from runtime.market_data.fetcher import fetch_snapshot
+            return fetch_snapshot()
+        except Exception as exc:
+            return {
+                "brl_usd": None, "selic_rate": None, "ipca_12m": None,
+                "ibov_last": None, "ibov_change_pct": None, "observations": {},
+                "timestamp": datetime.now(timezone.utc).isoformat(), "stub": False,
+                **_market_unavailable("snapshot", exc),
+            }
+
     @app.get("/api/market/sources")
     async def market_sources():
         """Source catalog and official observations with provenance metadata."""

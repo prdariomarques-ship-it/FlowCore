@@ -109,6 +109,21 @@ class TestAIRuntimeConfig:
         r = c.patch("/api/ai-runtime/config", json={"ollama_url": "http://100.64.0.2:11434/"})
         assert r.json()["ollama_url"] == "http://100.64.0.2:11434"
 
+    def test_config_patch_saves_openai_compatible_provider(self, tmp_path, monkeypatch):
+        import api.dashboard_routes as dr
+        monkeypatch.setattr(dr, "_DATA_DIR", tmp_path / ".flowcore")
+        (tmp_path / ".flowcore").mkdir(parents=True)
+        from fastapi.testclient import TestClient
+        from api.router import create_app
+        c = TestClient(create_app(version="test"))
+        r = c.patch("/api/ai-runtime/config", json={
+            "openai_url": "http://100.127.43.83:1234/",
+            "openai_model": "nemotron-3.5-lightning",
+        })
+        assert r.status_code == 200
+        assert r.json()["openai_url"] == "http://100.127.43.83:1234"
+        assert r.json()["openai_model"] == "nemotron-3.5-lightning"
+
 
 class TestAIRuntime:
     def test_models_returns_200(self):
@@ -161,12 +176,19 @@ class TestMarketEndpoints:
     def test_returns_200(self, path):
         r = _client().get(path)
         assert r.status_code == 200
-        assert r.json()["stub"] is True
+        assert r.json()["stub"] is False
 
     def test_fx_has_pairs_and_regime(self):
         data = _client().get("/api/market/fx").json()
         assert "pairs" in data
-        assert "usd_regime" in data
+        assert "dxy_delta_pct_1d" in data
+
+    def test_snapshot_has_real_or_explicitly_missing_values(self):
+        data = _client().get("/api/market/snapshot").json()
+        for field in ("brl_usd", "selic_rate", "ipca_12m", "ibov_last", "ibov_change_pct", "observations", "timestamp"):
+            assert field in data
+        assert data["stub"] is False
+        assert set(data["observations"]).issubset({"brl_usd", "selic_rate", "ipca_12m", "ibovespa"})
 
     def test_yield_curve_structure(self):
         data = _client().get("/api/market/yield-curve").json()
