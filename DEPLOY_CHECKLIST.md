@@ -201,6 +201,35 @@ termux-battery-status
 
 ---
 
+## Passo 10: Cloudflare Tunnel + Termux:Boot
+
+```bash
+# 10.1 Salvar token do túnel
+mkdir -p ~/.config/cloudflared
+echo 'TUNNEL_TOKEN=<token>' > ~/.config/cloudflared/tunnel-token
+chmod 600 ~/.config/cloudflared/tunnel-token
+
+# 10.2 Testar túnel manualmente
+source ~/.config/cloudflared/tunnel-token
+cloudflared tunnel run --token "$TUNNEL_TOKEN" &
+curl https://flowcore.admissaoazusa.com.br/api/health
+
+# 10.3 Instalar boot automático (requer app Termux:Boot da F-Droid)
+mkdir -p ~/.termux/boot
+cp ~/FlowCore/tools/boot.sh ~/.termux/boot/flowcore.sh
+chmod 700 ~/.termux/boot/flowcore.sh
+```
+
+**Validação:**
+```bash
+curl -s https://flowcore.admissaoazusa.com.br/api/health | python3 -m json.tool
+# Esperado: {"status": "ok", ...}
+```
+
+Isenção de bateria: **Configurações → Apps → Termux → Bateria → Sem restrições**. Repetir para Termux:Boot.
+
+---
+
 ## Resumo Final
 
 | Passo | Comandos | Resultado Esperado |
@@ -214,5 +243,6 @@ termux-battery-status
 | 7. Segurança | `python3 scripts/audit.py` | 30/30 PASS |
 | 8. Diretórios | `find . -maxdepth 2` | Todos presentes |
 | 9. Recursos | `top / free / battery` | Baixo impacto |
+| 10. Cloudflare | `curl https://flowcore.admissaoazusa.com.br/api/health` | `{"status": "ok"}` |
 
-**Se todos os 9 passos passaram: FlowCore está pronto para produção.**
+**Se todos os 10 passos passaram: FlowCore está pronto para produção.**
