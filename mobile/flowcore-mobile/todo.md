@@ -45,3 +45,6 @@
 - [x] Implementar `GET /api/market/news` no backend FlowCore com paginação, filtros, proveniência e degradação explícita
 - [x] Conectar a aba Notícias do Expo ao endpoint FlowCore por Cloudflare/Tailscale, com feed real e sem mocks
 - [x] Adicionar `eas.json` e script de verificação do APK sem alterar o identificador Android atual
+- [x] Persistir notícias favoritas localmente para leitura posterior
+- [x] Adicionar busca por palavras-chave no feed de notícias
+- [x] Melhorar os estados de carregamento e atualização da lista de notícias
