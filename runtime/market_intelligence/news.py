@@ -14,8 +14,6 @@ import hashlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
-import yfinance as yf
-
 _YAHOO_FINANCE_URL = "https://finance.yahoo.com/"
 
 _SYMBOL_GROUPS: dict[str, list[str]] = {
@@ -61,6 +59,7 @@ _COMPANY_CATEGORIES = {"technology", "banking"}
 def _fetch_news(symbol: str) -> list[dict[str, Any]]:
     """Read only the fields supplied by yfinance for one watched symbol."""
     try:
+        import yfinance as yf
         ticker = yf.Ticker(symbol)
         items = ticker.news or []
     except Exception:  # noqa: BLE001 - source failures become an empty source slice
