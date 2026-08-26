@@ -492,12 +492,32 @@ def register_dashboard_routes(app, version: str) -> None:
             return {"events": [], "stub": False, **_market_unavailable("calendar", exc)}
 
     @app.get("/api/market/news")
-    async def market_news():
+    async def market_news(
+        section: str = Query("all", min_length=2, max_length=20),
+        cursor: str | None = Query(None, max_length=12),
+        limit: int = Query(12, ge=1, le=30),
+    ):
+        """Source-attributed financial headlines for web, mobile and briefing consumers."""
         try:
-            from runtime.market_intelligence.news import fetch_news
-            return {**fetch_news(max_per_group=3), "available": True, "updated_at": time.time(), "stub": False}
+            from runtime.market_intelligence.news import SUPPORTED_NEWS_SECTIONS, fetch_news
+            if section not in SUPPORTED_NEWS_SECTIONS:
+                raise HTTPException(status_code=422, detail=f"unsupported news section: {section}")
+            return {
+                **fetch_news(section=section, cursor=cursor, limit=limit),
+                "available": True,
+                "updated_at": time.time(),
+                "stub": False,
+            }
+        except HTTPException:
+            raise
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         except Exception as exc:
-            return {"items": [], "groups": [], "stub": False, **_market_unavailable("news", exc)}
+            return {
+                "items": [], "groups": [], "section": section, "supported_sections": [],
+                "next_cursor": None, "partial_errors": [], "stub": False,
+                **_market_unavailable("news", exc),
+            }
 
     # ── Macro score [STUB] ────────────────────────────────────────────────────
 

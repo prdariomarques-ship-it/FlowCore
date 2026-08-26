@@ -16,8 +16,20 @@
 - [x] Integrar fontes múltiplas de mercado com prioridade, timestamp, origem e alerta de divergência — BCB, Tesouro dos EUA, Yahoo como fallback e catálogo para TradingEconomics/WSJ
 - [ ] Validar a nova DMN no Tailscale e documentar seu papel administrativo complementar ao Cloudflare
 - [x] Instalar, autenticar e confirmar a entrada do novo computador no Tailscale — DMN-1, Windows 11 25H2, 100.127.43.83
-- [ ] Diagnosticar e restaurar a inicialização local do FlowCore em 127.0.0.1:8080 no Termux
-- [ ] Remover a dependência de testes manuais em 127.0.0.1 e validar o FlowCore por Cloudflare e Tailscale
+- [x] Diagnosticar e restaurar a inicialização local do FlowCore no Termux — serviço em 0.0.0.0:8080 e endpoints essenciais HTTP 200
+- [x] Remover a dependência de testes manuais em 127.0.0.1 e validar o FlowCore pelo Cloudflare — tráfego externo de snapshot confirmado no log
+- [ ] Testar o endpoint privado do FlowCore a partir do DMN-1 pelo Tailscale
+- [ ] Localizar os scripts privados dos três bots Telegram no Termux e registrá-los em ~/.flowcore/bots
+- [ ] Recuperar scripts e configurações originais dos bots Telegram de computador, Drive, Downloads, GitHub ou backup
+- [ ] Consolidar no FlowCore o briefing de mercado e os alertas antes enviados por Telegram
+- [ ] Revisar a visão principal para remover ruído técnico e manter apenas dados financeiros e IA demonstráveis
+- [x] Atualizar o FlowCore Mobile com briefing, alertas e fontes financeiras validadas no web — tipos e três testes determinísticos aprovados
+- [ ] Gerar, localizar e anexar um APK Android real e baixável
+- [ ] Não apresentar checkpoint, link de projeto ou código-fonte como substituto de APK instalável
+- [x] Preparar super prompt para a Cloud gerar APK real, integrar notícias/mercados e revisar bots Telegram
+- [ ] Especificar a tela de notícias financeiras do FlowCore para web e mobile
+- [ ] Documentar ajustes seguros do Termux durante a geração do APK pela Cloud
+- [ ] Criar apresentação da arquitetura atual e plano de integração para a Cloud
 - [x] Corrigir NameError de TTSRequest que impede o FastAPI de iniciar no Termux e bloqueia os bots Telegram — teste de inicialização e 314 testes aprovados
 - [ ] Localizar e anexar um APK FlowCore existente, caso haja artefato binário disponível
 - [x] Validar a linha de base dos testes do FlowCore antes de novas alterações — 313 testes aprovados
@@ -25,3 +37,11 @@
 - [ ] Verificar a configuração persistente do provedor Hermes/Nemotron
 - [x] Auditar o código de bots Telegram e documentar o estado encontrado — integração de envio e boot versionados; scripts específicos permanecem apenas no Termux
 - [x] Revisar a documentação operacional para a URL pública permanente — guia do Termux atualizado para branch, fontes de mercado e IA
+- [ ] Atualizar o roteiro de apresentação com o baseline de 314/314 testes e os endpoints de mercado validados
+- [x] Definir e testar o contrato de notícias financeiras com URL, fonte, categorias, publicação, coleta e ativos relacionados
+- [x] Implementar no backend um feed de notícias rastreável e degradável sem dados fictícios
+- [x] Implementar a aba mobile Notícias com FlatList, filtros, atualização, estados de carga e abertura da fonte
+- [ ] Executar build Android de distribuição, validar arquivo .apk, tamanho e SHA-256 antes de anexar ao usuário
+- [x] Implementar `GET /api/market/news` no backend FlowCore com paginação, filtros, proveniência e degradação explícita
+- [x] Conectar a aba Notícias do Expo ao endpoint FlowCore por Cloudflare/Tailscale, com feed real e sem mocks
+- [x] Adicionar `eas.json` e script de verificação do APK sem alterar o identificador Android atual

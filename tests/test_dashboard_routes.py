@@ -205,6 +205,35 @@ class TestMarketEndpoints:
         assert "slope_10y_2y_bps" in data
         assert "shape" in data
 
+    def test_news_contract_has_pagination_and_provenance(self, monkeypatch):
+        import runtime.market_intelligence.news as news
+
+        def fake_fetch(symbol):
+            return [{
+                "headline": f"Mercado {symbol}",
+                "publisher": "Fonte de teste",
+                "link": f"https://example.com/{symbol}",
+                "timestamp": "2026-08-25T12:00:00+00:00",
+                "related_symbol": symbol,
+            }]
+
+        monkeypatch.setattr(news, "_fetch_news", fake_fetch)
+        data = _client().get("/api/market/news?section=brasil&limit=1").json()
+        assert data["available"] is True
+        assert data["stub"] is False
+        assert data["section"] == "brasil"
+        assert data["next_cursor"] == "1"
+        assert len(data["items"]) == 1
+        item = data["items"][0]
+        for field in ("id", "headline", "publisher", "provider", "canonical_url", "published_at", "collected_at", "related_assets", "status"):
+            assert field in item
+        assert item["provider"]["id"] == "yahoo_finance"
+        assert item["canonical_url"].startswith("https://example.com/")
+
+    def test_news_rejects_unknown_section(self):
+        response = _client().get("/api/market/news?section=desconhecida")
+        assert response.status_code == 422
+
 
 # ── /api/macro-score/* ───────────────────────────────────────────────────────
 

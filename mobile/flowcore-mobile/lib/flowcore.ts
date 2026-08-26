@@ -10,6 +10,33 @@ export type MarketItem = { symbol: string; label?: string; level: number | null;
 export type MarketAlert = { label: string; severity: "info" | "warning" | "critical" | string; fired_at?: string };
 export type MarketOverview = { items: MarketItem[]; alerts: MarketAlert[]; updated_at?: number; available: boolean; source?: string };
 export type MarketBriefing = { lines: string[]; generated_at?: string; available: boolean };
+export type MarketNewsProvider = { id: string; name: string; url: string };
+export type MarketNewsItem = {
+  id: string;
+  headline: string;
+  section_tags: string[];
+  category: string;
+  related_region: string;
+  publisher: string | null;
+  provider: MarketNewsProvider;
+  canonical_url: string | null;
+  published_at: string | null;
+  collected_at: string;
+  related_assets: string[];
+  status: "ok" | "no_data" | "error" | string;
+};
+export type MarketNewsFeed = {
+  items: MarketNewsItem[];
+  groups: string[];
+  section: string;
+  supported_sections: string[];
+  next_cursor: string | null;
+  fetched_at?: string;
+  partial_errors: string[];
+  available: boolean;
+  updated_at?: number;
+  source?: string;
+};
 export type PortfolioPosition = { id: string; label: string; weight: number; amount: number; class: string; role: string };
 export type PortfolioSummary = { positions: PortfolioPosition[]; total_value: number; currency: string; mode: string };
 
@@ -69,7 +96,18 @@ export async function checkConnection(settings?: FlowCoreSettings): Promise<Conn
 
 export const getMarketOverview = () => flowCoreRequest<MarketOverview>("/api/market/overview");
 export const getMarketBriefing = () => flowCoreRequest<MarketBriefing>("/api/market/briefing");
+export const getMarketNews = (section = "all", cursor?: string | null, limit = 12) => {
+  const query = new URLSearchParams({ section, limit: String(limit) });
+  if (cursor) query.set("cursor", cursor);
+  return flowCoreRequest<MarketNewsFeed>(`/api/market/news?${query.toString()}`);
+};
 export const getPortfolioSummary = () => flowCoreRequest<PortfolioSummary>("/api/portfolios/moderate-ia-1m/summary");
 
 export function formatNumber(value: number | null, options: Intl.NumberFormatOptions = {}) { return value === null || Number.isNaN(value) ? "—" : new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2, ...options }).format(value); }
 export function formatDelta(value: number | null) { return value === null || Number.isNaN(value) ? "—" : `${value > 0 ? "+" : ""}${formatNumber(value)}%`; }
+export function formatNewsTimestamp(value?: string | null) {
+  if (!value) return "Horário não informado";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(date);
+}
