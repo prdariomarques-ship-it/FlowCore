@@ -889,3 +889,63 @@ def register_dashboard_routes(app, version: str) -> None:
             return {"contacts": [], "error": result.error}
         except Exception as exc:
             raise HTTPException(status_code=500, detail=str(exc))
+
+    # ── Brief Diário ─────────────────────────────────────────────────────────
+
+    class BriefRequest(BaseModel):
+        use_llm: bool = True
+        send_telegram: bool = False
+
+    @app.get("/api/brief/diario")
+    async def brief_get():
+        """Return the last generated brief (from cache) or generate a new one."""
+        from runtime.ai.brief_diario import get_last_brief, build_brief
+        cached = get_last_brief()
+        if cached:
+            return {**cached, "from_cache": True}
+        import asyncio, concurrent.futures
+        loop = asyncio.get_event_loop()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            brief = await loop.run_in_executor(pool, lambda: build_brief(use_llm=False))
+        return {**brief, "from_cache": False}
+
+    @app.post("/api/brief/diario")
+    async def brief_generate(data: BriefRequest):
+        """Generate a fresh brief and optionally send to Telegram."""
+        import asyncio, concurrent.futures
+        from runtime.ai.brief_diario import build_brief, send_brief_to_telegram
+        loop = asyncio.get_event_loop()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            brief = await loop.run_in_executor(pool, lambda: build_brief(use_llm=data.use_llm))
+        telegram_sent = False
+        if data.send_telegram:
+            telegram_sent = send_brief_to_telegram(brief)
+        return {**brief, "from_cache": False, "telegram_sent": telegram_sent}
+
+    @app.get("/api/brief/history")
+    async def brief_history():
+        """Return last 30 brief summaries."""
+        from pathlib import Path
+        import json as _json
+        hist_path = Path.home() / ".flowcore" / "brief_history.json"
+        if hist_path.exists():
+            try:
+                return {"history": _json.loads(hist_path.read_text())}
+            except Exception:
+                pass
+        return {"history": []}
+
+    # ── Observability / Metrics ───────────────────────────────────────────────
+
+    @app.get("/api/metrics")
+    async def metrics():
+        """Internal FlowCore metrics — request counts, latency, AI calls."""
+        from runtime.observability import get_metrics
+        return get_metrics()
+
+    @app.post("/api/metrics/reset")
+    async def metrics_reset():
+        """Reset in-process metrics counters."""
+        from runtime.observability import reset_metrics
+        reset_metrics()
+        return {"reset": True}
