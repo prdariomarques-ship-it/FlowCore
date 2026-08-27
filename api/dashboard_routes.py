@@ -347,6 +347,138 @@ def register_dashboard_routes(app, version: str) -> None:
         except RuntimeError as exc:
             return {"unloaded": False, "model": data.model, "error": str(exc)}
 
+    # ── AI v2 — Model Registry, Router, Benchmark, Memory ───────────────────
+
+    @app.get("/api/ai/registry")
+    async def ai_registry_list():
+        """List all models in the Model Registry."""
+        from runtime.ai.model_registry import get_registry
+        reg = get_registry()
+        cfg = _read_json("ai.json", {})
+        ollama_url = cfg.get("ollama_url", _OLLAMA_DEFAULT)
+        synced = reg.sync_from_ollama(ollama_url)
+        return {
+            "models": [m.to_dict() for m in reg.list_all()],
+            "synced_from_ollama": synced,
+            "total": len(reg.list_all()),
+        }
+
+    @app.get("/api/ai/routing")
+    async def ai_routing_table():
+        """Return the full routing table (task → model)."""
+        from runtime.ai.router import get_router
+        router = get_router()
+        return {"routing": router.routing_table(), "rules": router.get_rules()}
+
+    class RoutingPinRequest(BaseModel):
+        task: str
+        model_id: str
+
+    @app.post("/api/ai/routing/pin")
+    async def ai_routing_pin(data: RoutingPinRequest):
+        """Pin a model for a specific task type."""
+        from runtime.ai.router import get_router, TASK_TYPES
+        if data.task not in TASK_TYPES:
+            raise HTTPException(status_code=422, detail=f"task must be one of {list(TASK_TYPES)}")
+        get_router().pin(data.task, data.model_id)
+        return {"pinned": True, "task": data.task, "model_id": data.model_id}
+
+    @app.delete("/api/ai/routing/pin/{task}")
+    async def ai_routing_unpin(task: str):
+        """Remove a pinned model for a task type."""
+        from runtime.ai.router import get_router
+        get_router().unpin(task)
+        return {"unpinned": True, "task": task}
+
+    class BenchmarkRequest(BaseModel):
+        model_id: str
+        task_ids: list[str] | None = None
+
+    @app.post("/api/ai/benchmark")
+    async def ai_benchmark_run(data: BenchmarkRequest):
+        """Run benchmark tasks against a model. Runs in background — returns immediately."""
+        import asyncio
+        from runtime.ai.benchmark import get_benchmark
+        cfg = _read_json("ai.json", {})
+        ollama_url = cfg.get("ollama_url", _OLLAMA_DEFAULT)
+
+        async def _run():
+            import concurrent.futures
+            loop = asyncio.get_event_loop()
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                await loop.run_in_executor(
+                    pool,
+                    lambda: get_benchmark().run(data.model_id, ollama_url=ollama_url, task_ids=data.task_ids),
+                )
+
+        asyncio.create_task(_run())
+        return {"started": True, "model_id": data.model_id, "task_ids": data.task_ids}
+
+    @app.get("/api/ai/benchmark/history")
+    async def ai_benchmark_history(model_id: str | None = Query(None), limit: int = Query(10)):
+        """Return benchmark run history."""
+        from runtime.ai.benchmark import get_benchmark
+        return {"runs": get_benchmark().history(model_id=model_id, limit=limit)}
+
+    @app.get("/api/ai/benchmark/compare")
+    async def ai_benchmark_compare(model_a: str = Query(...), model_b: str = Query(...)):
+        """Compare two models using their latest benchmark results."""
+        from runtime.ai.benchmark import get_benchmark
+        return get_benchmark().compare(model_a, model_b)
+
+    # ── AI Memory Engine ──────────────────────────────────────────────────────
+
+    class MemoryRequest(BaseModel):
+        content: str
+        origin: str = "user_input"
+        source: str = "chat"
+        scope: str = "persistent"
+        tags: list[str] = []
+        confidence: float = 1.0
+
+    class MemoryInvalidateRequest(BaseModel):
+        reason: str = ""
+
+    @app.get("/api/ai/memory")
+    async def memory_search(
+        q: str = Query(""),
+        tags: str = Query(""),
+        origin: str | None = Query(None),
+        limit: int = Query(20),
+    ):
+        from runtime.ai.memory import get_memory
+        tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else None
+        mem = get_memory()
+        results = mem.search(q, tags=tag_list, origin=origin, limit=limit)
+        return {"entries": [e.to_dict() for e in results], "stats": mem.stats()}
+
+    @app.post("/api/ai/memory")
+    async def memory_remember(data: MemoryRequest):
+        from runtime.ai.memory import get_memory, ORIGINS
+        if data.origin not in ORIGINS:
+            raise HTTPException(status_code=422, detail=f"origin must be one of {list(ORIGINS)}")
+        entry = get_memory().remember(
+            data.content,
+            origin=data.origin,
+            source=data.source,
+            scope=data.scope,
+            tags=data.tags,
+            confidence=data.confidence,
+        )
+        return {"saved": True, "entry": entry.to_dict()}
+
+    @app.delete("/api/ai/memory/{entry_id}")
+    async def memory_delete(entry_id: str):
+        from runtime.ai.memory import get_memory
+        deleted = get_memory().delete(entry_id)
+        return {"deleted": deleted, "id": entry_id}
+
+    @app.post("/api/ai/memory/{entry_id}/invalidate")
+    async def memory_invalidate(entry_id: str, data: MemoryInvalidateRequest):
+        from runtime.ai.memory import get_memory
+        ok = get_memory().invalidate(entry_id, reason=data.reason)
+        return {"invalidated": ok, "id": entry_id}
+
     # ── Market intelligence — common source for dashboard, APK and Telegram ──
 
     def _market_unavailable(name: str, exc: Exception) -> dict:
