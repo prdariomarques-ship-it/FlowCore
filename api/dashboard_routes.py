@@ -949,3 +949,50 @@ def register_dashboard_routes(app, version: str) -> None:
         from runtime.observability import reset_metrics
         reset_metrics()
         return {"reset": True}
+
+    # ── Scheduler ─────────────────────────────────────────────────────────────
+
+    _BRIEF_JOB_NAME = "brief_diario"
+    _BRIEF_JOB_SCRIPT = str(Path(__file__).resolve().parents[1] / "scripts" / "brief_diario_job.py")
+    # 07:30 BRT = 10:30 UTC, weekdays
+    _BRIEF_JOB_CRON = "30 10 * * 1-5"
+
+    @app.get("/api/scheduler/jobs")
+    async def scheduler_list():
+        from runtime.job_scheduler import JobScheduler
+        return {"jobs": JobScheduler().list_jobs()}
+
+    @app.post("/api/scheduler/brief/enable")
+    async def scheduler_brief_enable():
+        """Register daily morning brief cron job (07:30 BRT, weekdays)."""
+        from runtime.job_scheduler import JobScheduler
+        sched = JobScheduler()
+        try:
+            ok = sched.add_job(_BRIEF_JOB_NAME, _BRIEF_JOB_SCRIPT, _BRIEF_JOB_CRON)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=500, detail=str(exc))
+        return {"enabled": ok, "schedule": _BRIEF_JOB_CRON, "script": _BRIEF_JOB_SCRIPT}
+
+    @app.delete("/api/scheduler/brief/enable")
+    async def scheduler_brief_disable():
+        """Unregister the daily morning brief cron job."""
+        from runtime.job_scheduler import JobScheduler
+        removed = JobScheduler().remove_job(_BRIEF_JOB_NAME)
+        return {"disabled": removed}
+
+    @app.post("/api/scheduler/brief/run-now")
+    async def scheduler_brief_run_now():
+        """Trigger the brief job immediately (blocking — may take up to 2 min with LLM)."""
+        import asyncio, concurrent.futures
+        from runtime.ai.brief_diario import build_brief, send_brief_to_telegram
+        loop = asyncio.get_event_loop()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            brief = await loop.run_in_executor(pool, lambda: build_brief(use_llm=True))
+        sent = send_brief_to_telegram(brief)
+        return {
+            "sent": sent,
+            "llm_applied": bool(brief.get("llm_polish")),
+            "llm_error": brief.get("llm_error"),
+            "generated_at": brief["generated_at"],
+            "sections_ok": sum(1 for s in brief["sections"].values() if s.get("ok")),
+        }
