@@ -296,6 +296,14 @@ def build_brief(
     except Exception:
         pass
 
+    # Sync to Obsidian vault (silent — never blocks brief delivery)
+    try:
+        from runtime.obsidian import ObsidianSync
+        obsidian_result = ObsidianSync().write_brief(result)
+        result["obsidian"] = obsidian_result
+    except Exception as exc:
+        result["obsidian"] = {"written": False, "reason": str(exc)}
+
     return result
 
 

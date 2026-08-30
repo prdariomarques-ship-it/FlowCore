@@ -644,6 +644,38 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
+    # ── Obsidian sync ────────────────────────────────────────────────────────────
+
+    class ObsidianSyncRequest(BaseModel):
+        content: str | None = None
+
+    @app.get("/api/obsidian/status")
+    async def obsidian_status():
+        try:
+            from runtime.obsidian import ObsidianSync
+            return ObsidianSync().status()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/api/obsidian/sync")
+    async def obsidian_sync(data: ObsidianSyncRequest | None = None):
+        try:
+            from runtime.obsidian import ObsidianSync
+            sync = ObsidianSync()
+            if data and data.content:
+                path = sync.write_daily_note(data.content)
+                return {"written": True, "path": str(path)}
+            from runtime.ai.brief_diario import get_last_brief
+            brief = get_last_brief()
+            if brief is None:
+                raise HTTPException(status_code=404, detail="No brief available — run /api/brief first")
+            result = sync.write_brief(brief)
+            return result
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
     # ── Executions ──────────────────────────────────────────────────────
     @app.get("/api/executions")
     async def list_executions(flow_id: str | None = Query(None)):
