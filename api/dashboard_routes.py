@@ -129,6 +129,34 @@ class SMSSendRequest(BaseModel):
     message: str
 
 
+class RoutingPinRequest(BaseModel):
+    task: str
+    model_id: str
+
+
+class BenchmarkRequest(BaseModel):
+    model_id: str
+    task_ids: list[str] | None = None
+
+
+class MemoryRequest(BaseModel):
+    content: str
+    origin: str = "user_input"
+    source: str = "chat"
+    scope: str = "persistent"
+    tags: list[str] = []
+    confidence: float = 1.0
+
+
+class MemoryInvalidateRequest(BaseModel):
+    reason: str = ""
+
+
+class BriefRequest(BaseModel):
+    use_llm: bool = True
+    send_telegram: bool = False
+
+
 # ── Shared helpers ─────────────────────────────────────────────────────────────
 
 def _http_json(method: str, url: str, body: dict | None = None, timeout: int = 30) -> dict:
@@ -370,10 +398,6 @@ def register_dashboard_routes(app, version: str) -> None:
         router = get_router()
         return {"routing": router.routing_table(), "rules": router.get_rules()}
 
-    class RoutingPinRequest(BaseModel):
-        task: str
-        model_id: str
-
     @app.post("/api/ai/routing/pin")
     async def ai_routing_pin(data: RoutingPinRequest):
         """Pin a model for a specific task type."""
@@ -389,10 +413,6 @@ def register_dashboard_routes(app, version: str) -> None:
         from runtime.ai.router import get_router
         get_router().unpin(task)
         return {"unpinned": True, "task": task}
-
-    class BenchmarkRequest(BaseModel):
-        model_id: str
-        task_ids: list[str] | None = None
 
     @app.post("/api/ai/benchmark")
     async def ai_benchmark_run(data: BenchmarkRequest):
@@ -427,17 +447,6 @@ def register_dashboard_routes(app, version: str) -> None:
         return get_benchmark().compare(model_a, model_b)
 
     # ── AI Memory Engine ──────────────────────────────────────────────────────
-
-    class MemoryRequest(BaseModel):
-        content: str
-        origin: str = "user_input"
-        source: str = "chat"
-        scope: str = "persistent"
-        tags: list[str] = []
-        confidence: float = 1.0
-
-    class MemoryInvalidateRequest(BaseModel):
-        reason: str = ""
 
     @app.get("/api/ai/memory")
     async def memory_search(
@@ -891,10 +900,6 @@ def register_dashboard_routes(app, version: str) -> None:
             raise HTTPException(status_code=500, detail=str(exc))
 
     # ── Brief Diário ─────────────────────────────────────────────────────────
-
-    class BriefRequest(BaseModel):
-        use_llm: bool = True
-        send_telegram: bool = False
 
     @app.get("/api/brief/diario")
     async def brief_get():
