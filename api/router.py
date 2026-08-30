@@ -136,6 +136,10 @@ class NoteCreate(BaseModel):
     kind: str = "note"   # "note" | "todo" | "agenda"
 
 
+class ObsidianSyncRequest(BaseModel):
+    content: str | None = None
+
+
 # ---------------------------------------------------------------------------
 # Stores
 # ---------------------------------------------------------------------------
@@ -645,9 +649,6 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             raise HTTPException(status_code=500, detail=str(e))
 
     # ── Obsidian sync ────────────────────────────────────────────────────────────
-
-    class ObsidianSyncRequest(BaseModel):
-        content: str | None = None
 
     @app.get("/api/obsidian/status")
     async def obsidian_status():
