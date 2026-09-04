@@ -805,6 +805,22 @@ def cmd_doctor() -> None:
         print(f"{GREEN}All critical systems operational{NC}\n")
 
 
+def cmd_watchdog(action: str, interval: int = 300) -> None:
+    """Run self-healing watchdog checks."""
+    from runtime.watchdog import WatchdogService
+    import json as _json
+
+    svc = WatchdogService()
+    if action == "status":
+        print(_json.dumps(svc.last_state(), indent=2))
+    elif action == "loop":
+        svc.start_loop(interval=interval)
+    else:
+        report = svc.run(alert=(action != "run-no-alert"))
+        print(_json.dumps(report.to_dict(), indent=2))
+        raise SystemExit(0 if report.healthy else 1)
+
+
 def cmd_boot(verbose: bool = False) -> None:
     """Boot the Runtime Kernel and emit the Runtime Passport."""
     print(f"\n{BOLD}{CYAN}╔══════════════════════════════════════════════════╗{NC}")
@@ -1639,6 +1655,13 @@ def main() -> None:
     jobs_run = jobs_sub.add_parser("run", help="Run a job immediately")
     jobs_run.add_argument("name", help="Job name to run")
 
+    watchdog_parser = subparsers.add_parser("watchdog", help="Self-healing watchdog — monitor services and alert via Telegram")
+    watchdog_sub = watchdog_parser.add_subparsers(dest="watchdog_action")
+    watchdog_sub.add_parser("run", help="Run all checks now (sends Telegram alerts on failures)")
+    watchdog_sub.add_parser("status", help="Show last persisted watchdog state (no network calls)")
+    watchdog_loop = watchdog_sub.add_parser("loop", help="Run continuously (blocks)")
+    watchdog_loop.add_argument("--interval", type=int, default=300, help="Seconds between checks (default: 300)")
+
     args = parser.parse_args()
     cfg = get_config()
     platform = detect_platform()
@@ -1753,6 +1776,10 @@ def main() -> None:
         script   = getattr(args, "script", "")
         schedule = getattr(args, "schedule", "")
         cmd_jobs(action, name=name, script=script, schedule=schedule)
+    elif args.command == "watchdog":
+        action = getattr(args, "watchdog_action", None) or "run"
+        interval = getattr(args, "interval", 300)
+        cmd_watchdog(action, interval=interval)
     else:
         parser.print_help()
         sys.exit(1)

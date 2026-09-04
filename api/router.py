@@ -709,6 +709,21 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             raise HTTPException(status_code=404, detail="Execution not found")
         return ExecutionResponse(**_executions[exec_id])
 
+    # ── Watchdog ─────────────────────────────────────────────────────────
+    @app.get("/api/watchdog/status")
+    async def watchdog_status():
+        import asyncio
+        from runtime.watchdog import WatchdogService
+        return await asyncio.to_thread(WatchdogService().last_state)
+
+    @app.post("/api/watchdog/run")
+    async def watchdog_run(alert: bool = Query(True)):
+        import asyncio
+        from runtime.watchdog import WatchdogService
+        svc = WatchdogService()
+        report = await asyncio.to_thread(svc.run, alert=alert)
+        return report.to_dict()
+
     # ── Dashboard v4 routes (AI, market, portfolio, integrations) ──────────
     from api.dashboard_routes import register_dashboard_routes
     register_dashboard_routes(app, version)
