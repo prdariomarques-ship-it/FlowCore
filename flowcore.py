@@ -805,7 +805,7 @@ def cmd_doctor() -> None:
         print(f"{GREEN}All critical systems operational{NC}\n")
 
 
-def cmd_watchdog(action: str, interval: int = 300) -> None:
+def cmd_watchdog(action: str, interval: int = 300, alert: bool = True) -> None:
     """Run self-healing watchdog checks."""
     from runtime.watchdog import WatchdogService
     import json as _json
@@ -816,7 +816,7 @@ def cmd_watchdog(action: str, interval: int = 300) -> None:
     elif action == "loop":
         svc.start_loop(interval=interval)
     else:
-        report = svc.run(alert=(action != "run-no-alert"))
+        report = svc.run(alert=alert)
         print(_json.dumps(report.to_dict(), indent=2))
         raise SystemExit(0 if report.healthy else 1)
 
@@ -1657,7 +1657,8 @@ def main() -> None:
 
     watchdog_parser = subparsers.add_parser("watchdog", help="Self-healing watchdog — monitor services and alert via Telegram")
     watchdog_sub = watchdog_parser.add_subparsers(dest="watchdog_action")
-    watchdog_sub.add_parser("run", help="Run all checks now (sends Telegram alerts on failures)")
+    watchdog_run_p = watchdog_sub.add_parser("run", help="Run all checks now (sends Telegram alerts on failures)")
+    watchdog_run_p.add_argument("--no-alert", action="store_true", help="Run checks without sending Telegram alerts")
     watchdog_sub.add_parser("status", help="Show last persisted watchdog state (no network calls)")
     watchdog_loop = watchdog_sub.add_parser("loop", help="Run continuously (blocks)")
     watchdog_loop.add_argument("--interval", type=int, default=300, help="Seconds between checks (default: 300)")
@@ -1779,7 +1780,8 @@ def main() -> None:
     elif args.command == "watchdog":
         action = getattr(args, "watchdog_action", None) or "run"
         interval = getattr(args, "interval", 300)
-        cmd_watchdog(action, interval=interval)
+        no_alert = getattr(args, "no_alert", False)
+        cmd_watchdog(action, interval=interval, alert=not no_alert)
     else:
         parser.print_help()
         sys.exit(1)
