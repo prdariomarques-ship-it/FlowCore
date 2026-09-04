@@ -1,0 +1,301 @@
+"""Tests for runtime.telegram — Telegram integration (Sprint 17, Milestone 4).
+
+Stdlib-only (urllib) — no requirements-api.txt dependency, so unlike
+test_outlook.py/test_whatsapp.py this file needs no pytest.importorskip
+guard; it runs on the core tier too.
+
+urllib.request.urlopen is mocked throughout — no real network/bot calls.
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+import urllib.error
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+
+@pytest.fixture(autouse=True)
+def _clear_env(monkeypatch):
+    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
+
+
+def _mock_urlopen(payload: dict):
+    cm = MagicMock()
+    cm.__enter__.return_value.read.return_value = json.dumps(payload).encode("utf-8")
+    return cm
+
+
+class TestConfiguration:
+    def test_neither_set(self):
+        from runtime.telegram import get_configuration
+
+        result = get_configuration()
+        assert result == {"configured": False, "token_set": False, "chat_id_set": False}
+
+    def test_only_token_set(self, monkeypatch):
+        from runtime.telegram import get_configuration
+
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "tok")
+        result = get_configuration()
+        assert result == {"configured": False, "token_set": True, "chat_id_set": False}
+
+    def test_both_set(self, monkeypatch):
+        from runtime.telegram import get_configuration
+
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "tok")
+        monkeypatch.setenv("TELEGRAM_CHAT_ID", "123")
+        result = get_configuration()
+        assert result == {"configured": True, "token_set": True, "chat_id_set": True}
+
+
+class TestHealth:
+    def test_raises_without_token(self):
+        from runtime.telegram import TelegramNotConfiguredError, check_health
+
+        with pytest.raises(TelegramNotConfiguredError):
+            check_health()
+
+    def test_success(self, monkeypatch):
+        from runtime.telegram import check_health
+
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "tok")
+        payload = {"ok": True, "result": {"id": 123, "username": "spcx_monitor_bot"}}
+        with patch("runtime.telegram.urllib.request.urlopen", return_value=_mock_urlopen(payload)):
+            result = check_health()
+        assert result["username"] == "spcx_monitor_bot"
+
+    def test_api_returns_ok_false(self, monkeypatch):
+        from runtime.telegram import TelegramError, check_health
+
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "bad-token")
+        payload = {"ok": False, "description": "Unauthorized"}
+        with patch("runtime.telegram.urllib.request.urlopen", return_value=_mock_urlopen(payload)):
+            with pytest.raises(TelegramError):
+                check_health()
+
+    def test_http_error(self, monkeypatch):
+        from runtime.telegram import TelegramError, check_health
+
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "tok")
+        err = urllib.error.HTTPError("url", 401, "Unauthorized", {}, MagicMock())
+        err.read = lambda: b'{"description": "Unauthorized"}'
+        with patch("runtime.telegram.urllib.request.urlopen", side_effect=err):
+            with pytest.raises(TelegramError, match="401"):
+                check_health()
+
+    def test_connection_error(self, monkeypatch):
+        from runtime.telegram import TelegramError, check_health
+
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "tok")
+        with patch("runtime.telegram.urllib.request.urlopen", side_effect=urllib.error.URLError("refused")):
+            with pytest.raises(TelegramError, match="unreachable"):
+                check_health()
+
+
+class TestSendMessage:
+    def test_raises_without_token(self):
+        from runtime.telegram import TelegramNotConfiguredError, send_message
+
+        with pytest.raises(TelegramNotConfiguredError):
+            send_message("hi")
+
+    def test_raises_without_chat_id(self, monkeypatch):
+        from runtime.telegram import TelegramNotConfiguredError, send_message
+
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "tok")
+        with pytest.raises(TelegramNotConfiguredError):
+            send_message("hi")
+
+    def test_success_with_env_chat_id(self, monkeypatch):
+        from runtime.telegram import send_message
+
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "tok")
+        monkeypatch.setenv("TELEGRAM_CHAT_ID", "883232211")
+        payload = {"ok": True, "result": {"message_id": 42}}
+        with patch("runtime.telegram.urllib.request.urlopen", return_value=_mock_urlopen(payload)) as m:
+            result = send_message("hello")
+        assert result["message_id"] == 42
+        req = m.call_args[0][0]
+        body = json.loads(req.data.decode("utf-8"))
+        assert body == {"chat_id": "883232211", "text": "hello"}
+
+    def test_explicit_chat_id_overrides_env(self, monkeypatch):
+        from runtime.telegram import send_message
+
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "tok")
+        monkeypatch.setenv("TELEGRAM_CHAT_ID", "883232211")
+        payload = {"ok": True, "result": {"message_id": 43}}
+        with patch("runtime.telegram.urllib.request.urlopen", return_value=_mock_urlopen(payload)) as m:
+            send_message("hello", chat_id="999")
+        req = m.call_args[0][0]
+        body = json.loads(req.data.decode("utf-8"))
+        assert body["chat_id"] == "999"
+
+    def test_explicit_chat_id_without_env(self, monkeypatch):
+        from runtime.telegram import send_message
+
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "tok")
+        payload = {"ok": True, "result": {"message_id": 44}}
+        with patch("runtime.telegram.urllib.request.urlopen", return_value=_mock_urlopen(payload)):
+            result = send_message("hello", chat_id="999")
+        assert result["message_id"] == 44
+
+    def test_api_error(self, monkeypatch):
+        from runtime.telegram import TelegramError, send_message
+
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "tok")
+        monkeypatch.setenv("TELEGRAM_CHAT_ID", "883232211")
+        payload = {"ok": False, "description": "chat not found"}
+        with patch("runtime.telegram.urllib.request.urlopen", return_value=_mock_urlopen(payload)):
+            with pytest.raises(TelegramError):
+                send_message("hello")
+
+
+class TestBuildBriefingMessage:
+    """build_briefing_message composes a rich SPC-X/SML digest with real-data
+    providers mocked (no network) — verifies structure and HTML escaping."""
+
+    def test_builds_message_with_regime_and_escaping(self, monkeypatch):
+        # market_intelligence.briefing needs pandas/yfinance (API tier) — skip
+        # on the core tier (requirements-core.txt, Android/Termux) instead of
+        # failing the whole "Core tests" CI job over an unmet optional dep.
+        pytest.importorskip("pandas")
+        from runtime.telegram import build_briefing_message
+
+        def fake_briefing():
+            return {
+                "lines": [
+                    "CURVA EUA: flat (10Y-2Y -10 bps)",
+                    "EQUITIES: 20 fontes | destaques: SPX -1.2%",
+                ],
+                "generated_at": "2026-08-14T00:00:00Z",
+            }
+
+        def fake_fetch_news(max_per_group=2):
+            return {
+                "items": [
+                    {"category": "brasil", "title": "Banco Central <mantém> Selic & sinaliza"},
+                    {"category": "usa", "title": "Fed keeps rates on hold"},
+                ]
+            }
+
+        def fake_classify_all():
+            return {
+                "commodities": {"status": "depressed"},
+                "liquidity": {"status": "depressed"},
+                "risk_sentiment": {"status": "elevated"},
+            }
+
+        with (
+            patch("runtime.market_intelligence.briefing.build_briefing", side_effect=fake_briefing),
+            patch("runtime.market_intelligence.news.fetch_news", side_effect=fake_fetch_news),
+            patch("runtime.regime.engine.RegimeEngine") as _mock_engine,
+        ):
+            _mock_engine.return_value.classify_all.return_value = fake_classify_all()
+            msg = build_briefing_message()
+
+        assert "DARIO OS — RADAR DE MERCADO" in msg
+        assert "Commodities: 📉 DEPRIMIDO" in msg
+        assert "Risk Sentiment: ⚠️ ELEVADO" in msg
+        assert "NOTÍCIAS DO DIA" in msg
+        assert "Selic" in msg
+        # HTML escaping of user-visible news titles
+        assert "<mantém>" not in msg
+        assert "&lt;mantém&gt;" in msg
+        assert "&amp; sinaliza" in msg
+        assert len(msg) <= 4095
+
+    def test_escape_covers_entities(self):
+        from runtime.telegram import _escape
+
+        assert _escape("<b>x&y</b>") == "&lt;b&gt;x&amp;y&lt;/b&gt;"
+
+
+class TestBuildB3SummaryMessage:
+    """B3/Ibovespa summary — separate, focused feed sent via @dariozcodebot."""
+
+    def test_builds_message_with_data(self, monkeypatch):
+        pytest.importorskip("pandas")
+        from runtime.telegram import build_b3_summary_message
+
+        def fake_asset_classes():
+            return {
+                "classes": {
+                    "equities": {
+                        "sources": [
+                            {"source": "ibovespa", "value": 166934.2, "delta": 1.23},
+                            {"source": "sp500", "value": 7785.75, "delta": 0.5},
+                        ]
+                    }
+                }
+            }
+
+        def fake_fx():
+            return {"pairs": [{"source": "dollar", "level": 5.2131, "delta_pct_1d": -0.26}]}
+
+        monkeypatch.setattr("runtime.market_intelligence.asset_classes.analyze_asset_classes", fake_asset_classes)
+        monkeypatch.setattr("runtime.market_intelligence.fx_analysis.analyze_fx", fake_fx)
+
+        msg = build_b3_summary_message()
+
+        assert "DARIO OS — RADAR B3" in msg
+        assert "IBOVESPA" in msg and "166.934" in msg and "+1.23%" in msg
+        assert "USD/BRL" in msg and "5.2131" in msg and "-0.26%" in msg
+        assert len(msg) <= 4095
+
+    def test_handles_missing_ibovespa_delta_honestly(self, monkeypatch):
+        pytest.importorskip("pandas")
+        from runtime.telegram import build_b3_summary_message
+
+        def fake_asset_classes():
+            return {"classes": {"equities": {"sources": [{"source": "ibovespa", "value": 166934.2, "delta": None}]}}}
+
+        def fake_fx():
+            return {"pairs": []}
+
+        monkeypatch.setattr("runtime.market_intelligence.asset_classes.analyze_asset_classes", fake_asset_classes)
+        monkeypatch.setattr("runtime.market_intelligence.fx_analysis.analyze_fx", fake_fx)
+
+        msg = build_b3_summary_message()
+
+        assert "sem variação disponível" in msg
+        assert "USD/BRL" in msg and "sem dados no momento" in msg
+
+
+class TestSendB3Summary:
+    def test_raises_without_token(self):
+        from runtime.telegram import TelegramNotConfiguredError, send_b3_summary
+
+        with pytest.raises(TelegramNotConfiguredError):
+            send_b3_summary()
+
+    def test_raises_without_chat_id(self, monkeypatch):
+        from runtime.telegram import TelegramNotConfiguredError, send_b3_summary
+
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN_B3", "tok")
+        with pytest.raises(TelegramNotConfiguredError):
+            send_b3_summary()
+
+    def test_success(self, monkeypatch):
+        pytest.importorskip("pandas")
+        from runtime.telegram import send_b3_summary
+
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN_B3", "tok")
+        monkeypatch.setenv("TELEGRAM_CHAT_ID_B3", "883232211")
+        monkeypatch.setattr("runtime.telegram.build_b3_summary_message", lambda: "🇧🇷 <b>DARIO OS — RADAR B3</b>")
+        payload = {"ok": True, "result": {"message_id": 99}}
+        with patch("runtime.telegram.urllib.request.urlopen", return_value=_mock_urlopen(payload)) as m:
+            result = send_b3_summary()
+        assert result["message_id"] == 99
+        req = m.call_args[0][0]
+        body = json.loads(req.data.decode("utf-8"))
+        assert body["chat_id"] == "883232211"

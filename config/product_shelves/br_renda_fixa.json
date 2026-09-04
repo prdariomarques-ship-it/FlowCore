@@ -1,0 +1,30 @@
+{
+  "name": "Renda Fixa Brasil",
+  "description": "Reference Brazilian fixed-income/ETF shelf. Illustrative examples, not investment advice -- edit freely, this file is the only place product names appear in the whole Impact/Recommendation/Product Mapping stack.",
+  "products": {
+    "reduce_duration": [
+      {"symbol": "LFT", "name": "Tesouro Selic", "type": "titulo_publico"},
+      {"symbol": "CDB-DI", "name": "CDB pos-fixado (%CDI)", "type": "cdb"}
+    ],
+    "increase_duration_exposure": [
+      {"symbol": "NTN-F", "name": "Tesouro Prefixado", "type": "titulo_publico"}
+    ],
+    "increase_inflation_protection": [
+      {"symbol": "NTN-B", "name": "Tesouro IPCA+", "type": "titulo_publico"},
+      {"symbol": "IMAB11", "name": "ETF IMA-B", "type": "etf"},
+      {"symbol": "B5P211", "name": "ETF Tesouro IPCA+ Curto", "type": "etf"}
+    ],
+    "increase_commodities_exposure": [
+      {"symbol": "GOLD11", "name": "ETF Ouro", "type": "etf"}
+    ],
+    "increase_usd_liquidity": [
+      {"symbol": "USDBRL-HEDGE", "name": "Fundo cambial dolar", "type": "fundo"}
+    ],
+    "increase_risk_exposure": [
+      {"symbol": "SMAL11", "name": "ETF Small Caps Brasil", "type": "etf"}
+    ],
+    "reduce_concentration": [
+      {"symbol": "BOVA11", "name": "ETF Ibovespa", "type": "etf"}
+    ]
+  }
+}
