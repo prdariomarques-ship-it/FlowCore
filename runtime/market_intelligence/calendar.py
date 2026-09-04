@@ -16,7 +16,7 @@ yfinance provider without touching this interface.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time
 
 ANCHORS = [
     # (market, event, hour_utc)
@@ -38,10 +38,11 @@ def today_events(now: datetime | None = None) -> list[dict]:
         market, event = entry[0], entry[1]
         hour = int(entry[2])
         minute = int(entry[3]) if len(entry) > 3 else 0
-        anchor = now.replace(hour=hour, minute=minute, second=0, microsecond=0, tzinfo=UTC)
+        anchor = now.replace(hour=hour, minute=minute, second=0,
+                             microsecond=0, tzinfo=UTC)
         diff_min = int((anchor - now).total_seconds() // 60)
         if -30 <= diff_min <= 1440:
-            events.append(
-                {"market": market, "event": event, "occurs_at_utc": anchor.isoformat(), "in_minutes": diff_min}
-            )
+            events.append({"market": market, "event": event,
+                           "occurs_at_utc": anchor.isoformat(),
+                           "in_minutes": diff_min})
     return events

@@ -13,7 +13,6 @@ Usage::
     sched.run_now("nightly_sync")
     sched.remove_job("nightly_sync")
 """
-
 from __future__ import annotations
 
 import json
@@ -28,13 +27,14 @@ from runtime.shell import is_available, run, which
 
 _JOBS_FILE = Path.home() / ".flowcore" / "jobs.json"
 
-_NAME_SAFE = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")
+_NAME_SAFE = frozenset(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"
+)
 
 
 class Job:
-    def __init__(
-        self, name: str, script: str, schedule: str, *, enabled: bool = True, created_at: float | None = None
-    ) -> None:
+    def __init__(self, name: str, script: str, schedule: str,
+                 *, enabled: bool = True, created_at: float | None = None) -> None:
         self.name = name
         self.script = script
         self.schedule = schedule
@@ -73,13 +73,18 @@ class JobScheduler:
     def _load(self) -> None:
         if _JOBS_FILE.exists():
             try:
-                self._jobs = {d["name"]: Job.from_dict(d) for d in json.loads(_JOBS_FILE.read_text())}
+                self._jobs = {
+                    d["name"]: Job.from_dict(d)
+                    for d in json.loads(_JOBS_FILE.read_text())
+                }
             except Exception:
                 self._jobs = {}
 
     def _save(self) -> None:
         _JOBS_FILE.parent.mkdir(parents=True, exist_ok=True)
-        _JOBS_FILE.write_text(json.dumps([j.to_dict() for j in self._jobs.values()], indent=2))
+        _JOBS_FILE.write_text(
+            json.dumps([j.to_dict() for j in self._jobs.values()], indent=2)
+        )
 
     # ── CRUD ──────────────────────────────────────────────────────────────────
 
@@ -144,14 +149,12 @@ class JobScheduler:
         cron_line = f"{job.schedule} {python} {job.script}  {tag}"
         result = run(["crontab", "-l"], timeout=5)
         existing = result.stdout if result.success else ""
-        lines = [line for line in existing.splitlines() if tag not in line]
+        lines = [l for l in existing.splitlines() if tag not in l]
         lines.append(cron_line)
         new_crontab = "\n".join(lines) + "\n"
         proc = subprocess.Popen(
             ["crontab", "-"],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         )
         _, err = proc.communicate(new_crontab.encode())
         if proc.returncode != 0:
@@ -164,13 +167,11 @@ class JobScheduler:
         if not result.success:
             return
         tag = f"# flowcore:{job.name}"
-        lines = [line for line in result.stdout.splitlines() if tag not in line]
+        lines = [l for l in result.stdout.splitlines() if tag not in l]
         new_crontab = "\n".join(lines) + "\n"
         proc = subprocess.Popen(
             ["crontab", "-"],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         )
         proc.communicate(new_crontab.encode())
 

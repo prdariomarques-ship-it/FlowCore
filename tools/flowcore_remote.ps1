@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# FlowCore Remote - controla FlowCore no Android via ADB + SSH
+# FlowCore Remote — controla FlowCore no Android via ADB + SSH
 #
 # Primeira execução: instala chave SSH (pede senha uma vez)
 # Execuções seguintes: sem senha
@@ -25,7 +25,7 @@ param(
     [string]$Device = "",
     [int]$Port = 8022,
     [string]$FlowCorePath = "~/FlowCore",
-    [switch]$VerboseOutput
+    [switch]$Verbose
 )
 
 Set-StrictMode -Off
@@ -52,14 +52,8 @@ function Find-ADB {
 }
 
 function Invoke-ADB {
-    # Named $ArgList, not $Args — $Args collides with PowerShell's own
-    # reserved automatic variable of the same name. With that collision,
-    # $Args inside this function silently ended up empty instead of the
-    # array actually passed in, so every call ran bare "adb -s <serial>"
-    # with no subcommand at all — which is why adb fell back to printing
-    # its full --help text instead of doing anything (e.g. "forward").
-    param([string[]]$ArgList)
-    $adbArgs = if ($script:DeviceSerial) { @("-s", $script:DeviceSerial) + $ArgList } else { $ArgList }
+    param([string[]]$Args)
+    $adbArgs = if ($script:DeviceSerial) { @("-s", $script:DeviceSerial) + $Args } else { $Args }
     & $script:ADB @adbArgs 2>&1
 }
 
@@ -76,46 +70,25 @@ if (-not $script:ADB) {
 Write-OK "ADB: $script:ADB"
 
 # Encontra dispositivo
+$devices = (Invoke-ADB @("devices")) -match "\bdevice$" | ForEach-Object { ($_ -split "\s+")[0] }
+if (-not $devices) {
+    Write-FAIL "Nenhum dispositivo ADB conectado. Verifica o cabo e USB Debugging."
+    exit 1
+}
 if ($Device) {
-    # -Device explícito sempre tem prioridade e pula a auto-detecção —
-    # antes disso, um -Device correto ainda podia falhar se a lista
-    # auto-detectada abaixo viesse vazia por timing (comum em ADB via
-    # WiFi), já que o "if (-not $devices) { exit }" rodava antes de
-    # sequer olhar para $Device. Se o serial informado não existir de
-    # verdade, o adb -s abaixo falha com um erro específico dele mesmo.
     $script:DeviceSerial = $Device
+} elseif ($devices.Count -gt 1) {
+    Write-WARN "Múltiplos dispositivos: $($devices -join ', ')"
+    Write-Host "Usa: .\tools\flowcore_remote.ps1 $Command -Device <serial>"
+    exit 1
 } else {
-    # Regex ancorada (^...$) em vez de só "\bdevice$" — mais robusta contra
-    # linhas soltas do daemon do adb ("* daemon not running...") e contra \r
-    # residual em saída nativa capturada via 2>&1 no Windows, que fazia a
-    # extração anterior devolver entradas vazias em vez do serial real.
-    $devices = @(
-        (Invoke-ADB @("devices")) |
-            ForEach-Object { $_.Trim() } |
-            Where-Object { $_ -match '^(\S+)\s+device$' } |
-            ForEach-Object { ($_ -split '\s+')[0] } |
-            Where-Object { $_ }
-    )
-    if (-not $devices) {
-        Write-FAIL "Nenhum dispositivo ADB conectado. Verifica o cabo/WiFi e USB Debugging."
-        exit 1
-    } elseif ($devices.Count -gt 1) {
-        Write-WARN "Múltiplos dispositivos: $($devices -join ', ')"
-        Write-Host "Usa: .\tools\flowcore_remote.ps1 $Command -Device <serial>"
-        exit 1
-    } else {
-        $script:DeviceSerial = $devices
-    }
+    $script:DeviceSerial = $devices
 }
 Write-OK "Dispositivo: $script:DeviceSerial"
 
 # Port forward ADB → SSH
-# Precise "error:"-prefix match, not a generic "error|fail" substring
-# search — the old check could false-positive on unrelated output (e.g.
-# adb's own --help text mentions "--exit-on-write-error") and then dump
-# that entire text as the "failure" message, obscuring the real error.
 $fwd = Invoke-ADB @("forward", "tcp:$Port", "tcp:$Port")
-if ($fwd -match "^error:") {
+if ($fwd -match "error|fail") {
     Write-FAIL "adb forward falhou: $fwd"
     exit 1
 }
@@ -156,7 +129,7 @@ function Install-SSHKey {
     $result = & ssh @sshOptsNoBatch "127.0.0.1" $setupCmd 2>&1
 
     if ($result -match "KEY_OK") {
-        Write-OK "Chave instalada - próximas conexões sem senha"
+        Write-OK "Chave instalada — próximas conexões sem senha"
         return $true
     } else {
         Write-FAIL "Falha ao instalar chave: $result"
@@ -225,7 +198,7 @@ switch ($Command.ToLower()) {
     }
 
     "shell" {
-        Write-HDR "Sessao interativa - Ctrl+D para sair"
+        Write-HDR "Sessao interativa — Ctrl+D para sair"
         Invoke-SSH -Interactive
     }
 
@@ -250,14 +223,14 @@ switch ($Command.ToLower()) {
         Write-WARN "Comando desconhecido: $Command"
         Write-Host ""
         Write-Host "Comandos disponíveis:"
-        Write-Host "  boot       - inicializa o Runtime Kernel"
-        Write-Host "  status     - mostra status completo"
-        Write-Host "  doctor     - health check dos 35 pontos"
-        Write-Host "  deploy     - git pull + boot"
-        Write-Host "  shell      - sessao SSH interativa"
-        Write-Host "  run <cmd>  - comando arbitrario no Termux"
-        Write-Host "  logs       - ultimas 50 linhas do log"
-        Write-Host "  setup-key  - instala chave SSH (sem senha)"
+        Write-Host "  boot       — inicializa o Runtime Kernel"
+        Write-Host "  status     — mostra status completo"
+        Write-Host "  doctor     — health check dos 35 pontos"
+        Write-Host "  deploy     — git pull + boot"
+        Write-Host "  shell      — sessao SSH interativa"
+        Write-Host "  run <cmd>  — comando arbitrario no Termux"
+        Write-Host "  logs       — ultimas 50 linhas do log"
+        Write-Host "  setup-key  — instala chave SSH (sem senha)"
         exit 1
     }
 }

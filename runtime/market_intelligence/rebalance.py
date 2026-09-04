@@ -60,7 +60,8 @@ def analyze_rebalancing(
     threshold_pct: float = DEFAULT_THRESHOLD_PCT,
 ) -> dict:
     if not holdings:
-        return {"error": "insufficient_data", "detail": "no holdings available", "buckets": [], "actions": {}}
+        return {"error": "insufficient_data", "detail": "no holdings available",
+                "buckets": [], "actions": {}}
 
     # Current weights per bucket from holdings (assume a `value` field;
     # fall back to `quantity` if values are absent).
@@ -76,17 +77,16 @@ def analyze_rebalancing(
 
     total = sum(bucket_value.values())
     if total <= 0:
-        return {"error": "insufficient_data", "detail": "holdings sum to zero", "buckets": [], "actions": {}}
+        return {"error": "insufficient_data", "detail": "holdings sum to zero",
+                "buckets": [], "actions": {}}
 
     current = {b: round(v / total * 100, 2) for b, v in bucket_value.items()}
 
     if not target:
-        return {
-            "error": "insufficient_data",
-            "detail": "target allocation not provided",
-            "buckets": [{"bucket": b, "weight_pct": w} for b, w in current.items()],
-            "actions": {},
-        }
+        return {"error": "insufficient_data",
+                "detail": "target allocation not provided",
+                "buckets": [{"bucket": b, "weight_pct": w} for b, w in current.items()],
+                "actions": {}}
 
     target_pct = {b: round(t * 100, 2) for b, t in target.items()}
     all_buckets = sorted(set(list(current) + list(target_pct)))
@@ -103,12 +103,14 @@ def analyze_rebalancing(
             act, reason = "BUY", "target definido sem posição atual"
         elif abs(dev) > threshold_pct:
             act = "REDUCE" if dev > 0 else "BUY"
-            reason = f"desvio de {dev:+.1f} p.p. supera o limite de {threshold_pct:g} p.p."
+            reason = (f"desvio de {dev:+.1f} p.p. supera o limite de {threshold_pct:g} p.p.")
         elif abs(dev) > threshold_pct * 0.6:
             act, reason = "WATCH", f"desvio de {dev:+.1f} p.p. se aproximando do limite"
         else:
             act, reason = "HOLD", f"desvio de {dev:+.1f} p.p. dentro da banda"
-        buckets.append({"bucket": b, "weight_pct": w, "target_pct": t, "deviation_pct": dev})
+        buckets.append({"bucket": b, "weight_pct": w, "target_pct": t,
+                        "deviation_pct": dev})
         actions[b] = {"action": act, "reason": reason}
 
-    return {"error": None, "buckets": buckets, "actions": actions, "threshold_pct": threshold_pct}
+    return {"error": None, "buckets": buckets, "actions": actions,
+            "threshold_pct": threshold_pct}

@@ -23,7 +23,6 @@ _DEFAULT_DB = None  # injected by storage path at call time
 def _db_path() -> str:
     # Follow the same resolution used by the rest of FlowCore.
     import pathlib
-
     base = pathlib.Path(__file__).resolve().parent.parent.parent / "data" / "flowcore.db"
     return str(base)
 
@@ -57,13 +56,9 @@ def record_scores(scores: list[dict]) -> None:
             conn.execute(
                 "INSERT INTO macro_score_history (recorded_at, dimension, score, status, detail)"
                 " VALUES (?, ?, ?, ?, ?)",
-                (
-                    now.isoformat(),
-                    row.get("dimension", ""),
-                    row.get("score"),
-                    row.get("status", "unknown"),
-                    json.dumps(row.get("drivers") or row.get("z_scores") or {}),
-                ),
+                (now.isoformat(), row.get("dimension", ""), row.get("score"),
+                 row.get("status", "unknown"),
+                 json.dumps(row.get("drivers") or row.get("z_scores") or {})),
             )
         conn.commit()
     finally:
@@ -84,13 +79,9 @@ def score_history(dimension: str | None = None, days: int = 60) -> dict:
         except sqlite3.OperationalError:
             return {"error": "history_unavailable", "windows": {}}
 
-        dims = (
-            [dimension]
-            if dimension
-            else [
-                row[0] for row in conn.execute("SELECT DISTINCT dimension FROM macro_score_history ORDER BY dimension")
-            ]
-        )
+        dims = [dimension] if dimension else [
+            row[0] for row in conn.execute(
+                "SELECT DISTINCT dimension FROM macro_score_history ORDER BY dimension")]
         now = datetime.now(UTC)
         windows: dict[str, dict] = {}
         for d in dims:
@@ -103,19 +94,18 @@ def score_history(dimension: str | None = None, days: int = 60) -> dict:
                     (d, cutoff),
                 ).fetchone()
                 if row is None:
-                    views[label] = {"value": None, "status": "insufficient_data", "sampled_at": None}
+                    views[label] = {"value": None, "status": "insufficient_data",
+                                    "sampled_at": None}
                 else:
-                    views[label] = {"value": row[1], "status": row[2], "sampled_at": row[0]}
+                    views[label] = {"value": row[1], "status": row[2],
+                                    "sampled_at": row[0]}
             # latest ever, for trend context
             latest = conn.execute(
                 "SELECT recorded_at, score, status FROM macro_score_history"
-                " WHERE dimension = ? ORDER BY recorded_at DESC LIMIT 1",
-                (d,),
-            ).fetchone()
-            windows[d] = {
-                "latest": ({"value": latest[1], "status": latest[2], "sampled_at": latest[0]} if latest else None),
-                "history": views,
-            }
+                " WHERE dimension = ? ORDER BY recorded_at DESC LIMIT 1", (d,)).fetchone()
+            windows[d] = {"latest": ({"value": latest[1], "status": latest[2],
+                                      "sampled_at": latest[0]} if latest else None),
+                          "history": views}
         return {"error": None, "windows": windows}
     finally:
         conn.close()

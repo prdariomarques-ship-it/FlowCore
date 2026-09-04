@@ -22,7 +22,6 @@ Usage (daemon loop directly)::
     python3 runtime/daemon.py          # starts and stays running
     python3 runtime/daemon.py --check  # exits 0 if running, 1 if not
 """
-
 from __future__ import annotations
 
 import json
@@ -36,13 +35,12 @@ from typing import Any
 
 
 _DAEMON_DIR = Path.home() / ".flowcore" / "daemon"
-_PID_FILE = _DAEMON_DIR / "flowcore.pid"
+_PID_FILE   = _DAEMON_DIR / "flowcore.pid"
 _STATE_FILE = _DAEMON_DIR / "daemon.state.json"
-_LOG_FILE = _DAEMON_DIR / "daemon.log"
+_LOG_FILE   = _DAEMON_DIR / "daemon.log"
 
 
 # ── Manager (used by CLI and other modules) ───────────────────────────────────
-
 
 class FlowCoreDaemon:
     """Start, stop, and query the FlowCore background daemon."""
@@ -55,8 +53,7 @@ class FlowCoreDaemon:
         with open(_LOG_FILE, "a") as log:
             proc = subprocess.Popen(
                 [sys.executable, __file__, "--interval", str(interval)],
-                stdout=log,
-                stderr=log,
+                stdout=log, stderr=log,
                 close_fds=True,
                 start_new_session=True,
             )
@@ -68,7 +65,8 @@ class FlowCoreDaemon:
                 return {"started": True, "pid": pid, "log": str(_LOG_FILE)}
             time.sleep(0.1)
         # Fallback: use the Popen pid
-        return {"started": True, "pid": proc.pid, "log": str(_LOG_FILE), "note": "pid file not yet written"}
+        return {"started": True, "pid": proc.pid, "log": str(_LOG_FILE),
+                "note": "pid file not yet written"}
 
     def stop(self) -> dict[str, Any]:
         """Send SIGTERM to the daemon and clean up PID file."""
@@ -126,7 +124,6 @@ class FlowCoreDaemon:
 
 # ── Shared helper ─────────────────────────────────────────────────────────────
 
-
 def _pid_alive(pid: int) -> bool:
     try:
         os.kill(pid, 0)
@@ -135,49 +132,10 @@ def _pid_alive(pid: int) -> bool:
         return False
 
 
-# ── Observer cycle hook (env-controlled, default OFF) ────────────────────────
-
-
-def _observe_once_safe() -> int:
-    """Run every registered market observer once, persisting events
-    (storage.EventRepository, Sprint 19). Never raises: the daemon logs a
-    warning and keeps running if anything goes wrong. Only active when the
-    env var FLOWCORE_DAEMON_OBSERVE=1 is set — preserves the existing
-    heartbeat-only behaviour for everyone else."""
-    if os.environ.get("FLOWCORE_DAEMON_OBSERVE", "") != "1":
-        return 0
-    try:
-        import asyncio
-
-        from runtime.observers.registry import registry as _default_registry
-        from runtime.observers.scheduler import ObserverScheduler, _default_event_repo
-
-        async def _run() -> int:
-            scheduler = ObserverScheduler(_default_registry, event_repo=_default_event_repo())
-            events = await scheduler.run_once()
-            return len(events)
-
-        loop = asyncio.new_event_loop()
-        try:
-            count = loop.run_until_complete(_run())
-        finally:
-            loop.close()
-        print(f"[daemon] observer cycle: {count} event(s) persisted", flush=True)
-        return count
-    except Exception as e:
-        print(f"[daemon] observer cycle failed (non-fatal): {e}", flush=True)
-        return -1
-
-
 # ── Daemon loop (runs in the child process) ───────────────────────────────────
 
-
 def _run_daemon_loop(interval: int) -> None:
-    """Heartbeat loop executed inside the spawned subprocess.
-
-    With FLOWCORE_DAEMON_OBSERVE=1 each cycle also runs every registered
-    market observer once (observer → event → storage), continuously feeding
-    the Macro Score Engine with live history — no engine is replaced."""
+    """Heartbeat loop executed inside the spawned subprocess."""
     _DAEMON_DIR.mkdir(parents=True, exist_ok=True)
 
     my_pid = os.getpid()
@@ -210,11 +168,6 @@ def _run_daemon_loop(interval: int) -> None:
         except Exception:
             pass
 
-        try:
-            _observe_once_safe()
-        except Exception:
-            pass
-
         # Sleep in small slices so SIGTERM is handled promptly
         slept = 0.0
         while running and slept < interval:
@@ -226,10 +179,10 @@ def _run_daemon_loop(interval: int) -> None:
 
 if __name__ == "__main__":
     import argparse as _ap
-
     p = _ap.ArgumentParser(description="FlowCore daemon loop")
     p.add_argument("--interval", type=int, default=60)
-    p.add_argument("--check", action="store_true", help="Exit 0 if daemon running, 1 otherwise")
+    p.add_argument("--check", action="store_true",
+                   help="Exit 0 if daemon running, 1 otherwise")
     opts = p.parse_args()
 
     if opts.check:

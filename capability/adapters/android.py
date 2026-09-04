@@ -9,7 +9,6 @@ is_available() returns False and the Registry falls back automatically.
 
 The agent layer never sees any termux-* command name.
 """
-
 from __future__ import annotations
 
 import json
@@ -27,7 +26,6 @@ def _in_termux() -> bool:
 
 # ── Battery ───────────────────────────────────────────────────────────────────
 
-
 class AndroidBatteryAdapter(CapabilityAdapter):
     name = "android.battery"
     priority = 100
@@ -39,8 +37,7 @@ class AndroidBatteryAdapter(CapabilityAdapter):
         result = run(["termux-battery-status"], timeout=5)
         if not result.success:
             return CapabilityResult.fail(
-                result.stderr or "termux-battery-status failed",
-                self.name,
+                result.stderr or "termux-battery-status failed", self.name,
                 reason="termux-battery-status returned non-zero exit code",
                 diagnosis=result.stderr,
                 corrective_action="pkg install termux-api && allow battery permission in Termux:API app",
@@ -48,28 +45,21 @@ class AndroidBatteryAdapter(CapabilityAdapter):
             )
         try:
             data = json.loads(result.stdout)
-            return CapabilityResult.ok(
-                {
-                    "level": data.get("percentage", -1),
-                    "status": data.get("status", "unknown").lower(),
-                    "health": data.get("health", "unknown").lower(),
-                    "temperature": data.get("temperature", -1),
-                    "plugged": data.get("plugged", "unknown"),
-                },
-                self.name,
-            )
+            return CapabilityResult.ok({
+                "level": data.get("percentage", -1),
+                "status": data.get("status", "unknown").lower(),
+                "health": data.get("health", "unknown").lower(),
+                "temperature": data.get("temperature", -1),
+                "plugged": data.get("plugged", "unknown"),
+            }, self.name)
         except json.JSONDecodeError as e:
-            return CapabilityResult.fail(
-                f"JSON parse error: {e}",
-                self.name,
+            return CapabilityResult.fail(f"JSON parse error: {e}", self.name,
                 reason="termux-battery-status returned invalid JSON",
                 diagnosis=result.stdout[:200],
-                corrective_action="Reinstall Termux:API: pkg reinstall termux-api",
-            )
+                corrective_action="Reinstall Termux:API: pkg reinstall termux-api")
 
 
 # ── Clipboard ─────────────────────────────────────────────────────────────────
-
 
 class AndroidClipboardAdapter(CapabilityAdapter):
     name = "android.clipboard"
@@ -82,27 +72,20 @@ class AndroidClipboardAdapter(CapabilityAdapter):
         result = run(["termux-clipboard-get"], timeout=5)
         if result.success:
             return CapabilityResult.ok({"text": result.stdout}, self.name)
-        return CapabilityResult.fail(
-            result.stderr,
-            self.name,
+        return CapabilityResult.fail(result.stderr, self.name,
             reason="Could not read clipboard",
-            corrective_action="Grant clipboard permission in Termux:API settings",
-        )
+            corrective_action="Grant clipboard permission in Termux:API settings")
 
     def set_clipboard(self, text: str) -> CapabilityResult:
         result = run(["termux-clipboard-set", text], timeout=5)
         if result.success:
             return CapabilityResult.ok({"set": True}, self.name)
-        return CapabilityResult.fail(
-            result.stderr,
-            self.name,
+        return CapabilityResult.fail(result.stderr, self.name,
             reason="Could not write to clipboard",
-            corrective_action="Grant clipboard permission in Termux:API settings",
-        )
+            corrective_action="Grant clipboard permission in Termux:API settings")
 
 
 # ── Notifications ─────────────────────────────────────────────────────────────
-
 
 class AndroidNotificationAdapter(CapabilityAdapter):
     name = "android.notification"
@@ -115,16 +98,12 @@ class AndroidNotificationAdapter(CapabilityAdapter):
         result = run(["termux-notification", "--title", title, "--content", message], timeout=5)
         if result.success:
             return CapabilityResult.ok({"sent": True}, self.name)
-        return CapabilityResult.fail(
-            result.stderr,
-            self.name,
+        return CapabilityResult.fail(result.stderr, self.name,
             reason="Could not send notification",
-            corrective_action="Enable: Settings → Apps → Termux → Notifications → Allow",
-        )
+            corrective_action="Enable: Settings → Apps → Termux → Notifications → Allow")
 
 
 # ── WiFi ──────────────────────────────────────────────────────────────────────
-
 
 class AndroidWifiAdapter(CapabilityAdapter):
     name = "android.wifi"
@@ -136,32 +115,25 @@ class AndroidWifiAdapter(CapabilityAdapter):
     def get_network_info(self) -> CapabilityResult:
         result = run(["termux-wifi-connectioninfo"], timeout=5)
         if not result.success:
-            return CapabilityResult.fail(
-                result.stderr,
-                self.name,
+            return CapabilityResult.fail(result.stderr, self.name,
                 reason="termux-wifi-connectioninfo failed",
-                corrective_action="pkg install termux-api && grant ACCESS_WIFI_STATE permission",
-            )
+                corrective_action="pkg install termux-api && grant ACCESS_WIFI_STATE permission")
         try:
             data = json.loads(result.stdout)
-            return CapabilityResult.ok(
-                {
-                    "ssid": data.get("ssid", ""),
-                    "bssid": data.get("bssid", ""),
-                    "rssi": data.get("rssi", 0),
-                    "link_speed": data.get("link_speed_mbps", 0),
-                    "ip": data.get("ip", ""),
-                },
-                self.name,
-            )
+            return CapabilityResult.ok({
+                "ssid": data.get("ssid", ""),
+                "bssid": data.get("bssid", ""),
+                "rssi": data.get("rssi", 0),
+                "link_speed": data.get("link_speed_mbps", 0),
+                "ip": data.get("ip", ""),
+            }, self.name)
         except json.JSONDecodeError as e:
             return CapabilityResult.fail(f"JSON parse error: {e}", self.name)
 
     def get_wifi_scan(self) -> CapabilityResult:
         if not is_available("termux-wifi-scaninfo"):
-            return CapabilityResult.fail(
-                "termux-wifi-scaninfo not found", self.name, corrective_action="pkg install termux-api"
-            )
+            return CapabilityResult.fail("termux-wifi-scaninfo not found", self.name,
+                corrective_action="pkg install termux-api")
         result = run(["termux-wifi-scaninfo"], timeout=10)
         if not result.success:
             return CapabilityResult.fail(result.stderr, self.name)
@@ -174,7 +146,6 @@ class AndroidWifiAdapter(CapabilityAdapter):
 
 # ── Bluetooth ─────────────────────────────────────────────────────────────────
 
-
 class AndroidBluetoothAdapter(CapabilityAdapter):
     name = "android.bluetooth"
     priority = 100
@@ -185,12 +156,9 @@ class AndroidBluetoothAdapter(CapabilityAdapter):
     def get_bluetooth_state(self) -> CapabilityResult:
         result = run(["termux-bluetooth-get-adapters"], timeout=5)
         if not result.success:
-            return CapabilityResult.fail(
-                result.stderr,
-                self.name,
+            return CapabilityResult.fail(result.stderr, self.name,
                 reason="Cannot read Bluetooth adapters",
-                corrective_action="pkg install termux-api && grant Bluetooth permission",
-            )
+                corrective_action="pkg install termux-api && grant Bluetooth permission")
         try:
             data = json.loads(result.stdout)
             return CapabilityResult.ok({"adapters": data}, self.name)
@@ -199,7 +167,6 @@ class AndroidBluetoothAdapter(CapabilityAdapter):
 
 
 # ── Location ──────────────────────────────────────────────────────────────────
-
 
 class AndroidLocationAdapter(CapabilityAdapter):
     name = "android.location"
@@ -211,31 +178,24 @@ class AndroidLocationAdapter(CapabilityAdapter):
     def get_location(self, *, provider: str = "gps", timeout: int = 30) -> CapabilityResult:
         result = run(["termux-location", "-p", provider, "-r", "once"], timeout=timeout + 5)
         if not result.success:
-            return CapabilityResult.fail(
-                result.stderr,
-                self.name,
+            return CapabilityResult.fail(result.stderr, self.name,
                 reason="Could not get location",
                 diagnosis="GPS may be disabled or permission denied",
-                corrective_action="Enable location in Settings and grant ACCESS_FINE_LOCATION",
-            )
+                corrective_action="Enable location in Settings and grant ACCESS_FINE_LOCATION")
         try:
             data = json.loads(result.stdout)
-            return CapabilityResult.ok(
-                {
-                    "latitude": data.get("latitude"),
-                    "longitude": data.get("longitude"),
-                    "altitude": data.get("altitude"),
-                    "accuracy": data.get("accuracy"),
-                    "provider": provider,
-                },
-                self.name,
-            )
+            return CapabilityResult.ok({
+                "latitude": data.get("latitude"),
+                "longitude": data.get("longitude"),
+                "altitude": data.get("altitude"),
+                "accuracy": data.get("accuracy"),
+                "provider": provider,
+            }, self.name)
         except json.JSONDecodeError as e:
             return CapabilityResult.fail(f"JSON parse error: {e}", self.name)
 
 
 # ── Camera ────────────────────────────────────────────────────────────────────
-
 
 class AndroidCameraAdapter(CapabilityAdapter):
     name = "android.camera"
@@ -249,16 +209,12 @@ class AndroidCameraAdapter(CapabilityAdapter):
         if result.success and Path(output_path).exists():
             size = Path(output_path).stat().st_size
             return CapabilityResult.ok({"path": output_path, "size_bytes": size}, self.name)
-        return CapabilityResult.fail(
-            result.stderr or "Photo not created",
-            self.name,
+        return CapabilityResult.fail(result.stderr or "Photo not created", self.name,
             reason="Camera capture failed",
-            corrective_action="Grant CAMERA permission: Settings → Apps → Termux → Permissions → Camera",
-        )
+            corrective_action="Grant CAMERA permission: Settings → Apps → Termux → Permissions → Camera")
 
 
 # ── Microphone ────────────────────────────────────────────────────────────────
-
 
 class AndroidMicrophoneAdapter(CapabilityAdapter):
     name = "android.microphone"
@@ -268,19 +224,16 @@ class AndroidMicrophoneAdapter(CapabilityAdapter):
         return _in_termux() and is_available("termux-microphone-record")
 
     def record_audio(self, output_path: str, *, duration: int = 10) -> CapabilityResult:
-        result = run(["termux-microphone-record", "-d", str(duration), "-f", output_path], timeout=duration + 5)
+        result = run(["termux-microphone-record", "-d", str(duration), "-f", output_path],
+                     timeout=duration + 5)
         if result.success:
             return CapabilityResult.ok({"path": output_path, "duration": duration}, self.name)
-        return CapabilityResult.fail(
-            result.stderr,
-            self.name,
+        return CapabilityResult.fail(result.stderr, self.name,
             reason="Audio recording failed",
-            corrective_action="Grant RECORD_AUDIO: Settings → Apps → Termux → Permissions → Microphone",
-        )
+            corrective_action="Grant RECORD_AUDIO: Settings → Apps → Termux → Permissions → Microphone")
 
 
 # ── WakeLock ──────────────────────────────────────────────────────────────────
-
 
 class AndroidWakeLockAdapter(CapabilityAdapter):
     name = "android.wakelock"
@@ -293,13 +246,10 @@ class AndroidWakeLockAdapter(CapabilityAdapter):
         result = run(["termux-wake-lock"], timeout=5)
         if result.success:
             return CapabilityResult.ok({"acquired": True}, self.name)
-        return CapabilityResult.fail(
-            result.stderr,
-            self.name,
+        return CapabilityResult.fail(result.stderr, self.name,
             reason="Could not acquire WakeLock",
             diagnosis="Battery optimization may be blocking WakeLock",
-            corrective_action="Settings → Battery → Termux → Unrestricted",
-        )
+            corrective_action="Settings → Battery → Termux → Unrestricted")
 
     def release_wakelock(self) -> CapabilityResult:
         result = run(["termux-wake-unlock"], timeout=5)
@@ -309,7 +259,6 @@ class AndroidWakeLockAdapter(CapabilityAdapter):
 
 
 # ── Intent ────────────────────────────────────────────────────────────────────
-
 
 class AndroidIntentAdapter(CapabilityAdapter):
     name = "android.intent"
@@ -322,15 +271,14 @@ class AndroidIntentAdapter(CapabilityAdapter):
         result = run(["termux-open-url", url], timeout=5)
         if result.success:
             return CapabilityResult.ok({"opened": url}, self.name)
-        return CapabilityResult.fail(
-            result.stderr, self.name, reason=f"Could not open URL: {url}", corrective_action="pkg install termux-api"
-        )
+        return CapabilityResult.fail(result.stderr, self.name,
+            reason=f"Could not open URL: {url}",
+            corrective_action="pkg install termux-api")
 
     def share_file(self, path: str, *, mime_type: str = "*/*") -> CapabilityResult:
         if not is_available("termux-share"):
-            return CapabilityResult.fail(
-                "termux-share not found", self.name, corrective_action="pkg install termux-api"
-            )
+            return CapabilityResult.fail("termux-share not found", self.name,
+                corrective_action="pkg install termux-api")
         result = run(["termux-share", "-m", mime_type, path], timeout=10)
         if result.success:
             return CapabilityResult.ok({"shared": path}, self.name)
@@ -338,9 +286,8 @@ class AndroidIntentAdapter(CapabilityAdapter):
 
     def vibrate(self, duration_ms: int = 500) -> CapabilityResult:
         if not is_available("termux-vibrate"):
-            return CapabilityResult.fail(
-                "termux-vibrate not found", self.name, corrective_action="pkg install termux-api"
-            )
+            return CapabilityResult.fail("termux-vibrate not found", self.name,
+                corrective_action="pkg install termux-api")
         result = run(["termux-vibrate", "-d", str(duration_ms)], timeout=5)
         if result.success:
             return CapabilityResult.ok({"vibrated": True, "duration_ms": duration_ms}, self.name)
@@ -348,9 +295,8 @@ class AndroidIntentAdapter(CapabilityAdapter):
 
     def torch(self, *, on: bool = True) -> CapabilityResult:
         if not is_available("termux-torch"):
-            return CapabilityResult.fail(
-                "termux-torch not found", self.name, corrective_action="pkg install termux-api"
-            )
+            return CapabilityResult.fail("termux-torch not found", self.name,
+                corrective_action="pkg install termux-api")
         result = run(["termux-torch", "on" if on else "off"], timeout=5)
         if result.success:
             return CapabilityResult.ok({"torch": "on" if on else "off"}, self.name)
@@ -358,7 +304,6 @@ class AndroidIntentAdapter(CapabilityAdapter):
 
 
 # ── Permissions ───────────────────────────────────────────────────────────────
-
 
 class AndroidPermissionAdapter(CapabilityAdapter):
     name = "android.permission"
@@ -380,10 +325,11 @@ class AndroidPermissionAdapter(CapabilityAdapter):
         probe = self._PERMISSION_PROBE.get(permission.upper())
         if probe:
             granted = is_available(probe)
-            return CapabilityResult.ok({"permission": permission, "granted": granted, "probe": probe}, self.name)
+            return CapabilityResult.ok(
+                {"permission": permission, "granted": granted, "probe": probe}, self.name)
         return CapabilityResult.ok(
-            {"permission": permission, "granted": None, "note": "Cannot probe this permission from shell"}, self.name
-        )
+            {"permission": permission, "granted": None,
+             "note": "Cannot probe this permission from shell"}, self.name)
 
     def list_permissions(self) -> CapabilityResult:
         permissions = list(self._PERMISSION_PROBE.keys()) + [
@@ -395,7 +341,6 @@ class AndroidPermissionAdapter(CapabilityAdapter):
 
 # ── Android system info ───────────────────────────────────────────────────────
 
-
 class AndroidInfoAdapter(CapabilityAdapter):
     name = "android.info"
     priority = 100
@@ -406,11 +351,8 @@ class AndroidInfoAdapter(CapabilityAdapter):
     def get_android_info(self) -> CapabilityResult:
         props: dict[str, str] = {}
         for key in [
-            "ro.build.version.release",
-            "ro.build.version.sdk",
-            "ro.product.model",
-            "ro.product.manufacturer",
-            "ro.product.cpu.abi",
+            "ro.build.version.release", "ro.build.version.sdk",
+            "ro.product.model", "ro.product.manufacturer", "ro.product.cpu.abi",
         ]:
             result = run(["getprop", key], timeout=3)
             if result.success:
@@ -419,7 +361,6 @@ class AndroidInfoAdapter(CapabilityAdapter):
 
 
 # ── Shared Android storage ────────────────────────────────────────────────────
-
 
 class AndroidStorageAdapter(CapabilityAdapter):
     name = "android.storage"
@@ -433,12 +374,9 @@ class AndroidStorageAdapter(CapabilityAdapter):
             content = Path(path).read_text(encoding="utf-8")
             return CapabilityResult.ok({"content": content, "path": path}, self.name)
         except Exception as e:
-            return CapabilityResult.fail(
-                str(e),
-                self.name,
+            return CapabilityResult.fail(str(e), self.name,
                 reason=f"Cannot read {path}",
-                corrective_action="Run termux-setup-storage to enable shared storage access",
-            )
+                corrective_action="Run termux-setup-storage to enable shared storage access")
 
     def write_file(self, path: str, content: str) -> CapabilityResult:
         try:
@@ -447,9 +385,8 @@ class AndroidStorageAdapter(CapabilityAdapter):
             p.write_text(content, encoding="utf-8")
             return CapabilityResult.ok({"written": True, "path": path}, self.name)
         except Exception as e:
-            return CapabilityResult.fail(
-                str(e), self.name, corrective_action="Run termux-setup-storage to enable shared storage access"
-            )
+            return CapabilityResult.fail(str(e), self.name,
+                corrective_action="Run termux-setup-storage to enable shared storage access")
 
     def list_directory(self, path: str) -> CapabilityResult:
         try:
@@ -459,61 +396,124 @@ class AndroidStorageAdapter(CapabilityAdapter):
             return CapabilityResult.fail(str(e), self.name)
 
 
-# ── Disk usage ──────────────────────────────────────────────────────────────
-# Separate from AndroidStorageAdapter above (which is about shared-storage
-# file access via ~/storage) — `df` works regardless of whether the shared
-# storage symlink exists, so it needs its own availability check.
+# ── TTS (Text-to-Speech) ──────────────────────────────────────────────────────
 
+class AndroidTTSAdapter(CapabilityAdapter):
+    """Speak text aloud using termux-tts-speak (Termux:API required)."""
 
-class AndroidDiskUsageAdapter(CapabilityAdapter):
-    name = "android.disk_usage"
+    name = "android.tts"
     priority = 100
 
     def is_available(self) -> bool:
-        return _in_termux() and is_available("df")
+        return _in_termux() and is_available("termux-tts-speak")
 
-    def get_disk_usage(self, path: str = "/data") -> CapabilityResult:
-        result = run(["df", "-h", path], timeout=5)
-        if not result.success or not result.stdout:
-            return CapabilityResult.fail(
-                result.stderr or "df failed", self.name, reason=f"Cannot read disk usage for {path}"
-            )
-        lines = result.stdout.strip().splitlines()
-        if len(lines) < 2:
-            return CapabilityResult.fail("Unexpected df output", self.name)
-        parts = lines[1].split()
-        if len(parts) < 4:
-            return CapabilityResult.fail("Unexpected df output", self.name)
-        return CapabilityResult.ok({"total": parts[1], "used": parts[2], "avail": parts[3]}, self.name)
+    def speak(self, text: str, *, language: str = "pt-BR", pitch: float = 1.0,
+              rate: float = 1.0) -> CapabilityResult:
+        if not text.strip():
+            return CapabilityResult.fail("Empty text", self.name)
+        cmd = [
+            "termux-tts-speak",
+            "-l", language,
+            "-p", str(pitch),
+            "-r", str(rate),
+            text,
+        ]
+        result = run(cmd, timeout=60)
+        if result.success:
+            return CapabilityResult.ok({"spoken": True, "text": text[:80],
+                                        "language": language}, self.name)
+        return CapabilityResult.fail(result.stderr or "TTS failed", self.name,
+            reason="termux-tts-speak returned non-zero",
+            diagnosis=result.stderr,
+            corrective_action=(
+                "pkg install termux-api && "
+                "Settings → Apps → Termux → Permissions → allow all → "
+                "install a TTS engine (e.g. Google TTS) on Android"
+            ))
 
 
-# ── Installed apps ────────────────────────────────────────────────────────────
-# Uses Android's `pm` (package manager) binary, reachable from a plain Termux
-# shell without termux-api. Note: Android's package-visibility filtering may
-# restrict what a non-privileged app like Termux can see without the
-# QUERY_ALL_PACKAGES permission (which Termux doesn't request) — this surfaces
-# whatever the device actually returns rather than assuming completeness.
+# ── SMS ───────────────────────────────────────────────────────────────────────
 
+class AndroidSMSAdapter(CapabilityAdapter):
+    """Send and read SMS via termux-sms-send / termux-sms-inbox (Termux:API required)."""
 
-class AndroidAppsAdapter(CapabilityAdapter):
-    name = "android.apps"
+    name = "android.sms"
     priority = 100
 
     def is_available(self) -> bool:
-        return _in_termux() and is_available("pm")
+        return _in_termux() and is_available("termux-sms-send")
 
-    def list_installed_apps(self) -> CapabilityResult:
-        result = run(["pm", "list", "packages"], timeout=10)
+    def send(self, number: str, message: str) -> CapabilityResult:
+        if not number.strip() or not message.strip():
+            return CapabilityResult.fail("number and message are required", self.name)
+        result = run(["termux-sms-send", "-n", number, message], timeout=30)
+        if result.success:
+            return CapabilityResult.ok({"sent": True, "to": number,
+                                        "chars": len(message)}, self.name)
+        return CapabilityResult.fail(result.stderr or "SMS send failed", self.name,
+            reason="termux-sms-send returned non-zero",
+            diagnosis=result.stderr,
+            corrective_action=(
+                "pkg install termux-api && "
+                "Settings → Apps → Termux → Permissions → SEND_SMS → Allow"
+            ))
+
+    def inbox(self, *, limit: int = 20, offset: int = 0) -> CapabilityResult:
+        if not is_available("termux-sms-inbox"):
+            return CapabilityResult.fail("termux-sms-inbox not found", self.name,
+                corrective_action="pkg install termux-api")
+        result = run(["termux-sms-inbox", "-l", str(limit), "-o", str(offset)], timeout=10)
         if not result.success:
-            return CapabilityResult.fail(
-                result.stderr or "pm list packages failed",
-                self.name,
-                corrective_action="pm requires a real Android/Termux environment",
-            )
-        packages = sorted(
-            line.split(":", 1)[1] for line in result.stdout.strip().splitlines() if line.startswith("package:")
-        )
-        return CapabilityResult.ok({"count": len(packages), "packages": packages}, self.name)
+            return CapabilityResult.fail(result.stderr or "inbox read failed", self.name,
+                corrective_action=(
+                    "Settings → Apps → Termux → Permissions → READ_SMS → Allow"
+                ))
+        try:
+            messages = json.loads(result.stdout)
+            return CapabilityResult.ok({"messages": messages,
+                                        "count": len(messages)}, self.name)
+        except json.JSONDecodeError as e:
+            return CapabilityResult.fail(f"JSON parse error: {e}", self.name,
+                diagnosis=result.stdout[:200])
+
+
+# ── Contacts ──────────────────────────────────────────────────────────────────
+
+class AndroidContactAdapter(CapabilityAdapter):
+    """Read device contacts via termux-contact-list (Termux:API required)."""
+
+    name = "android.contacts"
+    priority = 100
+
+    def is_available(self) -> bool:
+        return _in_termux() and is_available("termux-contact-list")
+
+    def list_contacts(self) -> CapabilityResult:
+        result = run(["termux-contact-list"], timeout=10)
+        if not result.success:
+            return CapabilityResult.fail(result.stderr or "contact list failed", self.name,
+                corrective_action=(
+                    "pkg install termux-api && "
+                    "Settings → Apps → Termux → Permissions → READ_CONTACTS → Allow"
+                ))
+        try:
+            contacts = json.loads(result.stdout)
+            return CapabilityResult.ok({"contacts": contacts,
+                                        "count": len(contacts)}, self.name)
+        except json.JSONDecodeError as e:
+            return CapabilityResult.fail(f"JSON parse error: {e}", self.name)
+
+    def find(self, query: str) -> CapabilityResult:
+        result = self.list_contacts()
+        if not result.success:
+            return result
+        q = query.lower()
+        matches = [
+            c for c in result.data.get("contacts", [])
+            if q in c.get("name", "").lower() or q in c.get("number", "").lower()
+        ]
+        return CapabilityResult.ok({"contacts": matches, "count": len(matches),
+                                    "query": query}, self.name)
 
 
 # ── All Android adapters (for registry auto-registration) ─────────────────────
@@ -528,12 +528,13 @@ ANDROID_ADAPTERS: list[type[CapabilityAdapter]] = [
     AndroidCameraAdapter,
     AndroidMicrophoneAdapter,
     AndroidWakeLockAdapter,
-    AndroidDiskUsageAdapter,
-    AndroidAppsAdapter,
     AndroidIntentAdapter,
     AndroidPermissionAdapter,
     AndroidInfoAdapter,
     AndroidStorageAdapter,
+    AndroidTTSAdapter,
+    AndroidSMSAdapter,
+    AndroidContactAdapter,
 ]
 
 # Backward-compatible alias

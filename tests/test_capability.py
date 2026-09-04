@@ -1,9 +1,9 @@
 """Tests for the capability adapter layer and registry."""
-
 from __future__ import annotations
 
 import sys
 from pathlib import Path
+from unittest.mock import patch, MagicMock
 
 import pytest
 
@@ -14,11 +14,9 @@ if str(ROOT) not in sys.path:
 
 # ── CapabilityResult ──────────────────────────────────────────────────────────
 
-
 class TestCapabilityResult:
     def _cls(self):
         from capability.adapters.base import CapabilityResult
-
         return CapabilityResult
 
     def test_ok_sets_success_true(self):
@@ -31,14 +29,11 @@ class TestCapabilityResult:
 
     def test_fail_sets_success_false(self):
         CR = self._cls()
-        r = CR.fail(
-            "something broke",
-            "adapter",
-            reason="disk full",
-            diagnosis="no space",
-            corrective_action="free space",
-            fallback_provider="other",
-        )
+        r = CR.fail("something broke", "adapter",
+                    reason="disk full",
+                    diagnosis="no space",
+                    corrective_action="free space",
+                    fallback_provider="other")
         assert r.success is False
         assert r.error == "something broke"
         assert r.reason == "disk full"
@@ -67,17 +62,12 @@ class TestCapabilityResult:
 
 # ── CapabilityAdapter base ────────────────────────────────────────────────────
 
-
 class TestCapabilityAdapterBase:
     def _make_adapter(self):
-        from capability.adapters.base import CapabilityAdapter
-
+        from capability.adapters.base import CapabilityAdapter, CapabilityResult
         class Concrete(CapabilityAdapter):
             name = "test"
-
-            def is_available(self):
-                return True
-
+            def is_available(self): return True
         return Concrete()
 
     def test_repr_contains_name(self):
@@ -94,34 +84,12 @@ class TestCapabilityAdapterBase:
         r = a.run_python("x.py")
         assert r.success is False
 
-    def test_default_get_disk_usage_fails(self):
-        a = self._make_adapter()
-        r = a.get_disk_usage()
-        assert r.success is False
-
-    def test_default_get_cpu_info_fails(self):
-        a = self._make_adapter()
-        r = a.get_cpu_info()
-        assert r.success is False
-
-    def test_default_get_memory_info_fails(self):
-        a = self._make_adapter()
-        r = a.get_memory_info()
-        assert r.success is False
-
-    def test_default_list_installed_apps_fails(self):
-        a = self._make_adapter()
-        r = a.list_installed_apps()
-        assert r.success is False
-
 
 # ── CapabilityRegistry ────────────────────────────────────────────────────────
-
 
 class TestCapabilityRegistry:
     def _registry(self):
         from capability.registry import CapabilityRegistry
-
         return CapabilityRegistry()
 
     def test_list_capabilities_returns_dict(self):
@@ -157,19 +125,8 @@ class TestCapabilityRegistry:
     def test_known_capabilities_present(self):
         reg = self._registry()
         names = reg.capability_names()
-        for expected in [
-            "getBattery",
-            "runPython",
-            "readFile",
-            "httpRequest",
-            "getClipboard",
-            "sendNotification",
-            "runGit",
-            "getDiskUsage",
-            "getCpuInfo",
-            "getMemoryInfo",
-            "listInstalledApps",
-        ]:
+        for expected in ["getBattery", "runPython", "readFile", "httpRequest",
+                         "getClipboard", "sendNotification", "runGit"]:
             assert expected in names, f"{expected} missing from registry"
 
     def test_read_file_has_adapter_on_linux(self):
@@ -191,73 +148,12 @@ class TestCapabilityRegistry:
         adapter = reg.get("httpRequest")
         assert adapter is not None  # urllib always available
 
-    def test_disk_usage_has_adapter_on_linux(self):
-        if sys.platform == "win32":
-            pytest.skip("Linux-only")
-        reg = self._registry()
-        adapter = reg.get("getDiskUsage")
-        assert adapter is not None, "getDiskUsage should resolve via LinuxAdapter outside Termux"
-
-    def test_disk_usage_call_returns_real_data_on_linux(self):
-        if sys.platform == "win32":
-            pytest.skip("Linux-only")
-        reg = self._registry()
-        result = reg.call("getDiskUsage", "/")
-        assert result.success is True
-        assert "total" in result.data
-
-    def test_cpu_info_has_adapter_on_linux(self):
-        if sys.platform == "win32":
-            pytest.skip("Linux-only")
-        reg = self._registry()
-        adapter = reg.get("getCpuInfo")
-        assert adapter is not None, "getCpuInfo should resolve via LinuxAdapter outside Termux"
-
-    def test_cpu_info_call_returns_real_data_on_linux(self):
-        if sys.platform == "win32":
-            pytest.skip("Linux-only")
-        reg = self._registry()
-        result = reg.call("getCpuInfo")
-        assert result.success is True
-        assert isinstance(result.data["cores"], int)
-        assert result.data["cores"] > 0
-        assert isinstance(result.data["load_1m"], float)
-
-    def test_memory_info_has_adapter_on_linux(self):
-        if sys.platform == "win32":
-            pytest.skip("Linux-only")
-        reg = self._registry()
-        adapter = reg.get("getMemoryInfo")
-        assert adapter is not None, "getMemoryInfo should resolve via LinuxAdapter outside Termux"
-
-    def test_memory_info_call_returns_real_data_on_linux(self):
-        if sys.platform == "win32":
-            pytest.skip("Linux-only")
-        if not Path("/proc/meminfo").exists():
-            pytest.skip("No /proc/meminfo on this host")
-        reg = self._registry()
-        result = reg.call("getMemoryInfo")
-        assert result.success is True
-        assert result.data["total_mb"] > 0
-        assert 0 <= result.data["percent_used"] <= 100
-
-    def test_list_installed_apps_unavailable_outside_termux(self):
-        import os
-
-        if os.environ.get("PREFIX"):
-            pytest.skip("Running inside Termux — listInstalledApps may resolve for real")
-        reg = self._registry()
-        adapter = reg.get("listInstalledApps")
-        assert adapter is None
-
 
 # ── Termux adapters (unit-level, no real calls) ───────────────────────────────
-
 
 class TestTermuxFilesystemAdapter:
     def _adapter(self):
         from capability.adapters.termux import TermuxFilesystemAdapter
-
         return TermuxFilesystemAdapter()
 
     def test_is_available_on_linux(self):
@@ -294,7 +190,6 @@ class TestTermuxFilesystemAdapter:
 class TestTermuxHTTPAdapter:
     def _adapter(self):
         from capability.adapters.termux import TermuxHTTPAdapter
-
         return TermuxHTTPAdapter()
 
     def test_is_available(self):
@@ -304,7 +199,6 @@ class TestTermuxHTTPAdapter:
 class TestTermuxPackageAdapter:
     def _adapter(self):
         from capability.adapters.termux import TermuxPackageAdapter
-
         return TermuxPackageAdapter()
 
     def test_invalid_package_name_rejected(self):
@@ -322,7 +216,6 @@ class TestTermuxPackageAdapter:
 class TestTermuxShellAdapter:
     def _adapter(self):
         from capability.adapters.termux import TermuxShellAdapter
-
         return TermuxShellAdapter()
 
     def test_empty_args_fails(self):
@@ -339,123 +232,3 @@ class TestTermuxShellAdapter:
     def test_nonexistent_command_fails(self):
         r = self._adapter().run_shell(["__nonexistent_cmd_xyz__"])
         assert r.success is False
-
-
-# ── New Android adapters (Sprint 17, Milestone 1) ─────────────────────────────
-# Parsing logic tested directly with a mocked run() — doesn't require a real
-# Android/Termux device, verified independently of is_available().
-
-
-class TestAndroidDiskUsageAdapter:
-    def _adapter(self):
-        from capability.adapters.android import AndroidDiskUsageAdapter
-
-        return AndroidDiskUsageAdapter()
-
-    def test_parses_df_output(self, monkeypatch):
-        import capability.adapters.android as mod
-
-        fake_result = type(
-            "R",
-            (),
-            {
-                "success": True,
-                "stdout": "Filesystem Size Used Avail Use% Mounted\n/dev/x 10G 3G 7G 30% /data\n",
-                "stderr": "",
-            },
-        )()
-        monkeypatch.setattr(mod, "run", lambda *a, **k: fake_result)
-        r = self._adapter().get_disk_usage("/data")
-        assert r.success is True
-        assert r.data == {"total": "10G", "used": "3G", "avail": "7G"}
-
-    def test_df_failure_reported(self, monkeypatch):
-        import capability.adapters.android as mod
-
-        fake_result = type("R", (), {"success": False, "stdout": "", "stderr": "no such path"})()
-        monkeypatch.setattr(mod, "run", lambda *a, **k: fake_result)
-        r = self._adapter().get_disk_usage("/nope")
-        assert r.success is False
-
-
-class TestAndroidAppsAdapter:
-    def _adapter(self):
-        from capability.adapters.android import AndroidAppsAdapter
-
-        return AndroidAppsAdapter()
-
-    def test_parses_package_list(self, monkeypatch):
-        import capability.adapters.android as mod
-
-        fake_result = type(
-            "R", (), {"success": True, "stdout": "package:com.b.app\npackage:com.a.app\n", "stderr": ""}
-        )()
-        monkeypatch.setattr(mod, "run", lambda *a, **k: fake_result)
-        r = self._adapter().list_installed_apps()
-        assert r.success is True
-        assert r.data["count"] == 2
-        assert r.data["packages"] == ["com.a.app", "com.b.app"]  # sorted
-
-    def test_pm_failure_reported(self, monkeypatch):
-        import capability.adapters.android as mod
-
-        fake_result = type("R", (), {"success": False, "stdout": "", "stderr": "pm not found"})()
-        monkeypatch.setattr(mod, "run", lambda *a, **k: fake_result)
-        r = self._adapter().list_installed_apps()
-        assert r.success is False
-
-
-class TestLinuxAdapterCpuMemoryErrorPaths:
-    """Failure branches for getCpuInfo/getMemoryInfo (Sprint 25 Doctor Flow) —
-    the happy path is already covered by TestCapabilityRegistry's
-    *_on_linux tests; these cover platforms/conditions where the reading
-    itself fails, which must degrade to CapabilityResult.fail, never raise."""
-
-    def _adapter(self):
-        from capability.adapters.linux import LinuxAdapter
-
-        return LinuxAdapter()
-
-    def test_cpu_info_reports_failure_when_getloadavg_unsupported(self, monkeypatch):
-        import capability.adapters.linux as mod
-
-        def _raise():
-            raise OSError("getloadavg not supported")
-
-        monkeypatch.setattr(mod.os, "getloadavg", _raise)
-        r = self._adapter().get_cpu_info()
-        assert r.success is False
-        assert "load average unavailable" in r.reason
-
-    def test_memory_info_reports_failure_when_proc_meminfo_missing(self, monkeypatch):
-        import capability.adapters.linux as mod
-
-        class _FakePath:
-            def __init__(self, *a, **k):
-                pass
-
-            def exists(self):
-                return False
-
-        monkeypatch.setattr(mod, "Path", _FakePath)
-        r = self._adapter().get_memory_info()
-        assert r.success is False
-        assert "meminfo" in r.error.lower()
-
-    def test_memory_info_reports_failure_on_malformed_proc_meminfo(self, monkeypatch):
-        import capability.adapters.linux as mod
-
-        class _FakePath:
-            def __init__(self, *a, **k):
-                pass
-
-            def exists(self):
-                return True
-
-            def read_text(self):
-                return "SomeOtherField:      1234 kB\n"  # no MemTotal line
-
-        monkeypatch.setattr(mod, "Path", _FakePath)
-        r = self._adapter().get_memory_info()
-        assert r.success is False
-        assert "format" in r.error.lower()

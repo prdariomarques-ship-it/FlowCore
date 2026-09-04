@@ -1,0 +1,64 @@
+{
+  "id": "moderate-ia-1m",
+  "name": "Carteira Moderada — R$ 1 milhão — Exposição IA",
+  "currency": "BRL",
+  "reference_value": 1000000,
+  "profile": "moderado",
+  "purpose": "Carteira de referência educacional; monitoramento e alertas, sem execução automática de ordens.",
+  "target_allocation": [
+    {"id":"br_fixed_liquidity","label":"Brasil — reserva de liquidez pós-fixada","class":"renda_fixa_brasil","benchmark":"CDI/Selic","weight":10.0,"amount":100000,"role":"liquidez imediata"},
+    {"id":"br_fixed_opportunity","label":"Brasil — reserva de oportunidade pós-fixada","class":"renda_fixa_brasil","benchmark":"CDI/Selic","weight":5.0,"amount":50000,"role":"dry powder com regra de acionamento"},
+    {"id":"br_fixed_post","label":"Brasil — pós-fixado estrutural","class":"renda_fixa_brasil","benchmark":"CDI/Selic","weight":12.0,"amount":120000,"role":"estabilidade e carrego"},
+    {"id":"br_fixed_pre","label":"Brasil — prefixado","class":"renda_fixa_brasil","benchmark":"Prefixado","weight":6.0,"amount":60000,"role":"diversificação de indexador; risco de marcação a mercado"},
+    {"id":"br_inflation_ima_b5","label":"Brasil — inflação curta/média IMA-B 5","class":"renda_fixa_brasil","benchmark":"IMA-B 5","weight":6.0,"amount":60000,"role":"proteção real com duration menor"},
+    {"id":"br_inflation_ima_b5_plus","label":"Brasil — inflação longa IMA-B 5+","class":"renda_fixa_brasil","benchmark":"IMA-B 5+","weight":6.0,"amount":60000,"role":"proteção real e duration longa; maior sensibilidade a juros"},
+    {"id":"us_treasury","label":"Internacional — US Treasuries","class":"renda_fixa_internacional","benchmark":"Treasury","weight":7.0,"amount":70000,"role":"crédito soberano e diversificação cambial"},
+    {"id":"global_bonds","label":"Internacional — Global Bonds","class":"renda_fixa_internacional","benchmark":"Global Aggregate Bonds","weight":5.0,"amount":50000,"role":"renda fixa global diversificada"},
+    {"id":"corporate_bonds","label":"Internacional — Corporate Bonds investment grade","class":"renda_fixa_internacional","benchmark":"Global IG Corporate Bonds","weight":3.0,"amount":30000,"role":"prêmio de crédito com limite de qualidade"},
+    {"id":"multi_market","label":"Fundos multimercados / hedge funds","class":"multimercado","benchmark":"CDI + risco controlado","weight":10.0,"amount":100000,"role":"diversificação de estratégias e fatores"},
+    {"id":"br_equity_funds","label":"Fundos de ações Brasil","class":"renda_variavel_brasil","benchmark":"Ibovespa / índice amplo","weight":8.0,"amount":80000,"role":"crescimento local diversificado"},
+    {"id":"global_equity","label":"Ações globais diversificadas","class":"renda_variavel_global","benchmark":"MSCI ACWI / índice amplo","weight":10.0,"amount":100000,"role":"crescimento global fora do tema IA"},
+    {"id":"ai_theme","label":"Tema inteligência artificial","class":"renda_variavel_tematica","benchmark":"Índice/ETF amplo de IA e infraestrutura","weight":7.0,"amount":70000,"role":"satélite de crescimento; chips, nuvem e software"},
+    {"id":"real_estate","label":"Alternativos — fundos imobiliários","class":"alternativos","benchmark":"IFIX / renda imobiliária","weight":2.5,"amount":25000,"role":"renda real e diversificação"},
+    {"id":"gold","label":"Alternativos — ouro","class":"alternativos","benchmark":"Ouro","weight":1.5,"amount":15000,"role":"proteção de cauda e diversificação"},
+    {"id":"crypto","label":"Alternativos — criptoativos","class":"alternativos","benchmark":"Cesta cripto limitada","weight":0.5,"amount":5000,"role":"opcional e altamente volátil"},
+    {"id":"stablecoin","label":"Alternativos — stablecoin","class":"alternativos","benchmark":"USD tokenizado","weight":0.25,"amount":2500,"role":"liquidez digital; risco de emissor e plataforma"},
+    {"id":"industrial_metals","label":"Alternativos — prata, paládio e cobre","class":"alternativos","benchmark":"Cesta de commodities metálicas","weight":0.25,"amount":2500,"role":"diversificação cíclica"}
+  ],
+  "sleeve_limits": {
+    "renda_fixa_total_min": 55.0,
+    "renda_fixa_total_max": 65.0,
+    "ai_theme_min": 4.0,
+    "ai_theme_max": 10.0,
+    "alternativos_max": 7.0,
+    "single_issuer_max": 2.0,
+    "liquidity_floor": 10.0,
+    "opportunity_reserve_target": 5.0
+  },
+  "review_policy": {
+    "frequency": "daily",
+    "mode": "review_and_alert_only",
+    "automatic_orders": false,
+    "rebalance_trigger_relative_drift_pct": 20.0,
+    "rebalance_trigger_absolute_points": 3.0,
+    "event_triggers": [
+      "decision or communication from central banks",
+      "inflation or employment release",
+      "BRL or USD move above 2 percent in a day",
+      "broad equity index move above 3 percent in a day",
+      "material credit, issuer, fund or counterparty event",
+      "earnings, guidance or regulatory event for AI exposure",
+      "liquidity reserve below floor",
+      "portfolio sleeve outside hard limits"
+    ],
+    "daily_output": [
+      "target versus current weight",
+      "drift and contribution to risk",
+      "events detected and source timestamp",
+      "liquidity and concentration warnings",
+      "proposed rebalance, if any",
+      "human approval required before any order"
+    ]
+  },
+  "disclaimer": "Modelo de referência educacional, não recomendação individual nem ordem de investimento. Produtos, tributação, custos, suitability, liquidez e proteção devem ser confirmados antes de qualquer aplicação."
+}

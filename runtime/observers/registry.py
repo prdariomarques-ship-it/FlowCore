@@ -33,13 +33,7 @@ class ObserverRegistry:
 
 
 def _default_observers() -> list[Observer]:
-    # yfinance/pandas are API-tier deps (requirements-api.txt), absent on the
-    # core tier (requirements-core.txt — Android/Termux, zero compilation).
-    # Degrade to an empty registry there instead of crashing at import time.
-    try:
-        from runtime.observers.market_observers import default_yfinance_observers
-    except ImportError:
-        return []
+    from runtime.observers.market_observers import default_yfinance_observers
 
     return default_yfinance_observers()
 

@@ -1,8 +1,9 @@
 """FlowCore — Passport generator."""
-
 from __future__ import annotations
 
+import time
 from pathlib import Path
+from typing import Any
 
 from loguru import logger
 
@@ -51,10 +52,7 @@ class PassportGenerator:
         )
         logger.info(
             "Passport issued: agent={} caps={} health={} ttl={}s",
-            agent.name,
-            len(caps),
-            health,
-            self.ttl,
+            agent.name, len(caps), health, self.ttl,
         )
         return passport
 
@@ -84,7 +82,6 @@ class PassportGenerator:
     def _available_capabilities(self) -> list[str]:
         try:
             from capability.registry import CapabilityRegistry
-
             reg = CapabilityRegistry()
             return [cap for cap, adapter in reg.list_capabilities().items() if adapter]
         except Exception:
@@ -93,7 +90,6 @@ class PassportGenerator:
     def _health_status(self) -> str:
         try:
             from doctor.service import DoctorService
-
             report = DoctorService().run(verbose=False)
             if report.failed > 0:
                 return "unhealthy"
@@ -106,9 +102,10 @@ class PassportGenerator:
     def _check_internet(self) -> bool:
         try:
             import socket
-
             socket.setdefaulttimeout(3)
-            socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect(("8.8.8.8", 53))
+            socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect(
+                ("8.8.8.8", 53)
+            )
             return True
         except Exception:
             return False

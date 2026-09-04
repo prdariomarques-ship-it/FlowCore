@@ -25,9 +25,8 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .bn{font-size:17px;font-weight:700;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .bs{font-size:10px;color:var(--text2);margin-top:1px}
 .hr{display:flex;align-items:center;gap:8px}
-.sdot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite;flex-shrink:0}
+.sdot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite}
 .sdot.off{background:var(--red);box-shadow:0 0 6px var(--red);animation:none}
-.sdot.warn{background:var(--yellow);box-shadow:0 0 6px var(--yellow);animation:none}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
 .btn-sm{background:var(--bg3);border:1px solid var(--border);color:var(--accent);padding:5px 11px;border-radius:8px;font-size:12px;cursor:pointer}
 .btn-sm:hover{background:var(--border)}
@@ -38,11 +37,6 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 
 /* Cards */
 .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:15px;box-shadow:var(--shadow)}
-.int-card{transition:transform .2s,border-color .2s}
-.int-card:hover{transform:translateY(-2px);border-color:var(--accent)}
-.int-err{color:var(--red);font-size:11px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border)}
-.int-caps{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
-.int-cap-chip{background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:2px 8px;font-size:10px;color:var(--text2)}
 .ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}
 .ct{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text2)}
 .ci{font-size:15px}
@@ -112,8 +106,6 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .sys-card{background:var(--bg3);border-radius:10px;padding:12px;text-align:center}
 .sys-val{font-size:26px;font-weight:700;color:var(--accent)}
 .sys-lbl{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
-.battery-bar{width:100%;height:6px;background:var(--border);border-radius:3px;margin-top:8px;overflow:hidden}
-.battery-fill{height:100%;border-radius:3px;transition:width .5s}
 
 /* Search results */
 .sr-section{margin-bottom:14px}
@@ -144,8 +136,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 
 /* Bottom nav */
 .nav{position:fixed;bottom:0;left:0;right:0;background:rgba(17,24,39,.96);border-top:1px solid var(--border);display:flex;backdrop-filter:blur(10px);z-index:100}
-.ni{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;padding:9px 0 13px;gap:3px;cursor:pointer;color:var(--text2);font-size:9px;font-weight:500;border:none;background:none;transition:color .2s}
-.ni span:last-child{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ni{flex:1;display:flex;flex-direction:column;align-items:center;padding:9px 0 13px;gap:3px;cursor:pointer;color:var(--text2);font-size:9px;font-weight:500;border:none;background:none;transition:color .2s}
 .ni.active{color:var(--accent)}
 .ni:hover{color:var(--text)}
 .ni-icon{font-size:19px}
@@ -159,31 +150,30 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .ks{flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:7px;border-radius:8px;font-size:12px;text-align:center;cursor:pointer;transition:all .2s}
 .ks.active{color:var(--accent);border-color:var(--accent);background:rgba(0,212,255,.08)}
 
-/* Dashboard */
-.chart-svg{width:100%;height:110px;display:block}
-.chart-bar-ok{fill:var(--green)}
-.chart-bar-fail{fill:var(--red)}
-.chart-label{fill:var(--text2);font-size:7px}
-.flow-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);gap:8px}
-.flow-row:last-child{border-bottom:none}
-.flow-name{font-size:13px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.flow-meta{font-size:11px;color:var(--text2)}
-.run-btn{background:rgba(0,212,255,.15);border:1px solid rgba(0,212,255,.35);color:var(--accent);padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0}
-.run-btn:hover{background:rgba(0,212,255,.28)}
-.run-btn:disabled{opacity:.5;cursor:default}
-.exec-row{background:var(--bg3);border-radius:8px;padding:9px 11px;margin-bottom:6px;font-size:13px}
-.exec-row .exec-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;gap:8px}
-.exec-name{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.exec-sub{color:var(--text2);font-size:11px}
-
-/* Chat */
-.chat-log{display:flex;flex-direction:column;gap:10px;max-height:60vh;overflow-y:auto;padding-bottom:2px}
-.msg{max-width:85%;padding:9px 12px;border-radius:12px;font-size:13px;line-height:1.45;word-break:break-word;white-space:pre-wrap}
-.msg.user{align-self:flex-end;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border-bottom-right-radius:3px}
-.msg.bot{align-self:flex-start;background:var(--bg3);border:1px solid var(--border);border-bottom-left-radius:3px}
-.msg.thinking{color:var(--text2);font-style:italic;animation:pulse 1.6s infinite}
-.if:disabled{opacity:.5}
-.bs2:disabled{opacity:.5;cursor:default}
+/* Finance */
+.metric-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.metric{background:var(--bg3);border-radius:10px;padding:12px}
+.metric strong{display:block;font-size:22px;color:var(--accent);margin-top:4px}
+.metric small{color:var(--text2);font-size:10px}
+.alloc-row{display:grid;grid-template-columns:1fr 42px;gap:8px;align-items:center;margin:9px 0;font-size:12px}
+.alloc-label{color:var(--text2)}
+.alloc-bar{grid-column:1/3;height:6px;background:var(--border);border-radius:6px;overflow:hidden;margin-top:-5px}
+.alloc-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:6px}
+/* Agents */
+.agent-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:13px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.agent-info{flex:1;min-width:0}
+.agent-name{font-weight:700;font-size:14px;color:var(--accent)}
+.agent-desc{font-size:11px;color:var(--text2);margin-top:2px}
+.btn-run{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:8px;color:#fff;font-size:12px;font-weight:700;padding:7px 14px;cursor:pointer;white-space:nowrap;transition:opacity .2s}
+.btn-run:hover{opacity:.85}
+.btn-run:disabled{opacity:.4;cursor:not-allowed}
+.task-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg3);border-radius:8px;font-size:12px;margin-bottom:5px}
+.task-agent{font-weight:600;color:var(--text);flex:0 0 70px}
+.task-status{flex:0 0 80px}
+.task-dur{color:var(--text2);flex:0 0 42px;text-align:right}
+.task-id{color:var(--text2);font-size:10px;font-family:monospace;flex:1;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spin{display:inline-block;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -204,230 +194,61 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 
 <div class="wrap">
 
-  <!-- ══ HOME ══ -->
+  <!-- ══ VISÃO FINANCEIRA ══ -->
   <div class="page active" id="page-home">
     <div class="gap">
-      <!-- Stats -->
       <div class="card">
-        <div class="sg">
-          <div class="st"><div class="sv" id="s-caps">─</div><div class="sl">Caps</div></div>
-          <div class="st"><div class="sv" id="s-doc">─</div><div class="sl">Doctor</div></div>
-          <div class="st"><div class="sv" id="s-mem">─</div><div class="sl">Memórias</div></div>
-          <div class="st"><div class="sv" id="s-notes">─</div><div class="sl">Notas</div></div>
+        <div class="ch"><span class="ct">Visão financeira</span><span class="tag ty">Referência</span></div>
+        <div class="metric-grid">
+          <div class="metric"><small>Carteira-modelo</small><strong>R$ 1,0 mi</strong><span class="tag tp">Moderada</span></div>
+          <div class="metric"><small>Exposição IA</small><strong>7%</strong><span class="tag tg">Satélite</span></div>
+          <div class="metric"><small>Renda fixa total</small><strong>60%</strong><span class="tag tg">Âncora</span></div>
+          <div class="metric"><small>Revisão</small><strong id="review-status">Diária</strong><span class="tag ty">Sem ordens</span></div>
         </div>
       </div>
-
-      <!-- Daemon -->
       <div class="card">
-        <div class="ch"><span class="ct">Daemon</span><span class="ci">⚙️</span></div>
-        <div class="row"><span class="rl">Estado</span><span class="rv" id="d-state"><span class="tag ty">─</span></span></div>
-        <div class="row"><span class="rl">PID</span><span class="rv" id="d-pid" style="color:var(--text2)">─</span></div>
-        <div class="row"><span class="rl">Uptime</span><span class="rv" id="d-up" style="color:var(--text2)">─</span></div>
-        <div class="row"><span class="rl">Ciclo heartbeat</span><span class="rv" id="d-cyc" style="color:var(--text2)">─</span></div>
-        <div class="btns">
-          <button class="btn bg" onclick="da('start')">▶ Iniciar</button>
-          <button class="btn br" onclick="da('stop')">■ Parar</button>
-        </div>
+        <div class="ch"><span class="ct">Mercado</span><span class="ci">📈</span></div>
+        <div class="row"><span class="rl">USD/BRL PTAX</span><span class="rv" id="market-usd">A carregar…</span></div>
+        <div class="row"><span class="rl">Ibovespa</span><span class="rv" id="market-ibov">A carregar…</span></div>
+        <div class="row"><span class="rl">Atualização</span><span class="rv" id="market-updated" style="color:var(--text2)">A carregar…</span></div>
       </div>
-
-      <!-- Notificação -->
       <div class="card">
-        <div class="ch"><span class="ct">Notificação Android</span><span class="ci">🔔</span></div>
-        <div class="ir">
-          <input class="if" id="n-text" placeholder="Mensagem para o Android...">
-          <button class="bs2" onclick="sendNotify()">🔔</button>
-        </div>
-        <div class="row" style="padding-top:0;border:none">
-          <span class="rl">via termux-notification</span>
-          <span class="tag ty" id="n-status">nativo Android</span>
-        </div>
+        <div class="ch"><span class="ct">Macro</span><span class="ci">🌐</span></div>
+        <div class="row"><span class="rl">Selic</span><span class="rv" id="macro-selic">A carregar…</span></div>
+        <div class="row"><span class="rl">IPCA acumulado 12m</span><span class="rv" id="macro-ipca">A carregar…</span></div>
+        <div class="row"><span class="rl">Fontes</span><span class="rv" id="macro-source" style="color:var(--text2)">BCB / Yahoo</span></div>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="ct">IA no portfólio</span><span class="ci">🧠</span></div>
+        <div class="row"><span class="rl">Papel</span><span class="rv">Crescimento satélite</span></div>
+        <div class="row"><span class="rl">Limite operacional</span><span class="rv">4%–10%</span></div>
+        <div class="row"><span class="rl">Concentração por emissor</span><span class="rv">Máx. 2%</span></div>
       </div>
     </div>
   </div>
 
-  <!-- ══ DASHBOARD ══ -->
-  <div class="page" id="page-dashboard">
+  <!-- ══ PORTFOLIO ══ -->
+  <div class="page" id="page-portfolio"><div class="gap">
+    <div class="card"><div class="ch"><span class="ct">Carteira moderada</span><span class="tag tp">R$ 1.000.000</span></div><div id="portfolio-summary"><div class="sk"></div><div class="sk"></div></div></div>
+    <div class="card"><div class="ch"><span class="ct">Alocação por classe</span><span class="ci">◒</span></div><div id="portfolio-exposure"><div class="sk"></div></div></div>
+    <div class="card"><div class="ch"><span class="ct">Revisão diária</span><button class="btn-sm" onclick="loadPortfolio(true)">↻ Revisar</button></div><div id="portfolio-review"><div class="empty">A revisão é informacional e não executa ordens.</div></div></div>
+  </div></div>
+
+  <!-- ══ IA ══ -->
+  <div class="page" id="page-ai"><div class="gap">
+    <div class="card"><div class="ch"><span class="ct">Exposição à inteligência artificial</span><span class="tag tg">7% alvo</span></div><div class="metric-grid"><div class="metric"><small>Valor de referência</small><strong>R$ 70 mil</strong></div><div class="metric"><small>Faixa permitida</small><strong>4%–10%</strong></div></div></div>
+    <div class="card"><div class="ch"><span class="ct">Subtemas acompanhados</span><span class="ci">◈</span></div><div class="row"><span class="rl">Semicondutores</span><span class="tag ty">Cíclico</span></div><div class="row"><span class="rl">Nuvem e infraestrutura</span><span class="tag tg">Estrutural</span></div><div class="row"><span class="rl">Software e aplicações</span><span class="tag tp">Crescimento</span></div><div class="row"><span class="rl">Risco principal</span><span class="rv" style="color:var(--text2)">Concentração/valuation</span></div></div>
+    <div class="card"><div class="ch"><span class="ct">Gatilhos de revisão</span><span class="ci">⚠</span></div><div class="empty">Resultados, guidance, regulação, mudança de capex, choque de crédito ou variação relevante do índice temático. O FlowCore apenas alerta e solicita confirmação humana.</div></div>
+  </div></div>
+
+
+  <!-- ══ ADMINISTRATIVO ══ -->
+  <div class="page" id="page-admin">
     <div class="gap">
-      <div class="card">
-        <div class="sg">
-          <div class="st"><div class="sv" id="dash-flows">─</div><div class="sl">Flows</div></div>
-          <div class="st"><div class="sv" id="dash-execs">─</div><div class="sl">Execuções</div></div>
-          <div class="st"><div class="sv" id="dash-success">0%</div><div class="sl">Sucesso</div></div>
-          <div class="st"><div class="sv" id="dash-fail">─</div><div class="sl">Falhas</div></div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="ch"><span class="ct">Execuções (últimos 14 dias)</span><span class="ci">📈</span></div>
-        <svg class="chart-svg" id="exec-chart" viewBox="0 0 280 100" preserveAspectRatio="none"></svg>
-      </div>
-
-      <div class="card">
-        <div class="ch"><span class="ct">Flows</span><span class="ci">🧩</span></div>
-        <div id="flows-list"><div class="sk"></div><div class="sk"></div></div>
-      </div>
-
-      <div class="card">
-        <div class="ch"><span class="ct">Execuções recentes</span><span class="ci">🕓</span></div>
-                <div id="exec-list"><div class="sk"></div><div class="sk"></div></div>
-      </div>
-      <div class="card">
-        <div class="ch"><span class="ct">Mercado · Macro Score</span><span class="ci">🌎</span></div>
-        <div id="dash-market"><div class="sk"></div></div>
-      </div>
-    </div>
-  </div>
-  <!-- ══ PORTFÓLIO (Sprint 21-23 — Portfolio Domain / Exposure / Impact Engine) ══ -->
-  <div class="page" id="page-portfolio">
-    <div class="gap">
-      <div class="card">
-        <div class="ch"><span class="ct">Portfólio</span><span class="ci">💼</span></div>
-        <div class="ir"><select class="if" id="pf-select" onchange="onPortfolioSelect()"></select>
-          <button class="btn-sm" onclick="pfCreatePrompt()">+ Criar</button></div>
-        <div class="sg" id="pf-summary"></div>
-      </div>
-
-      <div class="card">
-        <div class="ch"><span class="ct">Impacto Macro</span><span class="ci">🌎</span></div>
-        <div id="pf-impact"><div class="sk"></div><div class="sk"></div></div>
-      </div>
-
-      <div class="card">
-        <div class="ch"><span class="ct">Decisão</span><span class="ci">🎯</span></div>
-        <div class="ir"><select class="if" id="pf-shelf" onchange="onShelfChange()"></select></div>
-        <div id="pf-decision-summary"><div class="sk"></div></div>
-      </div>
-
-      <div class="card">
-        <div class="ch"><span class="ct">Score do Portfólio</span><span class="ci">🧮</span></div>
-        <div id="pf-score"><div class="sk"></div></div>
-      </div>
-
-      <div class="card">
-        <div class="ch"><span class="ct">Fila de Decisões</span><span class="ci">📋</span></div>
-        <div id="pf-decision-queue"><div class="sk"></div></div>
-      </div>
-
-      <div class="card">
-        <div class="ch"><span class="ct">Narrativa</span><span class="ci">📖</span></div>
-        <button class="btn-sm" onclick="loadPortfolioNarrative()">Gerar narrativa</button>
-        <div id="pf-narrative" style="margin-top:10px"></div>
-      </div>
-
-      <div class="card">
-        <div class="ch"><span class="ct">Recomendações</span><span class="ci">💡</span></div>
-        <div id="pf-recs"><div class="sk"></div></div>
-      </div>
-
-      <div class="card">
-        <div class="ch"><span class="ct">Holdings</span><span class="ci">📄</span></div>
-        <div class="ir"><input class="if" id="hold-sym" placeholder="Símbolo (ex: AAPL)">
-          <input class="if" id="hold-qty" type="number" step="any" placeholder="Qtde">
-          <input class="if" id="hold-cost" type="number" step="any" placeholder="Custo médio">
-          <button class="bs2" onclick="holdAdd()">✓</button></div>
-        <div id="pf-holdings"><div class="sk"></div></div>
-      </div>
-    </div>
-  </div>
-  <!-- ══ MERCADO ══ -->
-  <div class="page" id="page-market">
-    <div class="gap">
-      <div class="card">
-        <div class="ch"><span class="ct">Mercado</span><span class="ci">🌎</span></div>
-        <div class="row" style="padding-top:0;border:none">
-          <span class="rl">Dados reais: observers, Macro Score, Regime e portfólio</span>
-          <button class="btn-sm" onclick="loadMarket()">↻ Atualizar</button>
-        </div>
-      </div>
-      <div id="mk-scores"><div class="sk"></div><div class="sk"></div></div>
-      <div id="mk-events"><div class="sk"></div><div class="sk"></div></div>
-      <div id="mk-impact"><div class="sk"></div><div class="sk"></div></div>
-    </div>
-  </div>
-
-  <!-- ══ CALENDÁRIO ══ -->
-  <div class="page" id="page-calendar">
-    <div class="gap">
-      <div class="card">
-        <div class="ch"><span class="ct">Próxima reunião</span><span class="ci">⏰</span></div>
-        <div id="cal-next"><div class="sk"></div></div>
-      </div>
-
-      <div class="card">
-        <div class="ch"><span class="ct">Hoje</span><span class="ci">📅</span></div>
-        <div id="cal-today"><div class="sk"></div><div class="sk"></div></div>
-      </div>
-
-      <div class="card">
-        <div class="ch"><span class="ct">Esta semana</span><span class="ci">🗓️</span></div>
-        <div id="cal-week"><div class="sk"></div><div class="sk"></div></div>
-      </div>
-
-      <div class="card">
-        <div class="ch"><span class="ct">Pesquisar eventos</span><span class="ci">🔍</span></div>
-        <div class="ir">
-          <input class="if" id="cal-search-inp" placeholder="Pesquisar eventos...">
-          <button class="bs2" onclick="calSearch()">🔍</button>
-        </div>
-        <div id="cal-search-results"></div>
-      </div>
-
-      <div class="card">
-        <div class="ch"><span class="ct">Novo evento</span><span class="ci">➕</span></div>
-        <div class="ir"><input class="if" id="cal-subject" placeholder="Título"></div>
-        <div class="ir"><input class="if" id="cal-start" type="datetime-local"></div>
-        <div class="ir"><input class="if" id="cal-end" type="datetime-local"></div>
-        <div class="ir"><input class="if" id="cal-location" placeholder="Local (opcional)"></div>
-        <div class="ir"><input class="if" id="cal-attendees" placeholder="Participantes, separados por vírgula (opcional)"></div>
-        <div class="ir"><input class="if" id="cal-description" placeholder="Descrição (opcional)"></div>
-        <button class="btn bg" style="width:100%" onclick="calCreate()">✓ Criar evento</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══ INTEGRAÇÕES ══ -->
-  <div class="page" id="page-integrations">
-    <div class="gap">
-      <div class="card">
-        <div class="ch"><span class="ct">Integrações</span><span class="ci">🔌</span></div>
-        <div class="row" style="padding-top:0;border:none">
-          <span class="rl">Verificação ao vivo, sem histórico</span>
-          <button class="btn-sm" onclick="loadIntegrations()">↻ Verificar</button>
-        </div>
-      </div>
-      <div id="integrations-list"><div class="sk"></div><div class="sk"></div><div class="sk"></div></div>
-    </div>
-  </div>
-
-  <!-- ══ SISTEMA ══ -->
-  <div class="page" id="page-sys">
-    <div class="gap">
-      <div class="card" id="sys-battery-card">
-        <div class="ch"><span class="ct">Bateria</span><span class="ci">🔋</span></div>
-        <div class="sk"></div><div class="sk"></div>
-      </div>
+      <div class="card"><div class="ch"><span class="ct">Daemon FlowCore</span><span class="ci">⚙</span></div><div class="row"><span class="rl">Estado</span><span class="rv" id="d-state"><span class="tag ty">─</span></span></div><div class="row"><span class="rl">PID / uptime / ciclo</span><span class="rv" id="d-pid">─</span></div><div class="row"><span class="rl">Detalhe</span><span class="rv" id="d-up" style="color:var(--text2)">─</span></div><div class="row"><span class="rl">Heartbeat</span><span class="rv" id="d-cyc" style="color:var(--text2)">─</span></div><div class="btns"><button class="btn bg" onclick="da('start')">▶ Iniciar</button><button class="btn br" onclick="da('stop')">■ Parar</button></div></div>
+      <div class="card"><div class="ch"><span class="ct">Notificação Android</span><span class="ci">🔔</span></div><div class="ir"><input class="if" id="n-text" placeholder="Mensagem para o Android..."><button class="bs2" onclick="sendNotify()">🔔</button></div><div class="row" style="padding-top:0;border:none"><span class="rl">via Termux API</span><span class="tag ty" id="n-status">nativo Android</span></div></div>
       <div class="card" id="sys-storage-card">
         <div class="ch"><span class="ct">Armazenamento</span><span class="ci">💾</span></div>
-        <div class="sk"></div>
-      </div>
-      <div class="card" id="sys-wifi-card">
-        <div class="ch"><span class="ct">Wifi</span><span class="ci">📶</span></div>
-        <div class="sk"></div>
-      </div>
-      <div class="card" id="sys-clipboard-card">
-        <div class="ch"><span class="ct">Clipboard</span><span class="ci">📋</span></div>
-        <div class="ir">
-          <input class="if" id="clip-inp" placeholder="Texto para copiar...">
-          <button class="bs2" onclick="setClipboard()">✓</button>
-        </div>
-        <div class="row" style="padding-top:0;border:none">
-          <span class="rl">Conteúdo atual</span>
-          <button class="btn-sm" onclick="loadClipboard()">↻ Ler</button>
-        </div>
-        <div id="clip-content" class="exec-sub" style="margin-top:6px;word-break:break-all"></div>
-      </div>
-      <div class="card" id="sys-apps-card">
-        <div class="ch"><span class="ct">Apps instalados</span><span class="ci">📱</span></div>
         <div class="sk"></div>
       </div>
       <div class="card" id="sys-passport-card">
@@ -503,58 +324,64 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
     </div>
   </div>
 
-  <!-- ══ CHAT ══ -->
-  <div class="page" id="page-chat">
+  <!-- ══ AGENTES ══ -->
+  <div class="page" id="page-agents">
     <div class="gap">
-      <div class="card">
-        <div class="ch"><span class="ct">Chat local</span><span class="ci">💬</span></div>
-        <div class="chat-log" id="chat-log">
-          <div class="empty">Faz uma pergunta ao modelo local.<br>Pode demorar — modelos maiores levam mais tempo a responder.</div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="ir">
-          <input class="if" id="chat-inp" placeholder="Escreve a tua pergunta...">
-          <button class="bs2" id="chat-send" onclick="sendChat()">➤</button>
-        </div>
-      </div>
-    </div>
-  </div>
 
-  <!-- ══ CONFIGURAÇÕES ══ -->
-  <div class="page" id="page-settings">
-    <div class="gap">
+      <!-- Agent cards -->
       <div class="card">
-        <div class="ch"><span class="ct">FlowCore</span><span class="ci">⚙️</span></div>
-        <div class="row"><span class="rl">Versão</span><span class="rv" id="set-version">─</span></div>
-        <div class="row"><span class="rl">Plataforma</span><span class="rv" id="set-platform">─</span></div>
-        <div class="row"><span class="rl">Python</span><span class="rv" id="set-python">─</span></div>
+        <div class="ch"><span class="ct">Agentes disponíveis</span><span class="ci">🤖</span></div>
+        <div id="agent-cards" style="display:flex;flex-direction:column;gap:8px">
+          <div class="sk" style="height:52px"></div>
+          <div class="sk" style="height:52px"></div>
+        </div>
       </div>
+
+      <!-- Task result preview -->
+      <div class="card" id="agent-result-card" style="display:none">
+        <div class="ch"><span class="ct" id="agent-result-title">Resultado</span><span class="ci" id="agent-result-icon">⏳</span></div>
+        <pre id="agent-result" style="font-size:11px;color:var(--text2);white-space:pre-wrap;word-break:break-all;max-height:260px;overflow-y:auto;background:var(--bg3);border-radius:8px;padding:10px"></pre>
+      </div>
+
+      <!-- Task history -->
       <div class="card">
-        <div class="ch"><span class="ct">Modelo local (Ollama)</span><span class="ci">🧠</span></div>
-        <div class="row"><span class="rl">Endpoint</span><span class="rv" id="set-ollama-host">─</span></div>
-        <div class="row"><span class="rl">Modelo ativo</span><span class="rv" id="set-ollama-model">─</span></div>
-        <div id="set-ollama-error"></div>
+        <div class="ch">
+          <span class="ct">Histórico de tarefas</span>
+          <button class="btn-sm" onclick="loadAgents()">↻</button>
+        </div>
+        <div id="task-history"><div class="sk"></div><div class="sk"></div></div>
       </div>
+
+      <!-- Flows list -->
+      <div class="card">
+        <div class="ch">
+          <span class="ct">Flows</span>
+          <button class="btn-sm" onclick="loadFlows()">↻</button>
+        </div>
+        <div id="flow-cards" style="display:flex;flex-direction:column;gap:8px">
+          <div class="sk" style="height:42px"></div>
+        </div>
+      </div>
+
+      <!-- Flow run result -->
+      <div class="card" id="flow-result-card" style="display:none">
+        <div class="ch"><span class="ct" id="flow-result-title">Flow resultado</span><span class="ci" id="flow-result-icon">⏳</span></div>
+        <pre id="flow-result" style="font-size:11px;color:var(--text2);white-space:pre-wrap;word-break:break-all;max-height:260px;overflow-y:auto;background:var(--bg3);border-radius:8px;padding:10px"></pre>
+      </div>
+
     </div>
   </div>
 
 </div>
 
-<!-- Bottom nav -->
+  <!-- Bottom nav -->
 <div class="nav">
-  <button class="ni active" onclick="pg('home',this)"><span class="ni-icon">🏠</span><span>Início</span></button>
-  <button class="ni" onclick="pg('dashboard',this)"><span class="ni-icon">📈</span><span>Dashboard</span></button>
-  <button class="ni" onclick="pg('portfolio',this)"><span class="ni-icon">💼</span><span>Portfólio</span></button>
-  <button class="ni" onclick="pg('market',this)"><span class="ni-icon">🌎</span><span>Mercado</span></button>
-  <button class="ni" onclick="pg('calendar',this)"><span class="ni-icon">📅</span><span>Calendário</span></button>
-  <button class="ni" onclick="pg('integrations',this)"><span class="ni-icon">🔌</span><span>Integrações</span></button>
-  <button class="ni" onclick="pg('sys',this)"><span class="ni-icon">📊</span><span>Sistema</span></button>
-  <button class="ni" onclick="pg('caps',this)"><span class="ni-icon">⚡</span><span>Caps</span></button>
+  <button class="ni active" onclick="pg('home',this)"><span class="ni-icon">⌂</span><span>Visão</span></button>
+  <button class="ni" onclick="pg('portfolio',this)"><span class="ni-icon">◒</span><span>Carteira</span></button>
+  <button class="ni" onclick="pg('ai',this)"><span class="ni-icon">✦</span><span>IA</span></button>
   <button class="ni" onclick="pg('mem',this)"><span class="ni-icon">🧠</span><span>Memórias</span></button>
-  <button class="ni" onclick="pg('notes',this)"><span class="ni-icon">📝</span><span>Notas</span></button>
-  <button class="ni" onclick="pg('chat',this)"><span class="ni-icon">💬</span><span>Chat</span></button>
-  <button class="ni" onclick="pg('settings',this)"><span class="ni-icon">⚙️</span><span>Config</span></button>
+  <button class="ni" onclick="pg('agents',this)"><span class="ni-icon">⚙</span><span>Agentes</span></button>
+  <button class="ni" onclick="pg('admin',this)"><span class="ni-icon">▣</span><span>Admin</span></button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -569,14 +396,10 @@ function pg(name,btn){
   document.querySelectorAll('.ni').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   btn.classList.add('active');
-  if(name==='dashboard') loadDashboard();
-  if(name==='portfolio') loadPortfolios();
-  if(name==='market') loadMarket();
-  if(name==='calendar') loadCalendar();
-  if(name==='integrations') loadIntegrations();
-  if(name==='sys') loadSys();
+  if(name==='admin') loadSys();
+  if(name==='portfolio') loadPortfolio();
   if(name==='notes') loadNotes();
-  if(name==='settings') loadSettings();
+  if(name==='agents'){loadAgents();loadFlows();}
 }
 
 /* ── Toast ── */
@@ -590,17 +413,14 @@ function toast(m,ms=2500){
 /* ── API ── */
 async function api(path,opts={}){
   const r=await fetch(API+path,{headers:{'Content-Type':'application/json'},...opts});
-  if(!r.ok){
-    let detail=String(r.status);
-    try{ const body=await r.json(); if(body.detail) detail=body.detail; }catch(e){}
-    throw new Error(detail);
-  }
+  if(!r.ok) throw new Error(r.status);
   return r.json();
 }
 
 /* ── Refresh ── */
 async function refresh(){
   const dot=document.getElementById('dot');
+  loadMarketSnapshot();
   try{
     const [s,mems,notes]=await Promise.all([
       api('/api/status'),
@@ -620,6 +440,29 @@ async function refresh(){
   }
 }
 
+/* ── Mercado e macro — fontes públicas, sem valores sintetizados ── */
+function marketValue(value, suffix=''){
+  return value===null||value===undefined?'Sem dados':new Intl.NumberFormat('pt-BR',{maximumFractionDigits:2}).format(value)+suffix;
+}
+async function loadMarketSnapshot(){
+  const set=(id,value)=>{const e=document.getElementById(id);if(e)e.textContent=value;};
+  try{
+    const data=await api('/api/market/snapshot');
+    set('market-usd',marketValue(data.brl_usd,' R$'));
+    const ibov=data.ibov_last===null||data.ibov_last===undefined?'Sem dados':marketValue(data.ibov_last)+(data.ibov_change_pct===null||data.ibov_change_pct===undefined?'':' ('+(data.ibov_change_pct>=0?'+':'')+marketValue(data.ibov_change_pct,'%')+')');
+    set('market-ibov',ibov);
+    set('macro-selic',marketValue(data.selic_rate,'% a.a.'));
+    set('macro-ipca',marketValue(data.ipca_12m,'%'));
+    const sources=Object.values(data.observations||{}).filter(o=>o&&o.available).map(o=>o.source).filter(Boolean);
+    set('macro-source',sources.length?[...new Set(sources)].join(' / '):'Sem dados de fonte');
+    set('market-updated',data.timestamp?'Atualizado '+new Date(data.timestamp).toLocaleTimeString('pt-BR'):'Sem timestamp');
+  }catch(e){
+    ['market-usd','market-ibov','macro-selic','macro-ipca'].forEach(id=>set(id,'Sem dados'));
+    set('market-updated','Fonte indisponível');
+    set('macro-source','Sem dados de fonte');
+  }
+}
+
 /* ── Status ── */
 function renderStatus(s){
   const caps=s.capabilities||{};
@@ -631,16 +474,19 @@ function renderStatus(s){
   const ok=chks.filter(c=>c.status==='ok').length;
   document.getElementById('s-doc').textContent=ok+'/'+chks.length;
 
-  // Daemon
+  // Daemon (renderizado apenas na tela Admin)
   const d=s.daemon||{};
-  if(d.running){
-    document.getElementById('d-state').innerHTML='<span class="tag tg">● Ativo</span>';
-    document.getElementById('d-pid').textContent=d.pid;
-    document.getElementById('d-up').textContent=fup(d.uptime||0);
-    document.getElementById('d-cyc').textContent='#'+(d.cycle||0);
-  }else{
-    document.getElementById('d-state').innerHTML='<span class="tag tr">○ Parado</span>';
-    ['d-pid','d-up','d-cyc'].forEach(id=>document.getElementById(id).textContent='─');
+  const dState=document.getElementById('d-state');
+  if(dState){
+    if(d.running){
+      dState.innerHTML='<span class="tag tg">● Ativo</span>';
+      document.getElementById('d-pid').textContent=d.pid;
+      document.getElementById('d-up').textContent=fup(d.uptime||0);
+      document.getElementById('d-cyc').textContent='#'+(d.cycle||0);
+    }else{
+      dState.innerHTML='<span class="tag tr">○ Parado</span>';
+      ['d-pid','d-up','d-cyc'].forEach(id=>document.getElementById(id).textContent='─');
+    }
   }
 
   // Caps grid
@@ -666,6 +512,17 @@ function renderStatus(s){
   if(!chks.length) cl.innerHTML='<div class="empty">Doctor não disponível</div>';
 }
 
+/* ── Portfolio ── */
+async function loadPortfolio(){
+  try{
+    const [summary, exposure, review]=await Promise.all([api('/api/portfolios/moderate-ia-1m/summary'),api('/api/portfolios/moderate-ia-1m/exposure'),api('/api/portfolios/moderate-ia-1m/review')]);
+    const positions=summary.positions||[];
+    document.getElementById('portfolio-summary').innerHTML=positions.map(p=>`<div class="alloc-row"><span class="alloc-label">${p.label}</span><strong>${p.weight}%</strong><div class="alloc-bar"><div class="alloc-fill" style="width:${Math.min(p.weight*1.5,100)}%"></div></div></div>`).join('');
+    document.getElementById('portfolio-exposure').innerHTML=(exposure.by_asset_class||[]).map(p=>`<div class="row"><span class="rl">${p.label}</span><span class="rv">${p.weight}%</span></div>`).join('');
+    document.getElementById('portfolio-review').innerHTML=`<div class="row"><span class="rl">Status</span><span class="tag ty">${review.status}</span></div><div class="row"><span class="rl">Dados ao vivo</span><span class="rv">${review.live_data?'Sim':'Não'}</span></div><div class="row"><span class="rl">Ordens executadas</span><span class="rv">Não</span></div><div class="empty">${(review.alerts||[]).join('<br>')}<br><br>${review.next_action}</div>`;
+  }catch(e){document.getElementById('portfolio-summary').innerHTML='<div class="empty">Carteira indisponível: '+e.message+'</div>';}
+}
+
 /* ── System page ── */
 async function loadSys(){
   try{
@@ -673,33 +530,11 @@ async function loadSys(){
     renderSys(sys);
     renderPassport(pp);
   }catch(e){
-    document.getElementById('sys-battery-card').querySelector('.ch').insertAdjacentHTML('afterend','<div class="empty">Sem dados</div>');
+    document.getElementById('sys-storage-card').querySelector('.ch').insertAdjacentHTML('afterend','<div class="empty">Sem dados</div>');
   }
-  loadClipboard();
-  loadApps();
 }
 
 function renderSys(s){
-  // Battery
-  const bc=document.getElementById('sys-battery-card');
-  const bat=s.battery||{};
-  const pct=bat.percentage??null;
-  const status=bat.status||'';
-  const health=bat.health||'';
-  bc.innerHTML=`<div class="ch"><span class="ct">Bateria</span><span class="ci">🔋</span></div>`;
-  if(pct!==null){
-    const color=pct>50?'var(--green)':pct>20?'var(--yellow)':'var(--red)';
-    bc.innerHTML+=`
-      <div class="sys-grid">
-        <div class="sys-card"><div class="sys-val" style="color:${color}">${pct}%</div><div class="sys-lbl">Nível</div></div>
-        <div class="sys-card"><div class="sys-val" style="font-size:16px">${status}</div><div class="sys-lbl">Estado</div></div>
-      </div>
-      <div class="battery-bar" style="margin-top:12px"><div class="battery-fill" style="width:${pct}%;background:${color}"></div></div>
-      ${health?`<div style="margin-top:8px;font-size:12px;color:var(--text2)">Saúde: ${health}</div>`:''}`;
-  }else{
-    bc.innerHTML+=`<div class="empty">termux-battery-status não disponível</div>`;
-  }
-
   // Storage
   const sc=document.getElementById('sys-storage-card');
   const st=s.storage||{};
@@ -712,58 +547,6 @@ function renderSys(s){
     ${s.android_version?`<div style="margin-top:10px;font-size:12px;color:var(--text2)">Android ${s.android_version}</div>`:''}`;
   }else{
     sc.innerHTML+=`<div class="empty">Dados de armazenamento não disponíveis</div>`;
-  }
-
-  // Wifi
-  const wc=document.getElementById('sys-wifi-card');
-  const wifi=s.wifi||{};
-  wc.innerHTML=`<div class="ch"><span class="ct">Wifi</span><span class="ci">📶</span></div>`;
-  if(wifi.ssid){
-    wc.innerHTML+=`<div class="row"><span class="rl">Rede</span><span class="rv">${wifi.ssid}</span></div>
-      <div class="row"><span class="rl">Sinal (RSSI)</span><span class="rv">${wifi.rssi} dBm</span></div>
-      <div class="row"><span class="rl">Velocidade</span><span class="rv">${wifi.link_speed} Mbps</span></div>
-      <div class="row" style="border:none"><span class="rl">IP</span><span class="rv">${wifi.ip||'─'}</span></div>`;
-  }else if(wifi.output){
-    wc.innerHTML+=`<div class="exec-sub" style="white-space:pre-wrap;max-height:120px;overflow-y:auto">${wifi.output}</div>`;
-  }else{
-    wc.innerHTML+=`<div class="empty">Wifi não disponível</div>`;
-  }
-}
-
-/* ── Clipboard ── */
-async function loadClipboard(){
-  const el=document.getElementById('clip-content');
-  try{
-    const r=await api('/api/clipboard');
-    el.textContent=r.text||'(vazio)';
-  }catch(e){
-    el.innerHTML='<span style="color:var(--text2)">Clipboard não disponível</span>';
-  }
-}
-
-async function setClipboard(){
-  const inp=document.getElementById('clip-inp');
-  const t=inp.value.trim(); if(!t)return;
-  try{
-    await api('/api/clipboard',{method:'POST',body:JSON.stringify({text:t})});
-    inp.value=''; toast('✓ Clipboard atualizado'); loadClipboard();
-  }catch(e){toast('Erro: '+e.message);}
-}
-document.getElementById('clip-inp').addEventListener('keydown',e=>{if(e.key==='Enter')setClipboard();});
-
-/* ── Installed apps ── */
-async function loadApps(){
-  const ac=document.getElementById('sys-apps-card');
-  try{
-    const r=await api('/api/apps');
-    const pkgs=r.packages||[];
-    ac.innerHTML=`<div class="ch"><span class="ct">Apps instalados (${r.count??pkgs.length})</span><span class="ci">📱</span></div>`;
-    if(!pkgs.length){ac.innerHTML+='<div class="empty">Nenhum app encontrado</div>';return;}
-    ac.innerHTML+=`<div class="ml" style="max-height:220px;overflow-y:auto">${
-      pkgs.slice(0,50).map(p=>`<div class="mi" style="padding:7px 10px"><div class="mi-text" style="font-size:12px">${p}</div></div>`).join('')
-    }</div>${pkgs.length>50?`<div class="exec-sub" style="margin-top:6px;text-align:center">+ ${pkgs.length-50} mais</div>`:''}`;
-  }catch(e){
-    ac.innerHTML=`<div class="ch"><span class="ct">Apps instalados</span><span class="ci">📱</span></div><div class="empty">Não disponível nesta plataforma</div>`;
   }
 }
 
@@ -781,616 +564,6 @@ function renderPassport(pp){
     <div class="passport-field"><div class="pf-label">Hash SHA-256</div><div class="hash-val">${pp.hash||''}</div></div>`;
 }
 
-/* ── Dashboard ── */
-async function loadDashboard(){
-  // Cada chamada é independente: uma falha NÃO derruba o dashboard inteiro.
-  let flows=[],execs=[];
-  try{
-    const r=await api('/api/flows'); flows=r.flows||[];
-  }catch(e){
-    document.getElementById('flows-list').innerHTML=`<div class="empty">Flows indisponíveis: ${e.message}</div>`;
-  }
-  try{
-    const r=await api('/api/executions?limit=200'); execs=r.executions||[];
-  }catch(e){
-    document.getElementById('exec-list').innerHTML=`<div class="empty">Execuções indisponíveis: ${e.message}</div>`;
-  }
-  renderDashStats(flows,execs);
-  renderExecChart(execs);
-  renderFlowsList(flows);
-  renderExecList(execs);
-  loadDashMarket();
-}
-async function loadDashMarket(){
-  const el=document.getElementById('dash-market');
-  try{
-    const r=await api('/api/macro-score/scores');
-    const scores=r.scores||[];
-    if(!scores.length){el.innerHTML='<div class="empty">DADOS INSUFICIENTES — observers precisam de ≥5 amostras por dimensão. Rode a ingestão e aguarde.</div>';return;}
-    const when=((scores[0].computed_at)||'').replace('T',' ').slice(0,19);
-    let html='<div class="row" style="border:none"><span class="rl">Última atualização</span><span class="rv">'+(when||'—')+'</span></div>';
-    for(const s of scores){
-      const v=s.score===null?'—':Number(s.score).toFixed(2);
-      const cls=s.status==='scored'?(s.score>=0?'tg':'tr'):'ty';
-      const n=Object.values(s.sample_counts||{}).reduce((a,b)=>a+b,0);
-      const lbl=s.status==='scored'?'calculado':'poucas amostras ('+n+')';
-      html+=`<div class="row"><span>${s.dimension}</span><span class="${cls}">${v} · ${lbl}</span></div>`;
-    }
-    el.innerHTML=html;
-  }catch(e){
-    el.innerHTML=`<div class="empty">Mercado indisponível: ${e.message}</div>`;
-  }
-}
-
-function renderDashStats(flows,execs){
-  document.getElementById('dash-flows').textContent=flows.length;
-  document.getElementById('dash-execs').textContent=execs.length;
-  const done=execs.filter(e=>e.status==='completed').length;
-  const failed=execs.filter(e=>e.status==='failed').length;
-  document.getElementById('dash-success').textContent=execs.length?Math.round(done/execs.length*100)+'%':'0%';
-  document.getElementById('dash-fail').textContent=failed;
-}
-
-function renderExecChart(execs){
-  const days=[];
-  const now=new Date();
-  for(let i=13;i>=0;i--){
-    const d=new Date(now); d.setDate(d.getDate()-i);
-    days.push({key:d.toISOString().slice(0,10),ok:0,fail:0});
-  }
-  const byKey=Object.fromEntries(days.map(d=>[d.key,d]));
-  for(const e of execs){
-    const ts=e.started_at||e.created_at||'';
-    const bucket=byKey[ts.slice(0,10)];
-    if(!bucket)continue;
-    if(e.status==='completed')bucket.ok++;
-    else if(e.status==='failed')bucket.fail++;
-  }
-  const max=Math.max(1,...days.map(d=>d.ok+d.fail));
-  const barW=18,gap=2,chartH=80,baseY=90;
-  let svg='';
-  days.forEach((d,i)=>{
-    const x=i*(barW+gap);
-    const total=d.ok+d.fail;
-    const okH=total?d.ok/max*chartH:0;
-    const failH=total?d.fail/max*chartH:0;
-    if(d.ok>0)svg+=`<rect class="chart-bar-ok" x="${x}" y="${baseY-okH}" width="${barW}" height="${Math.max(okH,1)}"/>`;
-    if(d.fail>0)svg+=`<rect class="chart-bar-fail" x="${x}" y="${baseY-okH-failH}" width="${barW}" height="${Math.max(failH,1)}"/>`;
-    if(total===0)svg+=`<rect x="${x}" y="${baseY-1}" width="${barW}" height="1" fill="var(--border)"/>`;
-    if(i%2===0)svg+=`<text class="chart-label" x="${x+barW/2}" y="99" text-anchor="middle">${d.key.slice(8,10)}</text>`;
-  });
-  document.getElementById('exec-chart').innerHTML=svg;
-}
-
-function renderFlowsList(flows){
-  const l=document.getElementById('flows-list');
-  if(!flows.length){l.innerHTML='<div class="empty">Sem flows ainda.<br>Cria uma via CLI: flowcore.py flow create</div>';return;}
-  l.innerHTML='';
-  for(const f of flows){
-    const el=document.createElement('div');
-    el.className='flow-row';
-    el.innerHTML=`<div><div class="flow-name">${f.name}</div><div class="flow-meta">${(f.steps||[]).length} passo(s)</div></div>
-      <button class="run-btn" onclick="runFlow(${f.id},this)">▶ Executar</button>`;
-    l.appendChild(el);
-  }
-}
-
-async function runFlow(id,btn){
-  if(btn){btn.disabled=true;btn.textContent='...';}
-  try{
-    const ex=await api('/api/flows/'+id+'/run',{method:'POST'});
-    toast(ex.status==='completed'?'✓ Flow executado':'✗ Flow falhou: '+(ex.error||''));
-    loadDashboard();
-  }catch(e){
-    toast('Erro: '+e.message);
-    if(btn){btn.disabled=false;btn.textContent='▶ Executar';}
-  }
-}
-
-function renderExecList(execs){
-  const l=document.getElementById('exec-list');
-  if(!execs.length){l.innerHTML='<div class="empty">Sem execuções ainda.</div>';return;}
-  l.innerHTML='';
-  for(const e of execs.slice(0,15)){
-    const el=document.createElement('div');
-    el.className='exec-row';
-    const tag=e.status==='completed'?'tg':e.status==='failed'?'tr':'ty';
-    const dur=execDuration(e.started_at,e.finished_at);
-    const when=(e.started_at||e.created_at||'').replace('T',' ').slice(0,19);
-    el.innerHTML=`<div class="exec-top"><span class="exec-name">${e.flow_name}</span><span class="tag ${tag}">${e.status}</span></div>
-      <div class="exec-sub">${when} UTC${dur?' · '+dur:''}</div>`;
-    l.appendChild(el);
-  }
-}
-
-function execDuration(start,finish){
-  if(!start||!finish)return '';
-  const s=new Date(start.replace(' ','T')+'Z');
-  const f=new Date(finish.replace(' ','T')+'Z');
-  const secs=Math.max(0,(f-s)/1000);
-  return fup(secs);
-}
-
-/* ── Portfólio (Sprint 21-23) ── */
-let _pfId=null;
-const IMPACT_TAG={positive:'tg',negative:'tr',neutral:'ty',insufficient_data:'ty'};
-const IMPACT_LABEL={positive:'Positivo',negative:'Negativo',neutral:'Neutro',insufficient_data:'Dados insuficientes'};
-
-async function loadPortfolios(){
-  const sel=document.getElementById('pf-select');
-  try{
-    const r=await api('/api/portfolios');
-    const portfolios=r.portfolios||[];
-    if(!portfolios.length){
-      sel.innerHTML='<option value="">Nenhum portfólio</option>';
-      document.getElementById('pf-summary').innerHTML='';
-      document.getElementById('pf-impact').innerHTML='<div class="empty">Sem portfólios ainda.<br>Cria um via CLI: flowcore.py portfolio create "Nome"</div>';
-      document.getElementById('pf-recs').innerHTML='';
-      document.getElementById('pf-holdings').innerHTML='';
-      return;
-    }
-    sel.innerHTML=portfolios.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
-    if(!_pfId||!portfolios.some(p=>p.id===_pfId)) _pfId=portfolios[0].id;
-    sel.value=_pfId;
-    await loadShelves();
-    onPortfolioSelect();
-  }catch(e){
-    sel.innerHTML='<option value="">Erro</option>';
-  }
-}
-
-function onPortfolioSelect(){
-  _pfId=parseInt(document.getElementById('pf-select').value,10);
-  if(!_pfId)return;
-  loadPortfolioSummary();
-  loadPortfolioImpact();
-  loadPortfolioDecision();
-  loadPortfolioScore();
-  loadPortfolioRecommendations();
-  loadPortfolioHoldings();
-}
-
-function onShelfChange(){
-  loadPortfolioDecision();
-  loadPortfolioRecommendations();
-}
-
-async function loadShelves(){
-  const sel=document.getElementById('pf-shelf');
-  if(sel.dataset.loaded)return;
-  try{
-    const r=await api('/api/product-shelves');
-    sel.innerHTML=(r.shelves||[]).map(s=>`<option value="${s}">${s}</option>`).join('');
-    sel.dataset.loaded='1';
-  }catch(e){}
-}
-
-async function loadPortfolioSummary(){
-  const el=document.getElementById('pf-summary');
-  el.innerHTML='<div class="sk"></div>';
-  try{
-    const s=await api(`/api/portfolios/${_pfId}/summary`);
-    const gain=s.total_unrealized_gain;
-    el.innerHTML=`
-      <div class="st"><div class="sv">$${gain==null?'─':s.total_market_value.toFixed(0)}</div><div class="sl">Valor</div></div>
-      <div class="st"><div class="sv">${s.valued_holding_count}/${s.holding_count}</div><div class="sl">Holdings</div></div>
-      <div class="st"><div class="sv">${gain>=0?'+':''}${gain.toFixed(0)}</div><div class="sl">Ganho/Perda</div></div>`;
-  }catch(e){
-    el.innerHTML='<div class="empty">Erro ao carregar resumo</div>';
-  }
-}
-
-async function loadPortfolioImpact(){
-  const el=document.getElementById('pf-impact');
-  el.innerHTML='<div class="sk"></div><div class="sk"></div>';
-  try{
-    const r=await api(`/api/portfolios/${_pfId}/impact`);
-    const tag=IMPACT_TAG[r.overall_impact]||'ty';
-    const label=IMPACT_LABEL[r.overall_impact]||r.overall_impact;
-    let html=`<div class="sg">
-      <div class="st"><div class="sv"><span class="tag ${tag}">${label}</span></div><div class="sl">Impacto Geral</div></div>
-      <div class="st"><div class="sv">${r.portfolio_risk_score.toFixed(0)}</div><div class="sl">Risk Score</div></div>
-      <div class="st"><div class="sv">${Math.round(r.confidence*100)}%</div><div class="sl">Confiança</div></div>
-    </div>`;
-    html+='<div class="gap" style="margin-top:12px">'+r.drivers.map(renderDriverCard).join('')+'</div>';
-    el.innerHTML=html;
-  }catch(e){
-    el.innerHTML='<div class="empty">Erro ao carregar impacto</div>';
-  }
-}
-
-function renderDriverCard(d){
-  const tag=IMPACT_TAG[d.direction]||'ty';
-  const label=IMPACT_LABEL[d.direction]||d.direction;
-  const buckets=(d.buckets||[]).slice(0,4).map(b=>
-    `<div class="row" style="border:none;padding:3px 0"><span class="rl">${b.label}</span><span class="rv">${b.weight_pct.toFixed(1)}%</span></div>`
-  ).join('');
-  return `<div class="card int-card">
-    <div class="ch"><span class="ct">${d.dimension}</span><span class="tag ${tag}">${label}</span></div>
-    <div class="bs" style="margin-bottom:6px">${d.driver}</div>
-    <div class="row"><span class="rl">Regime</span><span class="rv">${d.regime}</span></div>
-    <div class="row" style="border:none"><span class="rl">Impacto esperado</span><span class="rv">${d.expected_impact}</span></div>
-    ${buckets}
-  </div>`;
-}
-
-/* ── Decision Engine (Sprint 24) ── */
-const PRIORITY_TAG={CRITICAL:'tr',HIGH:'tr',MEDIUM:'ty',LOW:'tg'};
-
-async function loadPortfolioDecision(){
-  const el=document.getElementById('pf-decision-summary');
-  const queueEl=document.getElementById('pf-decision-queue');
-  el.innerHTML='<div class="sk"></div>';
-  queueEl.innerHTML='<div class="sk"></div>';
-  const shelf=document.getElementById('pf-shelf').value||'us_etf';
-  try{
-    const r=await api(`/api/portfolios/${_pfId}/decision?shelf=${encodeURIComponent(shelf)}`);
-    const tag=PRIORITY_TAG[r.overall_priority]||'ty';
-    el.innerHTML=`<div class="sg">
-      <div class="st"><div class="sv"><span class="tag ${tag}">${r.overall_priority}</span></div><div class="sl">Prioridade Geral</div></div>
-      <div class="st"><div class="sv">${Math.round(r.overall_confidence*100)}%</div><div class="sl">Confiança</div></div>
-      <div class="st"><div class="sv">${r.decisions.length}</div><div class="sl">Decisões</div></div>
-    </div>
-    <div class="row"><span class="rl">Top riscos</span><span class="rv" style="text-align:right;max-width:220px">${(r.top_risks||[]).join(', ')||'nenhum'}</span></div>
-    <div class="row" style="border:none"><span class="rl">Top oportunidades</span><span class="rv" style="text-align:right;max-width:220px">${(r.top_opportunities||[]).join(', ')||'nenhuma'}</span></div>`;
-
-    if(!r.decisions.length){
-      queueEl.innerHTML='<div class="empty">Nenhuma decisão material no momento.</div>';
-    }else{
-      queueEl.innerHTML='<div class="gap">'+r.decisions.map(renderDecisionCard).join('')+'</div>';
-    }
-  }catch(e){
-    el.innerHTML='<div class="empty">Erro ao carregar decisão</div>';
-    queueEl.innerHTML='';
-  }
-}
-
-function renderDecisionCard(d){
-  const tag=PRIORITY_TAG[d.urgency]||'ty';
-  const products=(d.recommended_products||[]).map(p=>`<span class="int-cap-chip">${p.symbol}</span>`).join('');
-  const reasonId='reason-'+d.id+'-'+d.priority;
-  const reasonSteps=(d.reason_chain||[]).map((step,i)=>`<div class="bs" style="margin-top:3px">${i+1}. ${step}</div>`).join('');
-  return `<div class="card int-card">
-    <div class="ch"><span class="ct">#${d.priority} ${d.action}</span><span class="tag ${tag}">${d.urgency}</span></div>
-    <div class="row"><span class="rl">Confiança</span><span class="rv">${Math.round(d.confidence*100)}%</span></div>
-    <div class="row"><span class="rl">Impacto esperado</span><span class="rv">${d.expected_impact}</span></div>
-    <div class="row" style="border:none"><span class="rl">Benefício estimado</span><span class="rv">${d.estimated_risk_reduction}</span></div>
-    ${products?`<div class="int-caps">${products}</div>`:''}
-    <button class="btn-sm" style="margin-top:8px" onclick="toggleReasonChain('${reasonId}')">Ver motivo</button>
-    <div id="${reasonId}" style="display:none;margin-top:8px">${reasonSteps}</div>
-  </div>`;
-}
-
-function toggleReasonChain(id){
-  const el=document.getElementById(id);
-  if(el)el.style.display=(el.style.display==='none')?'block':'none';
-}
-
-async function loadPortfolioScore(){
-  const el=document.getElementById('pf-score');
-  el.innerHTML='<div class="sk"></div>';
-  try{
-    const s=await api(`/api/portfolios/${_pfId}/decision/score`);
-    const overall=s.overall!=null?`${s.overall.toFixed(1)}/100`:'insufficient_data';
-    let html=`<div class="row"><span class="rl">Score geral</span><span class="rv">${overall}</span></div>`;
-    html+=(s.sub_scores||[]).map(sub=>{
-      const val=sub.status==='computed'?`${sub.score.toFixed(1)}/100`:'<span class="tag ty">insuf. dados</span>';
-      return `<div class="row" style="border:none;padding:4px 0"><span class="rl">${sub.name}</span><span class="rv">${val}</span></div>`;
-    }).join('');
-    el.innerHTML=html;
-  }catch(e){
-    el.innerHTML='<div class="empty">Erro ao carregar score</div>';
-  }
-}
-
-async function loadPortfolioNarrative(){
-  const el=document.getElementById('pf-narrative');
-  el.innerHTML='<div class="bs">A gerar narrativa... (pode demorar no modelo local)</div>';
-  const shelf=document.getElementById('pf-shelf').value||'us_etf';
-  try{
-    const n=await api(`/api/portfolios/${_pfId}/narrative?shelf=${encodeURIComponent(shelf)}`);
-    const sourceTag=n.source==='llm'?`<span class="tag tg">LLM (${n.model})</span>`:'<span class="tag ty">fallback determinístico</span>';
-    let html=`<div style="margin-bottom:8px">${sourceTag}</div>`;
-    if(n.fallback_reason){
-      html+=`<div class="bs" style="margin-bottom:8px">${n.fallback_reason}</div>`;
-    }
-    html+=`<div style="white-space:pre-wrap;line-height:1.5">${n.narrative}</div>`;
-    el.innerHTML=html;
-  }catch(e){
-    el.innerHTML='<div class="empty">Erro ao gerar narrativa</div>';
-  }
-}
-
-async function loadPortfolioRecommendations(){
-  const el=document.getElementById('pf-recs');
-  el.innerHTML='<div class="sk"></div>';
-  const shelf=document.getElementById('pf-shelf').value||'us_etf';
-  try{
-    const r=await api(`/api/portfolios/${_pfId}/recommendations?shelf=${encodeURIComponent(shelf)}`);
-    let html='';
-    if((r.recommendations||[]).length){
-      html+='<div class="sr-title">Recomendações</div>';
-      html+='<div class="gap">'+r.recommendations.map(renderRecCard).join('')+'</div>';
-    }
-    if((r.opportunities||[]).length){
-      html+='<div class="sr-title" style="margin-top:12px">Oportunidades</div>';
-      html+='<div class="gap">'+r.opportunities.map(renderRecCard).join('')+'</div>';
-    }
-    el.innerHTML=html||'<div class="empty">Nenhuma recomendação no momento.</div>';
-  }catch(e){
-    el.innerHTML='<div class="empty">Erro ao carregar recomendações</div>';
-  }
-}
-
-function renderRecCard(r){
-  const products=(r.products||[]).map(p=>`<span class="int-cap-chip">${p.symbol}</span>`).join('');
-  const holdings=(r.affected_holdings||[]).length?`<div class="bs" style="margin-top:4px">Holdings: ${r.affected_holdings.join(', ')}</div>`:'';
-  return `<div class="card int-card">
-    <div class="ch"><span class="ct">${r.action}</span><span class="tag ty">${Math.round(r.confidence*100)}%</span></div>
-    <div class="bs">${r.reason}</div>
-    ${holdings}
-    ${products?`<div class="int-caps">${products}</div>`:''}
-  </div>`;
-}
-
-async function loadPortfolioHoldings(){
-  const el=document.getElementById('pf-holdings');
-  el.innerHTML='<div class="sk"></div>';
-  try{
-    const r=await api(`/api/portfolios/${_pfId}/holdings`);
-    const holdings=r.holdings||[];
-    if(!holdings.length){el.innerHTML='<div class="empty">Sem holdings ainda.</div>';return;}
-    el.innerHTML=holdings.map(h=>{
-      const gain=h.unrealized_gain;
-      const tag=gain==null?'ty':(gain>=0?'tg':'tr');
-      const gainStr=gain==null?'n/a':`${gain>=0?'+':''}${gain.toFixed(2)}`;
-      return `<div class="row"><span class="rl">${h.symbol} · ${h.quantity}</span><span class="rv"><span class="tag ${tag}">${gainStr}</span> <button class="btn-sm" onclick="holdRemove(${h.id})">✕</button></span></div>`;
-    }).join('');
-  }catch(e){
-    el.innerHTML='<div class="empty">Erro ao carregar holdings</div>';
-  }
-}
-
-/* ── Portfolio: criar carteira e gerir holdings ── */
-async function pfCreatePrompt(){
-  const name=prompt('Nome da nova carteira:');
-  if(!name||!name.trim())return;
-  try{
-    const r=await api('/api/portfolios',{method:'POST',body:JSON.stringify({name:name.trim()})});
-    _pfId=r.id;
-    toast('✓ Carteira criada');
-    loadPortfolios();
-  }catch(e){toast('Erro: '+e.message);}
-}
-async function holdAdd(){
-  const sym=document.getElementById('hold-sym').value.trim().toUpperCase();
-  const qty=parseFloat(document.getElementById('hold-qty').value);
-  const cost=parseFloat(document.getElementById('hold-cost').value);
-  if(!sym||!qty){toast('Preenche símbolo e quantidade');return;}
-  try{
-    await api(`/api/portfolios/${_pfId}/holdings`,{method:'POST',body:JSON.stringify({symbol:sym,quantity:qty,average_cost:isNaN(cost)?null:cost})});
-    ['hold-sym','hold-qty','hold-cost'].forEach(id=>document.getElementById(id).value='');
-    toast('✓ Ativo adicionado');
-    onPortfolioSelect();
-  }catch(e){toast('Erro: '+e.message);}
-}
-async function holdRemove(id){
-  if(!confirm('Remover este ativo?'))return;
-  try{
-    await api(`/api/holdings/${id}`,{method:'DELETE'});
-    toast('✓ Ativo removido');
-    onPortfolioSelect();
-  }catch(e){toast('Erro: '+e.message);}
-}
-/* ── Calendar ── */
-async function loadCalendar(){
-  await Promise.all([loadCalNext(), loadCalToday(), loadCalWeek()]);
-}
-
-function renderCalEvent(e){
-  const start=(e.start||'').replace('T',' ').slice(0,16);
-  const end=(e.end||'').slice(11,16);
-  const loc=e.location?` @ ${e.location}`:'';
-  return `<div class="exec-row"><div class="exec-top"><span class="exec-name">${e.subject||'(sem título)'}</span></div>
-    <div class="exec-sub">${start} – ${end}${loc}</div></div>`;
-}
-
-async function loadCalNext(){
-  const el=document.getElementById('cal-next');
-  try{
-    const r=await api('/api/calendar/next');
-    el.innerHTML=r.event?renderCalEvent(r.event):'<div class="empty">Sem reuniões nos próximos 30 dias.</div>';
-  }catch(e){
-        el.innerHTML=`<div class="empty">Calendário indisponível: ${calErrorNote(e.message)}</div>`;
-  }
-}
-async function loadCalToday(){
-  const el=document.getElementById('cal-today');
-  try{
-    const r=await api('/api/calendar/today');
-    el.innerHTML=(r.events||[]).length?r.events.map(renderCalEvent).join(''):'<div class="empty">Sem eventos hoje.</div>';
-  }catch(e){
-    el.innerHTML=`<div class="empty">Calendário indisponível: ${calErrorNote(e.message)}</div>`;
-  }
-}
-
-function calErrorNote(msg){
-  if(/503|not.?config|oauth|credential/i.test(msg))
-    return 'Google Calendar não configurado. Adicione as credenciais OAuth no .env para ativar.';
-  return msg;
-}
-async function loadCalWeek(){
-  const el=document.getElementById('cal-week');
-  try{
-    const r=await api('/api/calendar/week');
-    const events=r.events||[];
-    if(!events.length){el.innerHTML='<div class="empty">Sem eventos esta semana.</div>';return;}
-    const groups={};
-    for(const e of events){
-      const day=(e.start||'').slice(0,10);
-      (groups[day]=groups[day]||[]).push(e);
-    }
-    let html='';
-    for(const day of Object.keys(groups).sort()){
-      html+=`<div class="sr-section"><div class="sr-title">${day}</div>${groups[day].map(renderCalEvent).join('')}</div>`;
-    }
-    el.innerHTML=html;
-  }catch(e){
-    el.innerHTML=`<div class="empty">Calendário indisponível: ${calErrorNote(e.message)}</div>`;
-  }
-}
-
-async function calSearch(){
-  const q=document.getElementById('cal-search-inp').value.trim();
-  if(!q)return;
-  const el=document.getElementById('cal-search-results');
-  el.innerHTML='<div class="sk"></div>';
-  try{
-    const r=await api('/api/calendar/search?q='+encodeURIComponent(q));
-    const events=r.events||[];
-    el.innerHTML=events.length?events.map(renderCalEvent).join(''):`<div class="empty">Sem resultados para "${q}"</div>`;
-  }catch(e){
-    el.innerHTML=`<div class="empty">${e.message}</div>`;
-  }
-}
-document.getElementById('cal-search-inp').addEventListener('keydown',e=>{if(e.key==='Enter')calSearch();});
-
-async function calCreate(){
-  const subject=document.getElementById('cal-subject').value.trim();
-  const start=document.getElementById('cal-start').value;
-  const end=document.getElementById('cal-end').value;
-  const location=document.getElementById('cal-location').value.trim();
-  const attendeesRaw=document.getElementById('cal-attendees').value.trim();
-  const description=document.getElementById('cal-description').value.trim();
-  if(!subject||!start||!end){toast('Preenche título, início e fim');return;}
-  const attendees=attendeesRaw?attendeesRaw.split(',').map(a=>a.trim()).filter(Boolean):[];
-  try{
-    await api('/api/calendar',{method:'POST',body:JSON.stringify({subject,start,end,location,attendees,description})});
-    toast('✓ Evento criado');
-    for(const id of ['cal-subject','cal-start','cal-end','cal-location','cal-attendees','cal-description'])
-      document.getElementById(id).value='';
-    loadCalendar();
-  }catch(e){toast('Erro: '+e.message);}
-}
-
-/* ── Integrations ── */
-const INTEGRATION_TAG={ok:'tg',not_configured:'ty',not_authenticated:'ty',unreachable:'tr',error:'tr'};
-const INTEGRATION_LABEL={ok:'Conectado',not_configured:'Não configurado',not_authenticated:'Não autenticado',unreachable:'Inacessível',error:'Erro'};
-const INTEGRATION_DOT={ok:'',not_configured:'warn',not_authenticated:'warn',unreachable:'off',error:'off'};
-const INTEGRATION_CONFIG_LABEL={not_configured:'Não configurado',not_authenticated:'Requer autenticação'};
-const OUTLOOK_ROW_NAMES=['Outlook Auth','Outlook Mailbox','Outlook Calendar'];
-
-function renderIntegrationCard(r){
-  const tag=INTEGRATION_TAG[r.status]||'tr';
-  const label=INTEGRATION_LABEL[r.status]||r.status;
-  const dotClass=(r.status in INTEGRATION_DOT)?INTEGRATION_DOT[r.status]:'off';
-  const when=(r.checked_at||'').replace('T',' ').slice(0,19);
-  const configLabel=INTEGRATION_CONFIG_LABEL[r.status]||'Configurado';
-  const errorHtml=r.error?`<div class="int-err">⚠ ${r.error}</div>`:'';
-  const capsHtml=(r.capabilities&&r.capabilities.length)
-    ?`<div class="int-caps">${r.capabilities.map(c=>`<span class="int-cap-chip">${c}</span>`).join('')}</div>`
-    :'';
-  return `<div class="card int-card">
-    <div class="ch"><span class="ct" style="display:flex;align-items:center;gap:7px"><span class="sdot ${dotClass}"></span>${r.name}</span><span class="tag ${tag}">${label}</span></div>
-    <div class="row"><span class="rl">Detalhe</span><span class="rv" style="text-align:right;max-width:220px">${r.detail}</span></div>
-    <div class="row"><span class="rl">Configuração</span><span class="rv">${configLabel}</span></div>
-    <div class="row" style="border:none"><span class="rl">Última verificação</span><span class="rv">${r.latency_ms}ms · ${when} UTC</span></div>
-    ${errorHtml}
-    ${capsHtml}
-  </div>`;
-}
-
-function renderIntegrations(list){
-  const el=document.getElementById('integrations-list');
-  if(!list.length){el.innerHTML='<div class="empty">Nenhuma integração encontrada.</div>';return;}
-  const outlookRows=list.filter(r=>OUTLOOK_ROW_NAMES.includes(r.name));
-  const otherRows=list.filter(r=>!OUTLOOK_ROW_NAMES.includes(r.name));
-  let html='';
-  if(outlookRows.length){
-    html+=`<div class="sr-section"><div class="sr-title">Outlook</div><div class="gap">${outlookRows.map(renderIntegrationCard).join('')}</div></div>`;
-  }
-  if(otherRows.length){
-    html+=`<div class="sr-section"><div class="sr-title">Serviços</div><div class="gap">${otherRows.map(renderIntegrationCard).join('')}</div></div>`;
-  }
-  el.innerHTML=html;
-}
-
-async function loadIntegrations(){
-  const el=document.getElementById('integrations-list');
-  el.innerHTML='<div class="sk"></div><div class="sk"></div><div class="sk"></div>';
-  try{
-    const r=await api('/api/integrations/status');
-    renderIntegrations(r.integrations||[]);
-  }catch(e){
-    el.innerHTML=`<div class="empty">Erro: ${e.message}</div>`;
-  }
-}
-
-
-/* ── Mercado (observers + Macro Score + Regime + portfólio) ── */
-const MK_TAG={ok:'tg',scored:'tg',insufficient_data:'ty',stale:'ty',unconfigured:'ty',error:'tr',not_collected:'ty'};
-const MK_LABEL={ok:'Coletado',scored:'Score calculado',insufficient_data:'Poucas amostras',stale:'Desatualizado',error:'Erro',not_collected:'Sem dados'};
-const MK_DOT={ok:'',scored:'ok',insufficient_data:'warn',stale:'warn',error:'off',not_collected:'off'};
-async function loadMarket(){
-  const scores=document.getElementById('mk-scores');
-  const events=document.getElementById('mk-events');
-  const impact=document.getElementById('mk-impact');
-  scores.innerHTML='<div class="sk"></div><div class="sk"></div>';
-  events.innerHTML='<div class="sk"></div><div class="sk"></div>';
-  impact.innerHTML='<div class="sk"></div><div class="sk"></div>';
-  await Promise.all([loadMarketScores(scores), loadMarketEvents(events), loadMarketImpact(impact)]);
-}
-async function loadMarketScores(el){
-  try{
-    const r=await api('/api/macro-score/scores');
-    const scores=r.scores||[];
-    if(!scores.length){el.innerHTML='<div class="empty">Sem scores ainda — rode a ingestão e aguarde ≥5 amostras por dimensão.</div>';return;}
-    let html='<div class="card"><div class="ch"><span class="ct">Macro Score</span><span class="ci">📊</span></div>';
-    for(const s of scores){
-      const v=s.score===null?'—':Number(s.score).toFixed(2);
-      const tag=MK_TAG[s.status]||'ty';
-      const label=MK_LABEL[s.status]||s.status;
-      const dot=MK_DOT[s.status]||'';
-      const cls=s.status==='scored'?(s.score>=0?'tg':'tr'):'ty';
-      html+=`<div class="row"><div><span class="sdot ${dot}"></span><span>${s.dimension}</span>
-        <span class="${cls}">${v}</span></div><span class="${tag}">${label}</span></div>`;
-    }
-    html+='</div>'; el.innerHTML=html;
-  }catch(e){el.innerHTML=`<div class="empty">Erro: ${e.message}</div>`;}
-}
-async function loadMarketEvents(el){
-  try{
-    const r=await api('/api/observer/events');
-    const evs=r.events||[];
-    if(!evs.length){el.innerHTML='<div class="empty">Nenhum evento coletado — verifique o job de ingestão.</div>';return;}
-    let html='<div class="card"><div class="ch"><span class="ct">Eventos recentes (observadores)</span><span class="ci">👁</span></div>';
-    for(const e of evs.slice(0,8)){
-      const when=(e.timestamp||'').replace('T',' ').slice(0,19);
-      const val=e.payload&&e.payload.value!==undefined?Number(e.payload.value):null;
-      html+=`<div class="row"><div><span class="sdot ok"></span><span>${e.source}${e.symbol?' · '+e.symbol:''}</span>
-        ${val!==null?`<span class="tg">${val}</span>`:''}</div><span class="ty">${when}</span></div>`;
-    }
-    html+='</div>'; el.innerHTML=html;
-  }catch(e){el.innerHTML=`<div class="empty">Erro: ${e.message}</div>`;}
-}
-async function loadMarketImpact(el){
-  try{
-    const pl=await api('/api/portfolios');
-    const pf=(pl.portfolios||[])[0];
-    if(!pf){el.innerHTML='<div class="empty">Sem portfólio registrado.</div>';return;}
-    const imp=await api('/api/portfolios/'+pf.id+'/impact');
-    const risk=imp.portfolio_risk_score!==undefined?Number(imp.portfolio_risk_score).toFixed(1):'—';
-    const overall=(imp.overall_impact||'—').toUpperCase();
-    const ovTag=overall==='NEUTRAL'?'ty':(overall==='POSITIVE'?'tg':'tr');
-    let html=`<div class="card"><div class="ch"><span class="ct">Impacto do regime · ${pf.name}</span><span class="${ovTag}">risco ${risk}</span></div>
-      <div class="row" style="border:none"><span class="rl">Impacto geral</span><span class="${ovTag}">${overall}</span></div>`;
-    for(const d of (imp.drivers||[])){
-      const dt=d.direction==='negative'?'tr':(d.direction==='positive'?'tg':'ty');
-      html+=`<div class="row"><div><span class="sdot ${dt==='tr'?'off':'warn'}"></span><span>${d.dimension}</span></div><span class="${dt}">${d.regime||d.driver||'—'}</span></div>`;
-    }
-    html+='</div>'; el.innerHTML=html;
-  }catch(e){el.innerHTML=`<div class="empty">Erro: ${e.message}</div>`;}
-}
 /* ── Memories ── */
 function renderMems(mems){
   const l=document.getElementById('mem-list');
@@ -1509,76 +682,148 @@ async function sendNotify(){
 }
 document.getElementById('n-text').addEventListener('keydown',e=>{if(e.key==='Enter')sendNotify();});
 
-/* ── Settings ── */
-async function loadSettings(){
-  try{
-    const s=await api('/api/settings');
-    renderSettings(s);
-  }catch(e){
-    document.getElementById('set-ollama-error').innerHTML=`<div class="empty">Erro a carregar definições: ${e.message}</div>`;
-  }
-}
-
-function renderSettings(s){
-  document.getElementById('set-version').textContent=s.version||'─';
-  const p=s.platform||{};
-  const platName=p.termux?'Termux/Android':(p.os_name||'─');
-  document.getElementById('set-platform').textContent=platName;
-  document.getElementById('set-python').textContent=p.python_version||'─';
-
-  const o=s.ollama||{};
-  document.getElementById('set-ollama-host').textContent=o.endpoint||'Indisponível';
-  document.getElementById('set-ollama-model').innerHTML=o.model?o.model:'<span class="tag ty">─</span>';
-  const errEl=document.getElementById('set-ollama-error');
-  errEl.innerHTML=o.error?`<div class="empty">${o.error}</div>`:'';
-}
-
-/* ── Chat ── */
-let _chatHistory=[];
-function renderChatLog(){
-  const l=document.getElementById('chat-log');
-  if(!_chatHistory.length){
-    l.innerHTML='<div class="empty">Faz uma pergunta ao modelo local.<br>Pode demorar — modelos maiores levam mais tempo a responder.</div>';
-    return;
-  }
-  l.innerHTML='';
-  for(const m of _chatHistory){
-    const el=document.createElement('div');
-    el.className='msg '+m.role+(m.thinking?' thinking':'');
-    el.textContent=m.text;
-    l.appendChild(el);
-  }
-  l.scrollTop=l.scrollHeight;
-}
-
-async function sendChat(){
-  const inp=document.getElementById('chat-inp');
-  const btn=document.getElementById('chat-send');
-  const q=inp.value.trim(); if(!q)return;
-  inp.value='';
-  _chatHistory.push({role:'user',text:q});
-  const thinking={role:'bot',text:'A pensar...',thinking:true};
-  _chatHistory.push(thinking);
-  renderChatLog();
-  inp.disabled=true; btn.disabled=true;
-  try{
-    const r=await api('/api/ask',{method:'POST',body:JSON.stringify({question:q})});
-    _chatHistory[_chatHistory.indexOf(thinking)]={role:'bot',text:r.answer||'(sem resposta)'};
-  }catch(e){
-    _chatHistory[_chatHistory.indexOf(thinking)]={role:'bot',text:'Erro: '+e.message};
-  }
-  inp.disabled=false; btn.disabled=false;
-  renderChatLog();
-  inp.focus();
-}
-document.getElementById('chat-inp').addEventListener('keydown',e=>{if(e.key==='Enter')sendChat();});
-
 /* ── Helpers ── */
 function fup(s){
   s=Math.floor(s);
   if(s<60) return s+'s';
   if(s<3600) return Math.floor(s/60)+'m '+s%60+'s';
   return Math.floor(s/3600)+'h '+Math.floor(s%3600/60)+'m';
+}
+
+/* ── Agents ── */
+const _agentIcons={health:'❤️',doctor:'🩺'};
+
+async function loadAgents(){
+  try{
+    const [agentsRes,histRes]=await Promise.all([
+      api('/api/agent/agents'),
+      api('/api/agent/tasks?limit=20')
+    ]);
+    renderAgentCards(agentsRes.agents||[]);
+    renderTaskHistory(histRes.tasks||[]);
+  }catch(e){
+    document.getElementById('agent-cards').innerHTML='<div class="empty">API não disponível</div>';
+    document.getElementById('task-history').innerHTML='<div class="empty">─</div>';
+  }
+}
+
+function renderAgentCards(agents){
+  const c=document.getElementById('agent-cards');
+  if(!agents.length){c.innerHTML='<div class="empty">Nenhum agente registado</div>';return;}
+  c.innerHTML='';
+  for(const a of agents){
+    const icon=_agentIcons[a.name]||'🤖';
+    const el=document.createElement('div');
+    el.className='agent-card';
+    el.id='agent-card-'+a.name;
+    el.innerHTML=`
+      <div class="agent-info">
+        <div class="agent-name">${icon} ${a.name}</div>
+        <div class="agent-desc">${a.description||''}</div>
+      </div>
+      <button class="btn-run" id="btn-run-${a.name}" onclick="runAgent('${a.name}')">▶ Run</button>`;
+    c.appendChild(el);
+  }
+}
+
+async function runAgent(name){
+  const btn=document.getElementById('btn-run-'+name);
+  if(btn){btn.disabled=true;btn.innerHTML='<span class="spin">⟳</span>';}
+  const rc=document.getElementById('agent-result-card');
+  const rt=document.getElementById('agent-result-title');
+  const ri=document.getElementById('agent-result-icon');
+  const rp=document.getElementById('agent-result');
+  rc.style.display='block';
+  rt.textContent='A correr '+name+'...';
+  ri.textContent='⏳';
+  rp.textContent='...';
+  try{
+    const r=await api('/api/agent/run?agent_name='+encodeURIComponent(name),{method:'POST',body:JSON.stringify({})});
+    const ok=r.status==='completed';
+    rt.textContent=name+' — '+(ok?'concluído':'falhou');
+    ri.textContent=ok?'✅':'❌';
+    const display=ok?(r.result||{}):(r.error||'Falhou');
+    rp.textContent=typeof display==='object'?JSON.stringify(display,null,2):String(display);
+    toast(ok?'✅ '+name+' concluído':'❌ '+name+' falhou');
+    loadAgents();
+  }catch(e){
+    rt.textContent='Erro';ri.textContent='❌';
+    rp.textContent=String(e);
+    toast('Erro: '+e.message);
+  }finally{
+    if(btn){btn.disabled=false;btn.innerHTML='▶ Run';}
+  }
+}
+
+function renderTaskHistory(tasks){
+  const h=document.getElementById('task-history');
+  if(!tasks.length){h.innerHTML='<div class="empty">Sem histórico ainda.<br>Corre um agente acima ↑</div>';return;}
+  const stIcons={completed:'✅',failed:'❌',running:'⏳',pending:'⌛'};
+  const stClass={completed:'tg',failed:'tr',running:'ty',pending:'ty'};
+  h.innerHTML='';
+  for(const t of [...tasks].reverse().slice(0,15)){
+    const dur=t.duration_seconds!=null?t.duration_seconds+'s':'─';
+    const el=document.createElement('div');
+    el.className='task-row';
+    el.innerHTML=`
+      <span class="task-agent">${_agentIcons[t.agent]||'🤖'} ${t.agent}</span>
+      <span class="task-status"><span class="tag ${stClass[t.status]||'ty'}">${stIcons[t.status]||'?'} ${t.status}</span></span>
+      <span class="task-dur">${dur}</span>
+      <span class="task-id">${t.id}</span>`;
+    h.appendChild(el);
+  }
+}
+
+/* ── Flows ── */
+async function loadFlows(){
+  try{
+    const res=await api('/api/flows');
+    renderFlowCards(Array.isArray(res)?res:[]);
+  }catch(e){
+    document.getElementById('flow-cards').innerHTML='<div class="empty">─</div>';
+  }
+}
+
+function renderFlowCards(flows){
+  const c=document.getElementById('flow-cards');
+  if(!flows.length){c.innerHTML='<div class="empty">Nenhum flow criado ainda.<br><small>flowcore flow create --name "Nome" --steps health,doctor</small></div>';return;}
+  c.innerHTML='';
+  for(const f of flows){
+    const el=document.createElement('div');
+    el.className='agent-card';
+    el.innerHTML=`
+      <div class="agent-info">
+        <div class="agent-name">▶ ${f.name}</div>
+        <div class="agent-desc">${f.steps.length} passo(s)${f.description?' — '+f.description:''}</div>
+      </div>
+      <button class="btn-run" id="btn-flow-${f.id}" onclick="runFlow('${f.id}','${f.name}')">▶ Run</button>`;
+    c.appendChild(el);
+  }
+}
+
+async function runFlow(id,name){
+  const btn=document.getElementById('btn-flow-'+id);
+  if(btn){btn.disabled=true;btn.innerHTML='<span class="spin">⟳</span>';}
+  const rc=document.getElementById('flow-result-card');
+  const rt=document.getElementById('flow-result-title');
+  const ri=document.getElementById('flow-result-icon');
+  const rp=document.getElementById('flow-result');
+  rc.style.display='block';
+  rt.textContent='A correr flow '+name+'...';
+  ri.textContent='⏳';rp.textContent='...';
+  try{
+    const r=await api('/api/flows/'+encodeURIComponent(id)+'/run',{method:'POST',body:'null'});
+    const ok=r.status==='completed';
+    rt.textContent=name+' — '+(ok?'concluído':'falhou');
+    ri.textContent=ok?'✅':'❌';
+    rp.textContent=JSON.stringify(r,null,2);
+    toast(ok?'✅ Flow concluído':'❌ Flow falhou');
+  }catch(e){
+    rt.textContent='Erro';ri.textContent='❌';rp.textContent=String(e);
+    toast('Erro: '+e.message);
+  }finally{
+    if(btn){btn.disabled=false;btn.innerHTML='▶ Run';}
+  }
 }
 
 /* ── Init ── */

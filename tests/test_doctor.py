@@ -1,11 +1,11 @@
 """Tests for doctor.service.DoctorService."""
-
 from __future__ import annotations
 
 import os
 import sys
 import time
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -17,12 +17,10 @@ if str(ROOT) not in sys.path:
 class TestDoctorService:
     def _doctor(self):
         from doctor.service import DoctorService
-
         return DoctorService()
 
     def test_run_returns_report(self):
         from doctor.service import DoctorReport
-
         report = self._doctor().run()
         assert isinstance(report, DoctorReport)
 
@@ -32,13 +30,9 @@ class TestDoctorService:
 
     def test_passed_plus_failed_plus_warned_plus_skip_equals_total(self):
         from doctor.service import CheckStatus
-
         report = self._doctor().run()
-        total = (
-            report.passed
-            + report.warned
-            + report.failed
-            + sum(1 for c in report.checks if c.status == CheckStatus.SKIP)
+        total = report.passed + report.warned + report.failed + sum(
+            1 for c in report.checks if c.status == CheckStatus.SKIP
         )
         assert total == len(report.checks)
 
@@ -48,7 +42,6 @@ class TestDoctorService:
 
     def test_to_dict_serialisable(self):
         import json
-
         report = self._doctor().run()
         d = report.to_dict()
         json.dumps(d)
@@ -62,14 +55,12 @@ class TestDoctorService:
 
     def test_check_result_ok_property(self):
         from doctor.service import CheckResult, CheckStatus
-
         c = CheckResult("x", CheckStatus.OK, "good")
         assert c.ok is True
         assert c.failed is False
 
     def test_check_result_failed_property(self):
         from doctor.service import CheckResult, CheckStatus
-
         c = CheckResult("x", CheckStatus.FAIL, "bad")
         assert c.failed is True
         assert c.ok is False
@@ -77,10 +68,8 @@ class TestDoctorService:
     def test_exception_in_check_does_not_crash(self):
         doc = self._doctor()
         original_checks = doc._checks
-
         def _bad_check():
             raise RuntimeError("unexpected!")
-
         doc._checks = [_bad_check]
         report = doc.run()
         assert len(report.checks) == 1
@@ -95,33 +84,16 @@ class TestDoctorService:
 
     def test_android_checks_skip_on_non_termux(self):
         from doctor.service import CheckStatus
-
         if os.environ.get("PREFIX"):
             pytest.skip("Running in Termux — Android checks are not skipped")
         report = self._doctor().run()
-        android_checks = [
-            c
-            for c in report.checks
-            if c.name
-            in (
-                "termux_detected",
-                "termux_api",
-                "termux_storage",
-                "termux_pkg",
-                "wakelock",
-                "camera",
-                "microphone",
-                "location",
-                "bluetooth",
-                "vibrate",
-                "torch",
-                "share",
-            )
-        ]
+        android_checks = [c for c in report.checks
+                          if c.name in ("termux_detected", "termux_api", "termux_storage",
+                                        "termux_pkg", "wakelock", "camera", "microphone",
+                                        "location", "bluetooth", "vibrate", "torch", "share")]
         for check in android_checks:
-            assert check.status == CheckStatus.SKIP, (
+            assert check.status == CheckStatus.SKIP, \
                 f"Expected {check.name} to SKIP outside Termux, got {check.status}: {check.message}"
-            )
 
     def test_runtime_json_check_present(self):
         report = self._doctor().run()
@@ -139,7 +111,6 @@ class TestDoctorServiceMode:
 
     def test_start_stop_service(self):
         from doctor.service import DoctorService
-
         doc = DoctorService()
         assert not doc.is_running
         doc.start_service(interval=1)
@@ -150,7 +121,6 @@ class TestDoctorServiceMode:
 
     def test_start_twice_is_safe(self):
         from doctor.service import DoctorService
-
         doc = DoctorService()
         doc.start_service(interval=60)
         doc.start_service(interval=60)  # second call should be a no-op
@@ -159,7 +129,6 @@ class TestDoctorServiceMode:
 
     def test_stop_without_start_is_safe(self):
         from doctor.service import DoctorService
-
         doc = DoctorService()
         doc.stop_service()  # should not raise
         assert not doc.is_running

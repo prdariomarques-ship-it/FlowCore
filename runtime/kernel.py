@@ -14,12 +14,13 @@ It knows:
 All other modules depend on the kernel; the kernel depends on nothing
 above the discovery/shell layer.
 """
-
 from __future__ import annotations
 
 import hashlib
 import json
+import os
 from datetime import datetime, timezone
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -28,7 +29,6 @@ from runtime.discovery import RuntimeDiscovery, RuntimeSnapshot
 
 
 # ── Runtime passport ──────────────────────────────────────────────────────────
-
 
 class RuntimePassport:
     """Immutable token issued by the kernel after a successful boot.
@@ -77,7 +77,9 @@ class RuntimePassport:
         return name in self._snap.capabilities
 
     def has_tool(self, name: str) -> bool:
-        return self._snap.tools.get(name, None) is not None and (self._snap.tools[name].available)
+        return self._snap.tools.get(name, None) is not None and (
+            self._snap.tools[name].available
+        )
 
     def to_dict(self) -> dict[str, Any]:
         snap_dict = self._snap.to_dict()
@@ -88,11 +90,14 @@ class RuntimePassport:
         return snap_dict
 
     def __repr__(self) -> str:
-        return f"<RuntimePassport platform={self.platform} termux={self.is_termux} caps={len(self.capabilities)}>"
+        return (
+            f"<RuntimePassport platform={self.platform} "
+            f"termux={self.is_termux} "
+            f"caps={len(self.capabilities)}>"
+        )
 
 
 # ── Runtime Kernel ────────────────────────────────────────────────────────────
-
 
 class RuntimeKernel:
     """Orchestrates the FlowCore boot sequence.
@@ -173,20 +178,13 @@ class RuntimeKernel:
         return issues
 
     def _write_runtime_json(self, snap: RuntimeSnapshot) -> None:
-        """Best-effort persistence: a storage failure here (read-only home,
-        permissions, disk full) must never abort boot() after discovery has
-        already succeeded — same reasoning and convention as
-        runtime/core.py's FlowCoreRuntime._write_doctor_history()."""
         data = snap.to_dict()
         data["schema_version"] = "1.0"
         data["generated_at"] = datetime.now(timezone.utc).isoformat()
 
-        try:
-            self._runtime_json.parent.mkdir(parents=True, exist_ok=True)
-            with open(self._runtime_json, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
-        except OSError as e:
-            logger.warning("RuntimeKernel: could not write {}: {}", self._runtime_json, e)
+        self._runtime_json.parent.mkdir(parents=True, exist_ok=True)
+        with open(self._runtime_json, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
 
     def _log_snapshot(self, snap: RuntimeSnapshot) -> None:
         logger.debug("  Platform: {}", snap.platform_type)
