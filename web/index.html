@@ -479,8 +479,6 @@ async function refresh(){
     renderStatus(s);
     renderMems(mems.memories||[]);
     renderNotesList(notes.notes||[]);
-    document.getElementById('s-notes').textContent=(notes.notes||[]).length;
-    document.getElementById('s-mem').textContent=s.memory_count??'─';
   }catch(e){
     dot.classList.add('off');
     document.getElementById('last-upd').textContent='Sem ligação';
@@ -513,13 +511,7 @@ async function loadMarketSnapshot(){
 /* ── Status ── */
 function renderStatus(s){
   const caps=s.capabilities||{};
-  const avail=Object.values(caps).filter(v=>v).length;
-  const total=Object.keys(caps).length;
-  document.getElementById('s-caps').textContent=avail+'/'+total;
-
   const chks=s.doctor||[];
-  const ok=chks.filter(c=>c.status==='ok').length;
-  document.getElementById('s-doc').textContent=ok+'/'+chks.length;
 
   // Daemon (renderizado apenas na tela Admin)
   const d=s.daemon||{};
