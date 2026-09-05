@@ -568,6 +568,20 @@ def register_dashboard_routes(app, version: str) -> None:
         except Exception as exc:
             return {"lines": [], "stub": False, **_market_unavailable("briefing", exc)}
 
+    @app.post("/api/market/close")
+    async def market_close():
+        """Prepare o fechamento de mercado: dados reais + versão para
+        cliente + versão para Instagram, salvos em
+        ~/.flowcore/market_close/<data>.json."""
+        try:
+            from runtime.market_intelligence.market_close import build_market_close
+            return {**build_market_close(), "available": True, "stub": False}
+        except Exception as exc:
+            return {
+                "raw_lines": [], "client_version": "", "instagram_version": "",
+                "stub": False, **_market_unavailable("close", exc),
+            }
+
     @app.get("/api/market/overview")
     async def market_overview():
         """Compact, cross-channel market feed used by the APK and Telegram briefing."""
