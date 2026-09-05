@@ -687,7 +687,8 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
 
     @app.post("/api/executions", response_model=ExecutionResponse)
     async def submit_execution(data: ExecutionSubmit):
-        if data.flow_id not in _flows:
+        from flows.store import FlowStore
+        if FlowStore().get_flow(data.flow_id) is None:
             raise HTTPException(status_code=404, detail="Flow not found")
         exec_id = uuid.uuid4().hex
         now = time.time()
@@ -696,7 +697,7 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             "flow_id": data.flow_id,
             "status": "pending",
             "payload": data.payload,
-            "started_at": None,
+            "started_at": now,
             "finished_at": None,
         }
         _executions[exec_id] = execution
