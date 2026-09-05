@@ -310,8 +310,13 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
         <div class="ch"><span class="ct">Assistente</span><button class="btn-sm" onclick="toggleAiCfg()">⚙ Config</button></div>
         <div class="chat-provider" id="chat-provider-info">Verificando provider…</div>
         <div id="ai-cfg-box" style="display:none;margin-top:8px">
-          <div class="ai-cfg-row"><input class="if" id="ai-ollama-url" placeholder="URL do Ollama (ex: http://192.168.1.50:11434)"></div>
-          <div class="ai-cfg-row"><input class="if" id="ai-model" placeholder="Modelo (ex: qwen2.5:7b)"></div>
+          <div class="sr-title" style="margin-bottom:6px">Principal (PC)</div>
+          <div class="ai-cfg-row"><input class="if" id="ai-ollama-url" placeholder="URL do Ollama no PC (ex: http://192.168.1.50:11434)"></div>
+          <div class="ai-cfg-row"><input class="if" id="ai-model" placeholder="Modelo no PC (ex: qwen2.5:3b)"></div>
+          <div class="sr-title" style="margin:10px 0 6px">Backup (celular, usado se o PC não responder)</div>
+          <div class="ai-cfg-row"><input class="if" id="ai-fallback-url" placeholder="URL do Ollama no celular (ex: http://127.0.0.1:11434)"></div>
+          <div class="ai-cfg-row"><input class="if" id="ai-fallback-model" placeholder="Modelo no celular (ex: qwen2.5:1.5b)"></div>
+          <div class="sr-title" style="margin:10px 0 6px">Avançado</div>
           <div class="ai-cfg-row"><input class="if" id="ai-openai-url" placeholder="URL OpenAI-compat (opcional)"></div>
           <div class="btns" style="margin-top:0"><button class="btn bg" onclick="saveAiConfig()">✓ Salvar</button><button class="btn-sm" onclick="loadAiConfig()">↻ Recarregar</button></div>
         </div>
@@ -576,9 +581,12 @@ async function loadAiConfig(){
     const cfg=await api('/api/ai-runtime/config');
     document.getElementById('ai-ollama-url').value=cfg.ollama_url||'';
     document.getElementById('ai-model').value=cfg.model||'';
+    document.getElementById('ai-fallback-url').value=cfg.ollama_fallback_url||'';
+    document.getElementById('ai-fallback-model').value=cfg.fallback_model||'';
     document.getElementById('ai-openai-url').value=cfg.openai_url||'';
-    const label=cfg.active_provider==='openai-compat'?('OpenAI-compat · '+(cfg.openai_model||'?')):('Ollama · '+(cfg.model||'?')+' · '+cfg.ollama_url);
-    document.getElementById('chat-provider-info').textContent='Provider ativo: '+label;
+    let label=cfg.active_provider==='openai-compat'?('OpenAI-compat · '+(cfg.openai_model||'?')):('PC: '+(cfg.model||'?')+' @ '+cfg.ollama_url);
+    if(cfg.ollama_fallback_url) label+=' · Backup: '+(cfg.fallback_model||cfg.model||'?')+' @ '+cfg.ollama_fallback_url;
+    document.getElementById('chat-provider-info').textContent=label;
   }catch(e){
     document.getElementById('chat-provider-info').textContent='Não foi possível ler a config de IA.';
   }
@@ -588,6 +596,8 @@ async function saveAiConfig(){
     await api('/api/ai-runtime/config',{method:'PATCH',body:JSON.stringify({
       ollama_url:document.getElementById('ai-ollama-url').value.trim()||null,
       model:document.getElementById('ai-model').value.trim()||null,
+      ollama_fallback_url:document.getElementById('ai-fallback-url').value.trim(),
+      fallback_model:document.getElementById('ai-fallback-model').value.trim(),
       openai_url:document.getElementById('ai-openai-url').value.trim(),
     })});
     toast('Config de IA salva');
@@ -618,7 +628,8 @@ async function sendChat(){
     if(data.provider==='unavailable'){
       appendChatMsg(data.answer||'Nenhum provider de IA disponível.','bot err','Configure o Ollama ou um endpoint OpenAI-compatible em ⚙ Config acima.');
     }else{
-      appendChatMsg(data.answer||'(sem resposta)','bot',data.provider+(data.model?' · '+data.model:''));
+      const providerLabel={'ollama-pc':'via PC','ollama-celular':'via celular (backup)','openai-compat':'OpenAI-compat','flowcore-agent':'agente FlowCore'}[data.provider]||data.provider;
+      appendChatMsg(data.answer||'(sem resposta)','bot',providerLabel+(data.model?' · '+data.model:''));
       _chatHistory.push({role:'user',content:question});
       _chatHistory.push({role:'assistant',content:data.answer||''});
       if(_chatHistory.length>20) _chatHistory=_chatHistory.slice(-20);

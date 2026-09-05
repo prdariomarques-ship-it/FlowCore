@@ -110,6 +110,8 @@ class AIConfig(BaseModel):
     model: str | None = None
     openai_url: str | None = None
     openai_model: str | None = None
+    ollama_fallback_url: str | None = None
+    fallback_model: str | None = None
 
 
 class PortfolioReviewInput(BaseModel):
@@ -258,25 +260,39 @@ def register_dashboard_routes(app, version: str) -> None:
             except Exception:
                 pass  # fall through to Ollama
 
-        # Ollama fallback
-        model = data.model or cfg.get("model", "llama3")
-        try:
-            resp = _ollama("POST", "/api/chat", {
-                "model": model,
-                "messages": messages,
-                "stream": False,
-            }, timeout=90)
-            answer = resp.get("message", {}).get("content", "")
-            return {"answer": answer, "provider": "ollama", "model": model}
-        except RuntimeError as exc:
-            return {
-                "answer": "Nenhum provider de IA disponível. Configure openai_url ou inicie o Ollama.",
-                "provider": "unavailable",
-                "model": model,
-                "error": str(exc),
-            }
-        except Exception as exc:
-            raise HTTPException(status_code=500, detail=str(exc))
+        # Ollama with failover: try the primary endpoint (e.g. the desktop PC
+        # over LAN) first, then a fallback endpoint (e.g. Ollama running on
+        # the phone itself) if the primary is unreachable. The two legs can
+        # use different models since phone hardware is usually weaker.
+        primary_url = cfg.get("ollama_url", _OLLAMA_DEFAULT).rstrip("/")
+        fallback_url = (cfg.get("ollama_fallback_url") or "").rstrip("/")
+        primary_model = data.model or cfg.get("model", "llama3")
+        fallback_model = data.model or cfg.get("fallback_model") or primary_model
+
+        candidates = [("pc", primary_url, primary_model, 90)]
+        if fallback_url and fallback_url != primary_url:
+            candidates.append(("celular", fallback_url, fallback_model, 180))
+
+        last_error: Exception | None = None
+        for label, base, model, timeout in candidates:
+            try:
+                resp = _http_json("POST", f"{base}/api/chat", {
+                    "model": model,
+                    "messages": messages,
+                    "stream": False,
+                }, timeout=timeout)
+                answer = resp.get("message", {}).get("content", "")
+                return {"answer": answer, "provider": f"ollama-{label}", "model": model}
+            except Exception as exc:  # noqa: BLE001 - try next candidate
+                last_error = exc
+                continue
+
+        return {
+            "answer": "Nenhum provider de IA disponível. Configure openai_url ou inicie o Ollama.",
+            "provider": "unavailable",
+            "model": primary_model,
+            "error": str(last_error) if last_error else "no Ollama endpoint configured",
+        }
 
     # ── AI runtime / Ollama model management ─────────────────────────────────
 
@@ -291,6 +307,8 @@ def register_dashboard_routes(app, version: str) -> None:
             "model": cfg.get("model", "phi4-mini"),
             "openai_url": cfg.get("openai_url", ""),
             "openai_model": cfg.get("openai_model", ""),
+            "ollama_fallback_url": cfg.get("ollama_fallback_url", ""),
+            "fallback_model": cfg.get("fallback_model", ""),
             "default_url": _OLLAMA_DEFAULT,
         }
 
@@ -306,6 +324,10 @@ def register_dashboard_routes(app, version: str) -> None:
             cfg["openai_url"] = data.openai_url.rstrip("/") if data.openai_url else ""
         if data.openai_model is not None:
             cfg["openai_model"] = data.openai_model
+        if data.ollama_fallback_url is not None:
+            cfg["ollama_fallback_url"] = data.ollama_fallback_url.rstrip("/") if data.ollama_fallback_url else ""
+        if data.fallback_model is not None:
+            cfg["fallback_model"] = data.fallback_model
         config_path = _DATA_DIR / "ai.json"
         config_path.parent.mkdir(parents=True, exist_ok=True)
         config_path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False))
