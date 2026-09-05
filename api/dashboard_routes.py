@@ -161,6 +161,26 @@ class BriefRequest(BaseModel):
 
 # ── Shared helpers ─────────────────────────────────────────────────────────────
 
+def _tcp_reachable(url: str, timeout: float = 3.0) -> bool:
+    """Quick TCP probe so an unreachable AI endpoint fails in ~3s instead of
+    burning the full request timeout (90s/180s) — without this, the chat UI
+    looked hung for minutes whenever the configured PC/phone Ollama wasn't
+    actually up, instead of failing over (or reporting unavailable) fast."""
+    import socket
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    host = parsed.hostname
+    if not host:
+        return False
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
 def _http_json(method: str, url: str, body: dict | None = None, timeout: int = 30) -> dict:
     """Raw HTTP JSON call used by both providers."""
     import urllib.error
@@ -252,7 +272,7 @@ def register_dashboard_routes(app, version: str) -> None:
         messages = data.history + [{"role": "user", "content": data.question}]
 
         # OpenAI-compatible provider (Hermes Agent, LM Studio, Jan, …)
-        if cfg.get("openai_url"):
+        if cfg.get("openai_url") and _tcp_reachable(cfg["openai_url"]):
             oai_model = data.model or cfg.get("openai_model", "")
             try:
                 answer = _openai_chat(messages, oai_model, timeout=90)
@@ -275,6 +295,9 @@ def register_dashboard_routes(app, version: str) -> None:
 
         last_error: Exception | None = None
         for label, base, model, timeout in candidates:
+            if not _tcp_reachable(base):
+                last_error = RuntimeError(f"{label} endpoint unreachable: {base}")
+                continue
             try:
                 resp = _http_json("POST", f"{base}/api/chat", {
                     "model": model,
@@ -586,8 +609,10 @@ def register_dashboard_routes(app, version: str) -> None:
     async def market_overview():
         """Compact, cross-channel market feed used by the APK and Telegram briefing."""
         try:
-            from runtime.market_intelligence.alerts import list_alerts
+            from runtime.market_intelligence.alerts import evaluate_alerts, list_alerts
             from runtime.market_intelligence.source_catalog import source_snapshot
+            evaluate_alerts()  # nothing else runs this on a schedule — without it the
+            # alerts table never gets populated and this card always reads empty.
             sources = source_snapshot()
             items = []
             for observation in sources.get("official_observations", []):

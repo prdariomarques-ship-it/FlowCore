@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -65,6 +66,83 @@ class TestAsk:
             "history": [{"role": "user", "content": "hello"}, {"role": "assistant", "content": "hi"}],
         })
         assert r.status_code == 200
+
+
+# ── _tcp_reachable — fast-fail probe used before AI provider calls ────────────
+
+class TestTcpReachable:
+    def test_unreachable_host_returns_false_fast(self):
+        import time
+        from api.dashboard_routes import _tcp_reachable
+
+        start = time.monotonic()
+        # TEST-NET-1 (RFC 5737): reserved, unroutable, guaranteed nothing listens.
+        result = _tcp_reachable("http://192.0.2.1:11434", timeout=1.0)
+        elapsed = time.monotonic() - start
+
+        assert result is False
+        assert elapsed < 2.0
+
+    def test_no_hostname_returns_false(self):
+        from api.dashboard_routes import _tcp_reachable
+        assert _tcp_reachable("not-a-url", timeout=1.0) is False
+
+    def test_reachable_host_returns_true(self):
+        import socket
+        import threading
+        from api.dashboard_routes import _tcp_reachable
+
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.bind(("127.0.0.1", 0))
+        server.listen(1)
+        port = server.getsockname()[1]
+        threading.Thread(target=server.accept, daemon=True).start()
+        try:
+            assert _tcp_reachable(f"http://127.0.0.1:{port}", timeout=1.0) is True
+        finally:
+            server.close()
+
+
+class TestAskSkipsUnreachableEndpoints:
+    """Regression test: chat used to hang up to ~4.5 min (90s + 180s) before
+    reporting "unavailable" when the configured PC/phone Ollama wasn't up —
+    this made the chat look permanently broken instead of failing fast."""
+
+    def test_ollama_candidate_skipped_when_unreachable(self, tmp_path, monkeypatch):
+        import api.dashboard_routes as dr
+        monkeypatch.setattr(dr, "_DATA_DIR", tmp_path / ".flowcore")
+        (tmp_path / ".flowcore").mkdir(parents=True)
+        (tmp_path / ".flowcore" / "ai.json").write_text(
+            json.dumps({"ollama_url": "http://10.255.255.1:11434"})
+        )
+
+        with patch("api.dashboard_routes._tcp_reachable", return_value=False) as mocked_reachable:
+            with patch("api.dashboard_routes._http_json") as mocked_http:
+                r = _client().post("/api/ask", json={"question": "oi"})
+
+        assert r.status_code == 200
+        assert r.json()["provider"] == "unavailable"
+        mocked_reachable.assert_called()
+        mocked_http.assert_not_called()
+
+
+# ── /api/market/overview — must evaluate alerts, not just read stale ones ────
+
+class TestMarketOverviewEvaluatesAlerts:
+    """Regression test: nothing in the running app calls evaluate_alerts() on
+    a schedule — /api/market/overview only ever read the (always-empty)
+    persisted table, so the mobile home screen's "Alertas" card could never
+    show a real breach even when one was actually happening."""
+
+    def test_overview_calls_evaluate_alerts(self):
+        with patch("runtime.market_intelligence.alerts.evaluate_alerts", return_value=[]) as mocked:
+            with patch(
+                "runtime.market_intelligence.source_catalog.source_snapshot",
+                return_value={"official_observations": []},
+            ):
+                r = _client().get("/api/market/overview")
+        assert r.status_code == 200
+        mocked.assert_called_once()
 
 
 # ── /api/ai-runtime/* ────────────────────────────────────────────────────────
