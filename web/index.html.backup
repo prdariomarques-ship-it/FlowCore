@@ -220,18 +220,6 @@ details.mi>summary::marker{display:none}
 .task-id{color:var(--text2);font-size:10px;font-family:monospace;flex:1;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .spin{display:inline-block;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-
-/* FAB - Floating Action Button */
-.fab{position:fixed;bottom:100px;right:16px;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;font-size:28px;font-weight:bold;cursor:pointer;box-shadow:0 4px 12px rgba(0,212,255,.4);z-index:150;transition:all .3s;display:none;align-items:center;justify-content:center}
-.fab:hover{transform:scale(1.1);box-shadow:0 6px 20px rgba(0,212,255,.6)}
-@media(max-width:768px){.fab{display:flex}}
-
-/* More Menu */
-.more-menu{position:fixed;bottom:84px;right:10px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;z-index:140;min-width:160px;box-shadow:0 8px 32px rgba(0,0,0,.5);overflow:hidden}
-.more-menu button{width:100%;display:flex;align-items:center;gap:12px;padding:12px 14px;background:none;border:none;color:var(--text);font-size:13px;cursor:pointer;transition:all .2s;border-bottom:1px solid var(--border);text-align:left}
-.more-menu button:last-child{border-bottom:none}
-.more-menu button:hover{background:var(--bg3);color:var(--accent)}
-.more-menu button .ni-icon{font-size:18px}
 </style>
 </head>
 <body>
@@ -255,29 +243,6 @@ details.mi>summary::marker{display:none}
   <!-- ══ VISÃO FINANCEIRA ══ -->
   <div class="page active" id="page-home">
     <div class="gap">
-      <!-- Executive Summary -->
-      <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-          <div>
-            <div style="font-size:22px;font-weight:700;color:var(--accent);margin-bottom:4px" id="home-greeting">Olá!</div>
-            <div style="font-size:13px;color:var(--text2)" id="home-timestamp">Iniciando...</div>
-          </div>
-          <div style="text-align:right">
-            <div style="font-size:28px" id="home-emoji">📊</div>
-          </div>
-        </div>
-        <div style="border-top:1px solid var(--border);padding-top:12px">
-          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text2);margin-bottom:8px">Status</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <div style="background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);padding:6px 10px;border-radius:6px;font-size:12px;color:var(--green)">🟢 Sistema</div>
-            <div style="background:rgba(0,212,255,.15);border:1px solid rgba(0,212,255,.3);padding:6px 10px;border-radius:6px;font-size:12px;color:var(--accent)" id="home-status">⏳ Verificando...</div>
-          </div>
-          <div style="margin-top:10px;font-size:12px;color:var(--text)" id="home-actions">
-            <div style="padding:6px 0">🎯 Últimas ações: Nenhuma pendente</div>
-          </div>
-        </div>
-      </div>
-
       <div class="card">
         <div class="ch"><span class="ct">Visão financeira</span><span class="tag ty">Referência</span></div>
         <div class="metric-grid">
@@ -492,24 +457,16 @@ details.mi>summary::marker{display:none}
 
 </div>
 
-  <!-- Bottom nav - New Navigation -->
+  <!-- Bottom nav -->
 <div class="nav">
-  <button class="ni active" onclick="pg('home',this)"><span class="ni-icon">🏠</span><span>Início</span></button>
-  <button class="ni" onclick="pg('portfolio',this)"><span class="ni-icon">💹</span><span>Finanças</span></button>
-  <button class="ni" onclick="pg('ai',this)"><span class="ni-icon">🧠</span><span>Inteligência</span></button>
-  <button class="ni" onclick="pg('agents',this)"><span class="ni-icon">⚡</span><span>Ações</span></button>
-  <button class="ni" onclick="toggleMoreMenu()"><span class="ni-icon">⋯</span><span>Mais</span></button>
-</div>
-
-<!-- FAB (Floating Action Button) - Mobile -->
-<button class="fab" id="fab-btn" onclick="openQuickActions()">+</button>
-
-<!-- More Menu (Hidden by default) -->
-<div class="more-menu" id="more-menu" style="display:none">
-  <button onclick="pg('news',this);closeMoreMenu()"><span class="ni-icon">📰</span><span>Notícias</span></button>
-  <button onclick="pg('notes',this);closeMoreMenu()"><span class="ni-icon">📝</span><span>Notas</span></button>
-  <button onclick="pg('chat',this);closeMoreMenu()"><span class="ni-icon">💬</span><span>Chat</span></button>
-  <button onclick="pg('admin',this);closeMoreMenu()"><span class="ni-icon">⚙️</span><span>Sistema</span></button>
+  <button class="ni active" onclick="pg('home',this)"><span class="ni-icon">⌂</span><span>Visão</span></button>
+  <button class="ni" onclick="pg('portfolio',this)"><span class="ni-icon">◒</span><span>Carteira</span></button>
+  <button class="ni" onclick="pg('ai',this)"><span class="ni-icon">✦</span><span>IA</span></button>
+  <button class="ni" onclick="pg('chat',this)"><span class="ni-icon">💬</span><span>Chat</span></button>
+  <button class="ni" onclick="pg('notes',this)"><span class="ni-icon">📝</span><span>Notas</span></button>
+  <button class="ni" onclick="pg('news',this)"><span class="ni-icon">📰</span><span>Notícias</span></button>
+  <button class="ni" onclick="pg('agents',this)"><span class="ni-icon">⚙</span><span>Agentes</span></button>
+  <button class="ni" onclick="pg('admin',this)"><span class="ni-icon">▣</span><span>Admin</span></button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -523,35 +480,13 @@ function pg(name,btn){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.ni').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
-  if(btn) btn.classList.add('active');
+  btn.classList.add('active');
   if(name==='admin') loadSys();
   if(name==='portfolio') loadPortfolio();
   if(name==='notes') loadNotes();
   if(name==='news') loadNews();
   if(name==='chat') loadAiConfig();
   if(name==='agents'){loadAgents();loadFlows();}
-  closeMoreMenu();
-}
-
-/* ── More Menu ── */
-function toggleMoreMenu(){
-  const m=document.getElementById('more-menu');
-  m.style.display=m.style.display==='none'?'block':'none';
-}
-function closeMoreMenu(){
-  document.getElementById('more-menu').style.display='none';
-}
-document.addEventListener('click',e=>{
-  const m=document.getElementById('more-menu');
-  const btn=document.querySelector('.ni:last-child');
-  if(m.style.display!=='none' && !m.contains(e.target) && !btn.contains(e.target)){
-    closeMoreMenu();
-  }
-});
-
-/* ── FAB (Quick Actions) ── */
-function openQuickActions(){
-  toggleMoreMenu();
 }
 
 /* ── Toast ── */
@@ -569,44 +504,10 @@ async function api(path,opts={}){
   return r.json();
 }
 
-/* ── Home greeting ── */
-function updateHomeGreeting(){
-  const now=new Date();
-  const hour=now.getHours();
-  const greetings={
-    morning:{text:'Bom dia',emoji:'🌅'},
-    afternoon:{text:'Boa tarde',emoji:'☀️'},
-    evening:{text:'Boa noite',emoji:'🌙'}
-  };
-  let period='afternoon';
-  if(hour<12) period='morning';
-  else if(hour>=18) period='evening';
-  const g=greetings[period];
-  document.getElementById('home-greeting').textContent=g.text+', usuário';
-  document.getElementById('home-emoji').textContent=g.emoji;
-  const dayName=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'][now.getDay()];
-  const dateStr=dayName+', '+now.toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'});
-  document.getElementById('home-timestamp').textContent=dateStr+' · '+now.toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});
-}
-function updateHomeStatus(s){
-  if(!s.doctor_summary) return;
-  const su=s.doctor_summary;
-  const hasWarnings=su.warnings>0;
-  const hasErrors=su.failed>0;
-  let statusColor=hasErrors?'🔴':hasWarnings?'🟡':'🟢';
-  let statusText=hasErrors?'Com problemas':hasWarnings?'Com avisos':'Operacional';
-  document.getElementById('home-status').textContent=statusColor+' '+statusText;
-  if(su.passed||su.warnings||su.failed){
-    const summary=[su.passed&&(su.passed+' OK'),su.warnings&&(su.warnings+' avisos'),su.failed&&(su.failed+' problemas')].filter(Boolean).join(' · ');
-    document.getElementById('home-actions').innerHTML=`<div style="padding:6px 0">🔍 Sistema: ${summary}</div>`;
-  }
-}
-
 /* ── Refresh ── */
 async function refresh(){
   const dot=document.getElementById('dot');
   loadMarketSnapshot();
-  updateHomeGreeting();
   try{
     const [s,notes]=await Promise.all([
       api('/api/status'),
@@ -614,7 +515,6 @@ async function refresh(){
     ]);
     dot.classList.remove('off');
     document.getElementById('last-upd').textContent='Atualizado '+new Date().toLocaleTimeString('pt-PT');
-    updateHomeStatus(s);
     renderStatus(s);
     renderNotesList(notes.notes||[]);
   }catch(e){
@@ -1227,10 +1127,8 @@ async function saveFlowBuilder(){
 }
 
 /* ── Init ── */
-updateHomeGreeting();
 refresh();
 setInterval(refresh,30000);
-setInterval(updateHomeGreeting,60000);
 </script>
 </body>
 </html>
