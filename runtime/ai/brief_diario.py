@@ -67,15 +67,16 @@ def _section_macro() -> dict[str, Any]:
 
 def _section_regime() -> dict[str, Any]:
     try:
+        from runtime.asyncio_utils import run_sync
+        from runtime.macro_score.engine import MacroScoreEngine
         from runtime.regime.engine import RegimeEngine
-        regime = RegimeEngine().classify_all()
-        signals = []
-        if isinstance(regime, dict):
-            for k, v in regime.items():
-                if isinstance(v, dict):
-                    signals.append({"name": k, "status": v.get("status", ""), "value": v.get("value")})
-                else:
-                    signals.append({"name": k, "status": str(v)})
+        from storage import EventRepository
+        engine = RegimeEngine(MacroScoreEngine(EventRepository()))
+        regime_signals = run_sync(engine.classify_all())
+        signals = [
+            {"name": s.dimension, "status": s.regime, "value": s.score}
+            for s in regime_signals
+        ]
         return {"ok": True, "signals": signals}
     except Exception as exc:
         return {"ok": False, "error": str(exc), "signals": []}

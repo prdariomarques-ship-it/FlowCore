@@ -93,7 +93,7 @@ def build_yield_curve() -> YieldCurve:
     if len(yields) < 2:
         return YieldCurve(points=points, slope_10y_2y=None,
                           slope_30y_10y=None, previous_slope_10y_2y=None,
-                          state="insufficient_data")
+                          state="insufficient_data", shape=None, interpretation=None)
 
     by_source = {p.source: p.yield_pct for p in points if p.yield_pct is not None}
 

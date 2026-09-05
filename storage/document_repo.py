@@ -5,37 +5,13 @@ Previously these were duplicated inline across 8+ functions in flowcore.py.
 """
 from __future__ import annotations
 
-import asyncio
-import concurrent.futures
 from pathlib import Path
-from typing import Any, Coroutine, TypeVar
+from typing import Any
 
 import aiosqlite
 
+from runtime.asyncio_utils import run_sync as _run_sync
 from storage.database import get_db_path
-
-_T = TypeVar("_T")
-
-
-def _run_sync(coro: Coroutine[Any, Any, _T]) -> _T:
-    """Run *coro* to completion from sync code, whether or not a loop is
-    already running in this thread.
-
-    ``asyncio.run()`` alone raises ``RuntimeError: asyncio.run() cannot be
-    called from a running event loop`` when the caller is itself inside an
-    async context (a FastAPI request handler, the MCP server's event loop).
-    That is exactly what used to break the ``*_sync`` wrappers below for any
-    caller running under uvicorn/FastMCP — not just the couple of call sites
-    that were previously rewritten to bypass these wrappers entirely. When a
-    loop is already running here, fall back to a fresh loop on a separate
-    thread instead of failing.
-    """
-    try:
-        asyncio.get_running_loop()
-    except RuntimeError:
-        return asyncio.run(coro)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-        return pool.submit(asyncio.run, coro).result()
 
 
 class DocumentRepository:

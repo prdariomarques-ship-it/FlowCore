@@ -9,10 +9,13 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+from runtime.asyncio_utils import run_sync
+from runtime.macro_score.engine import MacroScoreEngine
 from runtime.market_intelligence.asset_classes import analyze_asset_classes
 from runtime.market_intelligence.fx_analysis import analyze_fx
 from runtime.market_intelligence.yield_curve import build_yield_curve
 from runtime.regime.engine import RegimeEngine
+from storage import EventRepository
 
 
 def build_briefing() -> dict:
@@ -20,7 +23,9 @@ def build_briefing() -> dict:
     fx = analyze_fx()
     classes = analyze_asset_classes()
     try:
-        regime = RegimeEngine().classify_all()
+        engine = RegimeEngine(MacroScoreEngine(EventRepository()))
+        signals = run_sync(engine.classify_all())
+        regime = {s.dimension: {"status": s.regime, "score": s.score} for s in signals}
     except Exception:
         regime = None
     lines: list[str] = []

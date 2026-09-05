@@ -12,8 +12,9 @@ from __future__ import annotations
 import json
 import sys
 import urllib.error
+from dataclasses import dataclass
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -188,19 +189,25 @@ class TestBuildBriefingMessage:
                 ]
             }
 
-        def fake_classify_all():
-            return {
-                "commodities": {"status": "depressed"},
-                "liquidity": {"status": "depressed"},
-                "risk_sentiment": {"status": "elevated"},
-            }
+        @dataclass
+        class _FakeSignal:
+            dimension: str
+            regime: str
+
+        fake_signals = [
+            _FakeSignal("commodities", "depressed"),
+            _FakeSignal("liquidity", "depressed"),
+            _FakeSignal("risk_sentiment", "elevated"),
+        ]
 
         with (
             patch("runtime.market_intelligence.briefing.build_briefing", side_effect=fake_briefing),
             patch("runtime.market_intelligence.news.fetch_news", side_effect=fake_fetch_news),
             patch("runtime.regime.engine.RegimeEngine") as _mock_engine,
+            patch("runtime.macro_score.engine.MacroScoreEngine"),
+            patch("storage.EventRepository"),
         ):
-            _mock_engine.return_value.classify_all.return_value = fake_classify_all()
+            _mock_engine.return_value.classify_all = AsyncMock(return_value=fake_signals)
             msg = build_briefing_message()
 
         assert "DARIO OS — RADAR DE MERCADO" in msg
