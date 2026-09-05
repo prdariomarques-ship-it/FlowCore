@@ -161,6 +161,7 @@ class AgentRunner:
             ("agents.doctor_agent", "DoctorAgent"),
             ("agents.market_close_agent", "MarketCloseAgent"),
             ("agents.daily_brief_agent", "DailyBriefAgent"),
+            ("agents.notify_market_close_agent", "NotifyMarketCloseAgent"),
         ):
             try:
                 mod = __import__(cls_path[0], fromlist=[cls_path[1]])

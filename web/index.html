@@ -197,6 +197,22 @@ details.mi>summary::marker{display:none}
 .btn-run{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:8px;color:#fff;font-size:12px;font-weight:700;padding:7px 14px;cursor:pointer;white-space:nowrap;transition:opacity .2s}
 .btn-run:hover{opacity:.85}
 .btn-run:disabled{opacity:.4;cursor:not-allowed}
+/* Flows */
+.flow-subtitle{font-size:10px;text-transform:none;letter-spacing:0;color:var(--text2);margin-top:2px;font-weight:400}
+.flow-empty{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:left}
+.flow-empty-title{font-weight:700;color:var(--text);font-size:14px;margin-bottom:4px}
+.flow-empty-body{font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:12px}
+.flow-example{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:12px;line-height:1.7}
+.flow-example b{color:var(--accent)}
+.flow-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:13px}
+.flow-card-head{display:flex;align-items:center;gap:7px;margin-bottom:6px}
+.flow-card-title{font-weight:700;font-size:13px;color:var(--accent);letter-spacing:.4px}
+.flow-card-steps{font-size:12px;color:var(--text);line-height:1.5;margin-bottom:8px}
+.flow-card-meta{font-size:11px;color:var(--text2);margin-bottom:10px}
+.flow-card-actions{display:flex;gap:8px}
+.flow-step-row{display:flex;gap:6px;align-items:center}
+.flow-step-row select.if{flex:1;padding:8px 10px;font-size:12px}
+.flow-step-num{color:var(--text2);font-size:11px;width:14px;flex:none}
 .task-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg3);border-radius:8px;font-size:12px;margin-bottom:5px}
 .task-agent{font-weight:600;color:var(--text);flex:0 0 70px}
 .task-status{flex:0 0 80px}
@@ -406,14 +422,26 @@ details.mi>summary::marker{display:none}
         <div id="task-history"><div class="sk"></div><div class="sk"></div></div>
       </div>
 
-      <!-- Flows list -->
+      <!-- Flows -->
       <div class="card">
         <div class="ch">
-          <span class="ct">Flows</span>
-          <button class="btn-sm" onclick="loadFlows()">↻</button>
+          <div><span class="ct">Flows</span><div class="flow-subtitle">Automatize tarefas combinando agentes</div></div>
+          <button class="btn-sm" onclick="openFlowBuilder()">＋ Criar Flow</button>
         </div>
         <div id="flow-cards" style="display:flex;flex-direction:column;gap:8px">
           <div class="sk" style="height:42px"></div>
+        </div>
+      </div>
+
+      <!-- Flow builder -->
+      <div class="card" id="flow-builder-card" style="display:none">
+        <div class="ch"><span class="ct">Novo Flow</span><span class="ci">🔗</span></div>
+        <div class="ir"><input class="if" id="flow-name-inp" placeholder="Nome do flow (ex: Fechamento de Mercado)"></div>
+        <div id="flow-steps-list" style="display:flex;flex-direction:column;gap:8px;margin-top:10px"></div>
+        <button class="btn-sm" style="margin-top:8px" onclick="addFlowStepRow()">＋ Adicionar etapa</button>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="bs2" style="flex:1" onclick="saveFlowBuilder()">Salvar</button>
+          <button class="btn-sm" onclick="closeFlowBuilder()">Cancelar</button>
         </div>
       </div>
 
@@ -859,7 +887,7 @@ function fup(s){
 }
 
 /* ── Agents ── */
-const _agentIcons={health:'❤️',doctor:'🩺',market_close:'📊',daily_brief:'🗞️'};
+const _agentIcons={health:'❤️',doctor:'🩺',market_close:'📊',daily_brief:'🗞️',notify_market_close:'🔔'};
 
 async function loadAgents(){
   try{
@@ -886,10 +914,10 @@ function renderAgentCards(agents){
     el.id='agent-card-'+a.name;
     el.innerHTML=`
       <div class="agent-info">
-        <div class="agent-name">${icon} ${a.name}</div>
+        <div class="agent-name">${icon} ${escapeHtml(agentLabel(a.name))}</div>
         <div class="agent-desc">${a.description||''}</div>
       </div>
-      <button class="btn-run" id="btn-run-${a.name}" onclick="runAgent('${a.name}')">▶ Run</button>`;
+      <button class="btn-run" id="btn-run-${a.name}" onclick="runAgent('${a.name}')">▶ Executar</button>`;
     c.appendChild(el);
   }
 }
@@ -919,7 +947,7 @@ async function runAgent(name){
     rp.textContent=String(e);
     toast('Erro: '+e.message);
   }finally{
-    if(btn){btn.disabled=false;btn.innerHTML='▶ Run';}
+    if(btn){btn.disabled=false;btn.innerHTML='▶ Executar';}
   }
 }
 
@@ -929,24 +957,42 @@ function renderTaskHistory(tasks){
   const stIcons={completed:'✅',failed:'❌',running:'⏳',pending:'⌛'};
   const stClass={completed:'tg',failed:'tr',running:'ty',pending:'ty'};
   h.innerHTML='';
+  const stLabels={completed:'Concluído',failed:'Falhou',running:'Em andamento',pending:'Pendente'};
   for(const t of [...tasks].reverse().slice(0,15)){
     const dur=t.duration_seconds!=null?t.duration_seconds+'s':'─';
+    const when=t.created_at?new Date(t.created_at*1000).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'─';
     const el=document.createElement('div');
     el.className='task-row';
     el.innerHTML=`
-      <span class="task-agent">${_agentIcons[t.agent]||'🤖'} ${t.agent}</span>
-      <span class="task-status"><span class="tag ${stClass[t.status]||'ty'}">${stIcons[t.status]||'?'} ${t.status}</span></span>
+      <span class="task-agent">${_agentIcons[t.agent]||'🤖'} ${escapeHtml(agentLabel(t.agent))}</span>
+      <span class="task-status"><span class="tag ${stClass[t.status]||'ty'}">${stIcons[t.status]||'?'} ${stLabels[t.status]||t.status}</span></span>
       <span class="task-dur">${dur}</span>
-      <span class="task-id">${t.id}</span>`;
+      <span class="task-id">${when}</span>`;
     h.appendChild(el);
   }
 }
 
 /* ── Flows ── */
+const _agentLabels={
+  health:'Saúde do sistema', doctor:'Diagnóstico completo',
+  market_close:'Fechamento de mercado', daily_brief:'Briefing diário',
+  notify_market_close:'Notificar fechamento pronto',
+};
+function agentLabel(name){ return _agentLabels[name]||name; }
+
+let _flowAgents=[];
+let _flowBuilderSteps=[];
+
 async function loadFlows(){
   try{
     const res=await api('/api/flows');
-    renderFlowCards(Array.isArray(res)?res:[]);
+    const flows=Array.isArray(res)?res:[];
+    renderFlowCards(flows);
+    for(const f of flows){
+      api('/api/flows/'+encodeURIComponent(f.id)+'/runs?limit=1')
+        .then(r=>{ const last=(r.runs||[])[0]; if(last) updateFlowLastRun(f.id,last); })
+        .catch(()=>{});
+    }
   }catch(e){
     document.getElementById('flow-cards').innerHTML='<div class="empty">─</div>';
   }
@@ -954,19 +1000,44 @@ async function loadFlows(){
 
 function renderFlowCards(flows){
   const c=document.getElementById('flow-cards');
-  if(!flows.length){c.innerHTML='<div class="empty">Nenhum flow criado ainda.<br><small>flowcore flow create --name "Nome" --steps health,doctor</small></div>';return;}
+  if(!flows.length){
+    c.innerHTML=`<div class="flow-empty">
+      <div class="flow-empty-title">Crie seu primeiro Flow</div>
+      <div class="flow-empty-body">Combine diferentes agentes para executar uma tarefa completa automaticamente.</div>
+      <div class="flow-example"><b>Exemplo: Fechamento de Mercado</b><br>Fechamento de mercado → Notificar fechamento pronto</div>
+    </div>`;
+    return;
+  }
   c.innerHTML='';
   for(const f of flows){
+    const steps=(f.steps||[]).map(s=>escapeHtml(agentLabel(s.agent))).join(' → ');
     const el=document.createElement('div');
-    el.className='agent-card';
+    el.className='flow-card';
     el.innerHTML=`
-      <div class="agent-info">
-        <div class="agent-name">▶ ${f.name}</div>
-        <div class="agent-desc">${f.steps.length} passo(s)${f.description?' — '+f.description:''}</div>
-      </div>
-      <button class="btn-run" id="btn-flow-${f.id}" onclick="runFlow('${f.id}','${f.name}')">▶ Run</button>`;
+      <div class="flow-card-head"><span>🔗</span><span class="flow-card-title">${escapeHtml(f.name).toUpperCase()}</span></div>
+      <div class="flow-card-steps">${steps}</div>
+      <div class="flow-card-meta" id="flow-meta-${f.id}">Nunca executado</div>
+      <div class="flow-card-actions">
+        <button class="btn-run" id="btn-flow-${f.id}" onclick="runFlow('${f.id}','${escapeHtml(f.name)}')">▶ Executar</button>
+        <button class="btn-sm" onclick="deleteFlow('${f.id}')">⋮</button>
+      </div>`;
     c.appendChild(el);
   }
+}
+
+function updateFlowLastRun(id,run){
+  const el=document.getElementById('flow-meta-'+id);
+  if(!el)return;
+  const when=run.finished_at?new Date(run.finished_at*1000).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+  const icon=run.status==='completed'?'🟢':(run.status==='failed'?'🔴':'🟡');
+  const label=run.status==='completed'?'Concluído':(run.status==='failed'?'Falhou':'Em andamento');
+  el.textContent=`Última execução: ${when} · ${icon} ${label}`;
+}
+
+async function deleteFlow(id){
+  if(!confirm('Remover este flow?'))return;
+  try{ await api('/api/flows/'+encodeURIComponent(id),{method:'DELETE'}); toast('Flow removido'); loadFlows(); }
+  catch(e){ toast('Erro: '+e.message); }
 }
 
 async function runFlow(id,name){
@@ -986,12 +1057,61 @@ async function runFlow(id,name){
     ri.textContent=ok?'✅':'❌';
     rp.textContent=JSON.stringify(r,null,2);
     toast(ok?'✅ Flow concluído':'❌ Flow falhou');
+    loadFlows();
   }catch(e){
     rt.textContent='Erro';ri.textContent='❌';rp.textContent=String(e);
     toast('Erro: '+e.message);
   }finally{
-    if(btn){btn.disabled=false;btn.innerHTML='▶ Run';}
+    if(btn){btn.disabled=false;btn.innerHTML='▶ Executar';}
   }
+}
+
+/* ── Flow builder (no terminal needed) ── */
+async function openFlowBuilder(){
+  document.getElementById('flow-builder-card').style.display='block';
+  document.getElementById('flow-name-inp').value='';
+  if(!_flowAgents.length){
+    try{ const r=await api('/api/agent/agents'); _flowAgents=r.agents||[]; }catch(e){ _flowAgents=[]; }
+  }
+  _flowBuilderSteps=_flowAgents.length?[_flowAgents[0].name]:[];
+  renderFlowStepsList();
+}
+function closeFlowBuilder(){
+  document.getElementById('flow-builder-card').style.display='none';
+}
+function addFlowStepRow(){
+  if(!_flowAgents.length)return;
+  _flowBuilderSteps.push(_flowAgents[0].name);
+  renderFlowStepsList();
+}
+function removeFlowStepRow(i){
+  _flowBuilderSteps.splice(i,1);
+  renderFlowStepsList();
+}
+function setFlowStep(i,name){
+  _flowBuilderSteps[i]=name;
+}
+function renderFlowStepsList(){
+  const l=document.getElementById('flow-steps-list');
+  if(!_flowAgents.length){l.innerHTML='<div class="empty">Nenhum agente disponível.</div>';return;}
+  l.innerHTML=_flowBuilderSteps.map((val,i)=>{
+    const opts=_flowAgents.map(a=>`<option value="${a.name}" ${a.name===val?'selected':''}>${escapeHtml(agentLabel(a.name))}</option>`).join('');
+    const removeBtn=_flowBuilderSteps.length>1?`<button class="btn-sm" onclick="removeFlowStepRow(${i})">✕</button>`:'';
+    return `<div class="flow-step-row"><span class="flow-step-num">${i+1}.</span><select class="if" onchange="setFlowStep(${i},this.value)">${opts}</select>${removeBtn}</div>`;
+  }).join('');
+}
+async function saveFlowBuilder(){
+  const name=document.getElementById('flow-name-inp').value.trim();
+  if(!name){toast('Dá um nome ao flow');return;}
+  if(!_flowBuilderSteps.length){toast('Adiciona pelo menos uma etapa');return;}
+  try{
+    await api('/api/flows',{method:'POST',body:JSON.stringify({
+      name, steps:_flowBuilderSteps.map(a=>({agent:a})), description:'',
+    })});
+    toast('✓ Flow criado');
+    closeFlowBuilder();
+    loadFlows();
+  }catch(e){toast('Erro: '+e.message);}
 }
 
 /* ── Init ── */
