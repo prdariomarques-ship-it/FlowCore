@@ -40,9 +40,12 @@ Covers commits `2df69b4`..`b367a69` (following Sprint 12's `08deb9e`). Focus: MC
 ## Known issues (not fixed this sprint — flagged for a deliberate decision, not guessed at)
 
 - **Test isolation**: running `pytest tests/` writes real entries into the live `~/.flowcore/memories.json` instead of a temp/mock store. Confirmed twice this sprint; cleaned up manually each time.
-- **`storage/document_repo.py`'s `*_sync()` methods** are still broken for any caller running inside an event loop — every *known* call site has been fixed, but the root cause in the wrapper methods themselves remains.
-- **`api/router.py`'s execution-submit endpoint**: `now = time.time()` is computed but never assigned to `started_at` (stays `None`). Looks like a real one-line bug in the flows/executions stub, not simple dead code.
 - **FastAPI and MCP are fully separate, non-communicating processes** — they share on-disk files (SQLite, memories JSON) but duplicate logic independently (e.g. note-kind labels exist once in each). No unification exists yet; see `ARCHITECTURE.md`.
-- **`agents/` module** (`BaseAgent`, `AgentRegistry`) has zero references anywhere in the codebase — appears to be forward-looking scaffolding, not wired to anything yet.
-- **`PassportValidator`/`ValidationResult`** are fully tested but not called by any running endpoint (`/api/passport` only uses `PassportGenerator`).
 - **No CI/CD** — `ROADMAP.md` previously claimed this was done; it never existed (`.github/workflows/` has no files, confirmed via full git history, not just the current tree).
+
+### Resolved since this list was written
+
+- **`storage/document_repo.py`'s `*_sync()` methods`** no longer break inside a running event loop — `_run_sync()` now falls back to a fresh loop on a separate thread instead of calling `asyncio.run()` unconditionally. Verified against a live running loop.
+- **`api/router.py`'s execution-submit endpoint**: `started_at` is now assigned from the `now` timestamp instead of staying `None`. While fixing it, found and fixed a second bug in the same handler: it referenced a module-level `_flows` dict that never existed, crashing every submission with a 500 — now validates via `FlowStore().get_flow()` like the other flow endpoints.
+- **`agents/` module** (`BaseAgent`, `AgentRegistry`) is not dead scaffolding — `AgentRunner` (which subclasses/registers these) is wired into `POST /api/agent/run`, `GET /api/agent/agents`, `POST /api/ask`, the MCP tools, and `flows/runner.py`. Verified live: `POST /api/agent/run?agent_name=health` returns a completed result.
+- **`PassportValidator`/`ValidationResult`** are called by a running endpoint after all: `POST /api/agent/run` uses `AgentRunner()` with its default `require_passport=True`, which runs full passport validation before executing the agent. Verified live: the same call above exercises `_check_passport` → `PassportValidator().validate()` end-to-end with no error.
