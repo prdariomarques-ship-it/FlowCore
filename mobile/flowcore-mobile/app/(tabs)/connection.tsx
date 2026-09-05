@@ -13,7 +13,10 @@ export default function ConnectionScreen() {
   const [saving, setSaving] = useState(false);
 
   const test = useCallback(async (nextSettings?: FlowCoreSettings) => { setLoading(true); const status = await checkConnection(nextSettings ?? settings); setState(status); setLoading(false); }, [settings]);
-  useEffect(() => { loadSettings().then((saved) => { setSettings(saved); test(saved); }); }, [test]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on mount only; re-running on every `test`
+  // reference change (i.e. every keystroke in the fields below) would reload the last saved settings over
+  // whatever the user is currently typing, making the inputs look like they reject input.
+  useEffect(() => { loadSettings().then((saved) => { setSettings(saved); test(saved); }); }, []);
   const update = (key: keyof FlowCoreSettings, value: string) => setSettings((current) => ({ ...current, [key]: value }));
   const persist = async () => { setSaving(true); await saveSettings(settings); await test(settings); setSaving(false); };
 
