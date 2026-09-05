@@ -10,9 +10,11 @@ Designed to run on Termux / Android with minimal resource footprint.
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import signal
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -131,6 +133,40 @@ class FlowCoreRuntime:
     @property
     def is_running(self) -> bool:
         return self._running
+
+    def run_doctor(self) -> dict[str, Any]:
+        """Doctor Flow: USER -> Runtime -> Capability Registry -> Doctor
+        Capability -> Execution -> real result -> Observability -> History.
+
+        Resolves cpu/memory/disk readings through the capability registry
+        (never raises — an unsupported or failed capability comes back as
+        an explicit success=False reading) and runs DoctorService's full
+        component check suite independently, then persists the combined
+        report to ~/.flowcore/flowcore.doctor.json for history. A failure
+        to persist history degrades silently — it must never turn an
+        otherwise-successful diagnostic into a reported failure.
+        """
+        from capability.resolver import ProviderResolver
+        from doctor.service import DoctorService
+
+        resolver = ProviderResolver()
+        report = {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "environment": self.platform_info,
+            "cpu": resolver.resolve("getCpuUsage").to_dict(),
+            "memory": resolver.resolve("getMemoryUsage").to_dict(),
+            "disk": resolver.resolve("getDiskUsage", str(self.root)).to_dict(),
+            "components": DoctorService().run().to_dict(),
+        }
+
+        try:
+            history_dir = Path.home() / ".flowcore"
+            history_dir.mkdir(parents=True, exist_ok=True)
+            (history_dir / "flowcore.doctor.json").write_text(json.dumps(report))
+        except OSError:
+            logger.warning("Doctor: could not persist history file (non-fatal)")
+
+        return report
 
 
 def _detect_root() -> Path:
