@@ -302,19 +302,12 @@ details.mi>summary::marker{display:none}
     </div>
   </div>
 
-  <!-- ══ MEMÓRIAS ══ -->
-  <div class="page" id="page-mem">
+  <!-- ══ NOTÍCIAS ══ -->
+  <div class="page" id="page-news">
     <div class="gap">
       <div class="card">
-        <div class="ch"><span class="ct">Nova Memória</span><span class="ci">🧠</span></div>
-        <div class="ir">
-          <input class="if" id="m-inp" placeholder="Guarda algo... usa #tag">
-          <button class="bs2" onclick="addMem()">✓</button>
-        </div>
-      </div>
-      <div class="card">
-        <div class="ch"><span class="ct">Memórias recentes</span></div>
-        <div class="ml" id="mem-list"><div class="sk"></div><div class="sk"></div></div>
+        <div class="ch"><span class="ct">Notícias de mercado</span><span class="ci">📰</span></div>
+        <div class="ml" id="news-list"><div class="sk"></div><div class="sk"></div></div>
       </div>
     </div>
   </div>
@@ -442,7 +435,7 @@ details.mi>summary::marker{display:none}
   <button class="ni" onclick="pg('ai',this)"><span class="ni-icon">✦</span><span>IA</span></button>
   <button class="ni" onclick="pg('chat',this)"><span class="ni-icon">💬</span><span>Chat</span></button>
   <button class="ni" onclick="pg('notes',this)"><span class="ni-icon">📝</span><span>Notas</span></button>
-  <button class="ni" onclick="pg('mem',this)"><span class="ni-icon">🧠</span><span>Memórias</span></button>
+  <button class="ni" onclick="pg('news',this)"><span class="ni-icon">📰</span><span>Notícias</span></button>
   <button class="ni" onclick="pg('agents',this)"><span class="ni-icon">⚙</span><span>Agentes</span></button>
   <button class="ni" onclick="pg('admin',this)"><span class="ni-icon">▣</span><span>Admin</span></button>
 </div>
@@ -462,6 +455,7 @@ function pg(name,btn){
   if(name==='admin') loadSys();
   if(name==='portfolio') loadPortfolio();
   if(name==='notes') loadNotes();
+  if(name==='news') loadNews();
   if(name==='chat') loadAiConfig();
   if(name==='agents'){loadAgents();loadFlows();}
 }
@@ -486,15 +480,13 @@ async function refresh(){
   const dot=document.getElementById('dot');
   loadMarketSnapshot();
   try{
-    const [s,mems,notes]=await Promise.all([
+    const [s,notes]=await Promise.all([
       api('/api/status'),
-      api('/api/memories'),
       api('/api/notes')
     ]);
     dot.classList.remove('off');
     document.getElementById('last-upd').textContent='Atualizado '+new Date().toLocaleTimeString('pt-PT');
     renderStatus(s);
-    renderMems(mems.memories||[]);
     renderNotesList(notes.notes||[]);
   }catch(e){
     dot.classList.add('off');
@@ -690,31 +682,32 @@ function renderPassport(pp){
     <div class="passport-field"><div class="pf-label">Hash SHA-256</div><div class="hash-val">${pp.hash||''}</div></div>`;
 }
 
-/* ── Memories ── */
-function renderMems(mems){
-  const l=document.getElementById('mem-list');
-  if(!mems.length){l.innerHTML='<div class="empty">Sem memórias.<br>Adiciona a primeira acima ↑</div>';return;}
+/* ── Notícias de mercado ── */
+async function loadNews(){
+  const l=document.getElementById('news-list');
+  try{
+    const r=await api('/api/market/news?limit=20');
+    renderNewsList(r.items||[]);
+  }catch(e){
+    l.innerHTML='<div class="empty">Não foi possível carregar notícias.</div>';
+  }
+}
+function renderNewsList(items){
+  const l=document.getElementById('news-list');
+  if(!items.length){l.innerHTML='<div class="empty">Sem notícias no momento.</div>';return;}
   l.innerHTML='';
-  for(const m of mems.slice(-30).reverse()){
-    const el=document.createElement('div');
+  for(const n of items){
+    const canOpen=(n.canonical_url||'').startsWith('http');
+    const el=document.createElement(canOpen?'a':'div');
     el.className='mi';
-    const topics=(m.topics||[]).map(t=>`<span class="tb">#${t}</span>`).join('');
-    el.innerHTML=`<div class="mi-text">${m.text||''}</div>
-      ${topics?`<div class="topics">${topics}</div>`:''}
-      <div class="mi-meta">${(m.timestamp||'').slice(0,10)}</div>`;
+    if(canOpen){el.href=n.canonical_url;el.target='_blank';el.rel='noopener';el.style.display='block';el.style.textDecoration='none';}
+    const date=n.published_at?new Date(n.published_at).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+    const source=n.publisher||(n.provider&&n.provider.name)||'';
+    el.innerHTML=`<div class="mi-text">${escapeHtml(n.headline||'')}</div>
+      <div class="mi-meta">${escapeHtml(source)}${date?' · '+date:''}</div>`;
     l.appendChild(el);
   }
 }
-
-async function addMem(){
-  const inp=document.getElementById('m-inp');
-  const t=inp.value.trim(); if(!t)return;
-  try{
-    await api('/api/memories',{method:'POST',body:JSON.stringify({text:t})});
-    inp.value=''; toast('✓ Memória guardada'); refresh();
-  }catch(e){toast('Erro: '+e.message);}
-}
-document.getElementById('m-inp').addEventListener('keydown',e=>{if(e.key==='Enter')addMem();});
 
 /* ── Notes ── */
 function selKind(el){
