@@ -28,7 +28,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 import service
 from runtime.llm import LLMError
@@ -37,7 +37,7 @@ from storage import DocumentRepository, MemoryRepository
 
 ROOT = Path(__file__).resolve().parent
 
-mcp = FastMCP("flowcore")
+mcp = MCPServer("flowcore")
 
 _doc_repo = DocumentRepository()
 _mem_repo = MemoryRepository()
