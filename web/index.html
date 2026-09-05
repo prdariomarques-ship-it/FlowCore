@@ -135,11 +135,25 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
 /* Bottom nav */
-.nav{position:fixed;bottom:0;left:0;right:0;background:rgba(17,24,39,.96);border-top:1px solid var(--border);display:flex;backdrop-filter:blur(10px);z-index:100}
-.ni{flex:1;display:flex;flex-direction:column;align-items:center;padding:9px 0 13px;gap:3px;cursor:pointer;color:var(--text2);font-size:9px;font-weight:500;border:none;background:none;transition:color .2s}
+.nav{position:fixed;bottom:0;left:0;right:0;background:rgba(17,24,39,.96);border-top:1px solid var(--border);display:flex;backdrop-filter:blur(10px);z-index:100;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.ni{flex:1 0 auto;min-width:52px;display:flex;flex-direction:column;align-items:center;padding:9px 4px 13px;gap:3px;cursor:pointer;color:var(--text2);font-size:9px;font-weight:500;border:none;background:none;transition:color .2s;white-space:nowrap}
 .ni.active{color:var(--accent)}
 .ni:hover{color:var(--text)}
 .ni-icon{font-size:19px}
+
+/* Chat */
+.chat-wrap{display:flex;flex-direction:column;height:calc(100vh - 180px);min-height:320px}
+.chat-log{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-bottom:10px}
+.msg{max-width:82%;padding:9px 12px;border-radius:14px;font-size:13px;line-height:1.45;word-wrap:break-word;white-space:pre-wrap}
+.msg.user{align-self:flex-end;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border-bottom-right-radius:4px}
+.msg.bot{align-self:flex-start;background:var(--bg3);border:1px solid var(--border);border-bottom-left-radius:4px}
+.msg.bot.err{border-color:rgba(239,68,68,.4);color:var(--red)}
+.msg.typing{align-self:flex-start;background:var(--bg3);border:1px solid var(--border);border-bottom-left-radius:4px;color:var(--text2);font-style:italic}
+.chat-meta{font-size:10px;color:var(--text2);margin-top:4px;opacity:.7}
+.chat-input-row{display:flex;gap:8px;padding-top:10px;border-top:1px solid var(--border)}
+.chat-provider{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);margin-bottom:2px}
+.ai-cfg-row{display:flex;gap:8px;margin-bottom:8px}
+.ai-cfg-row .if{flex:1}
 
 /* Pages */
 .page{display:none}
@@ -289,6 +303,31 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
     </div>
   </div>
 
+  <!-- ══ CHAT (IA) ══ -->
+  <div class="page" id="page-chat">
+    <div class="gap">
+      <div class="card">
+        <div class="ch"><span class="ct">Assistente</span><button class="btn-sm" onclick="toggleAiCfg()">⚙ Config</button></div>
+        <div class="chat-provider" id="chat-provider-info">Verificando provider…</div>
+        <div id="ai-cfg-box" style="display:none;margin-top:8px">
+          <div class="ai-cfg-row"><input class="if" id="ai-ollama-url" placeholder="URL do Ollama (ex: http://192.168.1.50:11434)"></div>
+          <div class="ai-cfg-row"><input class="if" id="ai-model" placeholder="Modelo (ex: qwen2.5:7b)"></div>
+          <div class="ai-cfg-row"><input class="if" id="ai-openai-url" placeholder="URL OpenAI-compat (opcional)"></div>
+          <div class="btns" style="margin-top:0"><button class="btn bg" onclick="saveAiConfig()">✓ Salvar</button><button class="btn-sm" onclick="loadAiConfig()">↻ Recarregar</button></div>
+        </div>
+      </div>
+      <div class="card chat-wrap">
+        <div class="chat-log" id="chat-log">
+          <div class="msg bot">Oi! Sou o assistente do FlowCore. Pergunta algo sobre o portfólio, o mercado ou qualquer coisa.</div>
+        </div>
+        <div class="chat-input-row">
+          <input class="if" id="chat-inp" placeholder="Escreve uma pergunta..." onkeydown="if(event.key==='Enter')sendChat()">
+          <button class="bs2" onclick="sendChat()">➤</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ══ NOTAS ══ -->
   <div class="page" id="page-notes">
     <div class="gap">
@@ -379,6 +418,8 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
   <button class="ni active" onclick="pg('home',this)"><span class="ni-icon">⌂</span><span>Visão</span></button>
   <button class="ni" onclick="pg('portfolio',this)"><span class="ni-icon">◒</span><span>Carteira</span></button>
   <button class="ni" onclick="pg('ai',this)"><span class="ni-icon">✦</span><span>IA</span></button>
+  <button class="ni" onclick="pg('chat',this)"><span class="ni-icon">💬</span><span>Chat</span></button>
+  <button class="ni" onclick="pg('notes',this)"><span class="ni-icon">📝</span><span>Notas</span></button>
   <button class="ni" onclick="pg('mem',this)"><span class="ni-icon">🧠</span><span>Memórias</span></button>
   <button class="ni" onclick="pg('agents',this)"><span class="ni-icon">⚙</span><span>Agentes</span></button>
   <button class="ni" onclick="pg('admin',this)"><span class="ni-icon">▣</span><span>Admin</span></button>
@@ -399,6 +440,7 @@ function pg(name,btn){
   if(name==='admin') loadSys();
   if(name==='portfolio') loadPortfolio();
   if(name==='notes') loadNotes();
+  if(name==='chat') loadAiConfig();
   if(name==='agents'){loadAgents();loadFlows();}
 }
 
@@ -521,6 +563,70 @@ async function loadPortfolio(){
     document.getElementById('portfolio-exposure').innerHTML=(exposure.by_asset_class||[]).map(p=>`<div class="row"><span class="rl">${p.label}</span><span class="rv">${p.weight}%</span></div>`).join('');
     document.getElementById('portfolio-review').innerHTML=`<div class="row"><span class="rl">Status</span><span class="tag ty">${review.status}</span></div><div class="row"><span class="rl">Dados ao vivo</span><span class="rv">${review.live_data?'Sim':'Não'}</span></div><div class="row"><span class="rl">Ordens executadas</span><span class="rv">Não</span></div><div class="empty">${(review.alerts||[]).join('<br>')}<br><br>${review.next_action}</div>`;
   }catch(e){document.getElementById('portfolio-summary').innerHTML='<div class="empty">Carteira indisponível: '+e.message+'</div>';}
+}
+
+/* ── Chat (IA) ── */
+let _chatHistory=[];
+function toggleAiCfg(){
+  const box=document.getElementById('ai-cfg-box');
+  box.style.display=box.style.display==='none'?'block':'none';
+}
+async function loadAiConfig(){
+  try{
+    const cfg=await api('/api/ai-runtime/config');
+    document.getElementById('ai-ollama-url').value=cfg.ollama_url||'';
+    document.getElementById('ai-model').value=cfg.model||'';
+    document.getElementById('ai-openai-url').value=cfg.openai_url||'';
+    const label=cfg.active_provider==='openai-compat'?('OpenAI-compat · '+(cfg.openai_model||'?')):('Ollama · '+(cfg.model||'?')+' · '+cfg.ollama_url);
+    document.getElementById('chat-provider-info').textContent='Provider ativo: '+label;
+  }catch(e){
+    document.getElementById('chat-provider-info').textContent='Não foi possível ler a config de IA.';
+  }
+}
+async function saveAiConfig(){
+  try{
+    await api('/api/ai-runtime/config',{method:'PATCH',body:JSON.stringify({
+      ollama_url:document.getElementById('ai-ollama-url').value.trim()||null,
+      model:document.getElementById('ai-model').value.trim()||null,
+      openai_url:document.getElementById('ai-openai-url').value.trim(),
+    })});
+    toast('Config de IA salva');
+    loadAiConfig();
+    toggleAiCfg();
+  }catch(e){toast('Erro ao salvar: '+e.message);}
+}
+function appendChatMsg(text,who,meta){
+  const log=document.getElementById('chat-log');
+  const el=document.createElement('div');
+  el.className='msg '+who;
+  el.textContent=text;
+  if(meta){const m=document.createElement('div');m.className='chat-meta';m.textContent=meta;el.appendChild(m);}
+  log.appendChild(el);
+  log.scrollTop=log.scrollHeight;
+  return el;
+}
+async function sendChat(){
+  const inp=document.getElementById('chat-inp');
+  const question=inp.value.trim();
+  if(!question) return;
+  inp.value='';
+  appendChatMsg(question,'user');
+  const typing=appendChatMsg('a pensar…','typing');
+  try{
+    const data=await api('/api/ask',{method:'POST',body:JSON.stringify({question,history:_chatHistory})});
+    typing.remove();
+    if(data.provider==='unavailable'){
+      appendChatMsg(data.answer||'Nenhum provider de IA disponível.','bot err','Configure o Ollama ou um endpoint OpenAI-compatible em ⚙ Config acima.');
+    }else{
+      appendChatMsg(data.answer||'(sem resposta)','bot',data.provider+(data.model?' · '+data.model:''));
+      _chatHistory.push({role:'user',content:question});
+      _chatHistory.push({role:'assistant',content:data.answer||''});
+      if(_chatHistory.length>20) _chatHistory=_chatHistory.slice(-20);
+    }
+  }catch(e){
+    typing.remove();
+    appendChatMsg('Erro ao falar com a IA: '+e.message,'bot err');
+  }
 }
 
 /* ── System page ── */
