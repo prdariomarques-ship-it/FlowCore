@@ -24,14 +24,33 @@ class DoctorAgent(BaseAgent):
                 }
                 for c in report.checks
             ]
-            passed = sum(1 for c in report.checks if c.status.value == "pass")
+            passed = sum(1 for c in report.checks if c.status.value == "ok")
             failed = sum(1 for c in report.checks if c.status.value == "fail")
             warned = sum(1 for c in report.checks if c.status.value == "warn")
-            overall = "ok" if failed == 0 else "degraded"
+
+            # Human-friendly status summary in Portuguese
+            if failed == 0 and warned == 0:
+                emoji = "🟢"
+                status_text = "Pronto para usar"
+                overall = "ok"
+            elif failed == 0:
+                emoji = "🟡"
+                status_text = "Funcionando, com avisos"
+                overall = "warning"
+            else:
+                emoji = "🔴"
+                status_text = "Alguns problemas"
+                overall = "degraded"
+
+            summary_line = f"{emoji} {status_text} • {passed} OK, {warned} aviso(s), {failed} problema(s)"
+
             return {
                 "status": overall,
                 "data": {
                     "summary": {
+                        "emoji": emoji,
+                        "status_text": status_text,
+                        "summary_line": summary_line,
                         "total": len(checks),
                         "passed": passed,
                         "failed": failed,

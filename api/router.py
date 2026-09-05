@@ -211,13 +211,39 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         try:
             from doctor.service import DoctorService
             report = DoctorService().run(verbose=False)
+            passed = sum(1 for c in report.checks if c.status.value == "ok")
+            failed = sum(1 for c in report.checks if c.status.value == "fail")
+            warned = sum(1 for c in report.checks if c.status.value == "warn")
+
+            # Human-friendly summary
+            if failed == 0 and warned == 0:
+                emoji = "🟢"
+                status_text = "Pronto para usar"
+            elif failed == 0:
+                emoji = "🟡"
+                status_text = "Funcionando, com avisos"
+            else:
+                emoji = "🔴"
+                status_text = "Alguns problemas"
+
+            summary_line = f"{emoji} {status_text} • {passed} OK, {warned} aviso(s), {failed} problema(s)"
+
             result["doctor"] = [
                 {"name": c.name, "status": c.status.value, "message": c.message,
                  "fix": c.fix}
                 for c in report.checks
             ]
+            result["doctor_summary"] = {
+                "emoji": emoji,
+                "status_text": status_text,
+                "summary_line": summary_line,
+                "passed": passed,
+                "warnings": warned,
+                "failed": failed,
+            }
         except Exception as e:
             result["doctor"] = []
+            result["doctor_summary"] = None
 
         # Memory count
         try:

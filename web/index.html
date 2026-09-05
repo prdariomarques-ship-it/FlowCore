@@ -313,6 +313,7 @@ details.mi>summary::marker{display:none}
       </div>
       <div class="card">
         <div class="ch"><span class="ct">Doctor</span><span class="ci">🩺</span></div>
+        <div id="chk-summary" style="padding:12px;border-bottom:1px solid #2a4f7f"></div>
         <div class="cl" id="chk-list"><div class="sk"></div><div class="sk"></div></div>
       </div>
     </div>
@@ -578,6 +579,17 @@ function renderStatus(s){
   // Doctor
   const icons={ok:'✅',warn:'⚠️',fail:'❌',skip:'─'};
   const cl=document.getElementById('chk-list');
+  const summ=document.getElementById('chk-summary');
+
+  // Renderiza summary no topo (status geral claro)
+  if(s.doctor_summary){
+    const su=s.doctor_summary;
+    summ.innerHTML=`<div style="font-size:16px;font-weight:bold;color:#d7e5f4;margin-bottom:8px">${su.summary_line||su.status_text}</div><div style="font-size:12px;color:#9cb0c9;gap:8px;display:flex;flex-wrap:wrap"><span style="background:#1a3a52;padding:4px 8px;border-radius:4px">${su.passed} OK</span><span style="background:#4a3a1a;padding:4px 8px;border-radius:4px">${su.warnings} Avisos</span><span style="background:#4a1a1a;padding:4px 8px;border-radius:4px">${su.failed} Problemas</span></div>`;
+  }else{
+    summ.innerHTML='';
+  }
+
+  // Renderiza checks detalhados (expandível)
   cl.innerHTML='';
   for(const c of chks){
     const el=document.createElement('div');
@@ -585,7 +597,7 @@ function renderStatus(s){
     el.innerHTML=`<span>${icons[c.status]||'?'}</span><span class="ck-name">${c.name}</span><span class="ck-msg">${c.message||''}</span>`;
     cl.appendChild(el);
   }
-  if(!chks.length) cl.innerHTML='<div class="empty">Doctor não disponível</div>';
+  if(!chks.length && !s.doctor_summary) cl.innerHTML='<div class="empty">Doctor não disponível</div>';
 }
 
 /* ── Portfolio ── */
