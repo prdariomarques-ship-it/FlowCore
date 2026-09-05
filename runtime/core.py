@@ -117,8 +117,24 @@ class FlowCoreRuntime:
             self.platform_info["python_version"],
         )
         self.db_engine = await init_database(self.cfg)
+        self._register_observer_ingestion()
         self._running = True
         logger.info("FlowCore started successfully")
+
+    def _register_observer_ingestion(self) -> None:
+        """Register the recurring observer-ingestion job (P0 — ingestão
+        contínua), unless explicitly disabled. Never fails startup — a
+        scheduler error here is logged and skipped, not raised.
+        """
+        if os.environ.get("FLOWCORE_AUTO_INGEST", "1") == "0":
+            return
+        schedule = os.environ.get("FLOWCORE_OBSERVER_SCHEDULE", "*/15 * * * *")
+        script = self.root / "scripts" / "ingest_observers.py"
+        try:
+            from runtime.job_scheduler import JobScheduler
+            JobScheduler().add_job("observer_ingest", str(script), schedule)
+        except Exception as exc:
+            logger.warning("Could not register observer_ingest job (non-fatal): {}", exc)
 
     async def stop(self) -> None:
         """Gracefully shut down."""
