@@ -159,6 +159,8 @@ class AgentRunner:
         for cls_path in (
             ("agents.health_agent", "HealthAgent"),
             ("agents.doctor_agent", "DoctorAgent"),
+            ("agents.market_close_agent", "MarketCloseAgent"),
+            ("agents.daily_brief_agent", "DailyBriefAgent"),
         ):
             try:
                 mod = __import__(cls_path[0], fromlist=[cls_path[1]])
