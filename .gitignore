@@ -1,52 +1,67 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
+```
+# Logs and temp files
+*.log
+*.tmp
+*.swp
 
-# Virtual environments
-.venv/
-venv/
-ENV/
-env/
+# Environment
+.env
+.env.local
+.env.*
 
-# Distribution / packaging
-*.egg-info/
-*.egg
-dist/
-build/
-*.so
-
-# IDE
+# Editors
 .vscode/
 .idea/
-*.swp
-*.swo
-*~
 
-# Logs (keep the dir, ignore contents)
-logs/*.log
-logs/*.json
+# Dependencies
+node_modules/
+.venv/
+venv/
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+dist/
+build/
+target/
+.gradle/
 
-# Backups
-backups/*.bak
-backups/*.tar.gz
-
-# OS files
+# OS generated files
 .DS_Store
 Thumbs.db
 
-# Environment variables (MUST NOT be committed)
-.env
-.env.local
+# Compiled files
+*.pyc
+*.class
+*.o
+*.exe
+*.dll
+*.so
+*.a
+*.obj
+*.out
 
-# SQLite databases
-*.db
-*.sqlite
-*.sqlite3
+# Coverage reports
+coverage/
+htmlcov/
+.coverage
 
-# Temporary files
-tmp/
-*.tmp
-
-# Termux-specific
-.termux/
+# Compressed files
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+```
