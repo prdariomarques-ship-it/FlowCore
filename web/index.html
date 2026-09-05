@@ -72,6 +72,8 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .ir{display:flex;gap:8px;margin-bottom:12px}
 .if{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 12px;font-size:13px;outline:none;transition:border-color .2s}
 .if:focus{border-color:var(--accent)}
+textarea.if{font-family:inherit;resize:vertical;min-height:38px}
+textarea.if.grow{min-height:140px}
 .if::placeholder{color:var(--text2)}
 .bs2{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:8px;color:#fff;font-size:15px;width:40px;cursor:pointer;flex-shrink:0}
 .bs2:hover{opacity:.85}
@@ -96,8 +98,22 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .mi{background:var(--bg3);border-radius:8px;padding:10px 12px;border-left:2px solid var(--accent2)}
 .mi.todo{border-left-color:var(--yellow)}
 .mi.agenda{border-left-color:var(--green)}
+.mi.radar{border-left-color:var(--accent)}
 .mi-text{color:var(--text);margin-bottom:3px;font-size:13px}
 .mi-meta{color:var(--text2);font-size:11px;display:flex;align-items:center;gap:6px}
+details.mi>summary{cursor:pointer;list-style:none}
+details.mi>summary::-webkit-details-marker{display:none}
+details.mi>summary::marker{display:none}
+.mi-body{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:13px;line-height:1.6;color:var(--text)}
+.mi-body h1,.mi-body h2,.mi-body h3{color:var(--accent);margin:14px 0 6px;font-size:14px}
+.mi-body h1:first-child,.mi-body h2:first-child,.mi-body h3:first-child{margin-top:0}
+.mi-body strong{color:#fff}
+.mi-body a{color:var(--accent)}
+.mi-body hr{border:none;border-top:1px solid var(--border);margin:12px 0}
+.mi-body p{margin:6px 0}
+.mi-body table{border-collapse:collapse;width:100%;margin:8px 0;font-size:12px}
+.mi-body th,.mi-body td{border:1px solid var(--border);padding:5px 8px;text-align:left}
+.mi-body th{color:var(--text2);background:var(--bg2)}
 .topics{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
 .tb{background:rgba(124,58,237,.2);color:#a78bfa;border-radius:20px;padding:1px 7px;font-size:10px;border:1px solid rgba(124,58,237,.3)}
 
@@ -353,9 +369,10 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
           <div class="ks active" data-kind="note" onclick="selKind(this)">📝 Nota</div>
           <div class="ks" data-kind="todo"   onclick="selKind(this)">☑️ Todo</div>
           <div class="ks" data-kind="agenda" onclick="selKind(this)">📅 Agenda</div>
+          <div class="ks" data-kind="radar"  onclick="selKind(this)">📊 Radar</div>
         </div>
         <div class="ir">
-          <input class="if" id="note-inp" placeholder="Escreve aqui...">
+          <textarea class="if" id="note-inp" rows="1" placeholder="Escreve aqui..."></textarea>
           <button class="bs2" onclick="addNote()">✓</button>
         </div>
       </div>
@@ -704,6 +721,7 @@ function selKind(el){
   document.querySelectorAll('.ks').forEach(k=>k.classList.remove('active'));
   el.classList.add('active');
   _noteKind=el.dataset.kind;
+  document.getElementById('note-inp').classList.toggle('grow',_noteKind==='radar');
 }
 
 async function loadNotes(){
@@ -713,16 +731,62 @@ async function loadNotes(){
   }catch(e){}
 }
 
+function escapeHtml(s){
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* Minimal markdown-lite renderer: headers, **bold**, [links](url), tables, hr, paragraphs. */
+function mdLite(text){
+  const isSep=r=>/^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$/.test(r);
+  const inline=s=>s.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+                    .replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  const lines=escapeHtml(text).split('\n');
+  let html='',para=[],table=[];
+  const flushPara=()=>{if(para.length){html+='<p>'+para.join('<br>')+'</p>';para=[];}};
+  const flushTable=()=>{
+    if(!table.length)return;
+    const rows=table.filter(r=>!isSep(r));
+    html+='<table>'+rows.map((r,i)=>{
+      const cells=r.replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+      const tag=i===0?'th':'td';
+      return '<tr>'+cells.map(c=>`<${tag}>${inline(c)}</${tag}>`).join('')+'</tr>';
+    }).join('')+'</table>';
+    table=[];
+  };
+  for(const raw of lines){
+    const line=raw.trim();
+    if(line.startsWith('|')){flushPara();table.push(line);continue;}
+    flushTable();
+    if(!line){flushPara();continue;}
+    const h=line.match(/^(#{1,6})\s+(.*)$/);
+    if(h){flushPara();const lvl=Math.min(h[1].length,3);html+=`<h${lvl}>${inline(h[2])}</h${lvl}>`;continue;}
+    if(/^-{3,}$/.test(line)){flushPara();html+='<hr>';continue;}
+    para.push(inline(line));
+  }
+  flushTable();flushPara();
+  return html;
+}
+
 function renderNotesList(notes){
   const l=document.getElementById('notes-list');
   if(!notes.length){l.innerHTML='<div class="empty">Sem notas ainda.</div>';return;}
   l.innerHTML='';
-  const icons={note:'📝',todo:'☑️',agenda:'📅'};
+  const icons={note:'📝',todo:'☑️',agenda:'📅',radar:'📊'};
   for(const n of notes.slice(-30).reverse()){
+    const date=(n.created_at||'').slice(0,10);
+    if(n.source==='radar'){
+      const el=document.createElement('details');
+      el.className='mi radar';
+      el.innerHTML=`<summary class="mi-text">${icons.radar} <strong>${escapeHtml(n.title||'Radar')}</strong>
+        <div class="mi-meta">${date}</div></summary>
+        <div class="mi-body">${mdLite(n.content||'')}</div>`;
+      l.appendChild(el);
+      continue;
+    }
     const el=document.createElement('div');
     el.className='mi '+(n.source||'note');
-    el.innerHTML=`<div class="mi-text">${icons[n.source]||'📝'} ${n.content||n.title||''}</div>
-      <div class="mi-meta">${(n.created_at||'').slice(0,10)}</div>`;
+    el.innerHTML=`<div class="mi-text">${icons[n.source]||'📝'} ${escapeHtml(n.content||n.title||'')}</div>
+      <div class="mi-meta">${date}</div>`;
     l.appendChild(el);
   }
 }
@@ -735,7 +799,9 @@ async function addNote(){
     inp.value=''; toast('✓ Guardado'); loadNotes(); refresh();
   }catch(e){toast('Erro: '+e.message);}
 }
-document.getElementById('note-inp').addEventListener('keydown',e=>{if(e.key==='Enter')addNote();});
+document.getElementById('note-inp').addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey&&_noteKind!=='radar'){e.preventDefault();addNote();}
+});
 
 /* ── Search ── */
 async function doSearch(){
@@ -753,13 +819,13 @@ async function doSearch(){
     if(mems.length){
       html+=`<div class="sr-section"><div class="sr-title">Memórias (${mems.length})</div>`;
       for(const m of mems.slice(0,5))
-        html+=`<div class="sr-item"><div class="sr-text">${m.text||''}</div><div class="sr-sub">${(m.timestamp||'').slice(0,10)}</div></div>`;
+        html+=`<div class="sr-item"><div class="sr-text">${escapeHtml(m.text)}</div><div class="sr-sub">${(m.timestamp||'').slice(0,10)}</div></div>`;
       html+='</div>';
     }
     if(docs.length){
       html+=`<div class="sr-section"><div class="sr-title">Documentos (${docs.length})</div>`;
       for(const d of docs.slice(0,5))
-        html+=`<div class="sr-item"><div class="sr-text">${d.title||''}</div><div class="sr-sub">${(d.content||'').slice(0,60)}...</div></div>`;
+        html+=`<div class="sr-item"><div class="sr-text">${escapeHtml(d.title)}</div><div class="sr-sub">${escapeHtml((d.content||'').slice(0,60))}...</div></div>`;
       html+='</div>';
     }
     sr.innerHTML=html;

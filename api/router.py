@@ -133,7 +133,7 @@ class NotifyRequest(BaseModel):
 
 class NoteCreate(BaseModel):
     text: str
-    kind: str = "note"   # "note" | "todo" | "agenda"
+    kind: str = "note"   # "note" | "todo" | "agenda" | "radar"
 
 
 class ObsidianSyncRequest(BaseModel):
@@ -367,7 +367,7 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         try:
             from storage import DocumentRepository
             docs = DocumentRepository().list_all_sync()
-            kinds = {"note", "todo", "agenda"}
+            kinds = {"note", "todo", "agenda", "radar"}
             filtered = [
                 d for d in docs
                 if d.get("source") in kinds
@@ -379,11 +379,14 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
 
     @app.post("/api/notes", status_code=201)
     async def create_note(data: NoteCreate):
-        if data.kind not in ("note", "todo", "agenda"):
-            raise HTTPException(status_code=422, detail="kind must be note, todo or agenda")
+        if data.kind not in ("note", "todo", "agenda", "radar"):
+            raise HTTPException(status_code=422, detail="kind must be note, todo, agenda or radar")
         try:
             from storage import DocumentRepository
-            label = {"note": "Nota", "todo": "TODO", "agenda": "Agenda"}[data.kind]
+            label = {"note": "Nota", "todo": "TODO", "agenda": "Agenda", "radar": "Radar"}[data.kind]
+            if data.kind == "radar":
+                first_line = next((ln.strip(" #") for ln in data.text.splitlines() if ln.strip()), label)
+                label = first_line[:120] or label
             doc_id = DocumentRepository().insert_sync(label, data.text, data.kind)
             logger.info("Note created via API: kind={} text={}", data.kind, data.text[:40])
             return {"id": doc_id, "kind": data.kind, "text": data.text}
