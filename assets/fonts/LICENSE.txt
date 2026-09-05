@@ -1,0 +1,9 @@
+Liberation Sans (Regular, Bold)
+
+Copyright © 2012 Red Hat, Inc.
+Licensed under the SIL Open Font License, Version 1.1.
+Full license text: https://scripts.sil.org/OFL
+
+Bundled here so market-close card rendering (runtime/market_intelligence/
+market_close_card.py) does not depend on any system font being installed —
+important for the Termux/Android target environment.

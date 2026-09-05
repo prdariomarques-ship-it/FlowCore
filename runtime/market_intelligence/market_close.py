@@ -58,9 +58,22 @@ def _persist(package: dict[str, Any]) -> str | None:
         return None
 
 
+def _render_card(lines: list[str], generated_at: str) -> str | None:
+    """Render the visual card (cria os cards). Never raises — Pillow is
+    an optional API-tier dependency; without it (or on any render
+    failure) the text versions still stand on their own."""
+    try:
+        from runtime.market_intelligence.market_close_card import render_close_card
+        date_key = datetime.fromisoformat(generated_at).strftime("%Y-%m-%d")
+        path = _HISTORY_DIR / f"{date_key}.png"
+        return render_close_card(lines, generated_at, path)
+    except Exception:
+        return None
+
+
 def build_market_close() -> dict[str, Any]:
     """Prepare o fechamento de mercado: real data, two rendered texts,
-    saved to ~/.flowcore/market_close/<date>.json."""
+    a visual card, all saved under ~/.flowcore/market_close/<date>.*"""
     briefing = build_briefing()
     lines = briefing["lines"]
     generated_at = briefing["generated_at"]
@@ -71,5 +84,6 @@ def build_market_close() -> dict[str, Any]:
         "client_version": _client_version(lines, generated_at),
         "instagram_version": _instagram_version(lines, generated_at),
     }
+    package["card_path"] = _render_card(lines, generated_at)
     package["saved_to"] = _persist(package)
     return package
