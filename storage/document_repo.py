@@ -6,12 +6,36 @@ Previously these were duplicated inline across 8+ functions in flowcore.py.
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 from pathlib import Path
-from typing import Any
+from typing import Any, Coroutine, TypeVar
 
 import aiosqlite
 
 from storage.database import get_db_path
+
+_T = TypeVar("_T")
+
+
+def _run_sync(coro: Coroutine[Any, Any, _T]) -> _T:
+    """Run *coro* to completion from sync code, whether or not a loop is
+    already running in this thread.
+
+    ``asyncio.run()`` alone raises ``RuntimeError: asyncio.run() cannot be
+    called from a running event loop`` when the caller is itself inside an
+    async context (a FastAPI request handler, the MCP server's event loop).
+    That is exactly what used to break the ``*_sync`` wrappers below for any
+    caller running under uvicorn/FastMCP — not just the couple of call sites
+    that were previously rewritten to bypass these wrappers entirely. When a
+    loop is already running here, fall back to a fresh loop on a separate
+    thread instead of failing.
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(asyncio.run, coro).result()
 
 
 class DocumentRepository:
@@ -116,22 +140,22 @@ class DocumentRepository:
     # ── Sync convenience ─────────────────────────────────────────────────────
 
     def insert_sync(self, title: str, content: str, source: str = "") -> int:
-        return asyncio.run(self.insert(title, content, source))
+        return _run_sync(self.insert(title, content, source))
 
     def list_all_sync(self) -> list[dict[str, Any]]:
-        return asyncio.run(self.list_all())
+        return _run_sync(self.list_all())
 
     def get_by_id_sync(self, doc_id: int) -> dict[str, Any] | None:
-        return asyncio.run(self.get_by_id(doc_id))
+        return _run_sync(self.get_by_id(doc_id))
 
     def search_sync(self, query: str) -> list[dict[str, Any]]:
-        return asyncio.run(self.search(query))
+        return _run_sync(self.search(query))
 
     def list_recent_sync(self, limit: int = 5) -> list[dict[str, Any]]:
-        return asyncio.run(self.list_recent(limit))
+        return _run_sync(self.list_recent(limit))
 
     def count_sync(self) -> int:
-        return asyncio.run(self.count())
+        return _run_sync(self.count())
 
     def count_by_source_sync(self, *sources: str) -> int:
-        return asyncio.run(self.count_by_source(*sources))
+        return _run_sync(self.count_by_source(*sources))
