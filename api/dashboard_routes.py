@@ -332,6 +332,15 @@ class OfficeNotificationsUpdate(BaseModel):
     telegram_chat_id: str | None = None
 
 
+class AgentApprovalEdit(BaseModel):
+    """The "EDITAR" step of the approval queue (§9) -- replaces the
+    pending approval's whole prepared payload (e.g. a tweaked draft
+    subject/body) before a human approves it. Deliberately a free-form
+    dict, not a rigid schema: action_type already varies what payload
+    means (today only "contact_client", see agents/orchestrator.py)."""
+    payload: dict[str, Any]
+
+
 class AdvisorProfileUpdate(BaseModel):
     """Partial update for the dashboard's advisor card — same
     partial-merge convention as AIConfig/ai_config_patch. Deliberately no
@@ -1315,6 +1324,83 @@ def register_dashboard_routes(app, version: str) -> None:
         user = await get_current_user(request)
         office = await TenantRepository().set_telegram_chat_id(user["office_id"], data.telegram_chat_id)
         return {"saved": True, "telegram_chat_id": office["telegram_chat_id"] if office else None}
+
+    # ── Human-in-the-loop approval queue (§9) ────────────────────────────────
+    # LEVEL 3+ actions an agent prepares (agents/orchestrator.py) but never
+    # executes alone land here as "pending" -- only a human approving from
+    # this API (or the dashboard's approval cards) actually triggers the
+    # send. Persisted, not a browser confirm() dialog: closing the tab
+    # doesn't lose it.
+
+    @app.get("/api/agent-approvals")
+    async def agent_approvals_list(request: Request, status: str | None = Query(default=None), limit: int = Query(default=50, le=200)):
+        from storage.agent_approval_repo import AgentApprovalRepository
+
+        user = await get_current_user(request)
+        approvals = await AgentApprovalRepository().list_approvals(user["office_id"], status=status, limit=limit)
+        return {"total": len(approvals), "items": approvals}
+
+    @app.put("/api/agent-approvals/{approval_id}")
+    async def agent_approval_edit(approval_id: str, data: AgentApprovalEdit, request: Request):
+        from storage.agent_approval_repo import AgentApprovalRepository
+
+        user = await get_current_user(request)
+        try:
+            updated = await AgentApprovalRepository().update_payload(user["office_id"], approval_id, data.payload)
+        except KeyError:
+            raise HTTPException(status_code=404, detail=f"unknown approval: {approval_id}")
+        except ValueError as e:
+            raise HTTPException(status_code=409, detail=str(e))
+        return {"approval": updated}
+
+    @app.post("/api/agent-approvals/{approval_id}/approve")
+    async def agent_approval_approve(approval_id: str, request: Request):
+        from runtime.client_outreach import send_review_request
+        from storage.agent_approval_repo import AgentApprovalRepository
+        from storage.client_repo import ClientRepository
+
+        user = await get_current_user(request)
+        office_id = user["office_id"]
+        approval_repo = AgentApprovalRepository()
+        approval = await approval_repo.get(office_id, approval_id)
+        if approval is None:
+            raise HTTPException(status_code=404, detail=f"unknown approval: {approval_id}")
+
+        if approval["action_type"] != "contact_client":
+            raise HTTPException(status_code=400, detail=f"unsupported action_type: {approval['action_type']}")
+
+        client_id = approval["payload"]["client_id"]
+        client = await ClientRepository().get_client(office_id, client_id)
+        if client is None:
+            raise HTTPException(status_code=404, detail=f"unknown client: {client_id}")
+
+        # Fetches the client fresh (not the payload's snapshot) so contact
+        # info added after the agent proposed this action is actually used.
+        draft = approval["payload"]["draft"]
+        channels = approval["payload"].get("channels", ["email", "whatsapp"])
+        results = send_review_request(office_id, client, draft, channels, user["id"])
+
+        try:
+            updated = await approval_repo.decide(office_id, approval_id, "approved", user["id"], result={"channels": results})
+        except ValueError as e:
+            raise HTTPException(status_code=409, detail=str(e))
+        return {"approval": updated}
+
+    @app.post("/api/agent-approvals/{approval_id}/reject")
+    async def agent_approval_reject(approval_id: str, request: Request):
+        from storage.agent_approval_repo import AgentApprovalRepository
+
+        user = await get_current_user(request)
+        office_id = user["office_id"]
+        approval_repo = AgentApprovalRepository()
+        approval = await approval_repo.get(office_id, approval_id)
+        if approval is None:
+            raise HTTPException(status_code=404, detail=f"unknown approval: {approval_id}")
+        try:
+            updated = await approval_repo.decide(office_id, approval_id, "rejected", user["id"])
+        except ValueError as e:
+            raise HTTPException(status_code=409, detail=str(e))
+        return {"approval": updated}
 
     @app.get("/api/portfolio/risk-breakdown")
     async def portfolio_risk_breakdown(request: Request):

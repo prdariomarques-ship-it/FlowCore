@@ -112,7 +112,7 @@ class AgentEventRepository:
             return self._row_to_dict(dict(zip(columns, row)))
 
     async def list_events(
-        self, office_id: str, status: str | None = None, limit: int = 50,
+        self, office_id: str, status: str | None = None, type: str | None = None, limit: int = 50,
     ) -> list[dict[str, Any]]:
         await self.ensure_tables()
         query = "SELECT * FROM agent_events WHERE office_id = ?"
@@ -120,6 +120,9 @@ class AgentEventRepository:
         if status:
             query += " AND status = ?"
             params.append(status)
+        if type:
+            query += " AND type = ?"
+            params.append(type)
         query += " ORDER BY created_at DESC LIMIT ?"
         params.append(limit)
         async with aiosqlite.connect(self._db_path) as db:
@@ -127,6 +130,34 @@ class AgentEventRepository:
             rows = await cursor.fetchall()
             columns = [d[0] for d in cursor.description]
             return [self._row_to_dict(dict(zip(columns, r))) for r in rows]
+
+    async def first_seen(self, office_id: str, dedup_key: str) -> float | None:
+        """The created_at of the earliest event with this dedup_key still
+        on record -- "how long has this exact situation been open", used
+        by agents/observer_loop.py to decide when an unaddressed
+        violation crosses the bar into CLIENT_FOLLOWUP_OVERDUE."""
+        await self.ensure_tables()
+        async with aiosqlite.connect(self._db_path) as db:
+            cursor = await db.execute(
+                "SELECT MIN(created_at) FROM agent_events WHERE office_id = ? AND dedup_key = ?",
+                (office_id, dedup_key),
+            )
+            row = await cursor.fetchone()
+            return row[0] if row and row[0] is not None else None
+
+    async def mark_resolved(self, office_id: str, event_id: str) -> dict[str, Any] | None:
+        """A previously-processed event whose underlying situation no
+        longer exists (e.g. the client's portfolio is back in profile) --
+        distinct from "processed", so agents/observer_loop.py can tell
+        "handled and done" apart from "handled and still open"."""
+        await self.ensure_tables()
+        async with aiosqlite.connect(self._db_path) as db:
+            await db.execute(
+                "UPDATE agent_events SET status = 'resolved', updated_at = ? WHERE office_id = ? AND id = ?",
+                (time.time(), office_id, event_id),
+            )
+            await db.commit()
+        return await self.get_event(office_id, event_id)
 
     async def record_decision(self, office_id: str, event_id: str, status: str, decision: dict[str, Any]) -> dict[str, Any] | None:
         """CoreOrchestrator calls this once it has finished handling an
@@ -148,6 +179,7 @@ class AgentEventRepository:
             "id": row["id"], "office_id": row["office_id"], "type": row["type"], "source": row["source"],
             "entity": json.loads(row["entity_json"]), "payload": json.loads(row["payload_json"]),
             "priority": row["priority"], "status": row["status"], "metadata": json.loads(row["metadata_json"]),
+            "dedup_key": row["dedup_key"],
             "decision": json.loads(row["decision_json"]) if row["decision_json"] else None,
             "created_at": row["created_at"], "updated_at": row["updated_at"],
         }

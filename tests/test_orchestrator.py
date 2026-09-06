@@ -226,3 +226,142 @@ class TestPortfolioOutOfProfile:
         stored = _run(scenario())
         assert stored["status"] == "processed"
         assert stored["decision"]["action"] == "notify_advisor"
+
+
+class TestPortfolioBackInProfile:
+    def test_notifies_good_news_via_telegram(self):
+        sent = {}
+
+        def fake_send_message(text, chat_id=None, timeout=10):
+            sent["text"] = text
+            sent["chat_id"] = chat_id
+            return {"ok": True}
+
+        async def scenario():
+            office, client, _ = await _office_with_client_and_violation()
+            event = AgentEvent(
+                type="PORTFOLIO_BACK_IN_PROFILE", source="compliance_agent",
+                entity={"kind": "client", "id": client["id"]}, priority="MEDIUM",
+            )
+            published = await AgentEventRepository().publish(office["id"], event)
+            orchestrator = CoreOrchestrator()
+            with patch("runtime.telegram.send_message", side_effect=fake_send_message):
+                return await orchestrator.handle_event(office["id"], published)
+
+        result = _run(scenario())
+        assert result["status"] == "processed"
+        assert result["decision"]["action"] == "notify_advisor_recovered"
+        assert result["decision"]["notification"]["status"] == "sent"
+        assert "Junqueira Capital" in sent["text"]
+        assert "voltou" in sent["text"]
+
+    def test_no_telegram_configured_is_honest_not_an_error(self):
+        async def scenario():
+            office, client, _ = await _office_with_client_and_violation(telegram_chat_id=None)
+            event = AgentEvent(
+                type="PORTFOLIO_BACK_IN_PROFILE", source="compliance_agent",
+                entity={"kind": "client", "id": client["id"]}, priority="MEDIUM",
+            )
+            published = await AgentEventRepository().publish(office["id"], event)
+            return await CoreOrchestrator().handle_event(office["id"], published)
+
+        result = _run(scenario())
+        assert result["decision"]["notification"]["status"] == "not_configured"
+
+
+class TestClientFollowupOverdue:
+    def _followup_event(self, client_id: str, days_open: int = 3) -> AgentEvent:
+        return AgentEvent(
+            type="CLIENT_FOLLOWUP_OVERDUE", source="observer_loop",
+            entity={"kind": "client", "id": client_id},
+            payload={
+                "violations": [{"message": "Renda Fixa 2.0 p.p. acima do limite.", "severity": "CRITICAL"}],
+                "days_open": days_open,
+            },
+            priority="HIGH",
+        )
+
+    def test_creates_a_pending_approval_never_sends_directly(self):
+        async def scenario():
+            office, client, _ = await _office_with_client_and_violation()
+            event = await AgentEventRepository().publish(office["id"], self._followup_event(client["id"]))
+            orchestrator = CoreOrchestrator(llm_router=_FakeLLMRouter("Explicação real."))
+            with patch("runtime.telegram.send_message", return_value={"ok": True}), \
+                 patch("runtime.client_outreach._send_email_channel") as mock_email, \
+                 patch("runtime.client_outreach._send_whatsapp_channel") as mock_whatsapp:
+                result = await orchestrator.handle_event(office["id"], event)
+                # The orchestrator must never itself call the send
+                # channels -- only AgentApprovalRepository.decide() +
+                # POST /api/agent-approvals/{id}/approve does that.
+                mock_email.assert_not_called()
+                mock_whatsapp.assert_not_called()
+            return office, result
+
+        office, result = _run(scenario())
+        assert result["status"] == "processed"
+        decision = result["decision"]
+        assert decision["action"] == "propose_client_contact"
+        assert decision["reasoning_source"] == "llm"
+        assert "approval_id" in decision
+
+        from storage.agent_approval_repo import AgentApprovalRepository
+
+        approval = _run(AgentApprovalRepository().get(office["id"], decision["approval_id"]))
+        assert approval["status"] == "pending"
+        assert approval["action_type"] == "contact_client"
+        assert approval["payload"]["draft"]["subject"]
+
+    def test_notifies_advisor_that_approval_is_needed(self):
+        sent = {}
+
+        def fake_send_message(text, chat_id=None, timeout=10):
+            sent["text"] = text
+            return {"ok": True}
+
+        async def scenario():
+            office, client, _ = await _office_with_client_and_violation()
+            event = await AgentEventRepository().publish(office["id"], self._followup_event(client["id"]))
+            orchestrator = CoreOrchestrator()
+            with patch("runtime.telegram.send_message", side_effect=fake_send_message):
+                return await orchestrator.handle_event(office["id"], event)
+
+        _run(scenario())
+        assert "aprovação" in sent["text"].lower()
+
+    def test_unknown_client_is_ignored_not_a_crash(self):
+        async def scenario():
+            tenant_repo = TenantRepository()
+            office = await tenant_repo.create_office("Escritório Teste Followup Ghost")
+            event = await AgentEventRepository().publish(office["id"], self._followup_event("ghost-client"))
+            return await CoreOrchestrator().handle_event(office["id"], event)
+
+        result = _run(scenario())
+        assert result["status"] == "ignored"
+
+    def test_does_not_stack_a_second_pending_approval_for_the_same_client(self):
+        async def scenario():
+            office, client, _ = await _office_with_client_and_violation()
+            orchestrator = CoreOrchestrator()
+            with patch("runtime.telegram.send_message", return_value={"ok": True}):
+                first_event = await AgentEventRepository().publish(office["id"], self._followup_event(client["id"]))
+                first_result = await orchestrator.handle_event(office["id"], first_event)
+                second_event = await AgentEventRepository().publish(office["id"], self._followup_event(client["id"]))
+                second_result = await orchestrator.handle_event(office["id"], second_event)
+            return first_result, second_result
+
+        first_result, second_result = _run(scenario())
+        assert first_result["decision"]["action"] == "propose_client_contact"
+        assert second_result["decision"]["action"] == "already_pending"
+        assert second_result["decision"]["approval_id"] == first_result["decision"]["approval_id"]
+
+    def test_llm_failure_degrades_to_honest_template(self):
+        async def scenario():
+            office, client, _ = await _office_with_client_and_violation()
+            event = await AgentEventRepository().publish(office["id"], self._followup_event(client["id"]))
+            orchestrator = CoreOrchestrator(llm_router=_FailingLLMRouter())
+            with patch("runtime.telegram.send_message", return_value={"ok": True}):
+                return await orchestrator.handle_event(office["id"], event)
+
+        result = _run(scenario())
+        assert result["decision"]["reasoning_source"] == "template_fallback"
+        assert "Junqueira Capital" in result["decision"]["reasoning"]

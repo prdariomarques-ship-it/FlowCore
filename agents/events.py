@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 EventPriority = Literal["CRITICAL", "HIGH", "MEDIUM", "LOW", "NEUTRAL"]
-EventStatus = Literal["pending", "processing", "processed", "failed", "ignored"]
+EventStatus = Literal["pending", "processing", "processed", "failed", "ignored", "resolved"]
 
 
 @dataclass

@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -166,3 +167,70 @@ class TestRecordDecision:
         untouched = asyncio.run(scenario())
         assert untouched["status"] == "pending"
         assert untouched["decision"] is None
+
+
+class TestListEventsTypeFilter:
+    def test_filters_by_type(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            await repo.publish("office-1", _event(type="PORTFOLIO_OUT_OF_PROFILE"))
+            await repo.publish("office-1", _event(type="CLIENT_FOLLOWUP_OVERDUE"))
+            return await repo.list_events("office-1", type="CLIENT_FOLLOWUP_OVERDUE")
+
+        items = asyncio.run(scenario())
+        assert len(items) == 1
+        assert items[0]["type"] == "CLIENT_FOLLOWUP_OVERDUE"
+
+
+class TestFirstSeen:
+    def test_none_when_never_published(self, tmp_path):
+        async def scenario():
+            return await _repo(tmp_path).first_seen("office-1", "nope")
+
+        assert asyncio.run(scenario()) is None
+
+    def test_earliest_created_at_for_the_dedup_key(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            dedup_key = _event().dedup_key()
+            with patch("time.time", return_value=100.0):
+                await repo.publish("office-1", _event())
+            with patch("time.time", return_value=200.0):
+                # A second publish of the "same situation" (a distinct
+                # AgentEvent -- its own id -- but same type/entity/payload,
+                # so the same dedup_key) must not move first_seen forward.
+                await repo.publish("office-1", _event())
+            return await repo.first_seen("office-1", dedup_key)
+
+        assert asyncio.run(scenario()) == 100.0
+
+    def test_scoped_to_one_office(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            event = _event()
+            await repo.publish("office-a", event)
+            return await repo.first_seen("office-b", event.dedup_key())
+
+        assert asyncio.run(scenario()) is None
+
+
+class TestMarkResolved:
+    def test_moves_status_to_resolved(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            published = await repo.publish("office-1", _event())
+            await repo.record_decision("office-1", published["id"], "processed", {"action": "notify_advisor"})
+            return await repo.mark_resolved("office-1", published["id"])
+
+        resolved = asyncio.run(scenario())
+        assert resolved["status"] == "resolved"
+
+    def test_cannot_resolve_another_offices_event(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            published = await repo.publish("office-a", _event())
+            await repo.mark_resolved("office-b", published["id"])
+            return await repo.get_event("office-a", published["id"])
+
+        untouched = asyncio.run(scenario())
+        assert untouched["status"] == "pending"
