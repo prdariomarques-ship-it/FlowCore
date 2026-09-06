@@ -6,11 +6,13 @@ agent of the "Investment Copilot" direction: monitor carteiras and alert on
 desenquadramento, nothing more for this MVP.
 
 Data sources — both real, nothing here is invented:
-- config/portfolio_moderate_1m.json: the only allocation-limit policy that
+- runtime/portfolio/reference.py: the only allocation-limit policy that
   exists in FlowCore today (target_allocation + sleeve_limits +
-  review_policy). It has no persisted current position anywhere in the
-  system — the dashboard's own POST /api/portfolios/{id}/review endpoint
-  takes current_allocation as a per-call parameter, it doesn't store one.
+  review_policy), editable at runtime via PUT /api/portfolio/reference
+  without touching the bundled config/portfolio_moderate_1m.json
+  baseline. `current_allocation` lives on this same object — nothing
+  else in FlowCore persists a live position for it, so it stays None
+  until someone actually sets it through that endpoint.
 - storage/portfolio_repo.py: real user portfolios (holdings with live
   market value via runtime/portfolio/valuation.py), but no
   target_allocation/sleeve_limits is associated with them anywhere in the
@@ -19,19 +21,17 @@ Data sources — both real, nothing here is invented:
 Because of that gap, a portfolio this agent cannot evaluate is reported
 with an honest status (SEM_POSICAO_ATUAL / SEM_REGRAS_DEFINIDAS) and an
 empty violation list — never a guessed position or a fabricated limit.
-Callers that do have a live current_allocation (e.g. a future rebalancing
-job, or a manual test) pass it in via `context["portfolios"]` and get a
-real evaluation.
+Callers that already have a one-off current_allocation (e.g. a manual
+test) can also pass it in via `context["portfolios"]` without persisting
+anything.
 """
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any
 
 from agents.base import BaseAgent
+from runtime.portfolio.reference import load_reference_portfolio
 
-_REFERENCE_PORTFOLIO_PATH = Path(__file__).resolve().parents[1] / "config" / "portfolio_moderate_1m.json"
 _DEFAULT_CRITICAL_MARGIN_POINTS = 5.0
 
 # Which target_allocation `class` values roll up into each sleeve_limits key.
@@ -109,17 +109,16 @@ class ComplianceAgent(BaseAgent):
 
     @staticmethod
     def _load_reference_portfolio() -> dict[str, Any]:
-        try:
-            data = json.loads(_REFERENCE_PORTFOLIO_PATH.read_text())
-        except (OSError, json.JSONDecodeError):
-            data = {}
+        data = load_reference_portfolio()
         return {
             "id": data.get("id", "moderate-ia-1m"),
             "name": data.get("name", "Carteira Moderada — R$ 1 milhão"),
             "target_allocation": data.get("target_allocation", []),
             "sleeve_limits": data.get("sleeve_limits", {}),
             "review_policy": data.get("review_policy", {}),
-            "current_allocation": None,
+            # Real once someone edits it via PUT /api/portfolio/reference
+            # (runtime/portfolio/reference.py) — never guessed here.
+            "current_allocation": data.get("current_allocation") or None,
         }
 
     # ── Evaluation ───────────────────────────────────────────────────────────

@@ -46,21 +46,12 @@ from pydantic import BaseModel
 
 _OLLAMA_DEFAULT = "http://localhost:11434"
 _DATA_DIR = Path.home() / ".flowcore"
-_REFERENCE_PORTFOLIO = Path(__file__).resolve().parents[1] / "config" / "portfolio_moderate_1m.json"
 
-
-def _load_reference_portfolio() -> dict[str, Any]:
-    """Load the bundled reference portfolio without requiring live market data."""
-    runtime_copy = _DATA_DIR / "portfolio_moderate_1m.json"
-    for path in (runtime_copy, _REFERENCE_PORTFOLIO):
-        try:
-            if path.exists():
-                data = json.loads(path.read_text())
-                if isinstance(data, dict):
-                    return data
-        except (OSError, json.JSONDecodeError):
-            continue
-    return {"id": "moderate-ia-1m", "name": "Carteira Moderada — R$ 1 milhão", "reference_value": 1000000, "target_allocation": []}
+# Single source of truth for the reference portfolio (runtime-copy-first,
+# bundled-default fallback) lives in runtime/portfolio/reference.py —
+# shared with agents/compliance_agent.py so an edit here is immediately
+# visible to compliance evaluation too, not just to this module.
+from runtime.portfolio.reference import load_reference_portfolio as _load_reference_portfolio
 
 
 def _review_reference_portfolio(portfolio: dict[str, Any], events: list[str] | None = None, current: dict[str, float] | None = None) -> dict[str, Any]:
@@ -154,6 +145,17 @@ class AIConfig(BaseModel):
 class PortfolioReviewInput(BaseModel):
     events: list[str] = []
     current_allocation: dict[str, float] = {}
+
+
+class ReferencePortfolioUpdate(BaseModel):
+    """Partial update for the editable reference portfolio — only fields
+    provided are changed, same convention as AIConfig/ai_config_patch."""
+    name: str | None = None
+    reference_value: float | None = None
+    target_allocation: list[dict[str, Any]] | None = None
+    sleeve_limits: dict[str, float] | None = None
+    review_policy: dict[str, Any] | None = None
+    current_allocation: dict[str, float] | None = None
 
 
 class TTSRequest(BaseModel):
@@ -792,6 +794,32 @@ def register_dashboard_routes(app, version: str) -> None:
             "updated_at": time.time(),
             "stub": True,
         }
+
+    # ── Reference portfolio — editable model portfolio ──────────────────────
+    #
+    # The reference portfolio (target_allocation + sleeve_limits +
+    # review_policy + current_allocation) is FlowCore's only real allocation
+    # policy today; these three endpoints let it be customized without a
+    # redeploy. Edits persist to ~/.flowcore/portfolio_moderate_1m.json
+    # (runtime/portfolio/reference.py) and are picked up immediately by
+    # ComplianceAgent and by every /api/portfolios* route below — there is
+    # exactly one loader now, not two independent copies.
+
+    @app.get("/api/portfolio/reference")
+    async def portfolio_reference_get():
+        from runtime.portfolio.reference import is_customized
+        return {**_load_reference_portfolio(), "is_customized": is_customized()}
+
+    @app.put("/api/portfolio/reference")
+    async def portfolio_reference_put(data: ReferencePortfolioUpdate):
+        from runtime.portfolio.reference import save_reference_portfolio
+        updated = save_reference_portfolio(data.model_dump(exclude_unset=True))
+        return {"saved": True, **updated, "is_customized": True}
+
+    @app.post("/api/portfolio/reference/reset")
+    async def portfolio_reference_reset():
+        from runtime.portfolio.reference import reset_reference_portfolio
+        return {"reset": True, **reset_reference_portfolio(), "is_customized": False}
 
     # ── Portfolios [STUB + file-backed list] ──────────────────────────────────
 
