@@ -63,21 +63,35 @@ function orderedEndpoints(settings: FlowCoreSettings): Array<{ endpoint: string;
   return tailscale ? [tailscale, cloudflare] : [cloudflare];
 }
 
-async function requestJson<T>(endpoint: string, path: string, init?: RequestInit): Promise<T> {
+// /api/health is a liveness probe and answers immediately, so a short budget is
+// right: it keeps the Conexão screen responsive and fails over to the next
+// endpoint quickly. The data routes are a different story — /api/market/overview
+// fetches external sources (BCB, US Treasury, Yahoo) sequentially, and every
+// source that times out adds its own budget to the total. Nine seconds is under
+// the endpoint's normal cost, which is what produced the bogus "Aborted" error.
+const HEALTH_TIMEOUT_MS = 8000;
+const DATA_TIMEOUT_MS = 30000;
+
+async function requestJson<T>(endpoint: string, path: string, init?: RequestInit, timeoutMs = DATA_TIMEOUT_MS): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 9000);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(`${endpoint}${path}`, { ...init, headers: { Accept: "application/json", ...(init?.headers ?? {}) }, signal: controller.signal });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return (await response.json()) as T;
+  } catch (error) {
+    // An aborted fetch surfaces as a bare "Aborted", which reads to the user as
+    // "you are offline" when the truth is the server was simply still working.
+    if (controller.signal.aborted) throw new Error(`FlowCore não respondeu em ${Math.round(timeoutMs / 1000)}s`);
+    throw error;
   } finally { clearTimeout(timeout); }
 }
 
-export async function flowCoreRequest<T>(path: string, init?: RequestInit): Promise<{ data: T; endpoint: string; source: "cloudflare" | "tailscale" }> {
+export async function flowCoreRequest<T>(path: string, init?: RequestInit, timeoutMs = DATA_TIMEOUT_MS): Promise<{ data: T; endpoint: string; source: "cloudflare" | "tailscale" }> {
   const settings = await loadSettings();
   let lastError: unknown = new Error("Nenhum endpoint configurado");
   for (const candidate of orderedEndpoints(settings)) {
-    try { return { data: await requestJson<T>(candidate.endpoint, path, init), ...candidate }; } catch (error) { lastError = error; }
+    try { return { data: await requestJson<T>(candidate.endpoint, path, init, timeoutMs), ...candidate }; } catch (error) { lastError = error; }
   }
   throw lastError;
 }
@@ -87,7 +101,7 @@ export async function checkConnection(settings?: FlowCoreSettings): Promise<Conn
   let lastError: unknown = new Error("Nenhum endpoint configurado");
   for (const candidate of candidates) {
     try {
-      const health = await requestJson<{ version?: string }>(candidate.endpoint, "/api/health");
+      const health = await requestJson<{ version?: string }>(candidate.endpoint, "/api/health", undefined, HEALTH_TIMEOUT_MS);
       return { ...candidate, reachable: true, version: health.version, updatedAt: new Date().toISOString() };
     } catch (error) { lastError = error; }
   }
