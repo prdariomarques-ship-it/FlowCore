@@ -424,6 +424,7 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     async def get_alerts():
         try:
             from agents.compliance_agent import ComplianceAgent
+
             agent = ComplianceAgent()
             res = await agent.run()
             return res.get("data", {"total": 0, "critical": 0, "warnings": 0, "items": []})

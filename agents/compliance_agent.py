@@ -8,14 +8,16 @@ Classifies status into:
 
 Produces structured violation alerts for display in Web UI, APIs, and AI chat.
 """
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
 from typing import Any
 
-from agents.base import BaseAgent
 from loguru import logger
+
+from agents.base import BaseAgent
 
 _DATA_DIR = Path.home() / ".flowcore"
 _CONFIG_DIR = Path(__file__).resolve().parents[1] / "config"
@@ -153,68 +155,76 @@ class ComplianceAgent(BaseAgent):
         if rv_current > rv_limit:
             diff = round(rv_current - rv_limit, 2)
             severity = "CRITICAL" if diff >= 5.0 else "WARNING"
-            violations.append({
-                "client_id": client_id,
-                "client_name": client_name,
-                "type": "EXCESSO_RV",
-                "current": round(rv_current, 2),
-                "limit": round(rv_limit, 2),
-                "diff": diff,
-                "severity": severity,
-                "message": f"Renda variável {diff} p.p. acima do limite de {rv_limit}%.",
-                "suggested_action": f"Rebalancear vendendo {diff} p.p. de Renda Variável para reenquadrar ao limite.",
-            })
+            violations.append(
+                {
+                    "client_id": client_id,
+                    "client_name": client_name,
+                    "type": "EXCESSO_RV",
+                    "current": round(rv_current, 2),
+                    "limit": round(rv_limit, 2),
+                    "diff": diff,
+                    "severity": severity,
+                    "message": f"Renda variável {diff} p.p. acima do limite de {rv_limit}%.",
+                    "suggested_action": f"Rebalancear vendendo {diff} p.p. de Renda Variável para reenquadrar ao limite.",
+                }
+            )
 
         # Rule 2: Renda Fixa Minimum Limit Check
         rf_min = float(sleeve_limits.get("renda_fixa_total_min", portfolio.get("rf_min_limit", 55.0)))
         if rf_current < rf_min and rf_current > 0:
             diff = round(rf_min - rf_current, 2)
             severity = "CRITICAL" if diff >= 5.0 else "WARNING"
-            violations.append({
-                "client_id": client_id,
-                "client_name": client_name,
-                "type": "DEFICIT_RF",
-                "current": round(rf_current, 2),
-                "limit": round(rf_min, 2),
-                "diff": diff,
-                "severity": severity,
-                "message": f"Renda fixa {diff} p.p. abaixo do limite mínimo de {rf_min}%.",
-                "suggested_action": f"Aumentar alocação em Renda Fixa em {diff} p.p.",
-            })
+            violations.append(
+                {
+                    "client_id": client_id,
+                    "client_name": client_name,
+                    "type": "DEFICIT_RF",
+                    "current": round(rf_current, 2),
+                    "limit": round(rf_min, 2),
+                    "diff": diff,
+                    "severity": severity,
+                    "message": f"Renda fixa {diff} p.p. abaixo do limite mínimo de {rf_min}%.",
+                    "suggested_action": f"Aumentar alocação em Renda Fixa em {diff} p.p.",
+                }
+            )
 
         # Rule 3: AI Theme Satellite Limit Check
         ai_limit = float(sleeve_limits.get("ai_theme_max", 10.0))
         if ai_current > ai_limit:
             diff = round(ai_current - ai_limit, 2)
             severity = "CRITICAL" if diff >= 3.0 else "WARNING"
-            violations.append({
-                "client_id": client_id,
-                "client_name": client_name,
-                "type": "EXCESSO_IA",
-                "current": round(ai_current, 2),
-                "limit": round(ai_limit, 2),
-                "diff": diff,
-                "severity": severity,
-                "message": f"Exposição ao tema IA ({ai_current}%) excede o limite máximo de {ai_limit}%.",
-                "suggested_action": f"Reduzir exposição em ativos de IA em {diff} p.p.",
-            })
+            violations.append(
+                {
+                    "client_id": client_id,
+                    "client_name": client_name,
+                    "type": "EXCESSO_IA",
+                    "current": round(ai_current, 2),
+                    "limit": round(ai_limit, 2),
+                    "diff": diff,
+                    "severity": severity,
+                    "message": f"Exposição ao tema IA ({ai_current}%) excede o limite máximo de {ai_limit}%.",
+                    "suggested_action": f"Reduzir exposição em ativos de IA em {diff} p.p.",
+                }
+            )
 
         # Rule 4: Alternativos Limit Check
         alt_limit = float(sleeve_limits.get("alternativos_max", 7.0))
         if alt_current > alt_limit:
             diff = round(alt_current - alt_limit, 2)
             severity = "CRITICAL" if diff >= 3.0 else "WARNING"
-            violations.append({
-                "client_id": client_id,
-                "client_name": client_name,
-                "type": "EXCESSO_ALT",
-                "current": round(alt_current, 2),
-                "limit": round(alt_limit, 2),
-                "diff": diff,
-                "severity": severity,
-                "message": f"Ativos alternativos ({alt_current}%) excedem o limite de {alt_limit}%.",
-                "suggested_action": f"Rebalancear reduzindo {diff} p.p. em alternativos.",
-            })
+            violations.append(
+                {
+                    "client_id": client_id,
+                    "client_name": client_name,
+                    "type": "EXCESSO_ALT",
+                    "current": round(alt_current, 2),
+                    "limit": round(alt_limit, 2),
+                    "diff": diff,
+                    "severity": severity,
+                    "message": f"Ativos alternativos ({alt_current}%) excedem o limite de {alt_limit}%.",
+                    "suggested_action": f"Rebalancear reduzindo {diff} p.p. em alternativos.",
+                }
+            )
 
         return violations
 

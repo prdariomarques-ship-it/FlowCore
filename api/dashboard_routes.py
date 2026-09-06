@@ -256,6 +256,7 @@ def register_dashboard_routes(app, version: str) -> None:
         if any(w in q_lower for w in ("desenquadrad", "desenquadramento", "violação", "violacao", "compliance", "limite")):
             try:
                 from agents.compliance_agent import ComplianceAgent
+
                 comp_res = await ComplianceAgent().run()
                 comp_data = comp_res.get("data", {})
                 items = comp_data.get("items", [])
@@ -272,12 +273,13 @@ def register_dashboard_routes(app, version: str) -> None:
                 else:
                     answer = "🟢 Nenhuma carteira desenquadrada no momento. Todas as carteiras cadastradas estão dentro dos limites operacionais."
                 return {"answer": answer, "provider": "compliance-agent", "model": "rule-engine"}
-            except Exception as exc:
+            except Exception:
                 pass
 
         # Try FlowCore AgentRunner (ask agent) first
         try:
             from agents.runner import AgentRunner
+
             runner = AgentRunner(require_passport=False)
             agents = {a["name"] for a in runner.list_agents()}
             if "ask" in agents:
