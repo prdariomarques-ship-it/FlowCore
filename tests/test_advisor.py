@@ -1,6 +1,7 @@
 """Tests for GET/PUT /api/advisor — the dashboard's Advisor card
-(Wealth Copilot fase 10). No photo field on purpose: see the handler's
-docstring in api/dashboard_routes.py for why the avatar is initials-only.
+(Wealth Copilot fase 10, office-scoped as of fase 0). No photo field on
+purpose: see the handler's docstring in api/dashboard_routes.py for why
+the avatar is initials-only.
 """
 from __future__ import annotations
 
@@ -13,6 +14,8 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from tests._auth_helper import signup_office  # noqa: E402
+
 
 def _client():
     pytest.importorskip("fastapi")
@@ -23,32 +26,42 @@ def _client():
     return TestClient(create_app(version="test"))
 
 
-@pytest.fixture(autouse=True)
-def _clean_advisor_file():
-    path = Path.home() / ".flowcore" / "advisor.json"
-    path.unlink(missing_ok=True)
-    yield
-    path.unlink(missing_ok=True)
+def _session():
+    client = _client()
+    return client, signup_office(client)
 
 
 class TestAdvisorProfile:
-    def test_get_returns_sensible_defaults_with_no_photo_field(self):
+    def test_requires_auth(self):
         resp = _client().get("/api/advisor")
+        assert resp.status_code == 401
+
+    def test_get_defaults_to_the_signed_up_users_own_name_no_photo_field(self):
+        client, session = _session()
+        resp = client.get("/api/advisor", headers=session["headers"])
         assert resp.status_code == 200
         data = resp.json()
-        assert data["name"] and data["title"] and data["quote"]
+        assert data["name"] == session["user"]["name"]
+        assert data["title"] and data["quote"]
         assert "photo" not in data and "photo_url" not in data and "image" not in data
 
     def test_put_partial_update_only_changes_given_fields(self):
-        client = _client()
-        original = client.get("/api/advisor").json()
-        put_resp = client.put("/api/advisor", json={"title": "Head de Investimentos"})
+        client, session = _session()
+        original = client.get("/api/advisor", headers=session["headers"]).json()
+        put_resp = client.put("/api/advisor", json={"title": "Head de Investimentos"}, headers=session["headers"])
         assert put_resp.status_code == 200
         updated = put_resp.json()
         assert updated["title"] == "Head de Investimentos"
         assert updated["name"] == original["name"]  # untouched field preserved
 
     def test_put_persists_across_requests(self):
-        client = _client()
-        client.put("/api/advisor", json={"name": "Teste da Silva"})
-        assert client.get("/api/advisor").json()["name"] == "Teste da Silva"
+        client, session = _session()
+        client.put("/api/advisor", json={"name": "Teste da Silva"}, headers=session["headers"])
+        assert client.get("/api/advisor", headers=session["headers"]).json()["name"] == "Teste da Silva"
+
+    def test_two_offices_have_independent_advisor_profiles(self):
+        client, session_a = _session()
+        session_b = signup_office(client, "Outro Escritório")
+        client.put("/api/advisor", json={"name": "Nome do Escritório A"}, headers=session_a["headers"])
+        name_b = client.get("/api/advisor", headers=session_b["headers"]).json()["name"]
+        assert name_b != "Nome do Escritório A"

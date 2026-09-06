@@ -12,6 +12,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
+from tests._auth_helper import signup_office  # noqa: E402
+
+
 def _client():
     pytest.importorskip("fastapi")
     pytest.importorskip("httpx")
@@ -22,8 +25,14 @@ def _client():
 
 
 class TestIntelligenceEndpoint:
-    def test_returns_counts_and_events(self):
+    def test_requires_auth(self):
         resp = _client().get("/api/intelligence")
+        assert resp.status_code == 401
+
+    def test_returns_counts_and_events(self):
+        client = _client()
+        session = signup_office(client)
+        resp = client.get("/api/intelligence", headers=session["headers"])
         assert resp.status_code == 200
         data = resp.json()
         for key in ("total", "override", "recalibrate", "neutral", "events", "available"):
@@ -31,7 +40,9 @@ class TestIntelligenceEndpoint:
         assert data["total"] == len(data["events"])
 
     def test_never_returns_5xx_on_agent_failure(self):
+        client = _client()
+        session = signup_office(client)
         with patch("agents.intelligence_engine.IntelligenceEngine.run", side_effect=RuntimeError("boom")):
-            resp = _client().get("/api/intelligence")
+            resp = client.get("/api/intelligence", headers=session["headers"])
         assert resp.status_code == 200
         assert resp.json()["available"] is False

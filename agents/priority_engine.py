@@ -41,8 +41,11 @@ class PriorityEngine(BaseAgent):
         context = context or {}
         events = context.get("events")
         if events is None:
+            office_id = context.get("office_id")
+            if not office_id:
+                raise ValueError("PriorityEngine.run() requires context['office_id'] (or precomputed 'events')")
             from agents.intelligence_engine import IntelligenceEngine
-            events = (await IntelligenceEngine().run())["data"]["events"]
+            events = (await IntelligenceEngine().run({"office_id": office_id}))["data"]["events"]
 
         items = [self._to_priority_item(e) for e in events]
         items.sort(key=lambda i: _LEVEL_ORDER[i.level])

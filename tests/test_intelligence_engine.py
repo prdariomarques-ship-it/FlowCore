@@ -9,7 +9,11 @@ from __future__ import annotations
 import asyncio
 import json
 
-from agents.intelligence_engine import IntelligenceEngine, _AUDIT_LOG
+import pytest
+
+from agents.intelligence_engine import IntelligenceEngine, _DATA_DIR
+
+_AUDIT_LOG = _DATA_DIR / "intelligence_audit_unscoped.jsonl"  # context.get("office_id") is None in these tests
 
 
 def _run(coro):
@@ -128,8 +132,25 @@ class TestAudit:
 
 
 class TestAgentContract:
-    def test_run_without_context_reads_real_market_and_compliance(self):
-        result = _run(IntelligenceEngine().run())
+    def test_missing_office_id_raises_instead_of_a_silent_global_default(self):
+        """Fase 0 (multi-office): compliance can't be resolved without an
+        office_id when it isn't precomputed — no silent shared default."""
+        with pytest.raises(ValueError):
+            _run(IntelligenceEngine().run({"market": _market()}))
+
+    def test_office_id_computes_that_offices_real_compliance(self):
+        """Market is precomputed here (avoids a real yfinance round-trip);
+        only compliance is left to be resolved from office_id, proving
+        that wiring works without depending on network access."""
+        pytest.importorskip("fastapi")
+        pytest.importorskip("httpx")
+        from fastapi.testclient import TestClient
+
+        from api.router import create_app
+        from tests._auth_helper import signup_office
+
+        session = signup_office(TestClient(create_app(version="test")))
+        result = _run(IntelligenceEngine().run({"market": _market(), "office_id": session["office_id"]}))
         assert result["status"] == "ok"
         assert isinstance(result["data"]["events"], list)
         assert len(result["data"]["events"]) >= 1

@@ -367,43 +367,62 @@ class TestRegimeSignals:
         assert "signals" in data
 
 
-# ── /api/portfolios/* ────────────────────────────────────────────────────────
+# ── /api/portfolios/* (fase 0: office-scoped, requires auth) ─────────────────
 
 class TestPortfolios:
-    def test_list_returns_200(self):
+    def test_requires_auth(self):
         r = _client().get("/api/portfolios")
+        assert r.status_code == 401
+
+    def test_list_returns_200(self):
+        from tests._auth_helper import signup_office
+
+        client = _client()
+        session = signup_office(client)
+        r = client.get("/api/portfolios", headers=session["headers"])
         assert r.status_code == 200
         assert isinstance(r.json(), list)
 
     def test_unknown_portfolio_returns_404(self):
-        r = _client().get("/api/portfolios/nonexistent_xyz")
+        from tests._auth_helper import signup_office
+
+        client = _client()
+        session = signup_office(client)
+        r = client.get("/api/portfolios/nonexistent_xyz", headers=session["headers"])
         assert r.status_code == 404
 
-    @pytest.mark.parametrize("sub", ["summary", "exposure", "impact", "decision", "narrative"])
+    @pytest.mark.parametrize("sub", ["summary", "exposure", "decision", "narrative"])
     def test_sub_routes_return_200(self, sub):
-        pid = "moderate-ia-1m"
-        r = _client().get(f"/api/portfolios/{pid}/{sub}")
+        from tests._auth_helper import signup_office
+
+        client = _client()
+        session = signup_office(client)
+        pid = "moderate-ia-1m"  # every freshly-seeded office's policy id
+        r = client.get(f"/api/portfolios/{pid}/{sub}", headers=session["headers"])
         assert r.status_code == 200
         data = r.json()
         assert data["portfolio_id"] == pid
 
-    def test_list_reads_file(self, tmp_path, monkeypatch):
-        import api.dashboard_routes as dr
-        monkeypatch.setattr(dr, "_DATA_DIR", tmp_path / ".flowcore")
-        cfg = tmp_path / ".flowcore"
-        cfg.mkdir(parents=True)
-        (cfg / "portfolios.json").write_text(json.dumps([
-            {"id": "main", "name": "Principal", "assets": []}
-        ]))
-
-        from fastapi.testclient import TestClient
-        from api.router import create_app
-        c = TestClient(create_app(version="test"))
-        r = c.get("/api/portfolios")
+    def test_impact_stub_returns_200_without_auth(self):
+        # /impact is a plain stub (no office data touched) — unlike the
+        # others above it was never wired to require a session.
+        r = _client().get("/api/portfolios/moderate-ia-1m/impact")
         assert r.status_code == 200
-        data = r.json()
-        ids = [p["id"] for p in data]
-        assert "main" in ids
+
+    def test_two_offices_cannot_see_each_others_customized_policy_name(self):
+        """Fase 0: storage/portfolio_repo.py's old global portfolios.json
+        merge was removed because it wasn't office-scoped (see
+        agents/compliance_agent.py's module docstring) — /api/portfolios
+        now only ever returns the calling office's own policy."""
+        from tests._auth_helper import signup_office
+
+        client = _client()
+        session_a = signup_office(client)
+        session_b = signup_office(client, "Outro Escritório")
+        client.put("/api/portfolio/reference", json={"name": "Política do Escritório A"}, headers=session_a["headers"])
+
+        names_b = [p["name"] for p in client.get("/api/portfolios", headers=session_b["headers"]).json()]
+        assert "Política do Escritório A" not in names_b
 
 
 # ── /api/assets/{symbol} ────────────────────────────────────────────────────

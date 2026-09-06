@@ -1,8 +1,10 @@
 """Tests for runtime/portfolio/risk_breakdown.py — the dashboard's
-"Risco da Carteira Agregada" donut (Wealth Copilot fase 7b).
+"Risco da Carteira Agregada" donut (Wealth Copilot fase 7b, office-scoped
+as of fase 0).
 """
 from __future__ import annotations
 
+import asyncio
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -14,6 +16,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from runtime.portfolio.risk_breakdown import compute_risk_breakdown  # noqa: E402
+from tests._auth_helper import signup_office  # noqa: E402
 
 _PORTFOLIO = {
     "id": "test-1", "name": "Teste", "profile": "moderado",
@@ -31,8 +34,10 @@ _PORTFOLIO = {
 
 class TestFallsBackToTargetWhenNoCurrentPosition:
     def test_uses_target_weights_and_labels_source_honestly(self):
+        # patch() auto-detects load_reference_portfolio is `async def` and
+        # substitutes an AsyncMock, so `return_value` resolves correctly.
         with patch("runtime.portfolio.risk_breakdown.load_reference_portfolio", return_value=_PORTFOLIO):
-            result = compute_risk_breakdown()
+            result = asyncio.run(compute_risk_breakdown("office-x"))
         assert result["source"] == "target_allocation"
         by_label = {c["label"]: c["weight"] for c in result["categories"]}
         assert by_label["Renda Fixa"] == 60.0
@@ -47,7 +52,7 @@ class TestUsesCurrentAllocationWhenPresent:
             "rf1": 30.0, "rf2": 20.0, "rv1": 20.0, "rv2": 15.0, "mm1": 10.0, "alt1": 5.0,
         }}
         with patch("runtime.portfolio.risk_breakdown.load_reference_portfolio", return_value=portfolio):
-            result = compute_risk_breakdown()
+            result = asyncio.run(compute_risk_breakdown("office-x"))
         assert result["source"] == "current_allocation"
         by_label = {c["label"]: c["weight"] for c in result["categories"]}
         assert by_label["Renda Fixa"] == 50.0
@@ -58,17 +63,20 @@ class TestNoPolicyDefined:
     def test_empty_target_allocation_reports_unavailable_not_zeroes(self):
         empty = {"id": "x", "name": "x", "profile": "", "target_allocation": [], "current_allocation": None}
         with patch("runtime.portfolio.risk_breakdown.load_reference_portfolio", return_value=empty):
-            result = compute_risk_breakdown()
+            result = asyncio.run(compute_risk_breakdown("office-x"))
         assert result["source"] == "unavailable"
         assert result["categories"] == []
 
 
 class TestCategoriesPartitionRealPortfolioWithoutDoubleCounting:
     def test_bundled_portfolio_categories_sum_to_100(self):
-        # Uses the real bundled config/portfolio_moderate_1m.json (no mock)
-        # to confirm the four categories are a genuine partition of the
-        # actual policy FlowCore ships, not just the small test fixture.
-        result = compute_risk_breakdown()
+        # A freshly-seeded office gets the real bundled
+        # config/portfolio_moderate_1m.json policy — confirms the four
+        # categories are a genuine partition of the actual shipped
+        # policy, not just the small test fixture above.
+        client = _client()
+        session = signup_office(client)
+        result = asyncio.run(compute_risk_breakdown(session["office_id"]))
         total = sum(c["weight"] for c in result["categories"])
         assert abs(total - 100.0) < 0.01
 
@@ -84,14 +92,22 @@ def _client():
 
 class TestRiskBreakdownEndpoint:
     def test_returns_categories_shape(self):
-        resp = _client().get("/api/portfolio/risk-breakdown")
+        client = _client()
+        session = signup_office(client)
+        resp = client.get("/api/portfolio/risk-breakdown", headers=session["headers"])
         assert resp.status_code == 200
         data = resp.json()
         for key in ("categories", "source", "profile", "available"):
             assert key in data
 
+    def test_requires_auth(self):
+        resp = _client().get("/api/portfolio/risk-breakdown")
+        assert resp.status_code == 401
+
     def test_never_returns_5xx_on_failure(self):
+        client = _client()
+        session = signup_office(client)
         with patch("runtime.portfolio.risk_breakdown.compute_risk_breakdown", side_effect=RuntimeError("boom")):
-            resp = _client().get("/api/portfolio/risk-breakdown")
+            resp = client.get("/api/portfolio/risk-breakdown", headers=session["headers"])
         assert resp.status_code == 200
         assert resp.json()["available"] is False

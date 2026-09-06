@@ -381,9 +381,39 @@ details.mi>summary::marker{display:none}
   .desktop-only{display:block}
   .nav,.fab,.more-menu{display:none!important}
 }
+
+/* ── Auth screen (login/signup) — works at every viewport width, not
+   just desktop, since it gates the mobile experience too. ── */
+#auth-screen{position:fixed;inset:0;z-index:9999;background:var(--bg);display:none;align-items:center;justify-content:center;padding:20px}
+.auth-box{width:100%;max-width:380px}
+.auth-tabs{display:flex;gap:8px;margin-bottom:16px}
+.auth-tab{flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-size:13px;font-weight:600;padding:9px;border-radius:8px;cursor:pointer}
+.auth-tab.active{color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2));border-color:transparent}
+.auth-field{width:100%;margin-bottom:10px;box-sizing:border-box}
+.auth-error{display:none;color:var(--red);font-size:12px;margin-bottom:10px;text-align:center}
 </style>
 </head>
 <body>
+
+<div id="auth-screen">
+  <div class="card auth-box">
+    <div style="text-align:center;margin-bottom:18px">
+      <div class="logo" style="margin:0 auto 10px">F</div>
+      <div class="bn" style="font-size:20px">FlowCore</div>
+      <div class="bs">Wealth Copilot</div>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="auth-tab-login" onclick="setAuthMode('login')">Entrar</button>
+      <button class="auth-tab" id="auth-tab-signup" onclick="setAuthMode('signup')">Criar escritório</button>
+    </div>
+    <div class="auth-error" id="auth-error"></div>
+    <input class="if auth-field" id="auth-office-name" placeholder="Nome do escritório" style="display:none">
+    <input class="if auth-field" id="auth-name" placeholder="Seu nome" style="display:none">
+    <input class="if auth-field" id="auth-email" placeholder="Email" type="email">
+    <input class="if auth-field" id="auth-password" placeholder="Senha" type="password" onkeydown="if(event.key==='Enter')submitAuth()">
+    <button class="bs2" style="width:100%;height:38px;border-radius:8px" id="auth-submit-btn" onclick="submitAuth()">Entrar</button>
+  </div>
+</div>
 
 <!-- Desktop sidebar (hidden on mobile via CSS) -->
 <div class="sidebar">
@@ -407,7 +437,7 @@ details.mi>summary::marker{display:none}
       <span id="dw-datetime">—</span>
       <button class="dw-theme-toggle" id="dw-theme-toggle" onclick="toggleDesktopTheme()" title="Alternar tema claro/escuro">🌙</button>
       <span class="dw-bell">🔔<span class="dot" id="dw-alert-dot" style="display:none"></span></span>
-      <div class="dw-avatar" id="dw-topbar-avatar">—</div>
+      <div class="dw-avatar" id="dw-topbar-avatar" onclick="if(confirm('Sair da conta?'))logoutFlowCore()" style="cursor:pointer" title="Sair">—</div>
     </div>
   </div>
 
@@ -860,9 +890,90 @@ function toast(m,ms=2500){
 
 /* ── API ── */
 async function api(path,opts={}){
-  const r=await fetch(API+path,{headers:{'Content-Type':'application/json'},...opts});
+  const token=localStorage.getItem('flowcore-token');
+  const headers={'Content-Type':'application/json',...(opts.headers||{})};
+  if(token) headers['Authorization']='Bearer '+token;
+  const r=await fetch(API+path,{...opts,headers});
+  if(r.status===401){
+    // Only treat this as "the session ended" if the token that just
+    // failed is still the one in use — a slow request started under an
+    // old session (e.g. still in flight from before a logout) must not
+    // kick the user back to the login screen after they've since logged
+    // into a fresh session with a new token.
+    if(localStorage.getItem('flowcore-token')===token){
+      localStorage.removeItem('flowcore-token');
+      showAuthScreen();
+    }
+    throw new Error('401');
+  }
   if(!r.ok) throw new Error(r.status);
   return r.json();
+}
+
+/* ── Auth (fase 0: multi-office login) ──
+   Gates the whole app (mobile and desktop) behind a real logged-in
+   session — see api/tenant_auth.py. Token is a plain bearer string in
+   localStorage (per-browser, never sent anywhere but this API). */
+let _authMode='login';
+function setAuthMode(mode){
+  _authMode=mode;
+  document.getElementById('auth-tab-login').classList.toggle('active',mode==='login');
+  document.getElementById('auth-tab-signup').classList.toggle('active',mode==='signup');
+  document.getElementById('auth-office-name').style.display=mode==='signup'?'block':'none';
+  document.getElementById('auth-name').style.display=mode==='signup'?'block':'none';
+  document.getElementById('auth-submit-btn').textContent=mode==='signup'?'Criar escritório':'Entrar';
+  document.getElementById('auth-error').style.display='none';
+}
+
+async function submitAuth(){
+  const email=document.getElementById('auth-email').value.trim();
+  const password=document.getElementById('auth-password').value;
+  const errBox=document.getElementById('auth-error');
+  errBox.style.display='none';
+  try{
+    let resp;
+    if(_authMode==='signup'){
+      const office_name=document.getElementById('auth-office-name').value.trim();
+      const name=document.getElementById('auth-name').value.trim();
+      if(!office_name||!name||!email||!password) throw new Error('Preencha todos os campos.');
+      resp=await fetch(API+'/api/auth/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({office_name,name,email,password})});
+    }else{
+      if(!email||!password) throw new Error('Preencha email e senha.');
+      resp=await fetch(API+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+    }
+    if(!resp.ok){
+      const body=await resp.json().catch(()=>({}));
+      throw new Error(body.detail||(resp.status===401?'Email ou senha inválidos.':'Falha ao autenticar.'));
+    }
+    const data=await resp.json();
+    localStorage.setItem('flowcore-token',data.token);
+    hideAuthScreen();
+    startApp();
+  }catch(e){
+    errBox.textContent=e.message;
+    errBox.style.display='block';
+  }
+}
+
+function showAuthScreen(){ document.getElementById('auth-screen').style.display='flex'; }
+function hideAuthScreen(){ document.getElementById('auth-screen').style.display='none'; }
+
+async function logoutFlowCore(){
+  const token=localStorage.getItem('flowcore-token');
+  localStorage.removeItem('flowcore-token');
+  try{ await fetch(API+'/api/auth/logout',{method:'POST',headers:{'Authorization':'Bearer '+token}}); }catch(e){}
+  showAuthScreen();
+}
+
+async function checkAuthAndStart(){
+  if(!localStorage.getItem('flowcore-token')){ showAuthScreen(); return; }
+  try{
+    await api('/api/auth/me');
+    hideAuthScreen();
+    startApp();
+  }catch(e){
+    showAuthScreen();
+  }
 }
 
 /* ── Home greeting ── */
@@ -1855,14 +1966,21 @@ function loadAdvisor(){
   }).catch(()=>{});
 }
 
-/* ── Init ── */
+/* ── Init ──
+   Anything that calls api() needs an authenticated session, so it only
+   starts inside startApp(), after checkAuthAndStart() confirms one
+   (either an already-valid stored token, or a fresh login/signup).
+   updateHomeGreeting() is pure UI (no network) and can run immediately. */
+function startApp(){
+  refresh();
+  loadDashboardOverview();
+  loadAdvisor();
+  setInterval(refresh,30000);
+  setInterval(loadDashboardOverview,60000);
+}
 updateHomeGreeting();
-refresh();
-loadDashboardOverview();
-loadAdvisor();
-setInterval(refresh,30000);
 setInterval(updateHomeGreeting,60000);
-setInterval(loadDashboardOverview,60000);
+checkAuthAndStart();
 </script>
 </body>
 </html>

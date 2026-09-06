@@ -5,25 +5,37 @@ and classifies each sleeve as NORMAL / WARNING / CRITICAL. This is the first
 agent of the "Investment Copilot" direction: monitor carteiras and alert on
 desenquadramento, nothing more for this MVP.
 
-Data sources — both real, nothing here is invented:
-- runtime/portfolio/reference.py: the only allocation-limit policy that
-  exists in FlowCore today (target_allocation + sleeve_limits +
-  review_policy), editable at runtime via PUT /api/portfolio/reference
-  without touching the bundled config/portfolio_moderate_1m.json
-  baseline. `current_allocation` lives on this same object — nothing
-  else in FlowCore persists a live position for it, so it stays None
-  until someone actually sets it through that endpoint.
-- storage/portfolio_repo.py: real user portfolios (holdings with live
-  market value via runtime/portfolio/valuation.py), but no
-  target_allocation/sleeve_limits is associated with them anywhere in the
-  system yet.
+Fase 0 (multi-office architecture): every evaluation is scoped to one
+office. `context["office_id"]` is required — there is no longer a
+single installation-wide default to silently fall back to, because that
+would mean office B's alerts endpoint could return office A's clients.
+Every caller of `run()` (dashboard_routes.py, IntelligenceEngine,
+PriorityEngine, tests) must resolve office_id from the authenticated
+session (api.tenant_auth.get_current_user) and pass it explicitly.
 
-Because of that gap, a portfolio this agent cannot evaluate is reported
-with an honest status (SEM_POSICAO_ATUAL / SEM_REGRAS_DEFINIDAS) and an
-empty violation list — never a guessed position or a fabricated limit.
-Callers that already have a one-off current_allocation (e.g. a manual
-test) can also pass it in via `context["portfolios"]` without persisting
-anything.
+Data sources — both real, nothing here is invented:
+- runtime/portfolio/reference.py: the office's investment policy
+  (target_allocation + sleeve_limits + review_policy), editable via PUT
+  /api/portfolio/reference. `current_allocation` lives on this same
+  object and stays unset until someone actually sets it — never guessed.
+- runtime/portfolio/demo_clients.py: per-office example/real clients,
+  each carrying their own current_allocation, evaluated against the same
+  office's policy.
+
+NOTE — storage/portfolio_repo.py's PortfolioRepository (the single
+user's own personal brokerage holdings, pre-dating multi-tenancy) is
+deliberately NOT merged in here anymore: it has no office_id column yet,
+so folding it in would leak the same rows into every office's alerts —
+exactly the isolation bug fase 0 exists to prevent. Making that
+repository office-aware is a real follow-up (add an office_id column,
+thread it through storage/portfolio_repo.py), not something to paper
+over here.
+
+A portfolio this agent cannot evaluate is reported with an honest status
+(SEM_POSICAO_ATUAL / SEM_REGRAS_DEFINIDAS) and an empty violation list —
+never a guessed position or a fabricated limit. Callers that already
+have a one-off current_allocation (e.g. a manual test) can also pass it
+in via `context["portfolios"]` without persisting anything.
 """
 from __future__ import annotations
 
@@ -56,7 +68,10 @@ class ComplianceAgent(BaseAgent):
         context = context or {}
         portfolios = context.get("portfolios")
         if portfolios is None:
-            portfolios = await self._load_registered_portfolios()
+            office_id = context.get("office_id")
+            if not office_id:
+                raise ValueError("ComplianceAgent.run() requires context['office_id']")
+            portfolios = await self._load_registered_portfolios(office_id)
 
         results = [self._evaluate_portfolio(p) for p in portfolios]
         violations = [v for r in results for v in r["violations"]]
@@ -71,57 +86,34 @@ class ComplianceAgent(BaseAgent):
 
     # ── Data loading ─────────────────────────────────────────────────────────
 
-    async def _load_registered_portfolios(self) -> list[dict[str, Any]]:
-        """The portfolios FlowCore actually has registered today.
+    async def _load_registered_portfolios(self, office_id: str) -> list[dict[str, Any]]:
+        """The portfolios this office actually has registered today.
 
-        1. The reference portfolio (config/portfolio_moderate_1m.json) — the
-           only one with a target_allocation/sleeve_limits policy. Real
-           policy, but no current position source anywhere in FlowCore, so
-           it comes back with current_allocation=None.
-        2. Real user portfolios (storage/portfolio_repo.py), if any exist.
-           They have real holdings but no allocation-limit policy attached
-           to them anywhere in the system — flagged via `_no_policy` so
-           _evaluate_portfolio reports them honestly instead of guessing
-           a limit.
+        1. The office's investment policy (runtime/portfolio/reference.py)
+           — the only one with a target_allocation/sleeve_limits policy.
+           Real policy, but no current position until someone sets one,
+           so it comes back with current_allocation=None until then.
+        2. This office's clients (runtime/portfolio/demo_clients.py) — the
+           27 fictitious examples for the bootstrap demo office, or real
+           clients for any other office, each with their own position.
         """
-        reference = self._load_reference_portfolio()
-        portfolios: list[dict[str, Any]] = [reference, *self._load_demo_clients(reference)]
-
-        try:
-            from storage.portfolio_repo import PortfolioRepository
-
-            repo = PortfolioRepository()
-            for row in await repo.list_portfolios():
-                portfolios.append({
-                    "id": f"real-{row['id']}",
-                    "name": row["name"],
-                    "target_allocation": [],
-                    "sleeve_limits": {},
-                    "review_policy": {},
-                    "current_allocation": None,
-                    "_no_policy": True,
-                })
-        except Exception:
-            # A storage failure here shouldn't sink the reference portfolio
-            # result — it's independent (plain JSON file, no DB involved).
-            pass
-
-        return portfolios
+        reference = await self._load_reference_portfolio(office_id)
+        demo_clients = await self._load_demo_clients(office_id, reference)
+        return [reference, *demo_clients]
 
     @staticmethod
-    def _load_demo_clients(reference: dict[str, Any]) -> list[dict[str, Any]]:
-        """27 explicitly-fictitious, explicitly-editable example clients
-        (runtime/portfolio/demo_clients.py) — each evaluated against the
-        same real investment policy as the reference portfolio
+    async def _load_demo_clients(office_id: str, reference: dict[str, Any]) -> list[dict[str, Any]]:
+        """This office's clients — each evaluated against the same real
+        investment policy as the office's reference portfolio
         (target_allocation/sleeve_limits/review_policy), but with their
         own current_allocation. Every result carries demo=True so nothing
-        downstream can present it as a real client."""
+        downstream can present a still-fictitious one as a real client."""
         try:
             from runtime.portfolio.demo_clients import load_demo_clients
         except Exception:
             return []
         clients = []
-        for c in load_demo_clients():
+        for c in await load_demo_clients(office_id):
             clients.append({
                 "id": c.get("id", ""),
                 "name": c.get("name", ""),
@@ -129,13 +121,13 @@ class ComplianceAgent(BaseAgent):
                 "sleeve_limits": reference["sleeve_limits"],
                 "review_policy": reference["review_policy"],
                 "current_allocation": c.get("current_allocation") or None,
-                "demo": True,
+                "demo": bool(c.get("is_demo")),
             })
         return clients
 
     @staticmethod
-    def _load_reference_portfolio() -> dict[str, Any]:
-        data = load_reference_portfolio()
+    async def _load_reference_portfolio(office_id: str) -> dict[str, Any]:
+        data = await load_reference_portfolio(office_id)
         return {
             "id": data.get("id", "moderate-ia-1m"),
             "name": data.get("name", "Carteira Moderada — R$ 1 milhão"),

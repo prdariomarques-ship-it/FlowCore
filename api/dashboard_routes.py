@@ -41,17 +41,21 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import HTTPException, Query
+from fastapi import HTTPException, Query, Request
 from pydantic import BaseModel
 
 _OLLAMA_DEFAULT = "http://localhost:11434"
 _DATA_DIR = Path.home() / ".flowcore"
 
-# Single source of truth for the reference portfolio (runtime-copy-first,
-# bundled-default fallback) lives in runtime/portfolio/reference.py —
-# shared with agents/compliance_agent.py so an edit here is immediately
-# visible to compliance evaluation too, not just to this module.
+# Single source of truth for the office's investment policy (fase 0:
+# office-scoped, backed by storage/client_repo.py) lives in
+# runtime/portfolio/reference.py — shared with agents/compliance_agent.py
+# so an edit here is immediately visible to compliance evaluation too,
+# not just to this module. Every call site below must pass the office_id
+# resolved from the authenticated session (api.tenant_auth.get_current_user)
+# — never a hardcoded default, or one office could read/edit another's policy.
 from runtime.portfolio.reference import load_reference_portfolio as _load_reference_portfolio
+from api.tenant_auth import get_current_user
 
 
 def _review_reference_portfolio(portfolio: dict[str, Any], events: list[str] | None = None, current: dict[str, float] | None = None) -> dict[str, Any]:
@@ -94,13 +98,13 @@ def _is_compliance_question(question: str) -> bool:
     return any(kw in q for kw in _COMPLIANCE_KEYWORDS)
 
 
-async def _answer_compliance_question() -> str:
+async def _answer_compliance_question(office_id: str) -> str:
     """Real-data answer for "quais clientes estão desenquadrados hoje?",
     sourced straight from ComplianceAgent — same data as GET /api/alerts,
     just formatted as chat prose instead of a JSON list."""
     from agents.compliance_agent import ComplianceAgent
 
-    result = await ComplianceAgent().run()
+    result = await ComplianceAgent().run({"office_id": office_id})
     violations = result["data"]["violations"]
     portfolios = result["data"]["portfolios"]
 
@@ -151,7 +155,7 @@ def _is_priority_question(question: str) -> bool:
     return any(kw in q for kw in _PRIORITY_KEYWORDS)
 
 
-async def _answer_market_question() -> str:
+async def _answer_market_question(office_id: str) -> str:
     """Real-data answer for "o que mudou no mercado hoje?", sourced from
     MarketAgent — same data as GET /api/market, formatted as chat prose."""
     from agents.market_agent import MarketAgent
@@ -180,13 +184,13 @@ async def _answer_market_question() -> str:
     return "\n".join(lines)
 
 
-async def _answer_intelligence_question() -> str:
+async def _answer_intelligence_question(office_id: str) -> str:
     """Real-data answer for "por que essa carteira está em alerta?" /
     "explique esse override", sourced from IntelligenceEngine — same data
     as GET /api/intelligence, formatted as chat prose."""
     from agents.intelligence_engine import IntelligenceEngine
 
-    result = await IntelligenceEngine().run()
+    result = await IntelligenceEngine().run({"office_id": office_id})
     events = result["data"]["events"]
     overrides = [e for e in events if e["status"] == "OVERRIDE"]
     recalibrates = [e for e in events if e["status"] == "RECALIBRATE"]
@@ -214,12 +218,12 @@ async def _answer_intelligence_question() -> str:
     return "\n".join(lines)
 
 
-async def _answer_priority_question() -> str:
+async def _answer_priority_question(office_id: str) -> str:
     """Real-data answer for "o que priorizar hoje?", sourced from
     PriorityEngine — same data as GET /api/priorities."""
     from agents.priority_engine import PriorityEngine
 
-    result = await PriorityEngine().run()
+    result = await PriorityEngine().run({"office_id": office_id})
     items = result["data"]["items"]
     if not items:
         return "Nenhuma prioridade no momento — nada exige atenção imediata."
@@ -232,6 +236,18 @@ async def _answer_priority_question() -> str:
 
 
 # ── Request schemas (module-level so FastAPI resolves them correctly) ──────────
+
+class SignupRequest(BaseModel):
+    office_name: str
+    name: str
+    email: str
+    password: str
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
 
 class AskRequest(BaseModel):
     question: str
@@ -411,10 +427,64 @@ def _read_json(filename: str, default: Any = None) -> Any:
 def register_dashboard_routes(app, version: str) -> None:
     """Register all Dashboard v4 API routes onto *app*."""
 
+    # ── Auth (fase 0: multi-office login) ────────────────────────────────────
+    # Distinct from api/auth.py's require_api_token (a single device-wide
+    # shared secret, the pre-fase-0 "Personal Execution OS" model) — this
+    # is per-user, per-office login on top of it. See storage/tenant_repo.py
+    # and api/tenant_auth.py for the full rationale.
+
+    @app.post("/api/auth/signup")
+    async def auth_signup(data: SignupRequest):
+        from storage.tenant_repo import TenantRepository
+        from storage.client_repo import ClientRepository
+
+        tenant_repo = TenantRepository()
+        # The very first office ever created on this install gets the 27
+        # example clients seeded (the same demo data this project has been
+        # showing throughout development) — every office after that starts
+        # empty, because a real signup must never show a paying customer
+        # fabricated clients that aren't theirs.
+        is_first_office = await tenant_repo.count_offices() == 0
+        office = await tenant_repo.create_office(data.office_name)
+        try:
+            user = await tenant_repo.create_user(office["id"], data.email, data.password, data.name, role="owner")
+        except ValueError:
+            raise HTTPException(status_code=409, detail="Este email já está cadastrado.")
+        await ClientRepository().seed_office(office["id"], with_demo_clients=is_first_office)
+        session = await tenant_repo.create_session(user["id"])
+        return {"token": session["token"], "user": user, "office": office}
+
+    @app.post("/api/auth/login")
+    async def auth_login(data: LoginRequest):
+        from storage.tenant_repo import TenantRepository
+
+        tenant_repo = TenantRepository()
+        user = await tenant_repo.verify_password(data.email, data.password)
+        if not user:
+            raise HTTPException(status_code=401, detail="Email ou senha inválidos.")
+        session = await tenant_repo.create_session(user["id"])
+        return {"token": session["token"], "user": user}
+
+    @app.post("/api/auth/logout")
+    async def auth_logout(request: Request):
+        from storage.tenant_repo import TenantRepository
+
+        token = None
+        header = request.headers.get("Authorization")
+        if header and header.startswith("Bearer "):
+            token = header[len("Bearer "):].strip()
+        if token:
+            await TenantRepository().delete_session(token)
+        return {"logged_out": True}
+
+    @app.get("/api/auth/me")
+    async def auth_me(request: Request):
+        return await get_current_user(request)
+
     # ── Agent chat (/api/ask) ──────────────────────────────────────────────────
 
     @app.post("/api/ask")
-    async def ask(data: AskRequest):
+    async def ask(data: AskRequest, request: Request):
         if not data.question.strip():
             raise HTTPException(status_code=422, detail="question is required")
 
@@ -425,7 +495,9 @@ def register_dashboard_routes(app, version: str) -> None:
         # more specific than a generic compliance question and should not
         # be swallowed by broader keyword sets. Same "never 5xx" contract
         # as the JSON agent endpoints (/api/alerts, /api/market, ...): an
-        # agent failure degrades to an honest chat message, not a 500.
+        # agent failure degrades to an honest chat message, not a 500 —
+        # except a missing/invalid session, which still 401s (a chat
+        # answer can't be scoped to an office without one).
         agent_intents = (
             (_is_compliance_question, _answer_compliance_question, "flowcore-compliance-agent"),
             (_is_priority_question, _answer_priority_question, "flowcore-priority-engine"),
@@ -434,8 +506,9 @@ def register_dashboard_routes(app, version: str) -> None:
         )
         for matches, answer_fn, provider in agent_intents:
             if matches(data.question):
+                user = await get_current_user(request)
                 try:
-                    answer = await answer_fn()
+                    answer = await answer_fn(user["office_id"])
                 except Exception as exc:  # noqa: BLE001 - degrade, never 500
                     answer = f"Não foi possível consultar os dados agora ({type(exc).__name__}). Tente novamente em instantes."
                 return {"answer": answer, "provider": provider, "model": ""}
@@ -521,14 +594,21 @@ def register_dashboard_routes(app, version: str) -> None:
     }
 
     @app.get("/api/advisor")
-    async def advisor_get():
-        return {**_ADVISOR_DEFAULT, **_read_json("advisor.json", {})}
+    async def advisor_get(request: Request):
+        # Per-office file (fase 0): defaults to the logged-in user's own
+        # name, not a hardcoded one — otherwise every new office would see
+        # "Dário Marques" on its Advisor card regardless of who signed up.
+        user = await get_current_user(request)
+        default = {**_ADVISOR_DEFAULT, "name": user["name"]}
+        return {**default, **_read_json(f"advisor_{user['office_id']}.json", {})}
 
     @app.put("/api/advisor")
-    async def advisor_put(data: AdvisorProfileUpdate):
-        cfg = {**_ADVISOR_DEFAULT, **_read_json("advisor.json", {})}
+    async def advisor_put(data: AdvisorProfileUpdate, request: Request):
+        user = await get_current_user(request)
+        default = {**_ADVISOR_DEFAULT, "name": user["name"]}
+        cfg = {**default, **_read_json(f"advisor_{user['office_id']}.json", {})}
         cfg.update({k: v for k, v in data.model_dump(exclude_unset=True).items() if v is not None})
-        config_path = _DATA_DIR / "advisor.json"
+        config_path = _DATA_DIR / f"advisor_{user['office_id']}.json"
         config_path.parent.mkdir(parents=True, exist_ok=True)
         config_path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
         return {"saved": True, **cfg}
@@ -977,80 +1057,98 @@ def register_dashboard_routes(app, version: str) -> None:
     # exactly one loader now, not two independent copies.
 
     @app.get("/api/portfolio/reference")
-    async def portfolio_reference_get():
+    async def portfolio_reference_get(request: Request):
         from runtime.portfolio.reference import is_customized
-        return {**_load_reference_portfolio(), "is_customized": is_customized()}
+        user = await get_current_user(request)
+        policy = await _load_reference_portfolio(user["office_id"])
+        return {**policy, "is_customized": await is_customized(user["office_id"])}
 
     @app.put("/api/portfolio/reference")
-    async def portfolio_reference_put(data: ReferencePortfolioUpdate):
+    async def portfolio_reference_put(data: ReferencePortfolioUpdate, request: Request):
         from runtime.portfolio.reference import save_reference_portfolio
-        updated = save_reference_portfolio(data.model_dump(exclude_unset=True))
+        user = await get_current_user(request)
+        updated = await save_reference_portfolio(user["office_id"], data.model_dump(exclude_unset=True))
         return {"saved": True, **updated, "is_customized": True}
 
     @app.post("/api/portfolio/reference/reset")
-    async def portfolio_reference_reset():
+    async def portfolio_reference_reset(request: Request):
         from runtime.portfolio.reference import reset_reference_portfolio
-        return {"reset": True, **reset_reference_portfolio(), "is_customized": False}
+        user = await get_current_user(request)
+        reset = await reset_reference_portfolio(user["office_id"])
+        return {"reset": True, **reset, "is_customized": False}
 
-    # ── Demo clients — 27 explicitly-fictitious, explicitly-editable seed
-    # records (runtime/portfolio/demo_clients.py) used to populate the
-    # multi-client views until FlowCore has a real multi-client
-    # integration. Every record and every response here carries
-    # demo=True — never presented as real client data.
+    # ── Clients — real (or, for the bootstrap office, explicitly-fictitious
+    # example) clients (runtime/portfolio/demo_clients.py). Every response
+    # carries is_demo per-client so example data is never presented as real.
 
     @app.get("/api/clients/demo")
-    async def demo_clients_list():
-        from runtime.portfolio.demo_clients import is_customized, load_demo_clients
-        return {"clients": load_demo_clients(), "is_customized": is_customized()}
+    async def demo_clients_list(request: Request):
+        from runtime.portfolio.demo_clients import load_demo_clients
+
+        user = await get_current_user(request)
+        return {"clients": await load_demo_clients(user["office_id"])}
 
     @app.put("/api/clients/demo/{client_id}")
-    async def demo_client_update(client_id: str, data: DemoClientUpdate):
+    async def demo_client_update(client_id: str, data: DemoClientUpdate, request: Request):
         from runtime.portfolio.demo_clients import save_demo_client
+
+        user = await get_current_user(request)
         try:
-            updated = save_demo_client(client_id, data.current_allocation)
+            updated = await save_demo_client(user["office_id"], client_id, data.current_allocation)
         except KeyError:
             raise HTTPException(status_code=404, detail=f"unknown demo client: {client_id}")
         return {"saved": True, "client": updated}
 
     @app.post("/api/clients/demo/reset")
-    async def demo_clients_reset():
+    async def demo_clients_reset(request: Request):
         from runtime.portfolio.demo_clients import reset_demo_clients
-        return {"reset": True, "clients": reset_demo_clients()}
+
+        user = await get_current_user(request)
+        return {"reset": True, "clients": await reset_demo_clients(user["office_id"])}
 
     @app.get("/api/portfolio/risk-breakdown")
-    async def portfolio_risk_breakdown():
+    async def portfolio_risk_breakdown(request: Request):
         """Aggregate allocation by category (Renda Fixa/Renda Variável/
         Multimercado/Alternativos) for the dashboard's "Risco da Carteira
         Agregada" donut. See runtime/portfolio/risk_breakdown.py for why
         this grouping never double-counts."""
+        user = await get_current_user(request)
         try:
             from runtime.portfolio.risk_breakdown import compute_risk_breakdown
-            return {**compute_risk_breakdown(), "available": True}
+            return {**(await compute_risk_breakdown(user["office_id"])), "available": True}
         except Exception as exc:
             return {"categories": [], "source": "unavailable", "available": False, "error": str(exc)}
 
     # ── Portfolios [STUB + file-backed list] ──────────────────────────────────
+    # storage/portfolio_repo.py's PortfolioRepository (personal brokerage
+    # holdings, pre-dating multi-tenancy) has no office_id column yet, so
+    # it's deliberately not merged in here — see agents/compliance_agent.py's
+    # module docstring for the same gap and why it isn't papered over.
 
-    @app.get("/api/portfolios")
-    async def list_portfolios():
-        data = _read_json("portfolios.json", [])
-        portfolios = data if isinstance(data, list) else []
-        reference = _load_reference_portfolio()
-        if not any(p.get("id") == reference.get("id") for p in portfolios):
-            portfolios = [reference, *portfolios]
-        return portfolios
+    async def _list_portfolios_for(office_id: str) -> list[dict]:
+        reference = await _load_reference_portfolio(office_id)
+        return [reference]
 
-    @app.get("/api/portfolios/{portfolio_id}")
-    async def get_portfolio(portfolio_id: str):
-        portfolios = await list_portfolios()
-        for p in portfolios:
+    async def _get_portfolio_for(office_id: str, portfolio_id: str) -> dict:
+        for p in await _list_portfolios_for(office_id):
             if p.get("id") == portfolio_id:
                 return p
         raise HTTPException(status_code=404, detail="Portfolio not found")
 
+    @app.get("/api/portfolios")
+    async def list_portfolios(request: Request):
+        user = await get_current_user(request)
+        return await _list_portfolios_for(user["office_id"])
+
+    @app.get("/api/portfolios/{portfolio_id}")
+    async def get_portfolio(portfolio_id: str, request: Request):
+        user = await get_current_user(request)
+        return await _get_portfolio_for(user["office_id"], portfolio_id)
+
     @app.get("/api/portfolios/{portfolio_id}/summary")
-    async def portfolio_summary(portfolio_id: str):
-        portfolio = await get_portfolio(portfolio_id)
+    async def portfolio_summary(portfolio_id: str, request: Request):
+        user = await get_current_user(request)
+        portfolio = await _get_portfolio_for(user["office_id"], portfolio_id)
         allocation = portfolio.get("target_allocation", [])
         return {
             "portfolio_id": portfolio_id,
@@ -1062,8 +1160,9 @@ def register_dashboard_routes(app, version: str) -> None:
         }
 
     @app.get("/api/portfolios/{portfolio_id}/exposure")
-    async def portfolio_exposure(portfolio_id: str):
-        portfolio = await get_portfolio(portfolio_id)
+    async def portfolio_exposure(portfolio_id: str, request: Request):
+        user = await get_current_user(request)
+        portfolio = await _get_portfolio_for(user["office_id"], portfolio_id)
         grouped: dict[str, float] = {}
         for item in portfolio.get("target_allocation", []):
             key = item.get("class", "outros")
@@ -1080,8 +1179,9 @@ def register_dashboard_routes(app, version: str) -> None:
         return {"portfolio_id": portfolio_id, "impact": [], "stub": True}
 
     @app.get("/api/portfolios/{portfolio_id}/decision")
-    async def portfolio_decision(portfolio_id: str):
-        portfolio = await get_portfolio(portfolio_id)
+    async def portfolio_decision(portfolio_id: str, request: Request):
+        user = await get_current_user(request)
+        portfolio = await _get_portfolio_for(user["office_id"], portfolio_id)
         review = _review_reference_portfolio(portfolio)
         return {
             "portfolio_id": portfolio_id,
@@ -1095,8 +1195,9 @@ def register_dashboard_routes(app, version: str) -> None:
         }
 
     @app.get("/api/portfolios/{portfolio_id}/narrative")
-    async def portfolio_narrative(portfolio_id: str):
-        portfolio = await get_portfolio(portfolio_id)
+    async def portfolio_narrative(portfolio_id: str, request: Request):
+        user = await get_current_user(request)
+        portfolio = await _get_portfolio_for(user["office_id"], portfolio_id)
         return {
             "portfolio_id": portfolio_id,
             "narrative": "Carteira-modelo moderada de R$ 1 milhão com 45% em renda fixa brasileira, 15% em renda fixa internacional, 10% em multimercados, 25% em renda variável e 4,5% em alternativos. A parcela de IA é satélite, limitada a 7% do patrimônio.",
@@ -1107,16 +1208,18 @@ def register_dashboard_routes(app, version: str) -> None:
     # ── Compliance — desenquadramento de carteira ───────────────────────────
 
     @app.get("/api/alerts")
-    async def alerts():
+    async def alerts(request: Request):
         """Alertas de desenquadramento (ComplianceAgent), para a aba Ações
         do APK/web e para o chat responder "quais clientes estão
         desenquadrados?". Nunca inventa posição: uma carteira sem posição
         atual conhecida ou sem política de alocação associada aparece em
         `portfolios` com o status correspondente e zero violações — não é
         omitida nem contada como falso "dentro do limite"."""
+        user = await get_current_user(request)  # 401 outside the try below —
+        # a missing/invalid session is not an "agent unavailable" degrade.
         try:
             from agents.compliance_agent import ComplianceAgent
-            result = await ComplianceAgent().run()
+            result = await ComplianceAgent().run({"office_id": user["office_id"]})
             violations = result["data"]["violations"]
             items = [
                 {
@@ -1141,11 +1244,15 @@ def register_dashboard_routes(app, version: str) -> None:
     # ── Intelligence — MarketAgent (Wealth Copilot MVP 2, phase 1) ───────────
 
     @app.get("/api/market")
-    async def market_agent_snapshot():
+    async def market_agent_snapshot(request: Request):
         """MarketAgent's classified market snapshot — real levels/deltas
         from watchlist.py (yfinance) for every indicator except DI Jan
         (no B3 futures feed connected; that one entry alone carries
-        source="MOCK" and is never blended with the live ones)."""
+        source="MOCK" and is never blended with the live ones). Market
+        data itself isn't office-scoped (the same market for everyone),
+        but the endpoint still requires a valid session for consistency
+        with the rest of the dashboard."""
+        await get_current_user(request)
         try:
             from agents.market_agent import MarketAgent
             result = await MarketAgent().run()
@@ -1158,16 +1265,17 @@ def register_dashboard_routes(app, version: str) -> None:
             }
 
     @app.get("/api/intelligence")
-    async def intelligence_events():
+    async def intelligence_events(request: Request):
         """IntelligenceEngine's classified events (Wealth Copilot MVP 2,
         phase 2) — NEUTRAL/RECALIBRATE/OVERRIDE over the current
-        MarketAgent snapshot and ComplianceAgent violations. Every
-        classification is also appended to
-        ~/.flowcore/intelligence_audit.jsonl (see IntelligenceEngine's
-        _audit)."""
+        MarketAgent snapshot and this office's ComplianceAgent violations.
+        Every classification is also appended to this office's own
+        ~/.flowcore/intelligence_audit_<office_id>.jsonl (see
+        IntelligenceEngine's _audit)."""
+        user = await get_current_user(request)
         try:
             from agents.intelligence_engine import IntelligenceEngine
-            result = await IntelligenceEngine().run()
+            result = await IntelligenceEngine().run({"office_id": user["office_id"]})
             events = result["data"]["events"]
             return {
                 "total": len(events),
@@ -1183,13 +1291,14 @@ def register_dashboard_routes(app, version: str) -> None:
             }
 
     @app.get("/api/priorities")
-    async def priorities():
+    async def priorities(request: Request):
         """PriorityEngine's ranked events (Wealth Copilot MVP 2, phase 3)
         — same IntelligenceEngine events as /api/intelligence, ordered
         CRITICAL first. Never executes anything; ranking only."""
+        user = await get_current_user(request)
         try:
             from agents.priority_engine import PriorityEngine
-            result = await PriorityEngine().run()
+            result = await PriorityEngine().run({"office_id": user["office_id"]})
             return {**result["data"], "available": True, "stub": False}
         except Exception as exc:
             return {
@@ -1200,13 +1309,15 @@ def register_dashboard_routes(app, version: str) -> None:
     # ── Assets [STUB] ─────────────────────────────────────────────────────────
 
     @app.get("/api/portfolios/{portfolio_id}/review")
-    async def portfolio_review(portfolio_id: str):
-        portfolio = await get_portfolio(portfolio_id)
+    async def portfolio_review(portfolio_id: str, request: Request):
+        user = await get_current_user(request)
+        portfolio = await _get_portfolio_for(user["office_id"], portfolio_id)
         return _review_reference_portfolio(portfolio)
 
     @app.post("/api/portfolios/{portfolio_id}/review")
-    async def portfolio_review_post(portfolio_id: str, data: PortfolioReviewInput):
-        portfolio = await get_portfolio(portfolio_id)
+    async def portfolio_review_post(portfolio_id: str, data: PortfolioReviewInput, request: Request):
+        user = await get_current_user(request)
+        portfolio = await _get_portfolio_for(user["office_id"], portfolio_id)
         return _review_reference_portfolio(portfolio, data.events, data.current_allocation)
 
     @app.get("/api/assets/{symbol}")

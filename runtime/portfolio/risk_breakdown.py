@@ -32,8 +32,8 @@ _CATEGORIES: dict[str, set[str]] = {
 }
 
 
-def compute_risk_breakdown() -> dict[str, Any]:
-    portfolio = load_reference_portfolio()
+async def compute_risk_breakdown(office_id: str) -> dict[str, Any]:
+    portfolio = await load_reference_portfolio(office_id)
     target_allocation = portfolio.get("target_allocation", [])
     current_allocation = portfolio.get("current_allocation") or {}
 

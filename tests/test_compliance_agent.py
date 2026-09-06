@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
+
 from agents.compliance_agent import ComplianceAgent
 
 
@@ -18,7 +20,14 @@ def _run(coro):
 
 
 def _reference_portfolio(current_allocation: dict | None = None) -> dict:
-    portfolio = ComplianceAgent._load_reference_portfolio()
+    """The real bundled policy (id/target_allocation/sleeve_limits/
+    review_policy), used directly via context["portfolios"] — these
+    tests are about the sleeve-math logic, not the multi-office loading
+    path (that has its own coverage in tests/test_client_repo.py), so
+    they never need a real office_id/DB round-trip."""
+    from storage.client_repo import _load_bundled_policy
+
+    portfolio = _load_bundled_policy()
     portfolio["current_allocation"] = current_allocation
     return portfolio
 
@@ -37,12 +46,30 @@ class TestNoData:
         assert data["violations"] == []
         assert data["portfolios"][0]["status"] == "SEM_REGRAS_DEFINIDAS"
 
-    def test_no_context_reads_the_real_system_state(self):
-        """run() with no context loads whatever FlowCore actually has
-        registered today — never fabricates a portfolio to evaluate."""
-        result = _run(ComplianceAgent().run())
+    def test_missing_office_id_and_no_portfolios_raises_instead_of_a_silent_global_default(self):
+        """Fase 0 (multi-office): there is no longer a single installation-
+        wide default to silently fall back to — an office_id is mandatory
+        whenever `portfolios` isn't precomputed, or one office's alerts
+        could accidentally return another's data."""
+        with pytest.raises(ValueError):
+            _run(ComplianceAgent().run())
+
+    def test_office_id_loads_that_offices_real_registered_state(self, tmp_path):
+        from unittest.mock import patch
+
+        from storage.client_repo import ClientRepository
+
+        repo = ClientRepository(db_path=str(tmp_path / "t.db"))
+
+        async def scenario():
+            await repo.seed_office("office-1", with_demo_clients=True)
+            return await ComplianceAgent().run({"office_id": "office-1"})
+
+        with patch("runtime.portfolio.reference.ClientRepository", return_value=repo), \
+             patch("runtime.portfolio.demo_clients.ClientRepository", return_value=repo):
+            result = _run(scenario())
         assert result["status"] == "ok"
-        assert result["data"]["portfolios_evaluated"] >= 1
+        assert result["data"]["portfolios_evaluated"] == 28  # 1 policy row + 27 demo clients
 
 
 class TestViolations:

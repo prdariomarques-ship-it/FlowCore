@@ -75,8 +75,11 @@ class IntelligenceEngine(BaseAgent):
 
         compliance = context.get("compliance")
         if compliance is None:
+            office_id = context.get("office_id")
+            if not office_id:
+                raise ValueError("IntelligenceEngine.run() requires context['office_id'] (or a precomputed 'compliance')")
             from agents.compliance_agent import ComplianceAgent
-            compliance = (await ComplianceAgent().run())["data"]
+            compliance = (await ComplianceAgent().run({"office_id": office_id}))["data"]
 
         us10y_move = next((m for m in market.get("movements", []) if m["asset"] == "US Treasury 10Y"), None)
         us10y_high = bool(us10y_move and us10y_move.get("relevance") == "HIGH" and us10y_move.get("change") is not None)
@@ -91,7 +94,7 @@ class IntelligenceEngine(BaseAgent):
             ))
 
         for event in events:
-            self._audit(event)
+            self._audit(event, context.get("office_id"))
 
         return {"status": "ok", "data": {"events": [e.to_dict() for e in events]}}
 
@@ -163,16 +166,21 @@ class IntelligenceEngine(BaseAgent):
 
     # ── Audit trail ──────────────────────────────────────────────────────────
 
-    def _audit(self, event: IntelligenceEvent) -> None:
+    def _audit(self, event: IntelligenceEvent, office_id: str | None) -> None:
+        """One append-only log per office (fase 0: a shared global log
+        would let one office's audit trail leak whichever office_id
+        happened to run last into an eventual "why was this OVERRIDE?"
+        endpoint for a different office)."""
         record = AuditRecord(
             timestamp=datetime.now(UTC).isoformat(), source=event.source,
-            input={"affected_assets": event.affected_assets, "affected_portfolios": event.affected_portfolios},
+            input={"office_id": office_id, "affected_assets": event.affected_assets, "affected_portfolios": event.affected_portfolios},
             rule=event.source, classification=event.status, reason=event.reason,
             suggested_action=event.suggested_action,
         )
+        log_path = _DATA_DIR / f"intelligence_audit_{office_id or 'unscoped'}.jsonl"
         try:
             _DATA_DIR.mkdir(parents=True, exist_ok=True)
-            with _AUDIT_LOG.open("a", encoding="utf-8") as f:
+            with log_path.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(record.to_dict(), ensure_ascii=False) + "\n")
         except OSError:
             pass  # audit logging must never break the classification itself

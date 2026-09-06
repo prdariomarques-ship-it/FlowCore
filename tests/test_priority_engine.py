@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
+
 from agents.priority_engine import PriorityEngine
 
 
@@ -61,8 +63,20 @@ class TestClientsAffected:
 
 
 class TestAgentContract:
-    def test_run_without_context_reads_real_intelligence_events(self):
-        result = _run(PriorityEngine().run())
+    def test_missing_office_id_raises_instead_of_a_silent_global_default(self):
+        with pytest.raises(ValueError):
+            _run(PriorityEngine().run())
+
+    def test_office_id_computes_that_offices_real_priorities(self):
+        pytest.importorskip("fastapi")
+        pytest.importorskip("httpx")
+        from fastapi.testclient import TestClient
+
+        from api.router import create_app
+        from tests._auth_helper import signup_office
+
+        session = signup_office(TestClient(create_app(version="test")))
+        result = _run(PriorityEngine().run({"office_id": session["office_id"]}))
         assert result["status"] == "ok"
         assert result["data"]["total"] >= 1
 
