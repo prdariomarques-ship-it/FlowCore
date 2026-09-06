@@ -254,9 +254,117 @@ details.mi>summary::marker{display:none}
 .more-menu button:last-child{border-bottom:none}
 .more-menu button:hover{background:var(--bg3);color:var(--accent)}
 .more-menu button .ni-icon{font-size:18px}
+
+/* ══ Desktop sidebar layout (Wealth Copilot) ══
+   Mobile keeps the existing bottom-nav/header exactly as it was — this
+   only activates at desktop widths via the media query at the bottom of
+   this block, so nothing here changes phone behavior. */
+.sidebar{display:none}
+.desktop-only{display:none}
+.mobile-only{display:block}
+
+@media(min-width:960px){
+  body{padding-bottom:0;display:flex}
+  .header{display:none}
+  .sidebar{
+    display:flex;flex-direction:column;width:220px;flex-shrink:0;min-height:100vh;
+    background:var(--bg2);border-right:1px solid var(--border);padding:18px 12px;
+  }
+  .sb-logo{display:flex;align-items:center;gap:10px;padding:0 8px 20px}
+  .sb-brand{font-size:16px;font-weight:700;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .sb-tagline{font-size:10px;color:var(--text2)}
+  .sb-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:9px;color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;border:none;background:none;text-align:left;width:100%;margin-bottom:2px}
+  .sb-item:hover{background:var(--bg3);color:var(--text)}
+  .sb-item.active{background:var(--bg3);color:var(--accent)}
+  .sb-icon{font-size:16px;width:18px;text-align:center}
+
+  .dw-main{flex:1;min-width:0;display:flex;flex-direction:column}
+  .dw-topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 24px;border-bottom:1px solid var(--border);background:var(--bg)}
+  .dw-search{flex:1;max-width:480px;background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:9px 14px;color:var(--text2);font-size:13px}
+  .dw-topright{display:flex;align-items:center;gap:16px;font-size:12px;color:var(--text2);white-space:nowrap}
+  .dw-bell{position:relative;cursor:pointer;font-size:16px}
+  .dw-bell .dot{position:absolute;top:-2px;right:-2px;width:7px;height:7px;border-radius:50%;background:var(--red)}
+  .dw-avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff}
+
+  .dw-wrap{max-width:100%;padding:22px 24px;flex:1}
+  .dw-greeting h1{font-size:24px;font-weight:800;margin-bottom:2px}
+  .dw-greeting p{font-size:13px;color:var(--text2)}
+
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0}
+  .kpi-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:flex;align-items:center;gap:12px}
+  .kpi-icon{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+  .kpi-icon.crit{background:rgba(239,68,68,.15);color:var(--red)}
+  .kpi-icon.warn{background:rgba(245,158,11,.15);color:var(--yellow)}
+  .kpi-icon.ok{background:rgba(16,185,129,.15);color:var(--green)}
+  .kpi-icon.info{background:rgba(0,212,255,.15);color:var(--accent)}
+  .kpi-num{font-size:22px;font-weight:800;line-height:1.1}
+  .kpi-label{font-size:12px;font-weight:700;margin-top:2px}
+  .kpi-sub{font-size:11px;color:var(--text2)}
+
+  .dw-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px}
+  .dw-table{width:100%;border-collapse:collapse;font-size:12px}
+  .dw-table th{text-align:left;color:var(--text2);font-weight:600;padding:6px 4px;border-bottom:1px solid var(--border);font-size:10px;text-transform:uppercase}
+  .dw-table td{padding:8px 4px;border-bottom:1px solid var(--border)}
+  .dw-table tr:last-child td{border-bottom:none}
+  .dw-link{color:var(--accent);font-size:11px;font-weight:600;cursor:pointer}
+  .dw-empty{text-align:center;color:var(--text2);padding:24px 10px;font-size:12px}
+
+  .intel-mini{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+  .intel-mini:last-child{border-bottom:none}
+  .intel-mini-icon{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+  .intel-mini-title{font-size:12px;font-weight:700}
+  .intel-mini-sub{font-size:11px;color:var(--text2)}
+
+  .timeline-item{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+  .timeline-item:last-child{border-bottom:none}
+  .timeline-dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0}
+  .timeline-time{font-size:10px;color:var(--text2);width:42px;flex-shrink:0;padding-top:1px}
+  .timeline-text b{display:block;font-size:12px;margin-bottom:1px}
+  .timeline-text span{font-size:11px;color:var(--text2)}
+
+  .impact-row{padding:8px 0;border-bottom:1px solid var(--border)}
+  .impact-row:last-child{border-bottom:none}
+  .impact-name{font-size:12px;font-weight:700}
+  .impact-reason{font-size:11px;color:var(--text2);margin-bottom:5px}
+  .impact-bar-bg{height:4px;border-radius:2px;background:var(--border);overflow:hidden}
+  .impact-bar-fill{height:100%;border-radius:2px}
+
+  .dw-chat-chip{display:block;width:100%;text-align:left;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-size:11px;padding:8px 10px;border-radius:8px;margin-bottom:6px;cursor:pointer}
+  .dw-chat-chip:hover{border-color:var(--accent);color:var(--text)}
+
+  .wrap{max-width:100%;margin:0;padding:0}
+  .mobile-only{display:none}
+  .desktop-only{display:block}
+  .nav,.fab,.more-menu{display:none!important}
+}
 </style>
 </head>
 <body>
+
+<!-- Desktop sidebar (hidden on mobile via CSS) -->
+<div class="sidebar">
+  <div class="sb-logo">
+    <div class="logo">F</div>
+    <div><div class="sb-brand">FlowCore</div><div class="sb-tagline">Wealth Copilot</div></div>
+  </div>
+  <button class="sb-item active" id="sb-home" onclick="pg('home',this,true)"><span class="sb-icon">🏠</span>Visão Geral</button>
+  <button class="sb-item" id="sb-portfolio" onclick="pg('portfolio',this,true)"><span class="sb-icon">💼</span>Carteiras</button>
+  <button class="sb-item" id="sb-news" onclick="pg('news',this,true)"><span class="sb-icon">📈</span>Mercado</button>
+  <button class="sb-item" id="sb-ai" onclick="pg('ai',this,true)"><span class="sb-icon">💡</span>Insights</button>
+  <button class="sb-item" id="sb-chat" onclick="pg('chat',this,true)"><span class="sb-icon">💬</span>Chat IA</button>
+  <button class="sb-item" id="sb-agents" onclick="pg('agents',this,true)"><span class="sb-icon">🛠</span>Operacional</button>
+  <button class="sb-item" id="sb-admin" onclick="pg('admin',this,true)"><span class="sb-icon">⚙</span>Configurações</button>
+</div>
+
+<div class="dw-main">
+  <div class="dw-topbar desktop-only">
+    <input class="dw-search" placeholder="Buscar carteira, ativo ou fazer uma pergunta..." onkeydown="if(event.key==='Enter'){pg('chat',document.getElementById('sb-chat'),true);document.getElementById('chat-inp').value=this.value;sendChat();}">
+    <div class="dw-topright">
+      <span id="dw-datetime">—</span>
+      <span class="dw-bell">🔔<span class="dot" id="dw-alert-dot" style="display:none"></span></span>
+      <div class="dw-avatar">FC</div>
+    </div>
+  </div>
 
 <div class="header">
   <div class="hb">
@@ -276,6 +384,64 @@ details.mi>summary::marker{display:none}
 
   <!-- ══ VISÃO FINANCEIRA ══ -->
   <div class="page active" id="page-home">
+
+    <!-- ══ Desktop Wealth Copilot dashboard ══ -->
+    <div class="desktop-only" id="dw-dashboard">
+      <div class="dw-wrap">
+        <div class="dw-greeting">
+          <h1 id="dw-greeting-text">Bom dia!</h1>
+          <p>Aqui está o que merece a sua atenção hoje.</p>
+        </div>
+
+        <div class="kpi-grid" id="dw-kpis">
+          <div class="kpi-card"><div class="kpi-icon crit">🔴</div><div><div class="kpi-num" id="kpi-override">—</div><div class="kpi-label" style="color:var(--red)">Carteiras em Override</div><div class="kpi-sub">Revisão de tese recomendada</div></div></div>
+          <div class="kpi-card"><div class="kpi-icon warn">🟡</div><div><div class="kpi-num" id="kpi-recalibrate">—</div><div class="kpi-label" style="color:var(--yellow)">Carteiras em Recalibração</div><div class="kpi-sub">Ajustes sugeridos</div></div></div>
+          <div class="kpi-card"><div class="kpi-icon ok">🟢</div><div><div class="kpi-num" id="kpi-healthy">—</div><div class="kpi-label" style="color:var(--green)">Carteiras saudáveis</div><div class="kpi-sub">Dentro da política de alocação</div></div></div>
+          <div class="kpi-card"><div class="kpi-icon info">👥</div><div><div class="kpi-num" id="kpi-clients">—</div><div class="kpi-label">Total de clientes</div><div class="kpi-sub">Sob monitoramento</div></div></div>
+        </div>
+
+        <div class="dw-grid3">
+          <div class="card">
+            <div class="ch"><span class="ct">Alertas de Desenquadramento</span><span class="dw-link" onclick="pg('portfolio',document.getElementById('sb-portfolio'),true)">Ver todos →</span></div>
+            <div id="dw-alerts-table"><div class="sk"></div><div class="sk"></div></div>
+          </div>
+          <div class="card">
+            <div class="ch"><span class="ct">Movimentos de Mercado</span><span class="dw-link" onclick="pg('news',document.getElementById('sb-news'),true)">Ver mais →</span></div>
+            <div id="dw-market-table"><div class="sk"></div><div class="sk"></div></div>
+          </div>
+          <div class="card">
+            <div class="ch"><span class="ct">Resumo de Inteligência</span></div>
+            <div id="dw-intel-summary"><div class="sk"></div><div class="sk"></div></div>
+          </div>
+        </div>
+
+        <div class="dw-grid3">
+          <div class="card">
+            <div class="ch"><span class="ct">O que mudou?</span><span class="dw-link" onclick="pg('ai',document.getElementById('sb-ai'),true)">Ver análise completa →</span></div>
+            <div id="dw-what-changed"><div class="sk"></div><div class="sk"></div></div>
+          </div>
+          <div class="card">
+            <div class="ch"><span class="ct">Carteiras mais impactadas</span><span class="dw-link" onclick="pg('portfolio',document.getElementById('sb-portfolio'),true)">Ver todas →</span></div>
+            <div id="dw-impacted"><div class="sk"></div><div class="sk"></div></div>
+          </div>
+          <div class="card">
+            <div class="ch"><span class="ct">Chat com o FlowCore</span></div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Pergunte sobre a carteira, mercado, alertas ou peça uma análise.</div>
+            <div id="dw-chat-chips">
+              <button class="dw-chat-chip" onclick="dwAsk('O que mudou no mercado hoje?')">💬 O que mudou no mercado hoje?</button>
+              <button class="dw-chat-chip" onclick="dwAsk('Quais clientes estão desenquadrados hoje?')">💬 Quais clientes estão desenquadrados hoje?</button>
+              <button class="dw-chat-chip" onclick="dwAsk('Explique o último override.')">💬 Explique o último override.</button>
+            </div>
+            <div class="ir" style="margin-top:8px;margin-bottom:0">
+              <input class="if" id="dw-chat-inp" placeholder="Digite sua pergunta..." onkeydown="if(event.key==='Enter')dwAsk(this.value)">
+              <button class="bs2" onclick="dwAsk(document.getElementById('dw-chat-inp').value)">➤</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mobile-only">
     <div class="gap">
       <!-- Executive Summary -->
       <div class="card">
@@ -328,6 +494,7 @@ details.mi>summary::marker{display:none}
         <div class="row"><span class="rl">Concentração por emissor</span><span class="rv">Máx. 2%</span></div>
       </div>
     </div>
+    </div><!-- /mobile-only -->
   </div>
 
   <!-- ══ PORTFOLIO ══ -->
@@ -538,6 +705,8 @@ details.mi>summary::marker{display:none}
 
 </div>
 
+</div><!-- /dw-main -->
+
   <!-- Bottom nav - New Navigation -->
 <div class="nav">
   <button class="ni active" onclick="pg('home',this)"><span class="ni-icon">🏠</span><span>Início</span></button>
@@ -568,8 +737,12 @@ let _noteKind='note';
 function pg(name,btn){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.ni').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   if(btn) btn.classList.add('active');
+  const sbBtn=document.getElementById('sb-'+name);
+  if(sbBtn) sbBtn.classList.add('active');
+  if(name==='home') loadDashboardOverview();
   if(name==='admin') loadSys();
   if(name==='portfolio'){loadPortfolio();loadComplianceAlerts();loadReferencePortfolio();}
   if(name==='notes') loadNotes();
@@ -644,6 +817,10 @@ function updateHomeGreeting(){
   const dayName=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'][now.getDay()];
   const dateStr=dayName+', '+now.toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'});
   document.getElementById('home-timestamp').textContent=dateStr+' · '+now.toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});
+  const dwGreeting=document.getElementById('dw-greeting-text');
+  if(dwGreeting) dwGreeting.textContent=g.text+'!';
+  const dwDatetime=document.getElementById('dw-datetime');
+  if(dwDatetime) dwDatetime.textContent=dateStr+' · '+now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 }
 function updateHomeStatus(s){
   if(!s.doctor_summary) return;
@@ -1184,6 +1361,137 @@ async function resetReferencePortfolio(){
   }
 }
 
+/* ── Desktop Wealth Copilot dashboard (Visão Geral) ──
+   All real data: /api/alerts (ComplianceAgent), /api/market (MarketAgent),
+   /api/intelligence (IntelligenceEngine), /api/priorities (PriorityEngine).
+   Only one portfolio exists today (the editable reference/model
+   portfolio) — KPIs and tables reflect that honestly rather than showing
+   placeholder multi-client numbers. */
+function loadDashboardOverview(){
+  // Each of these four calls updates its own section the moment IT
+  // resolves — deliberately NOT awaited together (no Promise.all/
+  // allSettled gate). /api/alerts is local/fast; /api/market and anything
+  // built on IntelligenceEngine touch live market data and can be slow.
+  // Gating the whole dashboard on the slowest one meant a fast, ready
+  // compliance table sat behind a skeleton for as long as the market call
+  // took — a real UX bug, not just a quirk of a slow network.
+  api('/api/alerts').then(alerts=>{
+    document.getElementById('kpi-healthy').textContent=(alerts.portfolios||[]).filter(p=>p.status==='NORMAL').length;
+    document.getElementById('kpi-clients').textContent=(alerts.portfolios||[]).length;
+    renderDwAlertsTable(alerts);
+    const dot=document.getElementById('dw-alert-dot');
+    if(dot) dot.style.display=alerts.critical>0?'block':'none';
+  }).catch(()=>{
+    document.getElementById('kpi-healthy').textContent='—';
+    document.getElementById('kpi-clients').textContent='—';
+    renderDwAlertsTable(null);
+  });
+
+  api('/api/market').then(renderDwMarketTable).catch(()=>renderDwMarketTable(null));
+
+  api('/api/intelligence').then(intel=>{
+    document.getElementById('kpi-override').textContent=intel.override;
+    document.getElementById('kpi-recalibrate').textContent=intel.recalibrate;
+    renderDwIntelSummary(intel);
+    renderDwWhatChanged(intel);
+  }).catch(()=>{
+    document.getElementById('kpi-override').textContent='—';
+    document.getElementById('kpi-recalibrate').textContent='—';
+    renderDwIntelSummary(null);
+    renderDwWhatChanged(null);
+  });
+
+  api('/api/priorities').then(renderDwImpacted).catch(()=>renderDwImpacted(null));
+}
+
+function renderDwAlertsTable(alerts){
+  const box=document.getElementById('dw-alerts-table');
+  if(!alerts||!alerts.items||!alerts.items.length){
+    box.innerHTML='<div class="dw-empty">✅ Nenhuma carteira desenquadrada no momento.</div>';
+    return;
+  }
+  let html='<table class="dw-table"><tr><th>Carteira</th><th>Atual</th><th>Limite</th><th>Desvio</th></tr>';
+  for(const it of alerts.items){
+    const crit=it.severity==='CRITICAL';
+    html+=`<tr><td>${crit?'🔴':'🟡'} ${escapeHtml(it.client_name)}</td><td>${it.current}%</td><td>${it.limit}%</td><td style="color:${crit?'var(--red)':'var(--yellow)'}">+${it.diff}p.p.</td></tr>`;
+  }
+  box.innerHTML=html+'</table>';
+}
+
+function renderDwMarketTable(market){
+  const box=document.getElementById('dw-market-table');
+  if(!market||!market.movements||!market.movements.length){
+    box.innerHTML='<div class="dw-empty">Mercado indisponível.</div>';
+    return;
+  }
+  let html='<table class="dw-table"><tr><th>Ativo</th><th>Valor</th><th>Variação</th></tr>';
+  let any=false;
+  for(const m of market.movements){
+    if(m.current_value==null) continue;
+    any=true;
+    const up=(m.change||0)>=0;
+    const unit=m.unit==='percentage_points'?'p.p.':'%';
+    const mockTag=m.source==='MOCK'?' <span class="tag ty" style="font-size:9px">MOCK</span>':'';
+    html+=`<tr><td>${escapeHtml(m.asset)}${mockTag}</td><td>${m.current_value.toFixed(2)}</td><td style="color:${up?'var(--green)':'var(--red)'}">${up?'▲':'▼'} ${Math.abs(m.change).toFixed(2)}${unit}</td></tr>`;
+  }
+  box.innerHTML=any?(html+'</table>'):'<div class="dw-empty">Sem dados de mercado no momento (fonte indisponível).</div>';
+}
+
+function renderDwIntelSummary(intel){
+  const box=document.getElementById('dw-intel-summary');
+  if(!intel){box.innerHTML='<div class="dw-empty">Indisponível.</div>';return;}
+  const row=(icon,bg,color,label,n)=>`<div class="intel-mini"><div class="intel-mini-icon" style="background:${bg};color:${color}">${icon}</div><div><div class="intel-mini-title">${label}</div><div class="intel-mini-sub">${n} evento${n===1?'':'s'}</div></div></div>`;
+  box.innerHTML=
+    row('🔴','rgba(239,68,68,.15)','var(--red)','Override',intel.override)+
+    row('🟡','rgba(245,158,11,.15)','var(--yellow)','Recalibração',intel.recalibrate)+
+    row('🟢','rgba(16,185,129,.15)','var(--green)','Neutro',intel.neutral);
+}
+
+function renderDwWhatChanged(intel){
+  const box=document.getElementById('dw-what-changed');
+  const relevant=(intel&&intel.events||[]).filter(e=>e.status!=='NEUTRAL');
+  if(!relevant.length){box.innerHTML='<div class="dw-empty">✅ Nenhuma mudança relevante detectada.</div>';return;}
+  let html='';
+  for(const e of relevant.slice(0,6)){
+    const color=e.status==='OVERRIDE'?'var(--red)':'var(--yellow)';
+    html+=`<div class="timeline-item"><div class="timeline-dot" style="background:${color}"></div><div class="timeline-text"><b>${e.status}</b><span>${escapeHtml(e.reason)}</span></div></div>`;
+  }
+  box.innerHTML=html;
+}
+
+function renderDwImpacted(prio){
+  const box=document.getElementById('dw-impacted');
+  if(!prio||!prio.items||!prio.items.length){box.innerHTML='<div class="dw-empty">Nenhuma carteira impactada no momento.</div>';return;}
+  const colors={CRITICAL:'var(--red)',HIGH:'var(--red)',MEDIUM:'var(--yellow)',LOW:'var(--green)',NEUTRAL:'var(--green)'};
+  const widths={CRITICAL:100,HIGH:80,MEDIUM:55,LOW:25,NEUTRAL:10};
+  let html='';
+  for(const it of prio.items.slice(0,6)){
+    html+=`<div class="impact-row"><div class="impact-name">${escapeHtml(it.title)}</div><div class="impact-reason">${escapeHtml(it.reason)}</div><div class="impact-bar-bg"><div class="impact-bar-fill" style="width:${widths[it.level]}%;background:${colors[it.level]}"></div></div></div>`;
+  }
+  box.innerHTML=html;
+}
+
+async function dwAsk(question){
+  if(!question||!question.trim()) return;
+  const box=document.getElementById('dw-chat-chips');
+  const loading=document.createElement('div');
+  loading.className='dw-empty';
+  loading.style.textAlign='left';
+  loading.textContent='Pensando…';
+  box.appendChild(loading);
+  try{
+    const r=await api('/api/ask',{method:'POST',body:JSON.stringify({question,history:[]})});
+    loading.remove();
+    const answer=document.createElement('div');
+    answer.style.cssText='background:var(--bg3);border-radius:8px;padding:10px;font-size:12px;margin-top:6px;white-space:pre-wrap;color:var(--text)';
+    answer.textContent=r.answer;
+    box.appendChild(answer);
+  }catch(e){
+    loading.textContent='Erro: '+e.message;
+  }
+  document.getElementById('dw-chat-inp').value='';
+}
+
 function renderAgentCards(agents){
   const c=document.getElementById('agent-cards');
   if(!agents.length){c.innerHTML='<div class="empty">Nenhum agente registado</div>';return;}
@@ -1398,8 +1706,10 @@ async function saveFlowBuilder(){
 /* ── Init ── */
 updateHomeGreeting();
 refresh();
+loadDashboardOverview();
 setInterval(refresh,30000);
 setInterval(updateHomeGreeting,60000);
+setInterval(loadDashboardOverview,60000);
 </script>
 </body>
 </html>

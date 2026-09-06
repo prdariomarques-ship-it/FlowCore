@@ -19,6 +19,7 @@ means for any portfolio — that is IntelligenceEngine's job (MVP2 phase 2).
 """
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from typing import Any
 
@@ -48,7 +49,17 @@ class MarketAgent(BaseAgent):
     version = "0.1.0"
 
     async def run(self, context: dict | None = None) -> dict[str, Any]:
-        movements = self._build_movements()
+        # _build_movements() is a plain sync function that calls
+        # watchlist.snapshot(), which blocks on ThreadPoolExecutor.as_completed()
+        # while it fetches ~9 live quotes. Calling it directly from this
+        # async def would run that blocking work on the event loop thread
+        # itself, freezing every other concurrent request on this FastAPI
+        # process (including fast, unrelated ones like /api/alerts) for as
+        # long as the slowest quote takes — the same class of bug already
+        # found and fixed once in runtime/market_intelligence/alerts.py.
+        # run_in_executor hands it to a worker thread instead.
+        loop = asyncio.get_event_loop()
+        movements = await loop.run_in_executor(None, self._build_movements)
         relevant = [m for m in movements if m.relevance in ("HIGH", "MEDIUM")]
         market_status = (
             "ALERT" if any(m.relevance == "HIGH" for m in movements)
