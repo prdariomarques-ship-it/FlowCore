@@ -155,6 +155,14 @@ details.mi>summary::marker{display:none}
 .compliance-bar-limit{position:relative;height:0}
 .compliance-bar-limit span{position:absolute;top:-19px;font-size:10px;color:var(--text2);transform:translateX(-50%)}
 .compliance-figures{display:flex;justify-content:space-between;font-size:11px;color:var(--text2)}
+.rp-sleeve{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+.rp-sleeve:last-child{border-bottom:none}
+.rp-sleeve-info{flex:1;min-width:0}
+.rp-sleeve-label{font-size:13px;font-weight:600;color:var(--text)}
+.rp-sleeve-band{font-size:11px;color:var(--text2);margin-top:1px}
+.rp-sleeve-input{width:72px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 9px;font-size:13px;text-align:right;outline:none}
+.rp-sleeve-input:focus{border-color:var(--accent)}
+.rp-sleeve-pct{font-size:12px;color:var(--text2)}
 
 /* Notify */
 .notify-btn{width:100%;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:var(--yellow);padding:10px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
@@ -455,6 +463,20 @@ details.mi>summary::marker{display:none}
         <div id="compliance-list"><div class="sk" style="height:52px"></div></div>
       </div>
 
+      <!-- Editable reference (model) portfolio -->
+      <div class="card" id="reference-portfolio-card">
+        <div class="ch">
+          <span class="ct">Posição da carteira modelo</span>
+          <span class="tag ty" id="rp-customized-tag" style="display:none">Personalizado</span>
+        </div>
+        <div id="rp-sleeves"><div class="sk" style="height:52px"></div></div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="bs2" style="flex:1" onclick="saveReferencePortfolio()">💾 Salvar</button>
+          <button class="btn-sm" onclick="resetReferencePortfolio()">↺ Resetar</button>
+        </div>
+        <div id="rp-status" style="font-size:11px;color:var(--text2);margin-top:8px;text-align:center"></div>
+      </div>
+
       <!-- Agent cards -->
       <div class="card">
         <div class="ch"><span class="ct">Agentes disponíveis</span><span class="ci">🤖</span></div>
@@ -550,7 +572,7 @@ function pg(name,btn){
   if(name==='notes') loadNotes();
   if(name==='news') loadNews();
   if(name==='chat') loadAiConfig();
-  if(name==='agents'){loadComplianceAlerts();loadAgents();loadFlows();}
+  if(name==='agents'){loadComplianceAlerts();loadReferencePortfolio();loadAgents();loadFlows();}
   closeMoreMenu();
 }
 
@@ -1074,6 +1096,77 @@ async function loadComplianceAlerts(){
   }catch(e){
     banner.innerHTML='';
     list.innerHTML='<div class="empty">Alertas indisponíveis: '+escapeHtml(e.message)+'</div>';
+  }
+}
+
+/* ── Reference (model) portfolio — editable ──
+   Four sleeves, matching exactly what ComplianceAgent checks against
+   sleeve_limits. The two aggregate sleeves (renda fixa total,
+   alternativos) write to a __sleeve__:<name> synthetic key instead of an
+   individual target_allocation item id — see
+   agents/compliance_agent.py::_sleeve_current for why: br_fixed_liquidity
+   belongs to renda_fixa_brasil (rolls into renda_fixa_total) AND is the
+   liquidity-floor item, so summing item-level entries would double-count
+   it the moment both are edited. Tema IA and Liquidez map to a single
+   target_allocation item each, so they write there directly. */
+const RP_SLEEVES=[
+  {key:'__sleeve__:renda_fixa_total',label:'Renda Fixa Total',minKey:'renda_fixa_total_min',maxKey:'renda_fixa_total_max'},
+  {key:'ai_theme',label:'Tema IA',minKey:'ai_theme_min',maxKey:'ai_theme_max'},
+  {key:'__sleeve__:alternativos',label:'Alternativos',minKey:null,maxKey:'alternativos_max'},
+  {key:'br_fixed_liquidity',label:'Liquidez',minKey:'liquidity_floor',maxKey:null},
+];
+
+async function loadReferencePortfolio(){
+  const box=document.getElementById('rp-sleeves');
+  try{
+    const rp=await api('/api/portfolio/reference');
+    const current=rp.current_allocation||{};
+    const limits=rp.sleeve_limits||{};
+    document.getElementById('rp-customized-tag').style.display=rp.is_customized?'inline-block':'none';
+    box.innerHTML='';
+    for(const s of RP_SLEEVES){
+      const min=s.minKey?limits[s.minKey]:null;
+      const max=s.maxKey?limits[s.maxKey]:null;
+      const band=(min!=null&&max!=null)?`Alvo ${min}%–${max}%`:(min!=null?`Piso ${min}%`:(max!=null?`Teto ${max}%`:'Sem limite definido'));
+      const val=current[s.key];
+      const row=document.createElement('div');
+      row.className='rp-sleeve';
+      row.innerHTML=`
+        <div class="rp-sleeve-info"><div class="rp-sleeve-label">${escapeHtml(s.label)}</div><div class="rp-sleeve-band">${band}</div></div>
+        <input class="rp-sleeve-input" type="number" step="0.1" data-key="${s.key}" value="${val!=null?val:''}" placeholder="—">
+        <span class="rp-sleeve-pct">%</span>`;
+      box.appendChild(row);
+    }
+  }catch(e){
+    box.innerHTML='<div class="empty">Carteira modelo indisponível: '+escapeHtml(e.message)+'</div>';
+  }
+}
+
+async function saveReferencePortfolio(){
+  const status=document.getElementById('rp-status');
+  const current_allocation={};
+  document.querySelectorAll('#rp-sleeves .rp-sleeve-input').forEach(inp=>{
+    if(inp.value!=='') current_allocation[inp.dataset.key]=parseFloat(inp.value);
+  });
+  status.textContent='Salvando…';
+  try{
+    await api('/api/portfolio/reference',{method:'PUT',body:JSON.stringify({current_allocation})});
+    status.textContent='✓ Posição salva '+new Date().toLocaleTimeString('pt-BR');
+    await Promise.all([loadReferencePortfolio(),loadComplianceAlerts()]);
+  }catch(e){
+    status.textContent='Erro ao salvar: '+e.message;
+  }
+}
+
+async function resetReferencePortfolio(){
+  const status=document.getElementById('rp-status');
+  status.textContent='Restaurando…';
+  try{
+    await api('/api/portfolio/reference/reset',{method:'POST'});
+    status.textContent='✓ Restaurado ao padrão';
+    await Promise.all([loadReferencePortfolio(),loadComplianceAlerts()]);
+  }catch(e){
+    status.textContent='Erro ao restaurar: '+e.message;
   }
 }
 
