@@ -1243,6 +1243,41 @@ def register_dashboard_routes(app, version: str) -> None:
         results = send_review_request(office_id, client, draft, data.channels, user["id"])
         return {"client_id": client_id, "channels": results}
 
+    # ── Client 360 (Fase 1 of the Office OS scope) ───────────────────────────
+    # One consolidated view of a real client: their position, whether
+    # ComplianceAgent currently flags it, and every past outreach attempt —
+    # assembled from data these other modules already compute, nothing new
+    # invented here.
+
+    _COMPLIANCE_TO_HEALTH = {
+        "NORMAL": "SAUDAVEL", "ATENCAO": "ATENCAO", "DESENQUADRADO": "DESENQUADRADO",
+        "SEM_POSICAO_ATUAL": "SEM_POSICAO_ATUAL", "SEM_REGRAS_DEFINIDAS": "SEM_REGRAS_DEFINIDAS",
+    }
+
+    @app.get("/api/clients/{client_id}/360")
+    async def client_360(client_id: str, request: Request):
+        from agents.compliance_agent import ComplianceAgent
+        from runtime.client_outreach import outreach_history
+        from storage.client_repo import ClientRepository
+
+        user = await get_current_user(request)
+        office_id = user["office_id"]
+        client = await ClientRepository().get_client(office_id, client_id)
+        if client is None:
+            raise HTTPException(status_code=404, detail=f"unknown client: {client_id}")
+
+        result = await ComplianceAgent().run({"office_id": office_id})
+        portfolio = next((p for p in result["data"]["portfolios"] if p["portfolio_id"] == client_id), None)
+        compliance_status = portfolio["status"] if portfolio else "SEM_POSICAO_ATUAL"
+        violations = portfolio["violations"] if portfolio else []
+
+        return {
+            "client": client,
+            "compliance": {"status": compliance_status, "violations": violations},
+            "health": _COMPLIANCE_TO_HEALTH.get(compliance_status, compliance_status),
+            "outreach_history": outreach_history(office_id, client_id),
+        }
+
     @app.get("/api/portfolio/risk-breakdown")
     async def portfolio_risk_breakdown(request: Request):
         """Aggregate allocation by category (Renda Fixa/Renda Variável/
@@ -1356,13 +1391,23 @@ def register_dashboard_routes(app, version: str) -> None:
         # a missing/invalid session is not an "agent unavailable" degrade.
         try:
             from agents.compliance_agent import ComplianceAgent
-            result = await ComplianceAgent().run({"office_id": user["office_id"]})
+            from storage.client_repo import ClientRepository
+
+            office_id = user["office_id"]
+            result = await ComplianceAgent().run({"office_id": office_id})
             violations = result["data"]["violations"]
+            # A violation's client_id can be the office's own reference
+            # policy (e.g. "moderate-ia-1m"), not a real client record —
+            # is_client tells the frontend which rows can actually be
+            # opened (Client 360) or contacted (outreach), instead of
+            # letting either action 404 on a portfolio that isn't a person.
+            client_ids = {c["id"] for c in await ClientRepository().list_clients(office_id)}
             items = [
                 {
                     "client_id": v["client_id"], "client_name": v["client_name"], "type": v["type"],
                     "current": v["current"], "limit": v["limit"], "diff": v["diff"],
                     "severity": v["severity"], "message": v["message"], "is_demo": v.get("is_demo", False),
+                    "is_client": v["client_id"] in client_ids,
                 }
                 for v in violations
             ]

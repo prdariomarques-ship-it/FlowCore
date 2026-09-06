@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from runtime.client_outreach import draft_review_request, send_review_request  # noqa: E402
+from runtime.client_outreach import draft_review_request, outreach_history, send_review_request  # noqa: E402
 
 _VIOLATION = {
     "client_id": "c1", "client_name": "Família Teste", "type": "EXCESSO_AI_THEME",
@@ -105,3 +105,42 @@ class TestSendReviewRequest:
         audit_file = tmp_path / "outreach_audit_office-xyz.jsonl"
         assert audit_file.exists()
         assert "Família Teste" in audit_file.read_text(encoding="utf-8")
+
+
+class TestOutreachHistory:
+    def test_empty_when_no_audit_log_exists_yet(self, tmp_path, monkeypatch):
+        import runtime.client_outreach as outreach
+
+        monkeypatch.setattr(outreach, "_DATA_DIR", tmp_path)
+        assert outreach_history("office-xyz", "c1") == []
+
+    def test_returns_only_entries_for_the_requested_client(self, tmp_path, monkeypatch):
+        import runtime.client_outreach as outreach
+
+        monkeypatch.setattr(outreach, "_DATA_DIR", tmp_path)
+        send_review_request("office-xyz", _CLIENT_NO_CONTACT, _DRAFT, ["email"], "user-1")
+        other_client = {**_CLIENT_NO_CONTACT, "id": "c2", "name": "Outra Família"}
+        send_review_request("office-xyz", other_client, _DRAFT, ["email"], "user-1")
+
+        history = outreach_history("office-xyz", "c1")
+        assert len(history) == 1
+        assert history[0]["client_id"] == "c1"
+
+    def test_most_recent_first(self, tmp_path, monkeypatch):
+        import runtime.client_outreach as outreach
+
+        monkeypatch.setattr(outreach, "_DATA_DIR", tmp_path)
+        with patch("time.time", side_effect=[100.0]):
+            send_review_request("office-xyz", _CLIENT_NO_CONTACT, _DRAFT, ["email"], "user-1")
+        with patch("time.time", side_effect=[200.0]):
+            send_review_request("office-xyz", _CLIENT_NO_CONTACT, _DRAFT, ["email"], "user-1")
+
+        history = outreach_history("office-xyz", "c1")
+        assert [h["timestamp"] for h in history] == [200.0, 100.0]
+
+    def test_never_leaks_another_offices_audit_log(self, tmp_path, monkeypatch):
+        import runtime.client_outreach as outreach
+
+        monkeypatch.setattr(outreach, "_DATA_DIR", tmp_path)
+        send_review_request("office-a", _CLIENT_NO_CONTACT, _DRAFT, ["email"], "user-1")
+        assert outreach_history("office-b", "c1") == []

@@ -168,3 +168,59 @@ class TestRequestReviewSend:
             f"/api/clients/{client_id}/request-review", json={"channels": ["email"]}, headers=session_b["headers"],
         )
         assert resp.status_code == 404
+
+
+class TestClient360:
+    def test_requires_auth(self):
+        resp = _client().get("/api/clients/x/360")
+        assert resp.status_code == 401
+
+    def test_unknown_client_is_404(self):
+        c = _client()
+        session = signup_office(c)
+        resp = c.get("/api/clients/nope/360", headers=session["headers"])
+        assert resp.status_code == 404
+
+    def test_cannot_view_another_offices_client(self):
+        client, session_a, client_id = _office_with_out_of_band_client()
+        session_b = signup_office(client, "Outro Escritório")
+        resp = client.get(f"/api/clients/{client_id}/360", headers=session_b["headers"])
+        assert resp.status_code == 404
+
+    def test_shows_real_client_fields_and_desenquadrado_health(self):
+        client, session, client_id = _office_with_out_of_band_client()
+        resp = client.get(f"/api/clients/{client_id}/360", headers=session["headers"])
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["client"]["id"] == client_id
+        assert data["client"]["email"] == "cliente@example.com"
+        assert data["health"] in ("DESENQUADRADO", "ATENCAO")
+        assert len(data["compliance"]["violations"]) > 0
+
+    def test_client_with_no_violations_is_healthy(self):
+        c = _client()
+        session = signup_office(c)
+        seed_with_demo_clients(session["office_id"])
+        clients = c.get("/api/clients/demo", headers=session["headers"]).json()["clients"]
+        in_band = next(cl for cl in clients if cl["id"] == "demo-client-01")  # Família Andrade
+        resp = c.get(f"/api/clients/{in_band['id']}/360", headers=session["headers"])
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["health"] == "SAUDAVEL"
+        assert data["compliance"]["violations"] == []
+
+    def test_includes_outreach_history_after_a_send(self):
+        client, session, client_id = _office_with_out_of_band_client()
+        with patch("runtime.email_sender.is_configured", return_value=True), \
+             patch("runtime.email_sender.send_email", return_value={"to": "cliente@example.com"}):
+            client.post(f"/api/clients/{client_id}/request-review", json={"channels": ["email"]}, headers=session["headers"])
+
+        resp = client.get(f"/api/clients/{client_id}/360", headers=session["headers"])
+        history = resp.json()["outreach_history"]
+        assert len(history) == 1
+        assert history[0]["channels"] == ["email"]
+
+    def test_no_outreach_yet_is_an_empty_history_not_an_error(self):
+        client, session, client_id = _office_with_out_of_band_client()
+        resp = client.get(f"/api/clients/{client_id}/360", headers=session["headers"])
+        assert resp.json()["outreach_history"] == []

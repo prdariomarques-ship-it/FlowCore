@@ -70,6 +70,28 @@ def _record_audit(office_id: str, entry: dict[str, Any]) -> None:
         pass  # audit logging must never break the send attempt itself
 
 
+def outreach_history(office_id: str, client_id: str, limit: int = 50) -> list[dict[str, Any]]:
+    """Every past outreach attempt for one client, most recent first —
+    read straight from this office's own audit log (see _record_audit
+    above), nothing cached or re-derived. Used by Client 360 so an
+    advisor can see whether — and how — a client has already been
+    contacted about a violation."""
+    path = _audit_path(office_id)
+    if not path.exists():
+        return []
+    entries: list[dict[str, Any]] = []
+    with path.open("r", encoding="utf-8") as f:
+        for line in f:
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if entry.get("client_id") == client_id:
+                entries.append(entry)
+    entries.sort(key=lambda e: e.get("timestamp", 0), reverse=True)
+    return entries[:limit]
+
+
 def send_review_request(
     office_id: str, client: dict[str, Any], draft: dict[str, str], channels: list[str], triggered_by_user_id: str,
 ) -> dict[str, Any]:

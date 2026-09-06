@@ -154,3 +154,13 @@ class TestDemoClientsEndpoints:
         resp = client.get("/api/alerts", headers=session["headers"])
         data = resp.json()
         assert any("is_demo" in item for item in data["items"])
+
+    def test_alerts_endpoint_flags_which_rows_are_real_contactable_clients(self):
+        """A violation's client_id can be the office's own reference policy
+        (not a real client) — is_client tells the frontend which rows can
+        be opened via Client 360 or contacted via outreach without 404ing."""
+        client, session = _office_with_demo_clients()
+        resp = client.get("/api/alerts", headers=session["headers"])
+        data = resp.json()
+        assert data["items"], "expected at least one out-of-band demo client"
+        assert all(item["is_client"] is True for item in data["items"])
