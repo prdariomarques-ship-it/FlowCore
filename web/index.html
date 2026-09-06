@@ -28,7 +28,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .sdot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite}
 .sdot.off{background:var(--red);box-shadow:0 0 6px var(--red);animation:none}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-.btn-sm{background:var(--bg3);border:1px solid var(--border);color:var(--accent);padding:5px 11px;border-radius:8px;font-size:12px;cursor:pointer}
+.btn-sm{background:var(--bg3);border:1px solid var(--border);color:var(--accent);padding:5px 11px;border-radius:8px;font-size:12px;cursor:pointer;transition:all .2s}
 .btn-sm:hover{background:var(--border)}
 
 /* Layout */
@@ -40,6 +40,24 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}
 .ct{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text2)}
 .ci{font-size:15px}
+
+/* Compliance Alerts Visual Styling */
+.compliance-summary-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.compliance-chip{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:8px 10px;text-align:center}
+.compliance-chip .c-num{font-size:18px;font-weight:700}
+.compliance-chip .c-lbl{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-top:2px}
+.compliance-item-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;transition:border-color .2s}
+.compliance-item-card.critical{border-left:4px solid var(--red)}
+.compliance-item-card.warning{border-left:4px solid var(--yellow)}
+.compliance-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.compliance-client{font-weight:700;font-size:14px;color:#fff}
+.compliance-meta{font-size:12px;color:var(--text2);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+.compliance-progress-track{position:relative;background:var(--bg2);height:10px;border-radius:6px;overflow:visible;margin:12px 0 8px;border:1px solid var(--border)}
+.compliance-progress-bar{height:100%;border-radius:6px;transition:width .4s ease}
+.compliance-progress-bar.critical{background:linear-gradient(90deg,var(--yellow),var(--red))}
+.compliance-progress-bar.warning{background:linear-gradient(90deg,var(--green),var(--yellow))}
+.compliance-limit-marker{position:absolute;top:-3px;bottom:-3px;width:2px;background:#fff;box-shadow:0 0 6px #fff;z-index:2}
+.compliance-action-box{background:rgba(0,0,0,.25);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--text);margin-top:8px;display:flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.05)}
 
 /* Stats */
 .sg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
@@ -261,6 +279,13 @@ details.mi>summary::marker{display:none}
           <span class="ct">ALERTAS DE DESENQUADRAMENTO</span>
           <span class="tag tr" id="alerts-count-badge">A carregar…</span>
         </div>
+
+        <div class="compliance-summary-row" id="compliance-summary-chips" style="display:none">
+          <div class="compliance-chip"><div class="c-num" id="c-num-critical" style="color:var(--red)">0</div><div class="c-lbl">Críticos</div></div>
+          <div class="compliance-chip"><div class="c-num" id="c-num-warnings" style="color:var(--yellow)">0</div><div class="c-lbl">Atenção</div></div>
+          <div class="compliance-chip"><div class="c-num" id="c-num-total" style="color:var(--accent)">0</div><div class="c-lbl">Afetados</div></div>
+        </div>
+
         <div id="alerts-list">
           <div class="sk"></div>
         </div>
@@ -584,41 +609,67 @@ function marketValue(value, suffix=''){
 async function loadAlerts(){
   const badge = document.getElementById('alerts-count-badge');
   const container = document.getElementById('alerts-list');
+  const summaryChips = document.getElementById('compliance-summary-chips');
   if(!container) return;
   try {
     const data = await api('/api/alerts');
     if(!data || data.total === 0) {
       if(badge) { badge.textContent = '0 carteiras desenquadradas'; badge.className = 'tag tg'; }
-      container.innerHTML = '<div class="empty">Nenhuma carteira desenquadrada. Tudo dentro dos limites.</div>';
+      if(summaryChips) summaryChips.style.display = 'none';
+      container.innerHTML = '<div class="empty" style="padding:30px 10px"><div style="font-size:24px;margin-bottom:8px">🟢</div><strong>Nenhuma carteira desenquadrada.</strong><br><span style="font-size:11px;color:var(--text2)">Todas as posições estão dentro dos limites estabelecidos.</span></div>';
       return;
     }
     if(badge) {
-      badge.textContent = `${data.total} carteira${data.total > 1 ? 's' : ''} desenquadrada${data.total > 1 ? 's' : ''}`;
+      badge.textContent = `${data.total} desenquadramento${data.total > 1 ? 's' : ''}`;
       badge.className = data.critical > 0 ? 'tag tr' : 'tag ty';
+    }
+    if(summaryChips) {
+      summaryChips.style.display = 'grid';
+      document.getElementById('c-num-critical').textContent = data.critical || 0;
+      document.getElementById('c-num-warnings').textContent = data.warnings || 0;
+      document.getElementById('c-num-total').textContent = data.total || 0;
     }
     let html = '';
     data.items.forEach(item => {
-      const tagClass = item.severity === 'CRITICAL' ? 'tr' : 'ty';
-      const diffStr = item.diff > 0 ? `+${item.diff}p.p.` : `${item.diff}p.p.`;
+      const isCritical = item.severity === 'CRITICAL';
+      const severityClass = isCritical ? 'critical' : 'warning';
+      const tagClass = isCritical ? 'tr' : 'ty';
+      const diffStr = item.diff > 0 ? `+${item.diff} p.p.` : `${item.diff} p.p.`;
+      const maxVal = Math.max(item.current, item.limit, 100);
+      const currPct = Math.min(100, Math.round((item.current / maxVal) * 100));
+      const limitPct = Math.min(100, Math.round((item.limit / maxVal) * 100));
+
       html += `
-        <div class="row" style="padding:10px 0;border-bottom:1px solid var(--border)">
-          <div style="flex:1">
-            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-              <strong>${item.client_name}</strong>
-              <span class="tag ${tagClass}">${item.type}</span>
+        <div class="compliance-item-card ${severityClass}">
+          <div class="compliance-header">
+            <div>
+              <div class="compliance-client">${item.client_name}</div>
+              <span class="tag ${tagClass}" style="margin-top:4px">${item.type}</span>
             </div>
-            <div style="font-size:12px;color:var(--text2)">
-              ${item.current}% vs limite ${item.limit}% <span style="color:${item.severity==='CRITICAL'?'var(--red)':'var(--yellow)'};font-weight:600">(${diffStr})</span>
-            </div>
-            <div style="font-size:11px;color:var(--text2);margin-top:2px">${item.suggested_action}</div>
+            <button class="btn-sm" onclick="pg('chat');setTimeout(()=>{document.getElementById('chat-inp').value='Analise e sugira rebalanceamento para ${item.client_name}';sendChat();},200)">
+              ⚡ Analisar Copilot
+            </button>
           </div>
-          <button class="btn-sm" onclick="alert('${item.client_name}: ${item.message}')">Analisar</button>
+          <div class="compliance-meta">
+            <span>Alocação Atual: <strong style="color:#fff">${item.current}%</strong></span>
+            <span>Limite: <strong style="color:var(--text2)">${item.limit}%</strong></span>
+            <span style="color:${isCritical?'var(--red)':'var(--yellow)'};font-weight:700">${diffStr}</span>
+          </div>
+          <div class="compliance-progress-track">
+            <div class="compliance-progress-bar ${severityClass}" style="width: ${currPct}%"></div>
+            <div class="compliance-limit-marker" style="left: ${limitPct}%" title="Limite: ${item.limit}%"></div>
+          </div>
+          <div class="compliance-action-box">
+            <span>💡</span>
+            <span><strong>Ação Recomendada:</strong> ${item.suggested_action}</span>
+          </div>
         </div>
       `;
     });
     container.innerHTML = html;
   } catch(e) {
     if(badge) { badge.textContent = 'Erro ao carregar'; badge.className = 'tag tr'; }
+    if(summaryChips) summaryChips.style.display = 'none';
     container.innerHTML = '<div class="empty">Erro ao carregar alertas de compliance.</div>';
   }
 }
