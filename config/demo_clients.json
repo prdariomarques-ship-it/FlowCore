@@ -1,0 +1,353 @@
+[
+  {
+    "id": "demo-client-01",
+    "name": "Família Andrade",
+    "profile": "conservador",
+    "reference_value": 537000,
+    "demo": true,
+    "current_allocation": {
+      "__sleeve__:renda_fixa_total": 60.0,
+      "ai_theme": 7.0,
+      "__sleeve__:alternativos": 5.0,
+      "br_fixed_liquidity": 10.0
+    }
+  },
+  {
+    "id": "demo-client-02",
+    "name": "Família Bittencourt",
+    "profile": "arrojado",
+    "reference_value": 574000,
+    "demo": true,
+    "current_allocation": {
+      "__sleeve__:renda_fixa_total": 60.0,
+      "ai_theme": 7.0,
+      "__sleeve__:alternativos": 5.0,
+      "br_fixed_liquidity": 10.0
+    }
+  },
+  {
+    "id": "demo-client-03",
+    "name": "Família Carvalho",
+    "profile": "moderado",
+    "reference_value": 611000,
+    "demo": true,
+    "current_allocation": {
+      "__sleeve__:renda_fixa_total": 60.0,
+      "ai_theme": 7.0,
+      "__sleeve__:alternativos": 5.0,
+      "br_fixed_liquidity": 10.0
+    }
+  },
+  {
+    "id": "demo-client-04",
+    "name": "Família Domingues",
+    "profile": "conservador",
+    "reference_value": 648000,
+    "demo": true,
+    "current_allocation": {
+      "__sleeve__:renda_fixa_total": 60.0,
+      "ai_theme": 7.0,
+      "__sleeve__:alternativos": 5.0,
+      "br_fixed_liquidity": 10.0
+    }
+  },
+  {
+    "id": "demo-client-05",
+    "name": "Família Esteves",
+    "profile": "arrojado",
+    "reference_value": 685000,
+    "demo": true,
+    "current_allocation": {
+      "__sleeve__:renda_fixa_total": 60.0,
+      "ai_theme": 7.0,
+      "__sleeve__:alternativos": 5.0,
+      "br_fixed_liquidity": 10.0
+    }
+  },
+  {
+    "id": "demo-client-06",
+    "name": "Família Farias",
+    "profile": "moderado",
+    "reference_value": 722000,
+    "demo": true,
+    "current_allocation": {
+      "__sleeve__:renda_fixa_total": 60.0,
+      "ai_theme": 7.0,
+      "__sleeve__:alternativos": 5.0,
+      "br_fixed_liquidity": 10.0
+    }
+  },
+  {
+    "id": "demo-client-07",
+    "name": "Família Guimarães",
+    "profile": "conservador",
+    "reference_value": 759000,
+    "demo": true,
+    "current_allocation": {
+      "__sleeve__:renda_fixa_total": 60.0,
+      "ai_theme": 7.0,
+      "__sleeve__:alternativos": 5.0,
+      "br_fixed_liquidity": 10.0
+    }
+  },
+  {
+    "id": "demo-client-08",
+    "name": "Família Homem de Melo",
+    "profile": "arrojado",
+    "reference_value": 796000,
+    "demo": true,
+    "current_allocation": {
+      "__sleeve__:renda_fixa_total": 60.0,
+      "ai_theme": 7.0,
+      "__sleeve__:alternativos": 5.0,
+      "br_fixed_liquidity": 10.0
+    }
+  },
+  {
+    "id": "demo-client-09",
+    "name": "Família Junqueira",
+    "profile": "moderado",
+    "reference_value": 833000,
+    "demo": true,
+    "current_allocation": {
+      "__sleeve__:renda_fixa_total": 60.0,
+      "ai_theme": 7.0,
+      "__sleeve__:alternativos": 5.0,
+      "br_fixed_liquidity": 10.0
+    }
+  },
+  {
+    "id": "demo-client-10",
+    "name": "Família Kessler",
+    "profile": "conservador",
+    "reference_value": 870000,
+    "demo": true,
+    "current_allocation": {
+      "__sleeve__:renda_fixa_total": 60.0,
+      "ai_theme": 7.0,
+      "__sleeve__:alternativos": 5.0,
+      "br_fixed_liquidity": 10.0
+    }
+  },
+  {
+    "id": "demo-client-11",
+    "name": "Família Leitão",
+    "profile": "arrojado",
+    "reference_value": 907000,
+    "demo": true,
+    "current_allocation": {
+      "__sleeve__:renda_fixa_total": 60.0,
+      "ai_theme": 7.0,
+      "__sleeve__:alternativos": 5.0,
+      "br_fixed_liquidity": 10.0
+    }
+  },
+  {
+    "id": "demo-client-12",
+    "name": "Família Monteiro",
+    "profile": "moderado",
+    "reference_value": 944000,
+    "demo": true,
+    "current_allocation": {
+      "__sleeve__:renda_fixa_total": 60.0,
+      "ai_theme": 7.0,
+      "__sleeve__:alternativos": 5.0,
+      "br_fixed_liquidity": 10.0
+    }
+  },
+  {
+    "id": "demo-client-13",
+    "name": "Andrade Investimentos",
+    "profile": "conservador",
+    "reference_value": 981000,
+    "demo": true,
+    "current_allocation": {
+      "__sleeve__:renda_fixa_total": 60.0,
+      "ai_theme": 7.0,
+      "__sleeve__:alternativos": 5.0,
+      "br_fixed_liquidity": 10.0
+    }
+  },
+  {
+    "id": "demo-client-14",
+    "name": "Bittencourt Patrimonial",
+    "profile": "arrojado",
+    "reference_value": 1018000,
+    "demo": true,
+    "current_allocation": {
+      "__sleeve__:renda_fixa_total": 60.0,
+      "ai_theme": 7.0,
+      "__sleeve__:alternativos": 5.0,
+      "br_fixed_liquidity": 10.0
+    }
+  },
+  {
+    "id": "demo-client-15",
+    "name": "Carvalho Wealth",
+    "profile": "moderado",
+    "reference_value": 1055000,
+    "demo": true,
+    "current_allocation": {
+      "__sleeve__:renda_fixa_total": 60.0,
+      "ai_theme": 7.0,
+      "__sleeve__:alternativos": 5.0,
+      "br_fixed_liquidity": 10.0
+    }
+  },
+  {
+    "id": "demo-client-16",
+    "name": "Domingues Family Office",
+    "profile": "conservador",
+    "reference_value": 1092000,
+    "demo": true,
+    "current_allocation": {
+      "__sleeve__:renda_fixa_total": 60.0,
+      "ai_theme": 7.0,
+      "__sleeve__:alternativos": 5.0,
+      "br_fixed_liquidity": 10.0
+    }
+  },
+  {
+    "id": "demo-client-17",
+    "name": "Esteves Capital",
+    "profile": "arrojado",
+    "reference_value": 1129000,
+    "demo": true,
+    "current_allocation": {
+      "__sleeve__:renda_fixa_total": 60.0,
+      "ai_theme": 7.0,
+      "__sleeve__:alternativos": 5.0,
+      "br_fixed_liquidity": 10.0
+    }
+  },
+  {
+    "id": "demo-client-18",
+    "name": "Farias Family Office",
+    "profile": "moderado",
+    "reference_value": 1166000,
+    "demo": true,
+    "current_allocation": {
+      "__sleeve__:renda_fixa_total": 60.0,
+      "ai_theme": 7.0,
+      "__sleeve__:alternativos": 5.0,
+      "br_fixed_liquidity": 10.0
+    }
+  },
+  {
+    "id": "demo-client-19",
+    "name": "Guimarães Patrimonial",
+    "profile": "conservador",
+    "reference_value": 1203000,
+    "demo": true,
+    "current_allocation": {
+      "__sleeve__:renda_fixa_total": 60.0,
+      "ai_theme": 7.0,
+      "__sleeve__:alternativos": 5.0,
+      "br_fixed_liquidity": 10.0
+    }
+  },
+  {
+    "id": "demo-client-20",
+    "name": "Homem de Melo Investimentos",
+    "profile": "arrojado",
+    "reference_value": 1240000,
+    "demo": true,
+    "current_allocation": {
+      "__sleeve__:renda_fixa_total": 60.0,
+      "ai_theme": 7.0,
+      "__sleeve__:alternativos": 5.0,
+      "br_fixed_liquidity": 10.0
+    }
+  },
+  {
+    "id": "demo-client-21",
+    "name": "Junqueira Capital",
+    "profile": "moderado",
+    "reference_value": 1277000,
+    "demo": true,
+    "current_allocation": {
+      "__sleeve__:renda_fixa_total": 67.0,
+      "ai_theme": 7.0,
+      "__sleeve__:alternativos": 5.0,
+      "br_fixed_liquidity": 10.0
+    }
+  },
+  {
+    "id": "demo-client-22",
+    "name": "Kessler Family Office",
+    "profile": "conservador",
+    "reference_value": 1314000,
+    "demo": true,
+    "current_allocation": {
+      "__sleeve__:renda_fixa_total": 60.0,
+      "ai_theme": 11.5,
+      "__sleeve__:alternativos": 5.0,
+      "br_fixed_liquidity": 10.0
+    }
+  },
+  {
+    "id": "demo-client-23",
+    "name": "Leitão Wealth",
+    "profile": "arrojado",
+    "reference_value": 1351000,
+    "demo": true,
+    "current_allocation": {
+      "__sleeve__:renda_fixa_total": 60.0,
+      "ai_theme": 7.0,
+      "__sleeve__:alternativos": 8.0,
+      "br_fixed_liquidity": 10.0
+    }
+  },
+  {
+    "id": "demo-client-24",
+    "name": "Monteiro Investimentos",
+    "profile": "moderado",
+    "reference_value": 1388000,
+    "demo": true,
+    "current_allocation": {
+      "__sleeve__:renda_fixa_total": 61.0,
+      "ai_theme": 7.5,
+      "__sleeve__:alternativos": 5.5,
+      "br_fixed_liquidity": 10.5
+    }
+  },
+  {
+    "id": "demo-client-25",
+    "name": "Nogueira Family Office",
+    "profile": "conservador",
+    "reference_value": 1425000,
+    "demo": true,
+    "current_allocation": {
+      "__sleeve__:renda_fixa_total": 42.0,
+      "ai_theme": 7.0,
+      "__sleeve__:alternativos": 5.0,
+      "br_fixed_liquidity": 10.0
+    }
+  },
+  {
+    "id": "demo-client-26",
+    "name": "Oliveira Patrimonial",
+    "profile": "arrojado",
+    "reference_value": 1462000,
+    "demo": true,
+    "current_allocation": {
+      "__sleeve__:renda_fixa_total": 60.0,
+      "ai_theme": 17.0,
+      "__sleeve__:alternativos": 5.0,
+      "br_fixed_liquidity": 10.0
+    }
+  },
+  {
+    "id": "demo-client-27",
+    "name": "Pimentel Capital",
+    "profile": "moderado",
+    "reference_value": 1499000,
+    "demo": true,
+    "current_allocation": {
+      "__sleeve__:renda_fixa_total": 72.0,
+      "ai_theme": 7.0,
+      "__sleeve__:alternativos": 5.0,
+      "br_fixed_liquidity": 10.0
+    }
+  }
+]

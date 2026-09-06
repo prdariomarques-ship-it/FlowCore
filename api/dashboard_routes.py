@@ -269,6 +269,22 @@ class ReferencePortfolioUpdate(BaseModel):
     current_allocation: dict[str, float] | None = None
 
 
+class DemoClientUpdate(BaseModel):
+    """Partial update for one demo client's position — same partial-merge
+    convention as ReferencePortfolioUpdate."""
+    current_allocation: dict[str, float]
+
+
+class AdvisorProfileUpdate(BaseModel):
+    """Partial update for the dashboard's advisor card — same
+    partial-merge convention as AIConfig/ai_config_patch. Deliberately no
+    photo field: see the /api/advisor handlers for why the avatar is
+    initials-only rather than an uploaded/generated image."""
+    name: str | None = None
+    title: str | None = None
+    quote: str | None = None
+
+
 class TTSRequest(BaseModel):
     text: str
     language: str = "pt-BR"
@@ -488,6 +504,34 @@ def register_dashboard_routes(app, version: str) -> None:
             "model": primary_model,
             "error": str(last_error) if last_error else "no Ollama endpoint configured",
         }
+
+    # ── Advisor profile (dashboard's Advisor card) ───────────────────────────
+    # Name/title/quote only — deliberately no photo field. The desktop
+    # mockup this card follows shows a photographic headshot, but
+    # generating a realistic "photo" of the app's actual named user would
+    # fabricate a likeness of a real person, which is a different and
+    # more serious problem than the demo clients' fictitious names. The
+    # card instead renders an initials avatar (same pattern as the demo
+    # client avatars) from whatever name is configured here; a real photo
+    # can be added as a future upload feature if the team wants one.
+
+    _ADVISOR_DEFAULT = {
+        "name": "Dário Marques", "title": "Especialista em Investimentos",
+        "quote": "Estratégia transforma informação em liberdade.",
+    }
+
+    @app.get("/api/advisor")
+    async def advisor_get():
+        return {**_ADVISOR_DEFAULT, **_read_json("advisor.json", {})}
+
+    @app.put("/api/advisor")
+    async def advisor_put(data: AdvisorProfileUpdate):
+        cfg = {**_ADVISOR_DEFAULT, **_read_json("advisor.json", {})}
+        cfg.update({k: v for k, v in data.model_dump(exclude_unset=True).items() if v is not None})
+        config_path = _DATA_DIR / "advisor.json"
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        config_path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
+        return {"saved": True, **cfg}
 
     # ── AI runtime / Ollama model management ─────────────────────────────────
 
@@ -948,6 +992,31 @@ def register_dashboard_routes(app, version: str) -> None:
         from runtime.portfolio.reference import reset_reference_portfolio
         return {"reset": True, **reset_reference_portfolio(), "is_customized": False}
 
+    # ── Demo clients — 27 explicitly-fictitious, explicitly-editable seed
+    # records (runtime/portfolio/demo_clients.py) used to populate the
+    # multi-client views until FlowCore has a real multi-client
+    # integration. Every record and every response here carries
+    # demo=True — never presented as real client data.
+
+    @app.get("/api/clients/demo")
+    async def demo_clients_list():
+        from runtime.portfolio.demo_clients import is_customized, load_demo_clients
+        return {"clients": load_demo_clients(), "is_customized": is_customized()}
+
+    @app.put("/api/clients/demo/{client_id}")
+    async def demo_client_update(client_id: str, data: DemoClientUpdate):
+        from runtime.portfolio.demo_clients import save_demo_client
+        try:
+            updated = save_demo_client(client_id, data.current_allocation)
+        except KeyError:
+            raise HTTPException(status_code=404, detail=f"unknown demo client: {client_id}")
+        return {"saved": True, "client": updated}
+
+    @app.post("/api/clients/demo/reset")
+    async def demo_clients_reset():
+        from runtime.portfolio.demo_clients import reset_demo_clients
+        return {"reset": True, "clients": reset_demo_clients()}
+
     @app.get("/api/portfolio/risk-breakdown")
     async def portfolio_risk_breakdown():
         """Aggregate allocation by category (Renda Fixa/Renda Variável/
@@ -1053,7 +1122,7 @@ def register_dashboard_routes(app, version: str) -> None:
                 {
                     "client_id": v["client_id"], "client_name": v["client_name"], "type": v["type"],
                     "current": v["current"], "limit": v["limit"], "diff": v["diff"],
-                    "severity": v["severity"], "message": v["message"],
+                    "severity": v["severity"], "message": v["message"], "is_demo": v.get("is_demo", False),
                 }
                 for v in violations
             ]

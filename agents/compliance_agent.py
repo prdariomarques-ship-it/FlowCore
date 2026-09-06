@@ -84,7 +84,8 @@ class ComplianceAgent(BaseAgent):
            _evaluate_portfolio reports them honestly instead of guessing
            a limit.
         """
-        portfolios: list[dict[str, Any]] = [self._load_reference_portfolio()]
+        reference = self._load_reference_portfolio()
+        portfolios: list[dict[str, Any]] = [reference, *self._load_demo_clients(reference)]
 
         try:
             from storage.portfolio_repo import PortfolioRepository
@@ -108,6 +109,31 @@ class ComplianceAgent(BaseAgent):
         return portfolios
 
     @staticmethod
+    def _load_demo_clients(reference: dict[str, Any]) -> list[dict[str, Any]]:
+        """27 explicitly-fictitious, explicitly-editable example clients
+        (runtime/portfolio/demo_clients.py) — each evaluated against the
+        same real investment policy as the reference portfolio
+        (target_allocation/sleeve_limits/review_policy), but with their
+        own current_allocation. Every result carries demo=True so nothing
+        downstream can present it as a real client."""
+        try:
+            from runtime.portfolio.demo_clients import load_demo_clients
+        except Exception:
+            return []
+        clients = []
+        for c in load_demo_clients():
+            clients.append({
+                "id": c.get("id", ""),
+                "name": c.get("name", ""),
+                "target_allocation": reference["target_allocation"],
+                "sleeve_limits": reference["sleeve_limits"],
+                "review_policy": reference["review_policy"],
+                "current_allocation": c.get("current_allocation") or None,
+                "demo": True,
+            })
+        return clients
+
+    @staticmethod
     def _load_reference_portfolio() -> dict[str, Any]:
         data = load_reference_portfolio()
         return {
@@ -126,6 +152,7 @@ class ComplianceAgent(BaseAgent):
     def _evaluate_portfolio(self, portfolio: dict[str, Any]) -> dict[str, Any]:
         portfolio_id = portfolio.get("id", "")
         name = portfolio.get("name", portfolio_id)
+        is_demo = bool(portfolio.get("demo"))
 
         if portfolio.get("_no_policy") or not portfolio.get("target_allocation"):
             return {
@@ -133,6 +160,7 @@ class ComplianceAgent(BaseAgent):
                 "portfolio_name": name,
                 "status": "SEM_REGRAS_DEFINIDAS",
                 "violations": [],
+                "is_demo": is_demo,
             }
 
         current = portfolio.get("current_allocation")
@@ -142,6 +170,7 @@ class ComplianceAgent(BaseAgent):
                 "portfolio_name": name,
                 "status": "SEM_POSICAO_ATUAL",
                 "violations": [],
+                "is_demo": is_demo,
             }
 
         target_allocation = portfolio["target_allocation"]
@@ -149,7 +178,7 @@ class ComplianceAgent(BaseAgent):
         critical_margin = float(
             portfolio.get("review_policy", {}).get("critical_margin_points", _DEFAULT_CRITICAL_MARGIN_POINTS)
         )
-        args = dict(portfolio_id=portfolio_id, portfolio_name=name, critical_margin=critical_margin)
+        args = dict(portfolio_id=portfolio_id, portfolio_name=name, critical_margin=critical_margin, is_demo=is_demo)
 
         violations: list[dict[str, Any]] = []
         for sleeve_name, classes in _SLEEVE_CLASS_ROLLUPS.items():
@@ -187,7 +216,10 @@ class ComplianceAgent(BaseAgent):
             "DESENQUADRADO" if any(v["severity"] == "CRITICAL" for v in violations)
             else "ATENCAO" if violations else "NORMAL"
         )
-        return {"portfolio_id": portfolio_id, "portfolio_name": name, "status": status, "violations": violations}
+        return {
+            "portfolio_id": portfolio_id, "portfolio_name": name, "status": status,
+            "violations": violations, "is_demo": is_demo,
+        }
 
     @staticmethod
     def _sleeve_current(sleeve_name: str, item_ids: list[str], current: dict[str, Any]) -> float:
@@ -216,7 +248,7 @@ class ComplianceAgent(BaseAgent):
     @staticmethod
     def _check_band(
         *, type_slug: str, label: str, current: float, min_limit: float | None, max_limit: float | None,
-        critical_margin: float, portfolio_id: str, portfolio_name: str,
+        critical_margin: float, portfolio_id: str, portfolio_name: str, is_demo: bool = False,
     ) -> list[dict[str, Any]]:
         """One-sided or two-sided band check against a real sleeve_limits entry.
 
@@ -233,6 +265,7 @@ class ComplianceAgent(BaseAgent):
                 "current": round(current, 2), "limit": max_limit, "diff": diff,
                 "severity": "CRITICAL" if diff > critical_margin else "WARNING",
                 "message": f"{label} {diff:.1f} p.p. acima do limite ({current:.1f}% vs {max_limit:.1f}%).",
+                "is_demo": is_demo,
             })
         if min_limit is not None and current < min_limit:
             diff = round(min_limit - current, 2)
@@ -242,5 +275,6 @@ class ComplianceAgent(BaseAgent):
                 "current": round(current, 2), "limit": min_limit, "diff": diff,
                 "severity": "CRITICAL" if diff > critical_margin else "WARNING",
                 "message": f"{label} {diff:.1f} p.p. abaixo do piso ({current:.1f}% vs {min_limit:.1f}%).",
+                "is_demo": is_demo,
             })
         return out

@@ -264,24 +264,28 @@ details.mi>summary::marker{display:none}
 .mobile-only{display:block}
 
 @media(min-width:960px){
-  /* Desktop-only re-theme: light background with a purple accent,
-     following the "NeuroVest"-style reference the team picked over the
-     dark FlowCore palette. Scoped to `body` inside this media query only
-     — :root (used below 960px, i.e. the phone experience) is untouched,
-     so mobile keeps its original dark theme exactly as shipped. Every
-     desktop rule below already reads color via these custom properties
-     (var(--bg), var(--text), ...) rather than hardcoded values, so
-     redefining them here re-themes the whole desktop dashboard without
-     touching a single other rule. */
-  body{
+  /* Desktop supports both a dark theme (the original FlowCore palette,
+     the :root defaults — no override needed) and a light/purple theme
+     (the "NeuroVest"-style reference), switchable at runtime via the
+     toggle in the topbar (see #dw-theme-toggle / setDesktopTheme()) and
+     remembered per-browser in localStorage. Scoped to
+     body[data-desktop-theme="light"] so :root (used below 960px, i.e.
+     the phone experience) is never touched — mobile always keeps its
+     original dark theme regardless of the desktop toggle. Every desktop
+     rule below already reads color via these custom properties
+     (var(--bg), var(--text), ...) rather than hardcoded values, so this
+     one override re-themes the whole desktop dashboard. */
+  body[data-desktop-theme="light"]{
     --bg:#f7f6fc;--bg2:#ffffff;--bg3:#f1eefa;--border:#e3dff2;
     --accent:#7c3aed;--accent2:#a78bfa;
     --text:#1f1b3a;--text2:#6b6480;
     --shadow:0 4px 20px rgba(124,58,237,.08);
   }
+  body[data-desktop-theme="light"] .kpi-icon.info{background:rgba(124,58,237,.12)}
   body{padding-bottom:0;display:flex}
   .header{display:none}
-  .kpi-icon.info{background:rgba(124,58,237,.12)}
+  .dw-theme-toggle{background:var(--bg3);border:1px solid var(--border);border-radius:20px;width:30px;height:30px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .dw-theme-toggle:hover{border-color:var(--accent)}
   .sidebar{
     display:flex;flex-direction:column;width:220px;flex-shrink:0;min-height:100vh;
     background:var(--bg2);border-right:1px solid var(--border);padding:18px 12px;
@@ -366,6 +370,12 @@ details.mi>summary::marker{display:none}
   .donut-legend-item b{margin-left:auto}
   .donut-profile{font-size:11px;color:var(--text2);margin-top:8px;text-align:center}
 
+  .dw-advisor-card{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+  .dw-advisor-avatar{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#fff;flex-shrink:0}
+  .dw-advisor-name{font-size:15px;font-weight:800}
+  .dw-advisor-title{font-size:12px;color:var(--text2)}
+  .dw-advisor-quote{margin-left:auto;font-size:12px;color:var(--text2);font-style:italic;max-width:340px;text-align:right}
+
   .wrap{max-width:100%;margin:0;padding:0}
   .mobile-only{display:none}
   .desktop-only{display:block}
@@ -395,8 +405,9 @@ details.mi>summary::marker{display:none}
     <input class="dw-search" placeholder="Buscar carteira, ativo ou fazer uma pergunta..." onkeydown="if(event.key==='Enter'){pg('chat',document.getElementById('sb-chat'),true);document.getElementById('chat-inp').value=this.value;sendChat();}">
     <div class="dw-topright">
       <span id="dw-datetime">—</span>
+      <button class="dw-theme-toggle" id="dw-theme-toggle" onclick="toggleDesktopTheme()" title="Alternar tema claro/escuro">🌙</button>
       <span class="dw-bell">🔔<span class="dot" id="dw-alert-dot" style="display:none"></span></span>
-      <div class="dw-avatar">FC</div>
+      <div class="dw-avatar" id="dw-topbar-avatar">—</div>
     </div>
   </div>
 
@@ -425,6 +436,15 @@ details.mi>summary::marker{display:none}
         <div class="dw-greeting">
           <h1 id="dw-greeting-text">Bom dia!</h1>
           <p>Aqui está o que merece a sua atenção hoje.</p>
+        </div>
+
+        <div class="card dw-advisor-card" id="dw-advisor-card">
+          <div class="dw-advisor-avatar" id="dw-advisor-avatar">—</div>
+          <div class="dw-advisor-info">
+            <div class="dw-advisor-name" id="dw-advisor-name">—</div>
+            <div class="dw-advisor-title" id="dw-advisor-title">—</div>
+          </div>
+          <div class="dw-advisor-quote" id="dw-advisor-quote"></div>
         </div>
 
         <div class="kpi-grid" id="dw-kpis">
@@ -1451,6 +1471,17 @@ function loadDashboardOverview(){
   api('/api/priorities').then(renderDwImpacted).catch(()=>renderDwImpacted(null));
 }
 
+function initialsAvatar(name){
+  // Deliberately not a photo: fabricating a realistic portrait for a
+  // fictitious/example client would misrepresent placeholder data as a
+  // real person. A colored initials badge (like Slack/Gmail) is honest
+  // about being a placeholder and needs no image asset at all.
+  const initials=(name||'?').trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  let hash=0; for(const ch of name||'') hash=(hash*31+ch.charCodeAt(0))>>>0;
+  const hue=hash%360;
+  return `<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:hsl(${hue},55%,88%);color:hsl(${hue},45%,32%);font-size:9px;font-weight:700;flex-shrink:0;margin-right:6px;vertical-align:middle">${escapeHtml(initials)}</span>`;
+}
+
 function renderDwAlertsTable(alerts){
   const box=document.getElementById('dw-alerts-table');
   if(!alerts||!alerts.items||!alerts.items.length){
@@ -1460,7 +1491,8 @@ function renderDwAlertsTable(alerts){
   let html='<table class="dw-table"><tr><th>Carteira</th><th>Atual</th><th>Limite</th><th>Desvio</th></tr>';
   for(const it of alerts.items){
     const crit=it.severity==='CRITICAL';
-    html+=`<tr><td>${crit?'🔴':'🟡'} ${escapeHtml(it.client_name)}</td><td>${it.current}%</td><td>${it.limit}%</td><td style="color:${crit?'var(--red)':'var(--yellow)'}">+${it.diff}p.p.</td></tr>`;
+    const demoTag=it.is_demo?' <span class="tag ty" style="font-size:9px">exemplo</span>':'';
+    html+=`<tr><td>${crit?'🔴':'🟡'} ${initialsAvatar(it.client_name)}${escapeHtml(it.client_name)}${demoTag}</td><td>${it.current}%</td><td>${it.limit}%</td><td style="color:${crit?'var(--red)':'var(--yellow)'}">+${it.diff}p.p.</td></tr>`;
   }
   box.innerHTML=html+'</table>';
 }
@@ -1789,10 +1821,45 @@ async function saveFlowBuilder(){
   }catch(e){toast('Erro: '+e.message);}
 }
 
+/* ── Desktop theme toggle (dark/light) ──
+   Only affects the desktop layout (see the body[data-desktop-theme]
+   CSS rule) — mobile always uses its original dark theme. Remembered
+   per-browser via localStorage so a reload keeps the chosen theme. */
+function setDesktopTheme(theme){
+  document.body.dataset.desktopTheme=theme;
+  const btn=document.getElementById('dw-theme-toggle');
+  if(btn) btn.textContent=theme==='light'?'🌙':'☀️';
+  try{ localStorage.setItem('flowcore-desktop-theme',theme); }catch(e){}
+}
+function toggleDesktopTheme(){
+  setDesktopTheme(document.body.dataset.desktopTheme==='light'?'dark':'light');
+}
+(function initDesktopTheme(){
+  let saved='light';
+  try{ saved=localStorage.getItem('flowcore-desktop-theme')||'light'; }catch(e){}
+  setDesktopTheme(saved);
+})();
+
+/* ── Advisor card — name/title/quote from GET /api/advisor, avatar is
+   always initials (never a generated/uploaded photo standing in for a
+   real person) — same reasoning as the demo clients' avatars. */
+function loadAdvisor(){
+  api('/api/advisor').then(a=>{
+    const initials=(a.name||'?').trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    document.getElementById('dw-advisor-avatar').textContent=initials;
+    document.getElementById('dw-advisor-name').textContent=a.name||'—';
+    document.getElementById('dw-advisor-title').textContent=a.title||'';
+    document.getElementById('dw-advisor-quote').textContent=a.quote?`“${a.quote}”`:'';
+    const topAvatar=document.getElementById('dw-topbar-avatar');
+    if(topAvatar) topAvatar.textContent=initials;
+  }).catch(()=>{});
+}
+
 /* ── Init ── */
 updateHomeGreeting();
 refresh();
 loadDashboardOverview();
+loadAdvisor();
 setInterval(refresh,30000);
 setInterval(updateHomeGreeting,60000);
 setInterval(loadDashboardOverview,60000);
