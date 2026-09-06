@@ -407,9 +407,53 @@ details.mi>summary::marker{display:none}
     </div>
   </div>
 
-  <!-- ══ AGENTES ══ -->
+  <!-- ══ AGENTES AUTÔNOMOS E AÇÕES ══ -->
   <div class="page" id="page-agents">
     <div class="gap">
+
+      <!-- Real-time Agent Activity Feed -->
+      <div class="card" id="agent-activity-card">
+        <div class="ch">
+          <span class="ct">Atividade em Tempo Real (Agent Runs)</span>
+          <button class="btn-sm" onclick="loadAgentRuns()">↻ Atualizar</button>
+        </div>
+        <div id="agent-activity-feed" style="max-height:200px;overflow-y:auto;font-size:12px;display:flex;flex-direction:column;gap:6px">
+          <div class="sk"></div>
+        </div>
+      </div>
+
+      <!-- Pending Approvals (Human-in-the-Loop) -->
+      <div class="card" id="approvals-card">
+        <div class="ch">
+          <span class="ct">Aprovações Pendentes (Human-In-The-Loop)</span>
+          <button class="btn-sm" onclick="loadApprovals()">↻</button>
+        </div>
+        <div id="approvals-list" style="display:flex;flex-direction:column;gap:8px">
+          <div class="sk"></div>
+        </div>
+      </div>
+
+      <!-- AI Token & Cost Metrics -->
+      <div class="card" id="ai-cost-card">
+        <div class="ch">
+          <span class="ct">Métricas de Execução e Custo (DeepSeek)</span>
+          <button class="btn-sm" onclick="loadAiCosts()">↻</button>
+        </div>
+        <div class="metric-grid">
+          <div class="metric"><small>Custo Estimado (USD)</small><strong id="cost-val">$0.00</strong></div>
+          <div class="metric"><small>Total de Tokens</small><strong id="tokens-val">0</strong></div>
+        </div>
+      </div>
+
+      <!-- Manual Event Trigger -->
+      <div class="card" id="trigger-event-card">
+        <div class="ch"><span class="ct">Publicar Evento Manual</span><span class="ci">⚡</span></div>
+        <div class="ir">
+          <input class="if" id="evt-type-inp" placeholder="Tipo de evento (ex: CLIENT_WITHDRAWAL)">
+          <input class="if" id="evt-entity-inp" placeholder="Cliente ID (ex: cli_001)">
+          <button class="bs2" onclick="triggerManualEvent()">➤</button>
+        </div>
+      </div>
 
       <!-- Alertas de Desenquadramento -->
       <div class="card" id="alerts-card">
@@ -515,7 +559,7 @@ function pg(name,btn){
   if(name==='notes') loadNotes();
   if(name==='news') loadNews();
   if(name==='chat') loadAiConfig();
-  if(name==='agents'){loadAgents();loadFlows();}
+  if(name==='agents'){loadAgents();loadFlows();loadAgentRuns();loadApprovals();loadAiCosts();}
   closeMoreMenu();
 }
 
@@ -574,7 +618,98 @@ async function refresh(){
   }
 }
 
-/* ── Mercado e macro — fontes públicas, sem valores sintetizados ── */
+/* ── Agent Platform Integration ── */
+async function loadAgentRuns(){
+  const feed=document.getElementById('agent-activity-feed');
+  if(!feed)return;
+  try{
+    const data=await api('/api/agent-runs?limit=15');
+    const runs=data.runs||[];
+    if(!runs.length){
+      feed.innerHTML='<div class="empty">Nenhuma atividade recente.</div>';
+      return;
+    }
+    feed.innerHTML=runs.reverse().map(r=>`
+      <div style="background:var(--bg3);padding:8px 10px;border-radius:8px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <strong style="color:var(--accent)">🟢 ${escapeHtml(r.agent_id)}</strong>
+          <div style="color:var(--text2);font-size:10px">${escapeHtml((r.decision||'').slice(0,60))}...</div>
+        </div>
+        <span class="tag tg">${r.status}</span>
+      </div>
+    `).join('');
+  }catch(e){
+    feed.innerHTML='<div class="empty">Erro ao carregar execuções.</div>';
+  }
+}
+
+async function loadApprovals(){
+  const list=document.getElementById('approvals-list');
+  if(!list)return;
+  try{
+    const data=await api('/api/approvals?pending_only=true');
+    const items=data.items||[];
+    if(!items.length){
+      list.innerHTML='<div class="empty" style="color:var(--green)">🟢 Nenhuma ação pendente de aprovação.</div>';
+      return;
+    }
+    list.innerHTML=items.map(a=>`
+      <div style="background:var(--bg3);padding:10px;border-radius:8px;border-left:3px solid var(--yellow)">
+        <div style="font-weight:700">${escapeHtml(a.title)}</div>
+        <div style="font-size:11px;color:var(--text2);margin:4px 0">${escapeHtml(a.description)}</div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn bg" onclick="resolveApproval('${a.id}',true)">[APROVAR]</button>
+          <button class="btn br" onclick="resolveApproval('${a.id}',false)">[IGNORAR]</button>
+        </div>
+      </div>
+    `).join('');
+  }catch(e){
+    list.innerHTML='<div class="empty">Erro ao carregar aprovações.</div>';
+  }
+}
+
+async function resolveApproval(id,approved){
+  try{
+    const endpoint=approved?`/api/approvals/${id}/approve`:`/api/approvals/${id}/reject`;
+    await api(endpoint,{method:'POST'});
+    toast(approved?'Ação aprovada ✓':'Ação rejeitada');
+    loadApprovals();
+  }catch(e){
+    toast('Erro: '+e.message);
+  }
+}
+
+async function loadAiCosts(){
+  try{
+    const data=await api('/api/ai-costs');
+    document.getElementById('cost-val').textContent='$'+(data.total_cost_usd||0).toFixed(4);
+    document.getElementById('tokens-val').textContent=data.total_tokens||0;
+  }catch(e){}
+}
+
+async function triggerManualEvent(){
+  const evtType=document.getElementById('evt-type-inp').value.trim();
+  const entity=document.getElementById('evt-entity-inp').value.trim()||'cli_001';
+  if(!evtType){
+    toast('Informe o tipo de evento');
+    return;
+  }
+  try{
+    await api('/api/events',{method:'POST',body:JSON.stringify({
+      event_type:evtType,
+      entity:entity,
+      payload:{source:'manual_dashboard'},
+      priority:'HIGH'
+    })});
+    toast('⚡ Evento publicado!');
+    document.getElementById('evt-type-inp').value='';
+    setTimeout(loadAgentRuns,1000);
+  }catch(e){
+    toast('Erro: '+e.message);
+  }
+}
+
+/* ── Mercado e macro ── */
 function marketValue(value, suffix=''){
   return value===null||value===undefined?'Sem dados':new Intl.NumberFormat('pt-BR',{maximumFractionDigits:2}).format(value)+suffix;
 }
@@ -602,7 +737,6 @@ function renderStatus(s){
   const caps=s.capabilities||{};
   const chks=s.doctor||[];
 
-  // Daemon (renderizado apenas na tela Admin)
   const d=s.daemon||{};
   const dState=document.getElementById('d-state');
   if(dState){
@@ -617,7 +751,6 @@ function renderStatus(s){
     }
   }
 
-  // Caps grid
   const cg=document.getElementById('caps-grid');
   cg.innerHTML='';
   for(const[n,a] of Object.entries(caps).sort()){
@@ -627,12 +760,10 @@ function renderStatus(s){
     cg.appendChild(el);
   }
 
-  // Doctor
   const icons={ok:'✅',warn:'⚠️',fail:'❌',skip:'─'};
   const cl=document.getElementById('chk-list');
   const summ=document.getElementById('chk-summary');
 
-  // Renderiza summary no topo (status geral claro)
   if(s.doctor_summary){
     const su=s.doctor_summary;
     summ.innerHTML=`<div style="font-size:16px;font-weight:bold;color:#d7e5f4;margin-bottom:8px">${su.summary_line||su.status_text}</div><div style="font-size:12px;color:#9cb0c9;gap:8px;display:flex;flex-wrap:wrap"><span style="background:#1a3a52;padding:4px 8px;border-radius:4px">${su.passed} OK</span><span style="background:#4a3a1a;padding:4px 8px;border-radius:4px">${su.warnings} Avisos</span><span style="background:#4a1a1a;padding:4px 8px;border-radius:4px">${su.failed} Problemas</span></div>`;
@@ -640,7 +771,6 @@ function renderStatus(s){
     summ.innerHTML='';
   }
 
-  // Renderiza checks detalhados (expandível)
   cl.innerHTML='';
   for(const c of chks){
     const el=document.createElement('div');
@@ -744,7 +874,6 @@ async function loadSys(){
 }
 
 function renderSys(s){
-  // Storage
   const sc=document.getElementById('sys-storage-card');
   const st=s.storage||{};
   sc.innerHTML=`<div class="ch"><span class="ct">Armazenamento /data</span><span class="ci">💾</span></div>`;
@@ -819,7 +948,6 @@ function escapeHtml(s){
   return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-/* Minimal markdown-lite renderer: headers, **bold**, [links](url), tables, hr, paragraphs. */
 function mdLite(text){
   const isSep=r=>/^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$/.test(r);
   const inline=s=>s.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
@@ -1183,7 +1311,7 @@ async function runFlow(id,name){
   }
 }
 
-/* ── Flow builder (no terminal needed) ── */
+/* ── Flow builder ── */
 async function openFlowBuilder(){
   document.getElementById('flow-builder-card').style.display='block';
   document.getElementById('flow-name-inp').value='';

@@ -1,0 +1,11 @@
+[
+  {
+    "id": "tsk_2142e1b5",
+    "title": "Revisar Carteira",
+    "client_id": "cli_001",
+    "priority": "MEDIUM",
+    "status": "OPEN",
+    "created_at": 1788728762.218811,
+    "due_date": null
+  }
+]

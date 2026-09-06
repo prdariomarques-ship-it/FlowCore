@@ -1,73 +1,4 @@
-"""FlowCore API — FastAPI router.
-
-SECURITY: This API binds to 127.0.0.1 only.  It is NOT accessible from
-the network.  This is intentional — the API is for local Termux use only.
-
-Endpoints (core):
-  GET  /api/health         — health check
-  GET  /api/status         — comprehensive runtime status (for web UI)
-  GET  /api/flows          — list flows
-  POST /api/flows          — create a flow
-  GET  /api/flows/{id}     — get a flow
-  DELETE /api/flows/{id}   — delete a flow
-  GET  /api/executions     — list executions
-  POST /api/executions     — submit a task
-  GET  /api/executions/{id}— get execution status
-
-Endpoints (Sprint 11 — Android UX):
-  GET  /api/memories        — list memories
-  POST /api/memories        — save a memory
-  POST /api/notify          — send Android notification via termux-notification
-  POST /api/daemon/start    — start background daemon
-  POST /api/daemon/stop     — stop background daemon
-  GET  /api/daemon/status   — daemon state
-  GET  /                    — serve web UI (index.html)
-
-Endpoints (Sprint 12 — Passport + expanded UI):
-  GET  /api/system          — battery, storage, uptime (Android system info)
-  GET  /api/search          — search memories + docs (?q=)
-  GET  /api/notes           — list notes/todos/agenda items
-  POST /api/notes           — create a note/todo/agenda item
-  GET  /api/passport        — generate and return current system passport
-
-Endpoints (Sprint 14 — Agent Runner):
-  GET  /api/agent/agents    — list registered agents
-  POST /api/agent/run       — run an agent by name (?agent_name=health)
-  GET  /api/agent/tasks     — list persisted task history
-  GET  /api/agent/tasks/{id}— get a specific task record
-
-Endpoints (Sprint 16 — Flow Execution Engine):
-  POST /api/flows/{id}/run  — execute a flow (runs each step's agent in order)
-  GET  /api/flows/{id}/runs — list run history for a flow
-
-Endpoints (Fase 3 — Dashboard v4 backend):
-  GET  /api/doctor/{check}           — run a named doctor check
-  GET  /api/logs                     — log viewer (?level=&since=&limit=)
-  GET  /api/scheduler/jobs           — list scheduled jobs
-  POST /api/scheduler/{id}/run       — run a job immediately
-  POST /api/scheduler/{id}/pause     — toggle job enabled/paused
-  POST /api/observer/ingest          — trigger observer ingestion (?source=)
-  GET  /api/telegram/chats           — list configured Telegram chats
-  GET  /api/whatsapp/qr              — WhatsApp session status / QR code
-  POST /api/whatsapp/qr              — request a new WhatsApp QR link
-
-Endpoints (Dashboard v4 — AI, market, portfolio, integrations):
-  POST /api/ask                      — agent chat (Ollama-first)
-  GET  /api/ai-runtime/models        — list Ollama models
-  GET  /api/ai-runtime/memory        — loaded models / RAM usage
-  POST /api/ai-runtime/load          — load model into RAM
-  POST /api/ai-runtime/unload        — unload model
-  GET  /api/market/{fx,yield-curve,rebalancing,watchlists,alerts,calendar,news}
-  GET  /api/macro-score/{current,history}
-  GET  /api/regime/signals
-  GET  /api/portfolios               — list portfolios (file-backed)
-  GET  /api/portfolios/{id}/{summary,exposure,impact,decision,narrative}
-  GET  /api/assets/{symbol}
-  GET  /api/outlook/auth/status      — OAuth status
-  GET  /api/outlook/auth/start       — start OAuth flow
-  GET  /api/outlook/{inbox,search}
-  GET  /api/calendar/{today,week,next,search}
-"""
+"""FlowCore API — FastAPI router with Agentic Engine extension."""
 
 from __future__ import annotations
 
@@ -80,6 +11,8 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from loguru import logger
 from pydantic import BaseModel
+
+from api.agent_routes import router as agentic_router
 
 _WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
@@ -159,6 +92,9 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     """Create the FastAPI application."""
     app = FastAPI(title="FlowCore API", version=version)
     _platform = platform_info or {}
+
+    # Include Autonomous Agent Engine endpoints
+    app.include_router(agentic_router)
 
     # ── Web UI ──────────────────────────────────────────────────────────
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)

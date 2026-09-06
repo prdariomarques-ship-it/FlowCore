@@ -1,0 +1,15 @@
+[
+  {
+    "type": "CLIENT_WITHDRAWAL",
+    "source": "api_trigger",
+    "entity": "cli_999",
+    "payload": {
+      "amount": 500000.0
+    },
+    "id": "evt_637303bada04",
+    "timestamp": 1788729207.2113845,
+    "priority": "HIGH",
+    "status": "PENDING",
+    "metadata": {}
+  }
+]
