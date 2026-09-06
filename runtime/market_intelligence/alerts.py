@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 
 from runtime.observers.registry import registry, ObserverError
@@ -76,25 +77,36 @@ def _default_db_path() -> str:
     return os.path.join(base, "flowcore.db")
 
 
+def _observe(source: str) -> list:
+    try:
+        return registry.get(source).observe()
+    except ObserverError:
+        return []
+
+
 def evaluate_alerts(db_path: str | None = None) -> list[dict]:
     """Evaluate all configured rules against live observer data.
 
     Returns newly fired alerts (after dedup) as dicts, also persisting
     them to SQLite. Silent on any observer failure (graceful degradation
-    — an observer down never blocks the others)."""
+    — an observer down never blocks the others).
+
+    Observers are fetched in parallel. Each one is a network call with its
+    own multi-second timeout (yfinance_provider allows up to ~10s plus
+    retries), and ALERT_DEFAULTS lists 11 of them: run sequentially, a
+    couple of slow or timed-out sources alone pushed this past 19s, which
+    is what /api/market/overview was blocking on."""
     conn = _connect(db_path or _default_db_path())
     cutoff = (datetime.now(UTC) - timedelta(hours=_DEDUP_HOURS)).isoformat()
     fired: list[dict] = []
     seen = set(row[0] for row in conn.execute(
         "SELECT rule FROM market_alerts WHERE fired_at >= ?", (cutoff,)))
-    for rule_name, rule in ALERT_DEFAULTS.items():
-        if rule_name in seen:
-            continue
-        try:
-            observer = registry.get(rule["source"])
-            events = observer.observe()
-        except ObserverError:
-            continue
+    pending = {name: rule for name, rule in ALERT_DEFAULTS.items() if name not in seen}
+    with ThreadPoolExecutor(max_workers=max(len(pending), 1), thread_name_prefix="alert-observer") as executor:
+        futures = {name: executor.submit(_observe, rule["source"]) for name, rule in pending.items()}
+        results = {name: future.result() for name, future in futures.items()}
+    for rule_name, rule in pending.items():
+        events = results[rule_name]
         if not events:
             continue
         event = events[0]
