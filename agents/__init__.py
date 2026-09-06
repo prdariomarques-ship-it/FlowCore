@@ -4,12 +4,13 @@ from agents.health_agent import HealthAgent
 from agents.doctor_agent import DoctorAgent
 from agents.compliance_agent import ComplianceAgent
 from agents.market_agent import MarketAgent
+from agents.intelligence_engine import IntelligenceEngine
 from agents.task_store import AgentTaskRecord, AgentTaskStore
 from agents.runner import AgentRunner
 
 __all__ = [
     "BaseAgent", "AgentRegistry",
-    "HealthAgent", "DoctorAgent", "ComplianceAgent", "MarketAgent",
+    "HealthAgent", "DoctorAgent", "ComplianceAgent", "MarketAgent", "IntelligenceEngine",
     "AgentTaskRecord", "AgentTaskStore",
     "AgentRunner",
 ]

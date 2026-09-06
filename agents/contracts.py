@@ -104,6 +104,15 @@ class IntelligenceEvent:
         out: dict[str, Any] = {"status": self.status, "reason": self.reason}
         if self.status == "RECALIBRATE":
             out["suggested_action"] = self.suggested_action
+            # Optional even for RECALIBRATE: "what changed" can name specific
+            # assets/portfolios (e.g. a market move with a known correlation
+            # rule) without the event rising to OVERRIDE. Omitted when empty
+            # so a generic RECALIBRATE stays exactly the two-field shape the
+            # spec's own example shows.
+            if self.affected_assets:
+                out["affected_assets"] = self.affected_assets
+            if self.affected_portfolios:
+                out["affected_portfolios"] = self.affected_portfolios
         elif self.status == "OVERRIDE":
             out.update({
                 "previous_thesis": self.previous_thesis,

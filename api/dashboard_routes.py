@@ -949,6 +949,31 @@ def register_dashboard_routes(app, version: str) -> None:
                 "stub": False, **_market_unavailable("market", exc),
             }
 
+    @app.get("/api/intelligence")
+    async def intelligence_events():
+        """IntelligenceEngine's classified events (Wealth Copilot MVP 2,
+        phase 2) — NEUTRAL/RECALIBRATE/OVERRIDE over the current
+        MarketAgent snapshot and ComplianceAgent violations. Every
+        classification is also appended to
+        ~/.flowcore/intelligence_audit.jsonl (see IntelligenceEngine's
+        _audit)."""
+        try:
+            from agents.intelligence_engine import IntelligenceEngine
+            result = await IntelligenceEngine().run()
+            events = result["data"]["events"]
+            return {
+                "total": len(events),
+                "override": sum(1 for e in events if e["status"] == "OVERRIDE"),
+                "recalibrate": sum(1 for e in events if e["status"] == "RECALIBRATE"),
+                "neutral": sum(1 for e in events if e["status"] == "NEUTRAL"),
+                "events": events, "available": True, "stub": False,
+            }
+        except Exception as exc:
+            return {
+                "total": 0, "override": 0, "recalibrate": 0, "neutral": 0, "events": [],
+                "stub": False, **_market_unavailable("intelligence", exc),
+            }
+
     # ── Assets [STUB] ─────────────────────────────────────────────────────────
 
     @app.get("/api/portfolios/{portfolio_id}/review")
