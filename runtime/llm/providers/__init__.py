@@ -5,7 +5,8 @@ other modules (router.py, policy.py, ...) never do.
 
 from __future__ import annotations
 
+from runtime.llm.providers.deepseek_provider import DeepSeekProvider
 from runtime.llm.providers.ollama_provider import OllamaProvider
 from runtime.llm.providers.openrouter_provider import OpenRouterProvider
 
-__all__ = ["OllamaProvider", "OpenRouterProvider"]
+__all__ = ["DeepSeekProvider", "OllamaProvider", "OpenRouterProvider"]
