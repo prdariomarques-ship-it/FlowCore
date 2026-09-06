@@ -479,8 +479,11 @@ details.mi>summary::marker{display:none}
 
       <!-- Agent cards -->
       <div class="card">
-        <div class="ch"><span class="ct">Agentes disponíveis</span><span class="ci">🤖</span></div>
-        <div id="agent-cards" style="display:flex;flex-direction:column;gap:8px">
+        <div class="ch" style="cursor:pointer" onclick="toggleCollapsible('agent-cards','agent-cards-chevron','flex')">
+          <span class="ct"><span id="agent-cards-chevron">▸</span> Agentes disponíveis</span>
+          <span class="ci">🤖</span>
+        </div>
+        <div id="agent-cards" style="display:none;flex-direction:column;gap:8px">
           <div class="sk" style="height:52px"></div>
           <div class="sk" style="height:52px"></div>
         </div>
@@ -494,7 +497,7 @@ details.mi>summary::marker{display:none}
 
       <!-- Task history -->
       <div class="card">
-        <div class="ch" style="cursor:pointer" onclick="toggleTaskHistory()">
+        <div class="ch" style="cursor:pointer" onclick="toggleCollapsible('task-history','task-history-chevron','block')">
           <span class="ct"><span id="task-history-chevron">▸</span> Histórico de tarefas</span>
           <button class="btn-sm" onclick="event.stopPropagation();loadAgents()">↻</button>
         </div>
@@ -576,13 +579,14 @@ function pg(name,btn){
   closeMoreMenu();
 }
 
-/* ── Task history (collapsed by default — link opens it, doesn't take
-   up page space until asked for) ── */
-function toggleTaskHistory(){
-  const box=document.getElementById('task-history');
-  const chevron=document.getElementById('task-history-chevron');
+/* ── Generic collapsible section (task history, agent cards, …) —
+   collapsed by default, header doubles as the toggle link, so a section
+   nobody asked to see doesn't take up page space until it's clicked. ── */
+function toggleCollapsible(boxId,chevronId,openDisplay){
+  const box=document.getElementById(boxId);
+  const chevron=document.getElementById(chevronId);
   const open=box.style.display!=='none';
-  box.style.display=open?'none':'block';
+  box.style.display=open?'none':openDisplay;
   chevron.textContent=open?'▸':'▾';
 }
 
