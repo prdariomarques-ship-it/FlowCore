@@ -494,11 +494,11 @@ details.mi>summary::marker{display:none}
 
       <!-- Task history -->
       <div class="card">
-        <div class="ch">
-          <span class="ct">Histórico de tarefas</span>
-          <button class="btn-sm" onclick="loadAgents()">↻</button>
+        <div class="ch" style="cursor:pointer" onclick="toggleTaskHistory()">
+          <span class="ct"><span id="task-history-chevron">▸</span> Histórico de tarefas</span>
+          <button class="btn-sm" onclick="event.stopPropagation();loadAgents()">↻</button>
         </div>
-        <div id="task-history"><div class="sk"></div><div class="sk"></div></div>
+        <div id="task-history" style="display:none"><div class="sk"></div><div class="sk"></div></div>
       </div>
 
       <!-- Flows -->
@@ -574,6 +574,16 @@ function pg(name,btn){
   if(name==='chat') loadAiConfig();
   if(name==='agents'){loadComplianceAlerts();loadReferencePortfolio();loadAgents();loadFlows();}
   closeMoreMenu();
+}
+
+/* ── Task history (collapsed by default — link opens it, doesn't take
+   up page space until asked for) ── */
+function toggleTaskHistory(){
+  const box=document.getElementById('task-history');
+  const chevron=document.getElementById('task-history-chevron');
+  const open=box.style.display!=='none';
+  box.style.display=open?'none':'block';
+  chevron.textContent=open?'▸':'▾';
 }
 
 /* ── More Menu ── */
