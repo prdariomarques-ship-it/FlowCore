@@ -55,8 +55,56 @@ class PriorityEngine(BaseAgent):
                 "total": len(items),
                 "by_level": {level: sum(1 for i in items if i.level == level) for level in _LEVEL_ORDER},
                 "items": [i.to_dict() for i in items],
+                "by_client": await self._group_by_client(items, context.get("office_id")),
             },
         }
+
+    # ── Per-client consolidation ────────────────────────────────────────────
+    # A flat priority feed makes an advisor scan every row for "is this
+    # about the same client as that other row?". Consolidating by client
+    # answers the more useful question directly: which clients need
+    # attention today, worst issue first — same items, no new data
+    # invented, just grouped by the affected_portfolios each item already
+    # carries. Items with no affected_portfolios (a market move not tied
+    # to any specific client) are left out of this grouping on purpose —
+    # they have nowhere honest to be filed under.
+
+    async def _group_by_client(self, items: list[PriorityItem], office_id: str | None) -> list[dict[str, Any]]:
+        grouped: dict[str, list[PriorityItem]] = {}
+        for item in items:
+            for client_id in item.affected_portfolios:
+                grouped.setdefault(client_id, []).append(item)
+        if not grouped:
+            return []
+
+        client_records: dict[str, dict[str, Any]] = {}
+        if office_id:
+            from storage.client_repo import ClientRepository
+            client_records = {c["id"]: c for c in await ClientRepository().list_clients(office_id)}
+            # A ComplianceAgent-evaluated "portfolio" can be the office's
+            # own reference policy, not a real client (see
+            # api/dashboard_routes.py's /api/alerts is_client flag for the
+            # same distinction) — drop it here rather than showing a
+            # client card the advisor can't actually open or contact.
+            grouped = {cid: its for cid, its in grouped.items() if cid in client_records}
+
+        entries = []
+        for client_id, client_items in grouped.items():
+            client_items = sorted(client_items, key=lambda i: _LEVEL_ORDER[i.level])
+            record = client_records.get(client_id)
+            entries.append({
+                "client_id": client_id,
+                # Falls back to the raw id only when there's no office_id to
+                # resolve a real name against (e.g. a caller testing with
+                # precomputed events directly) — never a guessed display name.
+                "client_name": record["name"] if record else client_id,
+                "is_demo": record["is_demo"] if record else None,
+                "worst_level": client_items[0].level,
+                "issues_count": len(client_items),
+                "items": [i.to_dict() for i in client_items],
+            })
+        entries.sort(key=lambda e: (_LEVEL_ORDER[e["worst_level"]], -e["issues_count"], e["client_name"]))
+        return entries
 
     @staticmethod
     def _to_priority_item(event: dict) -> PriorityItem:

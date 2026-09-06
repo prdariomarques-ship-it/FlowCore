@@ -1786,9 +1786,31 @@ function renderDwRisk(risk){
 
 function renderDwImpacted(prio){
   const box=document.getElementById('dw-impacted');
-  if(!prio||!prio.items||!prio.items.length){box.innerHTML='<div class="dw-empty">Nenhuma carteira impactada no momento.</div>';return;}
   const colors={CRITICAL:'var(--red)',HIGH:'var(--red)',MEDIUM:'var(--yellow)',LOW:'var(--green)',NEUTRAL:'var(--green)'};
   const widths={CRITICAL:100,HIGH:80,MEDIUM:55,LOW:25,NEUTRAL:10};
+
+  // by_client consolidates every priority item tied to a real client into
+  // one row per client (worst issue first) — a much more actionable "who
+  // needs attention today" than a flat event feed. Items with no client
+  // (a market move not tied to any specific portfolio) never appear here
+  // by design, so the flat list stays the fallback when by_client is empty.
+  if(prio&&prio.by_client&&prio.by_client.length){
+    let html='';
+    for(const c of prio.by_client.slice(0,6)){
+      const nameAttr=escapeHtml(c.client_name).replace(/'/g,"&#39;");
+      const firstReason=c.items[0].reason;
+      const extra=c.issues_count>1?` (+${c.issues_count-1} outro${c.issues_count>2?'s':''})`:'';
+      html+=`<div class="impact-row" style="cursor:pointer" onclick="openClient360('${c.client_id}','${nameAttr}')">`
+        +`<div class="impact-name">${initialsAvatar(c.client_name)}${escapeHtml(c.client_name)}</div>`
+        +`<div class="impact-reason">${escapeHtml(firstReason)}${extra}</div>`
+        +`<div class="impact-bar-bg"><div class="impact-bar-fill" style="width:${widths[c.worst_level]}%;background:${colors[c.worst_level]}"></div></div>`
+        +`</div>`;
+    }
+    box.innerHTML=html;
+    return;
+  }
+
+  if(!prio||!prio.items||!prio.items.length){box.innerHTML='<div class="dw-empty">Nenhuma carteira impactada no momento.</div>';return;}
   let html='';
   for(const it of prio.items.slice(0,6)){
     html+=`<div class="impact-row"><div class="impact-name">${escapeHtml(it.title)}</div><div class="impact-reason">${escapeHtml(it.reason)}</div><div class="impact-bar-bg"><div class="impact-bar-fill" style="width:${widths[it.level]}%;background:${colors[it.level]}"></div></div></div>`;
