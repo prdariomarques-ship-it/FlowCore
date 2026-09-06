@@ -335,6 +335,27 @@ details.mi>summary::marker{display:none}
     <div class="card"><div class="ch"><span class="ct">Carteira moderada</span><span class="tag tp">R$ 1.000.000</span></div><div id="portfolio-summary"><div class="sk"></div><div class="sk"></div></div></div>
     <div class="card"><div class="ch"><span class="ct">Alocação por classe</span><span class="ci">◒</span></div><div id="portfolio-exposure"><div class="sk"></div></div></div>
     <div class="card"><div class="ch"><span class="ct">Revisão diária</span><button class="btn-sm" onclick="loadPortfolio(true)">↻ Revisar</button></div><div id="portfolio-review"><div class="empty">A revisão é informacional e não executa ordens.</div></div></div>
+
+    <!-- Compliance alerts (desenquadramento) -->
+    <div class="card" id="compliance-card">
+      <div class="ch"><span class="ct">Desenquadramento de carteira</span><span class="ci">⚖️</span></div>
+      <div id="compliance-banner"></div>
+      <div id="compliance-list"><div class="sk" style="height:52px"></div></div>
+    </div>
+
+    <!-- Editable reference (model) portfolio -->
+    <div class="card" id="reference-portfolio-card">
+      <div class="ch">
+        <span class="ct">Posição da carteira modelo</span>
+        <span class="tag ty" id="rp-customized-tag" style="display:none">Personalizado</span>
+      </div>
+      <div id="rp-sleeves"><div class="sk" style="height:52px"></div></div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="bs2" style="flex:1" onclick="saveReferencePortfolio()">💾 Salvar</button>
+        <button class="btn-sm" onclick="resetReferencePortfolio()">↺ Resetar</button>
+      </div>
+      <div id="rp-status" style="font-size:11px;color:var(--text2);margin-top:8px;text-align:center"></div>
+    </div>
   </div></div>
 
   <!-- ══ IA ══ -->
@@ -456,27 +477,6 @@ details.mi>summary::marker{display:none}
   <div class="page" id="page-agents">
     <div class="gap">
 
-      <!-- Compliance alerts (desenquadramento) -->
-      <div class="card" id="compliance-card">
-        <div class="ch"><span class="ct">Desenquadramento de carteira</span><span class="ci">⚖️</span></div>
-        <div id="compliance-banner"></div>
-        <div id="compliance-list"><div class="sk" style="height:52px"></div></div>
-      </div>
-
-      <!-- Editable reference (model) portfolio -->
-      <div class="card" id="reference-portfolio-card">
-        <div class="ch">
-          <span class="ct">Posição da carteira modelo</span>
-          <span class="tag ty" id="rp-customized-tag" style="display:none">Personalizado</span>
-        </div>
-        <div id="rp-sleeves"><div class="sk" style="height:52px"></div></div>
-        <div style="display:flex;gap:8px;margin-top:10px">
-          <button class="bs2" style="flex:1" onclick="saveReferencePortfolio()">💾 Salvar</button>
-          <button class="btn-sm" onclick="resetReferencePortfolio()">↺ Resetar</button>
-        </div>
-        <div id="rp-status" style="font-size:11px;color:var(--text2);margin-top:8px;text-align:center"></div>
-      </div>
-
       <!-- Agent cards -->
       <div class="card">
         <div class="ch" style="cursor:pointer" onclick="toggleCollapsible('agent-cards','agent-cards-chevron','flex')">
@@ -543,7 +543,7 @@ details.mi>summary::marker{display:none}
   <button class="ni active" onclick="pg('home',this)"><span class="ni-icon">🏠</span><span>Início</span></button>
   <button class="ni" onclick="pg('portfolio',this)"><span class="ni-icon">💹</span><span>Finanças</span></button>
   <button class="ni" onclick="pg('ai',this)"><span class="ni-icon">🧠</span><span>Inteligência</span></button>
-  <button class="ni" onclick="pg('agents',this)"><span class="ni-icon">⚡</span><span>Ações</span></button>
+  <button class="ni" onclick="pg('agents',this)"><span class="ni-icon">🛠</span><span>Operacional</span></button>
   <button class="ni" onclick="toggleMoreMenu()"><span class="ni-icon">⋯</span><span>Mais</span></button>
 </div>
 
@@ -571,11 +571,11 @@ function pg(name,btn){
   document.getElementById('page-'+name).classList.add('active');
   if(btn) btn.classList.add('active');
   if(name==='admin') loadSys();
-  if(name==='portfolio') loadPortfolio();
+  if(name==='portfolio'){loadPortfolio();loadComplianceAlerts();loadReferencePortfolio();}
   if(name==='notes') loadNotes();
   if(name==='news') loadNews();
   if(name==='chat') loadAiConfig();
-  if(name==='agents'){loadComplianceAlerts();loadReferencePortfolio();loadAgents();loadFlows();}
+  if(name==='agents'){loadAgents();loadFlows();}
   closeMoreMenu();
 }
 
