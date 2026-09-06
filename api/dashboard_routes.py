@@ -930,6 +930,25 @@ def register_dashboard_routes(app, version: str) -> None:
                 "stub": False, **_market_unavailable("alerts", exc),
             }
 
+    # ── Intelligence — MarketAgent (Wealth Copilot MVP 2, phase 1) ───────────
+
+    @app.get("/api/market")
+    async def market_agent_snapshot():
+        """MarketAgent's classified market snapshot — real levels/deltas
+        from watchlist.py (yfinance) for every indicator except DI Jan
+        (no B3 futures feed connected; that one entry alone carries
+        source="MOCK" and is never blended with the live ones)."""
+        try:
+            from agents.market_agent import MarketAgent
+            result = await MarketAgent().run()
+            return {**result["data"], "available": True, "stub": False}
+        except Exception as exc:
+            return {
+                "timestamp": None, "market_status": "NORMAL", "movements": [],
+                "relevant_changes": [], "potential_impacts": [], "intelligence_events": [],
+                "stub": False, **_market_unavailable("market", exc),
+            }
+
     # ── Assets [STUB] ─────────────────────────────────────────────────────────
 
     @app.get("/api/portfolios/{portfolio_id}/review")
