@@ -156,7 +156,7 @@ class ComplianceAgent(BaseAgent):
             if f"{sleeve_name}_min" not in sleeve_limits and f"{sleeve_name}_max" not in sleeve_limits:
                 continue
             item_ids = [i["id"] for i in target_allocation if i.get("class") in classes]
-            current_sum = sum(float(current.get(i, 0)) for i in item_ids)
+            current_sum = self._sleeve_current(sleeve_name, item_ids, current)
             violations.extend(self._check_band(
                 type_slug=sleeve_name.upper(), label=sleeve_name.replace("_", " ").title(),
                 current=current_sum,
@@ -188,6 +188,30 @@ class ComplianceAgent(BaseAgent):
             else "ATENCAO" if violations else "NORMAL"
         )
         return {"portfolio_id": portfolio_id, "portfolio_name": name, "status": status, "violations": violations}
+
+    @staticmethod
+    def _sleeve_current(sleeve_name: str, item_ids: list[str], current: dict[str, Any]) -> float:
+        """Current weight for a multi-item sleeve (renda_fixa_total,
+        alternativos): the sum of its constituent target_allocation items,
+        UNLESS an explicit `__sleeve__:<name>` override is present.
+
+        The override exists because these sleeves are not mutually
+        exclusive at the item level — br_fixed_liquidity belongs to
+        renda_fixa_brasil (rolls up into renda_fixa_total) AND is the item
+        the liquidity floor checks. An editor who only thinks in terms of
+        "my fixed income is at 47%, my liquidity reserve is at 8%" would
+        otherwise double-count the liquidity item inside the fixed-income
+        total the moment both are entered independently. The synthetic key
+        lets the caller state the sleeve's aggregate directly and bypass
+        item-level aggregation for that sleeve only — everything else
+        (single-item sleeves like ai_theme/liquidity, or a caller that
+        prefers to pass real item-level current_allocation, e.g. a test)
+        is unaffected.
+        """
+        override_key = f"__sleeve__:{sleeve_name}"
+        if override_key in current:
+            return float(current[override_key])
+        return sum(float(current.get(i, 0)) for i in item_ids)
 
     @staticmethod
     def _check_band(
