@@ -141,6 +141,20 @@ details.mi>summary::marker{display:none}
 .sk{background:linear-gradient(90deg,var(--bg3) 25%,var(--border) 50%,var(--bg3) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;height:13px;margin-bottom:7px}
 @keyframes shimmer{0%{background-position:200%}100%{background-position:-200%}}
 .empty{text-align:center;color:var(--text2);padding:22px;font-size:13px}
+.compliance-banner{display:flex;align-items:center;gap:9px;padding:11px 13px;border-radius:10px;margin-bottom:12px;font-size:13px;font-weight:600}
+.compliance-banner.ok{background:rgba(16,185,129,.12);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.compliance-banner.crit{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.compliance-item{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;border-left:3px solid var(--yellow)}
+.compliance-item.crit{border-left-color:var(--red)}
+.compliance-item .ci-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.compliance-item .ci-name{font-size:13px;font-weight:700;color:var(--text)}
+.compliance-item .ci-reason{font-size:12px;color:var(--text2);margin-bottom:8px}
+.compliance-bar{height:6px;border-radius:3px;background:var(--border);overflow:hidden;margin-bottom:6px}
+.compliance-bar-fill{height:100%;border-radius:3px;background:var(--yellow)}
+.compliance-bar-fill.crit{background:var(--red)}
+.compliance-bar-limit{position:relative;height:0}
+.compliance-bar-limit span{position:absolute;top:-19px;font-size:10px;color:var(--text2);transform:translateX(-50%)}
+.compliance-figures{display:flex;justify-content:space-between;font-size:11px;color:var(--text2)}
 
 /* Notify */
 .notify-btn{width:100%;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:var(--yellow);padding:10px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
@@ -434,6 +448,13 @@ details.mi>summary::marker{display:none}
   <div class="page" id="page-agents">
     <div class="gap">
 
+      <!-- Compliance alerts (desenquadramento) -->
+      <div class="card" id="compliance-card">
+        <div class="ch"><span class="ct">Desenquadramento de carteira</span><span class="ci">⚖️</span></div>
+        <div id="compliance-banner"></div>
+        <div id="compliance-list"><div class="sk" style="height:52px"></div></div>
+      </div>
+
       <!-- Agent cards -->
       <div class="card">
         <div class="ch"><span class="ct">Agentes disponíveis</span><span class="ci">🤖</span></div>
@@ -529,7 +550,7 @@ function pg(name,btn){
   if(name==='notes') loadNotes();
   if(name==='news') loadNews();
   if(name==='chat') loadAiConfig();
-  if(name==='agents'){loadAgents();loadFlows();}
+  if(name==='agents'){loadComplianceAlerts();loadAgents();loadFlows();}
   closeMoreMenu();
 }
 
@@ -1012,6 +1033,47 @@ async function loadAgents(){
   }catch(e){
     document.getElementById('agent-cards').innerHTML='<div class="empty">API não disponível</div>';
     document.getElementById('task-history').innerHTML='<div class="empty">─</div>';
+  }
+}
+
+/* ── Compliance / desenquadramento ── */
+async function loadComplianceAlerts(){
+  const banner=document.getElementById('compliance-banner');
+  const list=document.getElementById('compliance-list');
+  try{
+    const r=await api('/api/alerts');
+    banner.innerHTML='';
+    if(r.total===0){
+      const evaluated=(r.portfolios||[]).filter(p=>p.status==='NORMAL'||p.status==='ATENCAO'||p.status==='DESENQUADRADO');
+      list.innerHTML=evaluated.length
+        ? '<div class="empty">✅ Nenhuma carteira desenquadrada. Tudo dentro dos limites.</div>'
+        : '<div class="empty">Sem posição atual conhecida para calcular desenquadramento.<br>Configure a posição da carteira para ativar os alertas.</div>';
+      return;
+    }
+    if(r.critical>0){
+      banner.innerHTML=`<div class="compliance-banner crit">🔴 ${r.critical} carteira${r.critical>1?'s':''} desenquadrada${r.critical>1?'s':''}${r.warnings?` · ${r.warnings} em atenção`:''}</div>`;
+    }else{
+      banner.innerHTML=`<div class="compliance-banner ok" style="color:var(--yellow);background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.3)">🟡 ${r.warnings} em atenção</div>`;
+    }
+    list.innerHTML='';
+    for(const it of r.items){
+      const crit=it.severity==='CRITICAL';
+      const pct=Math.min(100,(it.current/it.limit)*100);
+      const el=document.createElement('div');
+      el.className='compliance-item'+(crit?' crit':'');
+      el.innerHTML=`
+        <div class="ci-top">
+          <span class="ci-name">${escapeHtml(it.client_name)}</span>
+          <span class="tag ${crit?'tr':'ty'}">${crit?'🔴 Desenquadrado':'🟡 Atenção'}</span>
+        </div>
+        <div class="ci-reason">${escapeHtml(it.message)}</div>
+        <div class="compliance-bar"><div class="compliance-bar-fill${crit?' crit':''}" style="width:${pct}%"></div></div>
+        <div class="compliance-figures"><span>${it.current}%</span><span>Limite: ${it.limit}%</span></div>`;
+      list.appendChild(el);
+    }
+  }catch(e){
+    banner.innerHTML='';
+    list.innerHTML='<div class="empty">Alertas indisponíveis: '+escapeHtml(e.message)+'</div>';
   }
 }
 

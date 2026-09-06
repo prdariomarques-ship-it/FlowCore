@@ -92,6 +92,43 @@ def _review_reference_portfolio(portfolio: dict[str, Any], events: list[str] | N
     }
 
 
+_COMPLIANCE_KEYWORDS = (
+    "desenquadr", "fora do limite", "acima do limite", "abaixo do limite",
+    "compliance", "fora da politica", "fora da política",
+)
+
+
+def _is_compliance_question(question: str) -> bool:
+    q = question.lower()
+    return any(kw in q for kw in _COMPLIANCE_KEYWORDS)
+
+
+async def _answer_compliance_question() -> str:
+    """Real-data answer for "quais clientes estão desenquadrados hoje?",
+    sourced straight from ComplianceAgent — same data as GET /api/alerts,
+    just formatted as chat prose instead of a JSON list."""
+    from agents.compliance_agent import ComplianceAgent
+
+    result = await ComplianceAgent().run()
+    violations = result["data"]["violations"]
+    portfolios = result["data"]["portfolios"]
+
+    if not violations:
+        evaluated = [p for p in portfolios if p["status"] in ("NORMAL", "ATENCAO", "DESENQUADRADO")]
+        if evaluated:
+            return "Nenhuma carteira desenquadrada no momento. Todas as posições avaliadas estão dentro dos limites."
+        return (
+            "Não há posição atual conhecida para nenhuma carteira, então não é possível calcular "
+            "desenquadramento agora. Configure a posição atual da carteira para ativar esta checagem."
+        )
+
+    lines = [f"**{len(violations)} violação(ões) de alocação encontrada(s):**", ""]
+    for v in violations:
+        icon = "🔴" if v["severity"] == "CRITICAL" else "🟡"
+        lines.append(f"- {icon} **{v['client_name']}** — {v['message']}")
+    return "\n".join(lines)
+
+
 # ── Request schemas (module-level so FastAPI resolves them correctly) ──────────
 
 class AskRequest(BaseModel):
@@ -251,6 +288,12 @@ def register_dashboard_routes(app, version: str) -> None:
     async def ask(data: AskRequest):
         if not data.question.strip():
             raise HTTPException(status_code=422, detail="question is required")
+
+        # Desenquadramento is a real-data lookup, not something an LLM
+        # should guess at — answer it directly from ComplianceAgent instead
+        # of routing through OpenAI/Ollama.
+        if _is_compliance_question(data.question):
+            return {"answer": await _answer_compliance_question(), "provider": "flowcore-compliance-agent", "model": ""}
 
         # Try FlowCore AgentRunner (ask agent) first
         try:
@@ -824,6 +867,40 @@ def register_dashboard_routes(app, version: str) -> None:
             "review_policy": portfolio.get("review_policy", {}),
             "stub": False,
         }
+
+    # ── Compliance — desenquadramento de carteira ───────────────────────────
+
+    @app.get("/api/alerts")
+    async def alerts():
+        """Alertas de desenquadramento (ComplianceAgent), para a aba Ações
+        do APK/web e para o chat responder "quais clientes estão
+        desenquadrados?". Nunca inventa posição: uma carteira sem posição
+        atual conhecida ou sem política de alocação associada aparece em
+        `portfolios` com o status correspondente e zero violações — não é
+        omitida nem contada como falso "dentro do limite"."""
+        try:
+            from agents.compliance_agent import ComplianceAgent
+            result = await ComplianceAgent().run()
+            violations = result["data"]["violations"]
+            items = [
+                {
+                    "client_id": v["client_id"], "client_name": v["client_name"], "type": v["type"],
+                    "current": v["current"], "limit": v["limit"], "diff": v["diff"],
+                    "severity": v["severity"], "message": v["message"],
+                }
+                for v in violations
+            ]
+            critical = sum(1 for v in items if v["severity"] == "CRITICAL")
+            warnings = sum(1 for v in items if v["severity"] == "WARNING")
+            return {
+                "total": len(items), "critical": critical, "warnings": warnings, "items": items,
+                "portfolios": result["data"]["portfolios"], "available": True, "stub": False,
+            }
+        except Exception as exc:
+            return {
+                "total": 0, "critical": 0, "warnings": 0, "items": [], "portfolios": [],
+                "stub": False, **_market_unavailable("alerts", exc),
+            }
 
     # ── Assets [STUB] ─────────────────────────────────────────────────────────
 

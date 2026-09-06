@@ -1,0 +1,223 @@
+"""FlowCore Compliance Agent — portfolio allocation drift ("desenquadramento").
+
+Compares a portfolio's current allocation against its target sleeve limits
+and classifies each sleeve as NORMAL / WARNING / CRITICAL. This is the first
+agent of the "Investment Copilot" direction: monitor carteiras and alert on
+desenquadramento, nothing more for this MVP.
+
+Data sources — both real, nothing here is invented:
+- config/portfolio_moderate_1m.json: the only allocation-limit policy that
+  exists in FlowCore today (target_allocation + sleeve_limits +
+  review_policy). It has no persisted current position anywhere in the
+  system — the dashboard's own POST /api/portfolios/{id}/review endpoint
+  takes current_allocation as a per-call parameter, it doesn't store one.
+- storage/portfolio_repo.py: real user portfolios (holdings with live
+  market value via runtime/portfolio/valuation.py), but no
+  target_allocation/sleeve_limits is associated with them anywhere in the
+  system yet.
+
+Because of that gap, a portfolio this agent cannot evaluate is reported
+with an honest status (SEM_POSICAO_ATUAL / SEM_REGRAS_DEFINIDAS) and an
+empty violation list — never a guessed position or a fabricated limit.
+Callers that do have a live current_allocation (e.g. a future rebalancing
+job, or a manual test) pass it in via `context["portfolios"]` and get a
+real evaluation.
+"""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+from agents.base import BaseAgent
+
+_REFERENCE_PORTFOLIO_PATH = Path(__file__).resolve().parents[1] / "config" / "portfolio_moderate_1m.json"
+_DEFAULT_CRITICAL_MARGIN_POINTS = 5.0
+
+# Which target_allocation `class` values roll up into each sleeve_limits key.
+# This mirrors portfolio_moderate_1m.json's own policy — not a new
+# classification invented for this agent.
+_SLEEVE_CLASS_ROLLUPS: dict[str, set[str]] = {
+    "renda_fixa_total": {"renda_fixa_brasil", "renda_fixa_internacional"},
+    "alternativos": {"alternativos"},
+}
+# ai_theme and the liquidity reserve are single target_allocation line
+# items, not a class rollup, so they're matched by id instead.
+_AI_THEME_ITEM_ID = "ai_theme"
+_LIQUIDITY_ITEM_ID = "br_fixed_liquidity"
+
+
+class ComplianceAgent(BaseAgent):
+    name = "compliance"
+    description = "Detecta desenquadramento de carteira: posição atual vs. limites de alocação"
+    version = "0.1.0"
+
+    async def run(self, context: dict | None = None) -> dict[str, Any]:
+        context = context or {}
+        portfolios = context.get("portfolios")
+        if portfolios is None:
+            portfolios = await self._load_registered_portfolios()
+
+        results = [self._evaluate_portfolio(p) for p in portfolios]
+        violations = [v for r in results for v in r["violations"]]
+        return {
+            "status": "ok",
+            "data": {
+                "portfolios_evaluated": len(results),
+                "violations": violations,
+                "portfolios": results,
+            },
+        }
+
+    # ── Data loading ─────────────────────────────────────────────────────────
+
+    async def _load_registered_portfolios(self) -> list[dict[str, Any]]:
+        """The portfolios FlowCore actually has registered today.
+
+        1. The reference portfolio (config/portfolio_moderate_1m.json) — the
+           only one with a target_allocation/sleeve_limits policy. Real
+           policy, but no current position source anywhere in FlowCore, so
+           it comes back with current_allocation=None.
+        2. Real user portfolios (storage/portfolio_repo.py), if any exist.
+           They have real holdings but no allocation-limit policy attached
+           to them anywhere in the system — flagged via `_no_policy` so
+           _evaluate_portfolio reports them honestly instead of guessing
+           a limit.
+        """
+        portfolios: list[dict[str, Any]] = [self._load_reference_portfolio()]
+
+        try:
+            from storage.portfolio_repo import PortfolioRepository
+
+            repo = PortfolioRepository()
+            for row in await repo.list_portfolios():
+                portfolios.append({
+                    "id": f"real-{row['id']}",
+                    "name": row["name"],
+                    "target_allocation": [],
+                    "sleeve_limits": {},
+                    "review_policy": {},
+                    "current_allocation": None,
+                    "_no_policy": True,
+                })
+        except Exception:
+            # A storage failure here shouldn't sink the reference portfolio
+            # result — it's independent (plain JSON file, no DB involved).
+            pass
+
+        return portfolios
+
+    @staticmethod
+    def _load_reference_portfolio() -> dict[str, Any]:
+        try:
+            data = json.loads(_REFERENCE_PORTFOLIO_PATH.read_text())
+        except (OSError, json.JSONDecodeError):
+            data = {}
+        return {
+            "id": data.get("id", "moderate-ia-1m"),
+            "name": data.get("name", "Carteira Moderada — R$ 1 milhão"),
+            "target_allocation": data.get("target_allocation", []),
+            "sleeve_limits": data.get("sleeve_limits", {}),
+            "review_policy": data.get("review_policy", {}),
+            "current_allocation": None,
+        }
+
+    # ── Evaluation ───────────────────────────────────────────────────────────
+
+    def _evaluate_portfolio(self, portfolio: dict[str, Any]) -> dict[str, Any]:
+        portfolio_id = portfolio.get("id", "")
+        name = portfolio.get("name", portfolio_id)
+
+        if portfolio.get("_no_policy") or not portfolio.get("target_allocation"):
+            return {
+                "portfolio_id": portfolio_id,
+                "portfolio_name": name,
+                "status": "SEM_REGRAS_DEFINIDAS",
+                "violations": [],
+            }
+
+        current = portfolio.get("current_allocation")
+        if not current:
+            return {
+                "portfolio_id": portfolio_id,
+                "portfolio_name": name,
+                "status": "SEM_POSICAO_ATUAL",
+                "violations": [],
+            }
+
+        target_allocation = portfolio["target_allocation"]
+        sleeve_limits = portfolio.get("sleeve_limits", {})
+        critical_margin = float(
+            portfolio.get("review_policy", {}).get("critical_margin_points", _DEFAULT_CRITICAL_MARGIN_POINTS)
+        )
+        args = dict(portfolio_id=portfolio_id, portfolio_name=name, critical_margin=critical_margin)
+
+        violations: list[dict[str, Any]] = []
+        for sleeve_name, classes in _SLEEVE_CLASS_ROLLUPS.items():
+            if f"{sleeve_name}_min" not in sleeve_limits and f"{sleeve_name}_max" not in sleeve_limits:
+                continue
+            item_ids = [i["id"] for i in target_allocation if i.get("class") in classes]
+            current_sum = sum(float(current.get(i, 0)) for i in item_ids)
+            violations.extend(self._check_band(
+                type_slug=sleeve_name.upper(), label=sleeve_name.replace("_", " ").title(),
+                current=current_sum,
+                min_limit=sleeve_limits.get(f"{sleeve_name}_min"),
+                max_limit=sleeve_limits.get(f"{sleeve_name}_max"),
+                **args,
+            ))
+
+        ai_theme_item = next((i for i in target_allocation if i.get("id") == _AI_THEME_ITEM_ID), None)
+        if ai_theme_item:
+            violations.extend(self._check_band(
+                type_slug="AI_THEME", label=ai_theme_item.get("label", _AI_THEME_ITEM_ID),
+                current=float(current.get(_AI_THEME_ITEM_ID, 0)),
+                min_limit=sleeve_limits.get("ai_theme_min"), max_limit=sleeve_limits.get("ai_theme_max"),
+                **args,
+            ))
+
+        liquidity_item = next((i for i in target_allocation if i.get("id") == _LIQUIDITY_ITEM_ID), None)
+        if liquidity_item:
+            violations.extend(self._check_band(
+                type_slug="LIQUIDEZ", label=liquidity_item.get("label", _LIQUIDITY_ITEM_ID),
+                current=float(current.get(_LIQUIDITY_ITEM_ID, 0)),
+                min_limit=sleeve_limits.get("liquidity_floor"), max_limit=None,
+                **args,
+            ))
+
+        status = (
+            "DESENQUADRADO" if any(v["severity"] == "CRITICAL" for v in violations)
+            else "ATENCAO" if violations else "NORMAL"
+        )
+        return {"portfolio_id": portfolio_id, "portfolio_name": name, "status": status, "violations": violations}
+
+    @staticmethod
+    def _check_band(
+        *, type_slug: str, label: str, current: float, min_limit: float | None, max_limit: float | None,
+        critical_margin: float, portfolio_id: str, portfolio_name: str,
+    ) -> list[dict[str, Any]]:
+        """One-sided or two-sided band check against a real sleeve_limits entry.
+
+        WARNING the moment current crosses the limit; CRITICAL once the
+        overshoot itself exceeds critical_margin points (default 5pp) —
+        e.g. limit=30%, current=32% -> WARNING; current=38% -> CRITICAL.
+        """
+        out: list[dict[str, Any]] = []
+        if max_limit is not None and current > max_limit:
+            diff = round(current - max_limit, 2)
+            out.append({
+                "client_id": portfolio_id, "client_name": portfolio_name,
+                "type": f"EXCESSO_{type_slug}",
+                "current": round(current, 2), "limit": max_limit, "diff": diff,
+                "severity": "CRITICAL" if diff > critical_margin else "WARNING",
+                "message": f"{label} {diff:.1f} p.p. acima do limite ({current:.1f}% vs {max_limit:.1f}%).",
+            })
+        if min_limit is not None and current < min_limit:
+            diff = round(min_limit - current, 2)
+            out.append({
+                "client_id": portfolio_id, "client_name": portfolio_name,
+                "type": f"ABAIXO_{type_slug}",
+                "current": round(current, 2), "limit": min_limit, "diff": diff,
+                "severity": "CRITICAL" if diff > critical_margin else "WARNING",
+                "message": f"{label} {diff:.1f} p.p. abaixo do piso ({current:.1f}% vs {min_limit:.1f}%).",
+            })
+        return out
