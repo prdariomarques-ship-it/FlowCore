@@ -252,6 +252,29 @@ def register_dashboard_routes(app, version: str) -> None:
         if not data.question.strip():
             raise HTTPException(status_code=422, detail="question is required")
 
+        q_lower = data.question.lower()
+        if any(w in q_lower for w in ("desenquadrad", "desenquadramento", "violação", "violacao", "compliance", "limite")):
+            try:
+                from agents.compliance_agent import ComplianceAgent
+                comp_res = await ComplianceAgent().run()
+                comp_data = comp_res.get("data", {})
+                items = comp_data.get("items", [])
+                if items:
+                    lines = [f"Achei {len(items)} alerta(s) de desenquadramento:"]
+                    for item in items:
+                        emoji = "🔴" if item.get("severity") == "CRITICAL" else "🟡"
+                        lines.append(
+                            f"{emoji} **{item.get('client_name')}**: {item.get('message')} "
+                            f"(Atual: {item.get('current')}% vs Limite: {item.get('limit')}%, diff: {item.get('diff')} p.p.)\n"
+                            f"   *Sugestão:* {item.get('suggested_action')}"
+                        )
+                    answer = "\n\n".join(lines)
+                else:
+                    answer = "🟢 Nenhuma carteira desenquadrada no momento. Todas as carteiras cadastradas estão dentro dos limites operacionais."
+                return {"answer": answer, "provider": "compliance-agent", "model": "rule-engine"}
+            except Exception as exc:
+                pass
+
         # Try FlowCore AgentRunner (ask agent) first
         try:
             from agents.runner import AgentRunner

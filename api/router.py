@@ -419,6 +419,18 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
+    # ── Compliance / Desenquadramento Alerts ─────────────────────────────
+    @app.get("/api/alerts")
+    async def get_alerts():
+        try:
+            from agents.compliance_agent import ComplianceAgent
+            agent = ComplianceAgent()
+            res = await agent.run()
+            return res.get("data", {"total": 0, "critical": 0, "warnings": 0, "items": []})
+        except Exception as e:
+            logger.error("Error retrieving compliance alerts: {}", e)
+            raise HTTPException(status_code=500, detail=str(e))
+
     # ── Passport (Sprint 12) ─────────────────────────────────────────────
     @app.get("/api/passport")
     async def get_passport(agent_name: str = Query("flowcore-ui"),

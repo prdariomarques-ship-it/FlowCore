@@ -411,6 +411,15 @@ details.mi>summary::marker{display:none}
   <div class="page" id="page-agents">
     <div class="gap">
 
+      <!-- Alertas de Desenquadramento -->
+      <div class="card" id="alerts-card">
+        <div class="ch">
+          <span class="ct">Alertas de Desenquadramento</span>
+          <button class="btn-sm" onclick="loadAlerts()">↻</button>
+        </div>
+        <div id="alerts-list"><div class="sk"></div></div>
+      </div>
+
       <!-- Agent cards -->
       <div class="card">
         <div class="ch"><span class="ct">Agentes disponíveis</span><span class="ci">🤖</span></div>
@@ -940,8 +949,61 @@ function fup(s){
   return Math.floor(s/3600)+'h '+Math.floor(s%3600/60)+'m';
 }
 
+/* ── Alertas de Compliance ── */
+async function loadAlerts(){
+  const l=document.getElementById('alerts-list');
+  if(!l) return;
+  try{
+    const r=await api('/api/alerts');
+    renderAlertsList(r);
+  }catch(e){
+    l.innerHTML='<div class="empty">Não foi possível carregar alertas.</div>';
+  }
+}
+
+function renderAlertsList(r){
+  const l=document.getElementById('alerts-list');
+  if(!l) return;
+  const items=r.items||[];
+  if(!items.length){
+    l.innerHTML='<div class="empty" style="color:var(--green)">🟢 Nenhuma carteira desenquadrada. Tudo dentro dos limites.</div>';
+    return;
+  }
+  let html='';
+  if(r.critical>0){
+    html+=`<div style="margin-bottom:12px;padding:8px 12px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:8px;color:var(--red);font-weight:700;font-size:13px">🔴 ${r.critical} carteira(s) desenquadrada(s)</div>`;
+  }
+  for(const item of items){
+    const isCrit=item.severity==='CRITICAL';
+    const tagClass=isCrit?'tr':'ty';
+    const tagText=isCrit?'🔴 CRÍTICO':'🟡 ATENÇÃO';
+    html+=`
+      <div class="row" style="flex-direction:column;align-items:flex-start;gap:6px;padding:10px 0">
+        <div style="display:flex;justify-content:space-between;width:100%;align-items:center">
+          <strong style="font-size:14px">${escapeHtml(item.client_name)}</strong>
+          <span class="tag ${tagClass}">${tagText}</span>
+        </div>
+        <div style="font-size:12px;color:var(--text)">${escapeHtml(item.message||item.type)}</div>
+        <div style="display:flex;justify-content:space-between;width:100%;align-items:center;margin-top:2px">
+          <span style="font-size:11px;color:var(--text2)">Atual: <b>${item.current}%</b> | Limite: <b>${item.limit}%</b> (diff: ${item.diff} p.p.)</span>
+          <button class="btn-sm" onclick="analyzeAlert('${escapeHtml(item.client_name)}','${escapeHtml(item.message)}')">Analisar</button>
+        </div>
+      </div>`;
+  }
+  l.innerHTML=html;
+}
+
+function analyzeAlert(clientName, message){
+  pg('chat');
+  const inp=document.getElementById('chat-inp');
+  if(inp){
+    inp.value=`Quais os detalhes do desenquadramento de ${clientName}? (${message})`;
+    inp.focus();
+  }
+}
+
 /* ── Agents ── */
-const _agentIcons={health:'❤️',doctor:'🩺',market_close:'📊',daily_brief:'🗞️',notify_market_close:'🔔'};
+const _agentIcons={health:'❤️',doctor:'🩺',market_close:'📊',daily_brief:'🗞️',notify_market_close:'🔔',compliance:'🛡️'};
 
 async function loadAgents(){
   try{
@@ -1031,6 +1093,7 @@ const _agentLabels={
   health:'Saúde do sistema', doctor:'Diagnóstico completo',
   market_close:'Fechamento de mercado', daily_brief:'Briefing diário',
   notify_market_close:'Notificar fechamento pronto',
+  compliance:'Compliance e Desenquadramento',
 };
 function agentLabel(name){ return _agentLabels[name]||name; }
 
