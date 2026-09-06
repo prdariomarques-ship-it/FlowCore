@@ -948,6 +948,18 @@ def register_dashboard_routes(app, version: str) -> None:
         from runtime.portfolio.reference import reset_reference_portfolio
         return {"reset": True, **reset_reference_portfolio(), "is_customized": False}
 
+    @app.get("/api/portfolio/risk-breakdown")
+    async def portfolio_risk_breakdown():
+        """Aggregate allocation by category (Renda Fixa/Renda Variável/
+        Multimercado/Alternativos) for the dashboard's "Risco da Carteira
+        Agregada" donut. See runtime/portfolio/risk_breakdown.py for why
+        this grouping never double-counts."""
+        try:
+            from runtime.portfolio.risk_breakdown import compute_risk_breakdown
+            return {**compute_risk_breakdown(), "available": True}
+        except Exception as exc:
+            return {"categories": [], "source": "unavailable", "available": False, "error": str(exc)}
+
     # ── Portfolios [STUB + file-backed list] ──────────────────────────────────
 
     @app.get("/api/portfolios")

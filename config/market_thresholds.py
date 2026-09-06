@@ -19,21 +19,31 @@ scattered across call sites. Each entry:
           relevance. Below `medium` is LOW. Deliberately explicit,
           auditable numbers — no statistical model, per the MVP2 spec's
           "regras explícitas e auditáveis" requirement.
+  group:  which tab of the dashboard's "Inteligência de Mercado" card
+          this indicator belongs to (indices/cambio/commodities/juros) —
+          purely a display grouping, does not affect classification.
 """
 from __future__ import annotations
 
 MARKET_THRESHOLDS: dict[str, dict] = {
-    "ibovespa": {"symbol": "^BVSP", "label": "Ibovespa", "unit": "percent", "high": 1.5, "medium": 0.7},
-    "sp500": {"symbol": "^GSPC", "label": "S&P 500", "unit": "percent", "high": 1.2, "medium": 0.5},
-    "nasdaq": {"symbol": "^IXIC", "label": "Nasdaq", "unit": "percent", "high": 1.5, "medium": 0.7},
-    "usdbrl": {"symbol": "USDBRL=X", "label": "Dólar", "unit": "percent", "high": 1.0, "medium": 0.4},
-    "us10y": {"symbol": "^TNX", "label": "US Treasury 10Y", "unit": "percentage_points", "high": 0.10, "medium": 0.05},
+    "ibovespa": {"symbol": "^BVSP", "label": "Ibovespa", "unit": "percent", "high": 1.5, "medium": 0.7, "group": "indices"},
+    "sp500": {"symbol": "^GSPC", "label": "S&P 500", "unit": "percent", "high": 1.2, "medium": 0.5, "group": "indices"},
+    "nasdaq": {"symbol": "^IXIC", "label": "Nasdaq", "unit": "percent", "high": 1.5, "medium": 0.7, "group": "indices"},
+    "usdbrl": {"symbol": "USDBRL=X", "label": "Dólar", "unit": "percent", "high": 1.0, "medium": 0.4, "group": "cambio"},
+    "us10y": {"symbol": "^TNX", "label": "US Treasury 10Y", "unit": "percentage_points", "high": 0.10, "medium": 0.05, "group": "juros"},
     # No B3 futures feed is connected — DI Jan has no real source today.
     # Kept in the catalog (symbol=None) so MarketAgent reports it as an
     # explicit MOCK entry instead of silently omitting an indicator the
     # spec asked for.
-    "di": {"symbol": None, "label": "DI Jan (futuro)", "unit": "percentage_points", "high": 0.10, "medium": 0.05},
-    "gold": {"symbol": "GC=F", "label": "Ouro", "unit": "percent", "high": 1.5, "medium": 0.7},
-    "oil": {"symbol": "CL=F", "label": "Petróleo (WTI)", "unit": "percent", "high": 3.0, "medium": 1.5},
-    "copper": {"symbol": "HG=F", "label": "Cobre", "unit": "percent", "high": 2.0, "medium": 1.0},
+    "di": {"symbol": None, "label": "DI Jan (futuro)", "unit": "percentage_points", "high": 0.10, "medium": 0.05, "group": "juros"},
+    "gold": {"symbol": "GC=F", "label": "Ouro", "unit": "percent", "high": 1.5, "medium": 0.7, "group": "commodities"},
+    "oil": {"symbol": "CL=F", "label": "Petróleo (WTI)", "unit": "percent", "high": 3.0, "medium": 1.5, "group": "commodities"},
+    "copper": {"symbol": "HG=F", "label": "Cobre", "unit": "percent", "high": 2.0, "medium": 1.0, "group": "commodities"},
+}
+
+MARKET_GROUPS: dict[str, str] = {
+    "indices": "Índices",
+    "cambio": "Câmbio",
+    "commodities": "Commodities",
+    "juros": "Juros",
 }

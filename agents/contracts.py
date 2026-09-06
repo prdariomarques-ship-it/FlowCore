@@ -43,12 +43,20 @@ class MarketMovement:
     unit: Literal["percent", "percentage_points"]
     relevance: Relevance
     source: Literal["live", "MOCK"]
+    group: str = ""
+    # Real daily closes (oldest first) from
+    # runtime.observers.providers.yfinance_provider.fetch_history(), used
+    # for the dashboard's sparkline — never a fabricated trend. Empty when
+    # the history fetch itself is unavailable (e.g. source == "MOCK", or a
+    # live fetch failure) rather than a guessed shape.
+    history: list[float] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "asset": self.asset, "previous_value": self.previous_value,
             "current_value": self.current_value, "change": self.change,
             "unit": self.unit, "relevance": self.relevance, "source": self.source,
+            "group": self.group, "history": self.history,
         }
 
 

@@ -10,12 +10,25 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import patch
 
+import pytest
+
 from agents.market_agent import MarketAgent
 from config.market_thresholds import MARKET_THRESHOLDS
 
 
 def _run(coro):
     return asyncio.run(coro)
+
+
+@pytest.fixture(autouse=True)
+def _no_real_history_fetch():
+    """_build_movements() now also fetches a short real price history per
+    symbol (for the dashboard sparkline) via fetch_history() — mock it the
+    same way watchlist.snapshot() is mocked above, at the network seam,
+    so these tests stay fast/deterministic. Tests that care about history
+    content override this with their own inner patch."""
+    with patch("runtime.observers.providers.yfinance_provider.fetch_history", return_value=[]):
+        yield
 
 
 def _fake_snapshot(items: dict[str, dict]) -> dict:
@@ -107,6 +120,38 @@ class TestMarketStatus:
         with patch("runtime.market_intelligence.watchlist.snapshot", return_value=items):
             result = _run(MarketAgent().run())
         assert result["data"]["market_status"] == "ALERT"
+
+
+class TestGroupField:
+    def test_every_movement_carries_its_configured_group(self):
+        result = _run(MarketAgent().run())
+        by_asset = {m["asset"]: m for m in result["data"]["movements"]}
+        for cfg in MARKET_THRESHOLDS.values():
+            assert by_asset[cfg["label"]]["group"] == cfg["group"]
+
+
+class TestHistoryField:
+    def test_history_populated_from_real_fetch(self):
+        items = _fake_snapshot({"^GSPC": {"level": 5000.0, "delta_pct_1d": 0.2, "status": "ok"}})
+        closes = [4950.0, 4960.0, 4980.0, 5000.0]
+        with patch("runtime.market_intelligence.watchlist.snapshot", return_value=items), \
+             patch("runtime.observers.providers.yfinance_provider.fetch_history", return_value=closes):
+            result = _run(MarketAgent().run())
+        sp500 = next(m for m in result["data"]["movements"] if m["asset"] == "S&P 500")
+        assert sp500["history"] == closes
+
+    def test_history_empty_when_fetch_fails(self):
+        # Autouse fixture already mocks fetch_history to return [] — this
+        # documents that a failed/unavailable history degrades to an empty
+        # list rather than raising or fabricating points.
+        result = _run(MarketAgent().run())
+        sp500 = next(m for m in result["data"]["movements"] if m["asset"] == "S&P 500")
+        assert sp500["history"] == []
+
+    def test_mock_indicator_never_gets_a_fetched_history(self):
+        result = _run(MarketAgent().run())
+        di = next(m for m in result["data"]["movements"] if m["asset"] == "DI Jan (futuro)")
+        assert di["history"] == []
 
 
 class TestAgentContract:

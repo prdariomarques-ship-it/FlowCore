@@ -332,6 +332,24 @@ details.mi>summary::marker{display:none}
   .dw-chat-chip{display:block;width:100%;text-align:left;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-size:11px;padding:8px 10px;border-radius:8px;margin-bottom:6px;cursor:pointer}
   .dw-chat-chip:hover{border-color:var(--accent);color:var(--text)}
 
+  .dw-grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px}
+  .dw-tabs{display:flex;gap:4px;margin-bottom:10px;border-bottom:1px solid var(--border)}
+  .dw-tab{background:none;border:none;color:var(--text2);font-size:11px;font-weight:600;padding:6px 10px;cursor:pointer;border-bottom:2px solid transparent}
+  .dw-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+  .dw-spark{vertical-align:middle}
+  .mini-list-item{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:11px}
+  .mini-list-item:last-child{border-bottom:none}
+  .mini-list-item b{display:block;font-size:12px}
+  .mini-list-item span{color:var(--text2)}
+  .mini-list-tag{font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0;height:fit-content}
+
+  .donut-wrap{display:flex;align-items:center;gap:14px}
+  .donut-legend{flex:1;font-size:11px}
+  .donut-legend-item{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+  .donut-legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .donut-legend-item b{margin-left:auto}
+  .donut-profile{font-size:11px;color:var(--text2);margin-top:8px;text-align:center}
+
   .wrap{max-width:100%;margin:0;padding:0}
   .mobile-only{display:none}
   .desktop-only{display:block}
@@ -406,37 +424,48 @@ details.mi>summary::marker{display:none}
             <div id="dw-alerts-table"><div class="sk"></div><div class="sk"></div></div>
           </div>
           <div class="card">
-            <div class="ch"><span class="ct">Movimentos de Mercado</span><span class="dw-link" onclick="pg('news',document.getElementById('sb-news'),true)">Ver mais →</span></div>
+            <div class="ch"><span class="ct">Inteligência de Mercado</span><span class="dw-link" onclick="pg('news',document.getElementById('sb-news'),true)">Ver mais →</span></div>
+            <div class="dw-tabs" id="dw-market-tabs">
+              <button class="dw-tab active" data-group="indices" onclick="setDwMarketGroup('indices')">Índices</button>
+              <button class="dw-tab" data-group="cambio" onclick="setDwMarketGroup('cambio')">Câmbio</button>
+              <button class="dw-tab" data-group="commodities" onclick="setDwMarketGroup('commodities')">Commodities</button>
+              <button class="dw-tab" data-group="juros" onclick="setDwMarketGroup('juros')">Juros</button>
+            </div>
             <div id="dw-market-table"><div class="sk"></div><div class="sk"></div></div>
           </div>
           <div class="card">
-            <div class="ch"><span class="ct">Resumo de Inteligência</span></div>
-            <div id="dw-intel-summary"><div class="sk"></div><div class="sk"></div></div>
-          </div>
-        </div>
-
-        <div class="dw-grid3">
-          <div class="card">
-            <div class="ch"><span class="ct">O que mudou?</span><span class="dw-link" onclick="pg('ai',document.getElementById('sb-ai'),true)">Ver análise completa →</span></div>
-            <div id="dw-what-changed"><div class="sk"></div><div class="sk"></div></div>
-          </div>
-          <div class="card">
-            <div class="ch"><span class="ct">Carteiras mais impactadas</span><span class="dw-link" onclick="pg('portfolio',document.getElementById('sb-portfolio'),true)">Ver todas →</span></div>
-            <div id="dw-impacted"><div class="sk"></div><div class="sk"></div></div>
-          </div>
-          <div class="card">
-            <div class="ch"><span class="ct">Chat com o FlowCore</span></div>
+            <div class="ch"><span class="ct">Assistente IA</span></div>
             <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Pergunte sobre a carteira, mercado, alertas ou peça uma análise.</div>
             <div id="dw-chat-chips">
               <button class="dw-chat-chip" onclick="dwAsk('O que mudou no mercado hoje?')">💬 O que mudou no mercado hoje?</button>
               <button class="dw-chat-chip" onclick="dwAsk('Quais clientes estão desenquadrados hoje?')">💬 Quais clientes estão desenquadrados hoje?</button>
               <button class="dw-chat-chip" onclick="dwAsk('Explique o último override.')">💬 Explique o último override.</button>
               <button class="dw-chat-chip" onclick="dwAsk('O que devo priorizar hoje?')">💬 O que devo priorizar hoje?</button>
+              <button class="dw-chat-chip" onclick="dwAsk('Quais carteiras merecem atenção?')">💬 Quais carteiras merecem atenção?</button>
             </div>
             <div class="ir" style="margin-top:8px;margin-bottom:0">
               <input class="if" id="dw-chat-inp" placeholder="Digite sua pergunta..." onkeydown="if(event.key==='Enter')dwAsk(this.value)">
               <button class="bs2" onclick="dwAsk(document.getElementById('dw-chat-inp').value)">➤</button>
             </div>
+          </div>
+        </div>
+
+        <div class="dw-grid4">
+          <div class="card">
+            <div class="ch"><span class="ct">Recalibração</span></div>
+            <div id="dw-recalibrate-list"><div class="sk"></div><div class="sk"></div></div>
+          </div>
+          <div class="card">
+            <div class="ch"><span class="ct">Override</span></div>
+            <div id="dw-override-list"><div class="sk"></div><div class="sk"></div></div>
+          </div>
+          <div class="card">
+            <div class="ch"><span class="ct">Prioridades do Dia</span><span class="dw-link" onclick="pg('portfolio',document.getElementById('sb-portfolio'),true)">Ver todas →</span></div>
+            <div id="dw-impacted"><div class="sk"></div><div class="sk"></div></div>
+          </div>
+          <div class="card">
+            <div class="ch"><span class="ct">Risco da Carteira Agregada</span></div>
+            <div id="dw-risk"><div class="sk"></div><div class="sk"></div></div>
           </div>
         </div>
       </div>
@@ -1389,17 +1418,18 @@ function loadDashboardOverview(){
   });
 
   api('/api/market').then(renderDwMarketTable).catch(()=>renderDwMarketTable(null));
+  api('/api/portfolio/risk-breakdown').then(renderDwRisk).catch(()=>renderDwRisk(null));
 
   api('/api/intelligence').then(intel=>{
     document.getElementById('kpi-override').textContent=intel.override;
     document.getElementById('kpi-recalibrate').textContent=intel.recalibrate;
-    renderDwIntelSummary(intel);
-    renderDwWhatChanged(intel);
+    renderDwEventList('dw-recalibrate-list', intel, 'RECALIBRATE', '✅ Nenhuma recalibração no momento.');
+    renderDwEventList('dw-override-list', intel, 'OVERRIDE', '✅ Nenhum override no momento.');
   }).catch(()=>{
     document.getElementById('kpi-override').textContent='—';
     document.getElementById('kpi-recalibrate').textContent='—';
-    renderDwIntelSummary(null);
-    renderDwWhatChanged(null);
+    renderDwEventList('dw-recalibrate-list', null, 'RECALIBRATE', 'Indisponível.');
+    renderDwEventList('dw-override-list', null, 'OVERRIDE', 'Indisponível.');
   });
 
   api('/api/priorities').then(renderDwImpacted).catch(()=>renderDwImpacted(null));
@@ -1419,45 +1449,84 @@ function renderDwAlertsTable(alerts){
   box.innerHTML=html+'</table>';
 }
 
+let _dwMarketData=null;
+let _dwMarketGroup='indices';
+
+function sparklineSvg(history, up){
+  // Real daily closes only (agents/market_agent.py's fetch_history) — an
+  // indicator with no usable history (fetch failed, or the MOCK entry,
+  // which never gets one) just renders no sparkline. Never a fabricated
+  // curve from a single data point.
+  if(!history||history.length<2) return '';
+  const w=56,h=20,pad=2;
+  const min=Math.min(...history),max=Math.max(...history);
+  const range=(max-min)||1;
+  const step=(w-pad*2)/(history.length-1);
+  const points=history.map((v,i)=>`${(pad+i*step).toFixed(1)},${(h-pad-((v-min)/range)*(h-pad*2)).toFixed(1)}`).join(' ');
+  const color=up?'var(--green)':'var(--red)';
+  return `<svg class="dw-spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5"/></svg>`;
+}
+
+function setDwMarketGroup(group){
+  _dwMarketGroup=group;
+  document.querySelectorAll('#dw-market-tabs .dw-tab').forEach(b=>b.classList.toggle('active', b.dataset.group===group));
+  renderDwMarketTable(_dwMarketData);
+}
+
 function renderDwMarketTable(market){
+  if(market!==undefined) _dwMarketData=market;
+  market=_dwMarketData;
   const box=document.getElementById('dw-market-table');
   if(!market||!market.movements||!market.movements.length){
     box.innerHTML='<div class="dw-empty">Mercado indisponível.</div>';
     return;
   }
-  let html='<table class="dw-table"><tr><th>Ativo</th><th>Valor</th><th>Variação</th></tr>';
+  const rows=market.movements.filter(m=>m.group===_dwMarketGroup);
+  let html='<table class="dw-table"><tr><th>Ativo</th><th>Valor</th><th>Variação</th><th>Hoje</th></tr>';
   let any=false;
-  for(const m of market.movements){
+  for(const m of rows){
     if(m.current_value==null) continue;
     any=true;
     const up=(m.change||0)>=0;
     const unit=m.unit==='percentage_points'?'p.p.':'%';
     const mockTag=m.source==='MOCK'?' <span class="tag ty" style="font-size:9px">MOCK</span>':'';
-    html+=`<tr><td>${escapeHtml(m.asset)}${mockTag}</td><td>${m.current_value.toFixed(2)}</td><td style="color:${up?'var(--green)':'var(--red)'}">${up?'▲':'▼'} ${Math.abs(m.change).toFixed(2)}${unit}</td></tr>`;
+    html+=`<tr><td>${escapeHtml(m.asset)}${mockTag}</td><td>${m.current_value.toFixed(2)}</td><td style="color:${up?'var(--green)':'var(--red)'}">${up?'▲':'▼'} ${Math.abs(m.change).toFixed(2)}${unit}</td><td>${sparklineSvg(m.history,up)}</td></tr>`;
   }
-  box.innerHTML=any?(html+'</table>'):'<div class="dw-empty">Sem dados de mercado no momento (fonte indisponível).</div>';
+  box.innerHTML=any?(html+'</table>'):'<div class="dw-empty">Sem dados de mercado nesta categoria (fonte indisponível).</div>';
 }
 
-function renderDwIntelSummary(intel){
-  const box=document.getElementById('dw-intel-summary');
-  if(!intel){box.innerHTML='<div class="dw-empty">Indisponível.</div>';return;}
-  const row=(icon,bg,color,label,n)=>`<div class="intel-mini"><div class="intel-mini-icon" style="background:${bg};color:${color}">${icon}</div><div><div class="intel-mini-title">${label}</div><div class="intel-mini-sub">${n} evento${n===1?'':'s'}</div></div></div>`;
-  box.innerHTML=
-    row('🔴','rgba(239,68,68,.15)','var(--red)','Override',intel.override)+
-    row('🟡','rgba(245,158,11,.15)','var(--yellow)','Recalibração',intel.recalibrate)+
-    row('🟢','rgba(16,185,129,.15)','var(--green)','Neutro',intel.neutral);
-}
-
-function renderDwWhatChanged(intel){
-  const box=document.getElementById('dw-what-changed');
-  const relevant=(intel&&intel.events||[]).filter(e=>e.status!=='NEUTRAL');
-  if(!relevant.length){box.innerHTML='<div class="dw-empty">✅ Nenhuma mudança relevante detectada.</div>';return;}
+function renderDwEventList(boxId, intel, status, emptyMsg){
+  const box=document.getElementById(boxId);
+  if(!intel){box.innerHTML=`<div class="dw-empty">${emptyMsg}</div>`;return;}
+  const events=(intel.events||[]).filter(e=>e.status===status);
+  if(!events.length){box.innerHTML=`<div class="dw-empty">${emptyMsg}</div>`;return;}
   let html='';
-  for(const e of relevant.slice(0,6)){
-    const color=e.status==='OVERRIDE'?'var(--red)':'var(--yellow)';
-    html+=`<div class="timeline-item"><div class="timeline-dot" style="background:${color}"></div><div class="timeline-text"><b>${e.status}</b><span>${escapeHtml(e.reason)}</span></div></div>`;
+  for(const e of events.slice(0,6)){
+    const portfolios=(e.affected_portfolios||[]).join(', ');
+    html+=`<div class="mini-list-item"><div><b>${escapeHtml(e.reason)}</b>${portfolios?`<span>${escapeHtml(portfolios)}</span>`:''}</div></div>`;
   }
   box.innerHTML=html;
+}
+
+function renderDwRisk(risk){
+  const box=document.getElementById('dw-risk');
+  if(!risk||!risk.categories||!risk.categories.length){
+    box.innerHTML='<div class="dw-empty">Sem alocação configurada para calcular o risco agregado.</div>';
+    return;
+  }
+  const colors=['#00d4ff','#10b981','#f59e0b','#a78bfa'];
+  const total=risk.categories.reduce((s,c)=>s+c.weight,0)||1;
+  let acc=0;
+  const stops=risk.categories.map((c,i)=>{
+    const start=acc/total*100; acc+=c.weight;
+    const end=acc/total*100;
+    return `${colors[i%colors.length]} ${start.toFixed(1)}% ${end.toFixed(1)}%`;
+  }).join(', ');
+  const legend=risk.categories.map((c,i)=>
+    `<div class="donut-legend-item"><div class="donut-legend-dot" style="background:${colors[i%colors.length]}"></div>${escapeHtml(c.label)}<b>${c.weight.toFixed(1)}%</b></div>`
+  ).join('');
+  const sourceLabel=risk.source==='current_allocation'?'posição atual':'alocação-alvo (sem posição atual)';
+  box.innerHTML=`<div class="donut-wrap"><div style="width:84px;height:84px;border-radius:50%;background:conic-gradient(${stops});flex-shrink:0"></div><div class="donut-legend">${legend}</div></div><div class="donut-profile">Perfil: ${escapeHtml(risk.profile||'—')} · ${sourceLabel}</div>`;
 }
 
 function renderDwImpacted(prio){

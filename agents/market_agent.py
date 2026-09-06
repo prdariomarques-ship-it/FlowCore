@@ -20,12 +20,15 @@ means for any portfolio — that is IntelligenceEngine's job (MVP2 phase 2).
 from __future__ import annotations
 
 import asyncio
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
 from typing import Any
 
 from agents.base import BaseAgent
 from agents.contracts import MarketMovement, MarketSnapshot
 from config.market_thresholds import MARKET_THRESHOLDS
+
+_HISTORY_DAYS = 10
 
 # DI Jan example values — clearly not live data (symbol=None in
 # MARKET_THRESHOLDS is the source of truth for "no real feed exists");
@@ -85,6 +88,9 @@ class MarketAgent(BaseAgent):
 
         live = snapshot("default")
         by_symbol = {item["symbol"]: item for item in live.get("items", [])}
+        histories = self._fetch_histories(
+            [cfg["symbol"] for cfg in MARKET_THRESHOLDS.values() if cfg["symbol"] is not None]
+        )
 
         movements: list[MarketMovement] = []
         for key, cfg in MARKET_THRESHOLDS.items():
@@ -92,8 +98,34 @@ class MarketAgent(BaseAgent):
                 movements.append(self._mock_movement(cfg))
                 continue
             item = by_symbol.get(cfg["symbol"])
-            movements.append(self._movement_from_watchlist_item(cfg, item))
+            movements.append(self._movement_from_watchlist_item(cfg, item, histories.get(cfg["symbol"], [])))
         return movements
+
+    @staticmethod
+    def _fetch_histories(symbols: list[str]) -> dict[str, list[float]]:
+        """Real recent daily closes per symbol, for the dashboard sparkline.
+
+        Best-effort and never fatal: a symbol whose history fetch fails
+        (network, delisted-looking response from Yahoo, etc.) just gets an
+        empty list — the sparkline is omitted for that row rather than a
+        request failure sinking the whole /api/market response, same
+        degrade-gracefully approach watchlist.snapshot() already uses for
+        quotes.
+        """
+        from runtime.observers.providers.yfinance_provider import fetch_history
+
+        out: dict[str, list[float]] = {}
+        if not symbols:
+            return out
+        with ThreadPoolExecutor(max_workers=min(8, len(symbols))) as executor:
+            futures = {executor.submit(fetch_history, s, _HISTORY_DAYS, 8.0): s for s in symbols}
+            for future in as_completed(futures):
+                symbol = futures[future]
+                try:
+                    out[symbol] = future.result()
+                except Exception:
+                    out[symbol] = []
+        return out
 
     @staticmethod
     def _mock_movement(cfg: dict) -> MarketMovement:
@@ -102,14 +134,16 @@ class MarketAgent(BaseAgent):
         return MarketMovement(
             asset=cfg["label"], previous_value=_DI_MOCK_PREVIOUS, current_value=_DI_MOCK_CURRENT,
             change=change, unit=cfg["unit"], relevance=relevance, source="MOCK",
+            group=cfg.get("group", ""),
         )
 
     @staticmethod
-    def _movement_from_watchlist_item(cfg: dict, item: dict | None) -> MarketMovement:
+    def _movement_from_watchlist_item(cfg: dict, item: dict | None, history: list[float]) -> MarketMovement:
         if item is None or item.get("status") != "ok" or item.get("level") is None:
             return MarketMovement(
                 asset=cfg["label"], previous_value=None, current_value=None,
                 change=None, unit=cfg["unit"], relevance="LOW", source="live",
+                group=cfg.get("group", ""),
             )
         current = item["level"]
         delta_pct = item.get("delta_pct_1d")
@@ -132,4 +166,5 @@ class MarketAgent(BaseAgent):
         return MarketMovement(
             asset=cfg["label"], previous_value=previous, current_value=current,
             change=change, unit=cfg["unit"], relevance=relevance, source="live",
+            group=cfg.get("group", ""), history=history,
         )
