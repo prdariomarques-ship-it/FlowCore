@@ -506,11 +506,11 @@ details.mi>summary::marker{display:none}
 
       <!-- Flows -->
       <div class="card">
-        <div class="ch">
-          <div><span class="ct">Flows</span><div class="flow-subtitle">Automatize tarefas combinando agentes</div></div>
-          <button class="btn-sm" onclick="openFlowBuilder()">＋ Criar Flow</button>
+        <div class="ch" style="cursor:pointer" onclick="toggleCollapsible('flow-cards','flow-cards-chevron','flex')">
+          <div><span class="ct"><span id="flow-cards-chevron">▸</span> Flows</span><div class="flow-subtitle">Automatize tarefas combinando agentes</div></div>
+          <button class="btn-sm" onclick="event.stopPropagation();openFlowBuilder()">＋ Criar Flow</button>
         </div>
-        <div id="flow-cards" style="display:flex;flex-direction:column;gap:8px">
+        <div id="flow-cards" style="display:none;flex-direction:column;gap:8px">
           <div class="sk" style="height:42px"></div>
         </div>
       </div>
