@@ -9,6 +9,11 @@ pydantic-settings>=2.1.0,<3.0.0
 httpx>=0.25.0,<1.0.0
 sqlalchemy>=2.0.0,<3.0.0
 
+# In-process scheduler for the autonomous Agent Runtime's background
+# observation loop (agents/observer_loop.py, wired in api/router.py's
+# create_app()) — pure Python, no compiled extension, safe on Termux.
+apscheduler>=3.10.0,<4.0.0
+
 # Dados de mercado para observadores, dashboard e briefing Telegram
 # Upper bound intencional: yfinance>=0.2.60 passou a exigir curl_cffi (extensão
 # compilada em Rust/C) como dependência obrigatória. curl_cffi não publica wheel

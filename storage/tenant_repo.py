@@ -148,7 +148,22 @@ class TenantRepository:
             await db.execute("CREATE INDEX IF NOT EXISTS idx_users_office ON users(office_id)")
             await db.execute("CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)")
             await db.execute("CREATE INDEX IF NOT EXISTS idx_login_attempts_email ON login_attempts(email, attempted_at)")
+            await self._ensure_notification_columns(db)
             await db.commit()
+
+    @staticmethod
+    async def _ensure_notification_columns(db: aiosqlite.Connection) -> None:
+        """telegram_chat_id added after the initial `offices` table shipped
+        -- migrate in place (mirrors storage/client_repo.py's
+        _ensure_contact_columns). One shared bot token (TELEGRAM_BOT_TOKEN
+        env var, runtime/telegram.py) sends to many chats -- each office
+        registers its own destination chat_id here so autonomous-agent
+        notifications land in that office's own chat, never a single
+        shared/global one."""
+        cursor = await db.execute("PRAGMA table_info(offices)")
+        existing = {row[1] for row in await cursor.fetchall()}
+        if "telegram_chat_id" not in existing:
+            await db.execute("ALTER TABLE offices ADD COLUMN telegram_chat_id TEXT")
 
     # ── Offices ─────────────────────────────────────────────────────────────
 
@@ -159,7 +174,7 @@ class TenantRepository:
         async with aiosqlite.connect(self._db_path) as db:
             await db.execute("INSERT INTO offices (id, name, created_at) VALUES (?, ?, ?)", (office_id, name, now))
             await db.commit()
-        return {"id": office_id, "name": name, "created_at": now}
+        return {"id": office_id, "name": name, "created_at": now, "telegram_chat_id": None}
 
     async def count_offices(self) -> int:
         await self.ensure_tables()
@@ -171,16 +186,33 @@ class TenantRepository:
     async def get_office(self, office_id: str) -> dict[str, Any] | None:
         await self.ensure_tables()
         async with aiosqlite.connect(self._db_path) as db:
-            cursor = await db.execute("SELECT id, name, created_at FROM offices WHERE id = ?", (office_id,))
+            cursor = await db.execute(
+                "SELECT id, name, created_at, telegram_chat_id FROM offices WHERE id = ?", (office_id,)
+            )
             row = await cursor.fetchone()
-            return {"id": row[0], "name": row[1], "created_at": row[2]} if row else None
+            return {"id": row[0], "name": row[1], "created_at": row[2], "telegram_chat_id": row[3]} if row else None
 
     async def list_offices(self) -> list[dict[str, Any]]:
         await self.ensure_tables()
         async with aiosqlite.connect(self._db_path) as db:
-            cursor = await db.execute("SELECT id, name, created_at FROM offices ORDER BY created_at ASC")
+            cursor = await db.execute(
+                "SELECT id, name, created_at, telegram_chat_id FROM offices ORDER BY created_at ASC"
+            )
             rows = await cursor.fetchall()
-            return [{"id": r[0], "name": r[1], "created_at": r[2]} for r in rows]
+            return [{"id": r[0], "name": r[1], "created_at": r[2], "telegram_chat_id": r[3]} for r in rows]
+
+    async def set_telegram_chat_id(self, office_id: str, chat_id: str | None) -> dict[str, Any] | None:
+        """Set (or clear, by passing None/empty) the office's own Telegram
+        destination for autonomous-agent notifications. Never inferred --
+        an office with none configured simply gets no Telegram alert (see
+        agents/orchestrator.py, which checks this before sending)."""
+        await self.ensure_tables()
+        async with aiosqlite.connect(self._db_path) as db:
+            await db.execute(
+                "UPDATE offices SET telegram_chat_id = ? WHERE id = ?", (chat_id or None, office_id)
+            )
+            await db.commit()
+        return await self.get_office(office_id)
 
     # ── Users ───────────────────────────────────────────────────────────────
 

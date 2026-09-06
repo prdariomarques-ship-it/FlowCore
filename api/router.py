@@ -71,6 +71,7 @@ Endpoints (Dashboard v4 — AI, market, portfolio, integrations):
 from __future__ import annotations
 
 import json
+import os
 import time
 import uuid
 from pathlib import Path
@@ -757,5 +758,52 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     # ── Dashboard v4 routes (AI, market, portfolio, integrations) ──────────
     from api.dashboard_routes import register_dashboard_routes
     register_dashboard_routes(app, version)
+
+    # ── Autonomous Agent Runtime: background observation loop ──────────────
+    # Runs inside this same long-lived `flowcore.py serve` process -- not a
+    # separate cron entry, not dependent on any browser tab being open (see
+    # agents/observer_loop.py's docstring). Opt-out via
+    # FLOWCORE_AUTONOMOUS_AGENTS=0, matching FLOWCORE_AUTO_INGEST's existing
+    # convention (runtime/core.py). Interval configurable via
+    # FLOWCORE_AGENT_OBSERVE_INTERVAL_SECONDS (default 300s).
+    #
+    # Never for version=="test": every test in this suite calls
+    # create_app(version="test") -- some of them hundreds of times across
+    # the run -- and a real APScheduler background thread per instance
+    # would leak threads and, once the loop actually fired, hit live
+    # ComplianceAgent/market calls during unrelated tests. This sentinel
+    # is the same one used implicitly everywhere else in this suite.
+    if version != "test" and os.environ.get("FLOWCORE_AUTONOMOUS_AGENTS", "1") != "0":
+        try:
+            from scheduler.service import SchedulerService
+            app.state.agent_scheduler = SchedulerService(timezone="UTC")
+        except ImportError as exc:
+            # apscheduler missing (see requirements-api.txt) -- degrade to
+            # "autonomous agents off" rather than taking down the whole API,
+            # matching this project's own "never crash, degrade honestly"
+            # rule (ComplianceAgent's SEM_POSICAO_ATUAL, _market_unavailable,
+            # ...). Logged loudly because a silent skip here would look
+            # exactly like "it's working" from the outside.
+            logger.warning(
+                "Autonomous agent scheduler disabled — {} (run: pip install apscheduler)", exc,
+            )
+            app.state.agent_scheduler = None
+
+        if app.state.agent_scheduler is not None:
+            @app.on_event("startup")
+            async def _start_agent_scheduler() -> None:
+                from agents.observer_loop import observe_and_dispatch
+                from service import _llm_router
+
+                interval = int(os.environ.get("FLOWCORE_AGENT_OBSERVE_INTERVAL_SECONDS", "300"))
+                await app.state.agent_scheduler.start()
+                app.state.agent_scheduler.add_interval_task(
+                    "agent_observer_loop", interval, observe_and_dispatch, kwargs={"llm_router": _llm_router},
+                )
+                logger.info("Autonomous agent observer loop scheduled every {}s", interval)
+
+            @app.on_event("shutdown")
+            async def _stop_agent_scheduler() -> None:
+                await app.state.agent_scheduler.stop()
 
     return app

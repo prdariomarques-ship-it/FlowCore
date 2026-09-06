@@ -34,6 +34,33 @@ class TestOffices:
         assert office["name"] == "Escritório Teste"
         assert fetched == office
 
+    def test_new_office_has_no_telegram_chat_id_by_default(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            return await repo.create_office("Escritório Teste")
+
+        office = asyncio.run(scenario())
+        assert office["telegram_chat_id"] is None
+
+    def test_set_and_read_back_telegram_chat_id(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            office = await repo.create_office("Escritório Teste")
+            return await repo.set_telegram_chat_id(office["id"], "-100123456")
+
+        updated = asyncio.run(scenario())
+        assert updated["telegram_chat_id"] == "-100123456"
+
+    def test_clear_telegram_chat_id(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            office = await repo.create_office("Escritório Teste")
+            await repo.set_telegram_chat_id(office["id"], "-100123456")
+            return await repo.set_telegram_chat_id(office["id"], None)
+
+        cleared = asyncio.run(scenario())
+        assert cleared["telegram_chat_id"] is None
+
     def test_count_offices(self, tmp_path):
         async def scenario():
             repo = _repo(tmp_path)

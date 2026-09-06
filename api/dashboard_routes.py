@@ -324,6 +324,14 @@ class ReviewRequestSend(BaseModel):
     channels: list[str] = ["email", "whatsapp"]
 
 
+class OfficeNotificationsUpdate(BaseModel):
+    """The office's own Telegram destination for autonomous-agent
+    notifications (agents/orchestrator.py). None/empty clears it -- an
+    office with none configured simply gets no autonomous Telegram
+    alert, never a fabricated delivery."""
+    telegram_chat_id: str | None = None
+
+
 class AdvisorProfileUpdate(BaseModel):
     """Partial update for the dashboard's advisor card — same
     partial-merge convention as AIConfig/ai_config_patch. Deliberately no
@@ -1277,6 +1285,36 @@ def register_dashboard_routes(app, version: str) -> None:
             "health": _COMPLIANCE_TO_HEALTH.get(compliance_status, compliance_status),
             "outreach_history": outreach_history(office_id, client_id),
         }
+
+    # ── Autonomous Agent Runtime observability + notification config ────────
+    # §18 of the Agent Runtime architecture: an advisor must be able to see
+    # what the autonomous agents have actually done, not just trust that
+    # something happened in the background. Read-only -- the events
+    # themselves are only ever created by agents/observer_loop.py.
+
+    @app.get("/api/agent-events")
+    async def agent_events_list(request: Request, status: str | None = Query(default=None), limit: int = Query(default=50, le=200)):
+        from storage.agent_event_repo import AgentEventRepository
+
+        user = await get_current_user(request)
+        events = await AgentEventRepository().list_events(user["office_id"], status=status, limit=limit)
+        return {"total": len(events), "items": events}
+
+    @app.get("/api/office/notifications")
+    async def office_notifications_get(request: Request):
+        from storage.tenant_repo import TenantRepository
+
+        user = await get_current_user(request)
+        office = await TenantRepository().get_office(user["office_id"])
+        return {"telegram_chat_id": office["telegram_chat_id"] if office else None}
+
+    @app.put("/api/office/notifications")
+    async def office_notifications_put(data: OfficeNotificationsUpdate, request: Request):
+        from storage.tenant_repo import TenantRepository
+
+        user = await get_current_user(request)
+        office = await TenantRepository().set_telegram_chat_id(user["office_id"], data.telegram_chat_id)
+        return {"saved": True, "telegram_chat_id": office["telegram_chat_id"] if office else None}
 
     @app.get("/api/portfolio/risk-breakdown")
     async def portfolio_risk_breakdown(request: Request):
