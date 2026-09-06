@@ -255,6 +255,17 @@ details.mi>summary::marker{display:none}
   <!-- ══ VISÃO FINANCEIRA ══ -->
   <div class="page active" id="page-home">
     <div class="gap">
+      <!-- Alertas de Desenquadramento -->
+      <div class="card" id="alerts-card">
+        <div class="ch">
+          <span class="ct">ALERTAS DE DESENQUADRAMENTO</span>
+          <span class="tag tr" id="alerts-count-badge">A carregar…</span>
+        </div>
+        <div id="alerts-list">
+          <div class="sk"></div>
+        </div>
+      </div>
+
       <div class="card">
         <div class="ch"><span class="ct">Visão financeira</span><span class="tag ty">Referência</span></div>
         <div class="metric-grid">
@@ -407,62 +418,9 @@ details.mi>summary::marker{display:none}
     </div>
   </div>
 
-  <!-- ══ AGENTES AUTÔNOMOS E AÇÕES ══ -->
+  <!-- ══ AGENTES ══ -->
   <div class="page" id="page-agents">
     <div class="gap">
-
-      <!-- Real-time Agent Activity Feed -->
-      <div class="card" id="agent-activity-card">
-        <div class="ch">
-          <span class="ct">Atividade em Tempo Real (Agent Runs)</span>
-          <button class="btn-sm" onclick="loadAgentRuns()">↻ Atualizar</button>
-        </div>
-        <div id="agent-activity-feed" style="max-height:200px;overflow-y:auto;font-size:12px;display:flex;flex-direction:column;gap:6px">
-          <div class="sk"></div>
-        </div>
-      </div>
-
-      <!-- Pending Approvals (Human-in-the-Loop) -->
-      <div class="card" id="approvals-card">
-        <div class="ch">
-          <span class="ct">Aprovações Pendentes (Human-In-The-Loop)</span>
-          <button class="btn-sm" onclick="loadApprovals()">↻</button>
-        </div>
-        <div id="approvals-list" style="display:flex;flex-direction:column;gap:8px">
-          <div class="sk"></div>
-        </div>
-      </div>
-
-      <!-- AI Token & Cost Metrics -->
-      <div class="card" id="ai-cost-card">
-        <div class="ch">
-          <span class="ct">Métricas de Execução e Custo (DeepSeek)</span>
-          <button class="btn-sm" onclick="loadAiCosts()">↻</button>
-        </div>
-        <div class="metric-grid">
-          <div class="metric"><small>Custo Estimado (USD)</small><strong id="cost-val">$0.00</strong></div>
-          <div class="metric"><small>Total de Tokens</small><strong id="tokens-val">0</strong></div>
-        </div>
-      </div>
-
-      <!-- Manual Event Trigger -->
-      <div class="card" id="trigger-event-card">
-        <div class="ch"><span class="ct">Publicar Evento Manual</span><span class="ci">⚡</span></div>
-        <div class="ir">
-          <input class="if" id="evt-type-inp" placeholder="Tipo de evento (ex: CLIENT_WITHDRAWAL)">
-          <input class="if" id="evt-entity-inp" placeholder="Cliente ID (ex: cli_001)">
-          <button class="bs2" onclick="triggerManualEvent()">➤</button>
-        </div>
-      </div>
-
-      <!-- Alertas de Desenquadramento -->
-      <div class="card" id="alerts-card">
-        <div class="ch">
-          <span class="ct">Alertas de Desenquadramento</span>
-          <button class="btn-sm" onclick="loadAlerts()">↻</button>
-        </div>
-        <div id="alerts-list"><div class="sk"></div></div>
-      </div>
 
       <!-- Agent cards -->
       <div class="card">
@@ -559,7 +517,7 @@ function pg(name,btn){
   if(name==='notes') loadNotes();
   if(name==='news') loadNews();
   if(name==='chat') loadAiConfig();
-  if(name==='agents'){loadAgents();loadFlows();loadAgentRuns();loadApprovals();loadAiCosts();}
+  if(name==='agents'){loadAgents();loadFlows();}
   closeMoreMenu();
 }
 
@@ -603,6 +561,7 @@ async function api(path,opts={}){
 async function refresh(){
   const dot=document.getElementById('dot');
   loadMarketSnapshot();
+  loadAlerts();
   try{
     const [s,notes]=await Promise.all([
       api('/api/status'),
@@ -618,101 +577,52 @@ async function refresh(){
   }
 }
 
-/* ── Agent Platform Integration ── */
-async function loadAgentRuns(){
-  const feed=document.getElementById('agent-activity-feed');
-  if(!feed)return;
-  try{
-    const data=await api('/api/agent-runs?limit=15');
-    const runs=data.runs||[];
-    if(!runs.length){
-      feed.innerHTML='<div class="empty">Nenhuma atividade recente.</div>';
-      return;
-    }
-    feed.innerHTML=runs.reverse().map(r=>`
-      <div style="background:var(--bg3);padding:8px 10px;border-radius:8px;display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <strong style="color:var(--accent)">🟢 ${escapeHtml(r.agent_id)}</strong>
-          <div style="color:var(--text2);font-size:10px">${escapeHtml((r.decision||'').slice(0,60))}...</div>
-        </div>
-        <span class="tag tg">${r.status}</span>
-      </div>
-    `).join('');
-  }catch(e){
-    feed.innerHTML='<div class="empty">Erro ao carregar execuções.</div>';
-  }
-}
-
-async function loadApprovals(){
-  const list=document.getElementById('approvals-list');
-  if(!list)return;
-  try{
-    const data=await api('/api/approvals?pending_only=true');
-    const items=data.items||[];
-    if(!items.length){
-      list.innerHTML='<div class="empty" style="color:var(--green)">🟢 Nenhuma ação pendente de aprovação.</div>';
-      return;
-    }
-    list.innerHTML=items.map(a=>`
-      <div style="background:var(--bg3);padding:10px;border-radius:8px;border-left:3px solid var(--yellow)">
-        <div style="font-weight:700">${escapeHtml(a.title)}</div>
-        <div style="font-size:11px;color:var(--text2);margin:4px 0">${escapeHtml(a.description)}</div>
-        <div style="display:flex;gap:8px;margin-top:8px">
-          <button class="btn bg" onclick="resolveApproval('${a.id}',true)">[APROVAR]</button>
-          <button class="btn br" onclick="resolveApproval('${a.id}',false)">[IGNORAR]</button>
-        </div>
-      </div>
-    `).join('');
-  }catch(e){
-    list.innerHTML='<div class="empty">Erro ao carregar aprovações.</div>';
-  }
-}
-
-async function resolveApproval(id,approved){
-  try{
-    const endpoint=approved?`/api/approvals/${id}/approve`:`/api/approvals/${id}/reject`;
-    await api(endpoint,{method:'POST'});
-    toast(approved?'Ação aprovada ✓':'Ação rejeitada');
-    loadApprovals();
-  }catch(e){
-    toast('Erro: '+e.message);
-  }
-}
-
-async function loadAiCosts(){
-  try{
-    const data=await api('/api/ai-costs');
-    document.getElementById('cost-val').textContent='$'+(data.total_cost_usd||0).toFixed(4);
-    document.getElementById('tokens-val').textContent=data.total_tokens||0;
-  }catch(e){}
-}
-
-async function triggerManualEvent(){
-  const evtType=document.getElementById('evt-type-inp').value.trim();
-  const entity=document.getElementById('evt-entity-inp').value.trim()||'cli_001';
-  if(!evtType){
-    toast('Informe o tipo de evento');
-    return;
-  }
-  try{
-    await api('/api/events',{method:'POST',body:JSON.stringify({
-      event_type:evtType,
-      entity:entity,
-      payload:{source:'manual_dashboard'},
-      priority:'HIGH'
-    })});
-    toast('⚡ Evento publicado!');
-    document.getElementById('evt-type-inp').value='';
-    setTimeout(loadAgentRuns,1000);
-  }catch(e){
-    toast('Erro: '+e.message);
-  }
-}
-
-/* ── Mercado e macro ── */
+/* ── Mercado e macro — fontes públicas, sem valores sintetizados ── */
 function marketValue(value, suffix=''){
   return value===null||value===undefined?'Sem dados':new Intl.NumberFormat('pt-BR',{maximumFractionDigits:2}).format(value)+suffix;
 }
+async function loadAlerts(){
+  const badge = document.getElementById('alerts-count-badge');
+  const container = document.getElementById('alerts-list');
+  if(!container) return;
+  try {
+    const data = await api('/api/alerts');
+    if(!data || data.total === 0) {
+      if(badge) { badge.textContent = '0 carteiras desenquadradas'; badge.className = 'tag tg'; }
+      container.innerHTML = '<div class="empty">Nenhuma carteira desenquadrada. Tudo dentro dos limites.</div>';
+      return;
+    }
+    if(badge) {
+      badge.textContent = `${data.total} carteira${data.total > 1 ? 's' : ''} desenquadrada${data.total > 1 ? 's' : ''}`;
+      badge.className = data.critical > 0 ? 'tag tr' : 'tag ty';
+    }
+    let html = '';
+    data.items.forEach(item => {
+      const tagClass = item.severity === 'CRITICAL' ? 'tr' : 'ty';
+      const diffStr = item.diff > 0 ? `+${item.diff}p.p.` : `${item.diff}p.p.`;
+      html += `
+        <div class="row" style="padding:10px 0;border-bottom:1px solid var(--border)">
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+              <strong>${item.client_name}</strong>
+              <span class="tag ${tagClass}">${item.type}</span>
+            </div>
+            <div style="font-size:12px;color:var(--text2)">
+              ${item.current}% vs limite ${item.limit}% <span style="color:${item.severity==='CRITICAL'?'var(--red)':'var(--yellow)'};font-weight:600">(${diffStr})</span>
+            </div>
+            <div style="font-size:11px;color:var(--text2);margin-top:2px">${item.suggested_action}</div>
+          </div>
+          <button class="btn-sm" onclick="alert('${item.client_name}: ${item.message}')">Analisar</button>
+        </div>
+      `;
+    });
+    container.innerHTML = html;
+  } catch(e) {
+    if(badge) { badge.textContent = 'Erro ao carregar'; badge.className = 'tag tr'; }
+    container.innerHTML = '<div class="empty">Erro ao carregar alertas de compliance.</div>';
+  }
+}
+
 async function loadMarketSnapshot(){
   const set=(id,value)=>{const e=document.getElementById(id);if(e)e.textContent=value;};
   try{
@@ -737,6 +647,7 @@ function renderStatus(s){
   const caps=s.capabilities||{};
   const chks=s.doctor||[];
 
+  // Daemon (renderizado apenas na tela Admin)
   const d=s.daemon||{};
   const dState=document.getElementById('d-state');
   if(dState){
@@ -751,6 +662,7 @@ function renderStatus(s){
     }
   }
 
+  // Caps grid
   const cg=document.getElementById('caps-grid');
   cg.innerHTML='';
   for(const[n,a] of Object.entries(caps).sort()){
@@ -760,10 +672,12 @@ function renderStatus(s){
     cg.appendChild(el);
   }
 
+  // Doctor
   const icons={ok:'✅',warn:'⚠️',fail:'❌',skip:'─'};
   const cl=document.getElementById('chk-list');
   const summ=document.getElementById('chk-summary');
 
+  // Renderiza summary no topo (status geral claro)
   if(s.doctor_summary){
     const su=s.doctor_summary;
     summ.innerHTML=`<div style="font-size:16px;font-weight:bold;color:#d7e5f4;margin-bottom:8px">${su.summary_line||su.status_text}</div><div style="font-size:12px;color:#9cb0c9;gap:8px;display:flex;flex-wrap:wrap"><span style="background:#1a3a52;padding:4px 8px;border-radius:4px">${su.passed} OK</span><span style="background:#4a3a1a;padding:4px 8px;border-radius:4px">${su.warnings} Avisos</span><span style="background:#4a1a1a;padding:4px 8px;border-radius:4px">${su.failed} Problemas</span></div>`;
@@ -771,6 +685,7 @@ function renderStatus(s){
     summ.innerHTML='';
   }
 
+  // Renderiza checks detalhados (expandível)
   cl.innerHTML='';
   for(const c of chks){
     const el=document.createElement('div');
@@ -874,6 +789,7 @@ async function loadSys(){
 }
 
 function renderSys(s){
+  // Storage
   const sc=document.getElementById('sys-storage-card');
   const st=s.storage||{};
   sc.innerHTML=`<div class="ch"><span class="ct">Armazenamento /data</span><span class="ci">💾</span></div>`;
@@ -948,6 +864,7 @@ function escapeHtml(s){
   return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+/* Minimal markdown-lite renderer: headers, **bold**, [links](url), tables, hr, paragraphs. */
 function mdLite(text){
   const isSep=r=>/^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$/.test(r);
   const inline=s=>s.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
@@ -1077,61 +994,8 @@ function fup(s){
   return Math.floor(s/3600)+'h '+Math.floor(s%3600/60)+'m';
 }
 
-/* ── Alertas de Compliance ── */
-async function loadAlerts(){
-  const l=document.getElementById('alerts-list');
-  if(!l) return;
-  try{
-    const r=await api('/api/alerts');
-    renderAlertsList(r);
-  }catch(e){
-    l.innerHTML='<div class="empty">Não foi possível carregar alertas.</div>';
-  }
-}
-
-function renderAlertsList(r){
-  const l=document.getElementById('alerts-list');
-  if(!l) return;
-  const items=r.items||[];
-  if(!items.length){
-    l.innerHTML='<div class="empty" style="color:var(--green)">🟢 Nenhuma carteira desenquadrada. Tudo dentro dos limites.</div>';
-    return;
-  }
-  let html='';
-  if(r.critical>0){
-    html+=`<div style="margin-bottom:12px;padding:8px 12px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:8px;color:var(--red);font-weight:700;font-size:13px">🔴 ${r.critical} carteira(s) desenquadrada(s)</div>`;
-  }
-  for(const item of items){
-    const isCrit=item.severity==='CRITICAL';
-    const tagClass=isCrit?'tr':'ty';
-    const tagText=isCrit?'🔴 CRÍTICO':'🟡 ATENÇÃO';
-    html+=`
-      <div class="row" style="flex-direction:column;align-items:flex-start;gap:6px;padding:10px 0">
-        <div style="display:flex;justify-content:space-between;width:100%;align-items:center">
-          <strong style="font-size:14px">${escapeHtml(item.client_name)}</strong>
-          <span class="tag ${tagClass}">${tagText}</span>
-        </div>
-        <div style="font-size:12px;color:var(--text)">${escapeHtml(item.message||item.type)}</div>
-        <div style="display:flex;justify-content:space-between;width:100%;align-items:center;margin-top:2px">
-          <span style="font-size:11px;color:var(--text2)">Atual: <b>${item.current}%</b> | Limite: <b>${item.limit}%</b> (diff: ${item.diff} p.p.)</span>
-          <button class="btn-sm" onclick="analyzeAlert('${escapeHtml(item.client_name)}','${escapeHtml(item.message)}')">Analisar</button>
-        </div>
-      </div>`;
-  }
-  l.innerHTML=html;
-}
-
-function analyzeAlert(clientName, message){
-  pg('chat');
-  const inp=document.getElementById('chat-inp');
-  if(inp){
-    inp.value=`Quais os detalhes do desenquadramento de ${clientName}? (${message})`;
-    inp.focus();
-  }
-}
-
 /* ── Agents ── */
-const _agentIcons={health:'❤️',doctor:'🩺',market_close:'📊',daily_brief:'🗞️',notify_market_close:'🔔',compliance:'🛡️'};
+const _agentIcons={health:'❤️',doctor:'🩺',market_close:'📊',daily_brief:'🗞️',notify_market_close:'🔔'};
 
 async function loadAgents(){
   try{
@@ -1221,7 +1085,6 @@ const _agentLabels={
   health:'Saúde do sistema', doctor:'Diagnóstico completo',
   market_close:'Fechamento de mercado', daily_brief:'Briefing diário',
   notify_market_close:'Notificar fechamento pronto',
-  compliance:'Compliance e Desenquadramento',
 };
 function agentLabel(name){ return _agentLabels[name]||name; }
 
@@ -1311,7 +1174,7 @@ async function runFlow(id,name){
   }
 }
 
-/* ── Flow builder ── */
+/* ── Flow builder (no terminal needed) ── */
 async function openFlowBuilder(){
   document.getElementById('flow-builder-card').style.display='block';
   document.getElementById('flow-name-inp').value='';

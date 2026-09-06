@@ -1,14 +1,7 @@
-"""Tests for /api/alerts and compliance conversational chat in api/router.py."""
-
-from __future__ import annotations
+"""Integration tests for GET /api/alerts endpoint."""
 
 import pytest
-
-pytest.importorskip("fastapi")
-pytest.importorskip("starlette")
-pytest.importorskip("httpx")
-
-from starlette.testclient import TestClient
+from fastapi.testclient import TestClient
 from api.router import create_app
 
 
@@ -19,20 +12,25 @@ def client():
 
 
 def test_get_alerts_endpoint(client):
-    res = client.get("/api/alerts")
-    assert res.status_code == 200
-    data = res.json()
+    response = client.get("/api/alerts")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["status"] == "ok"
     assert "total" in data
     assert "critical" in data
     assert "warnings" in data
     assert "items" in data
     assert isinstance(data["items"], list)
+    assert len(data["items"]) == data["total"]
 
-
-def test_ask_compliance_queries(client):
-    res = client.post("/api/ask", json={"question": "Quais clientes estão desenquadrados?"})
-    assert res.status_code == 200
-    data = res.json()
-    assert "answer" in data
-    assert data["provider"] == "compliance-agent"
-    assert data["model"] == "rule-engine"
+    if data["total"] > 0:
+        item = data["items"][0]
+        assert "client_id" in item
+        assert "client_name" in item
+        assert "type" in item
+        assert "current" in item
+        assert "limit" in item
+        assert "diff" in item
+        assert "severity" in item
+        assert "message" in item

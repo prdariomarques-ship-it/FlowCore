@@ -1,12 +1,29 @@
-"""FlowCore — Persistent Background Daemon with Agent Workers Integration.
+"""FlowCore — Persistent Background Daemon.
 
 Runs as a separate process that outlives individual CLI invocations.
 Writes its PID and cycle state to disk so other processes can query it.
-Implements a watchdog heartbeat loop and executes background agent workers.
+Implements a watchdog heartbeat loop; survives Android kills via
+the checkpoint pattern: state is written before each sleep cycle.
+
+Running the daemon loop
+-----------------------
+The daemon loop lives in this same module under ``if __name__ == "__main__"``.
+``FlowCoreDaemon.start()`` spawns it as a subprocess pointing at this file.
+
+Usage (via FlowCoreDaemon)::
+
+    d = FlowCoreDaemon()
+    d.start()              # → {"started": True, "pid": 12345, ...}
+    d.status()             # → {"running": True, "pid": 12345, "uptime": 42.1}
+    d.stop()               # → {"stopped": True, "pid": 12345}
+
+Usage (daemon loop directly)::
+
+    python3 runtime/daemon.py          # starts and stays running
+    python3 runtime/daemon.py --check  # exits 0 if running, 1 if not
 """
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 import signal
@@ -16,13 +33,14 @@ import time
 from pathlib import Path
 from typing import Any
 
-from runtime.workers import start_all_workers
 
 _DAEMON_DIR = Path.home() / ".flowcore" / "daemon"
 _PID_FILE   = _DAEMON_DIR / "flowcore.pid"
 _STATE_FILE = _DAEMON_DIR / "daemon.state.json"
 _LOG_FILE   = _DAEMON_DIR / "daemon.log"
 
+
+# ── Manager (used by CLI and other modules) ───────────────────────────────────
 
 class FlowCoreDaemon:
     """Start, stop, and query the FlowCore background daemon."""
@@ -39,12 +57,14 @@ class FlowCoreDaemon:
                 close_fds=True,
                 start_new_session=True,
             )
+        # Give the child time to write its PID file
         deadline = time.monotonic() + 3.0
         while time.monotonic() < deadline:
             pid = self._read_pid()
             if pid and _pid_alive(pid):
                 return {"started": True, "pid": pid, "log": str(_LOG_FILE)}
             time.sleep(0.1)
+        # Fallback: use the Popen pid
         return {"started": True, "pid": proc.pid, "log": str(_LOG_FILE),
                 "note": "pid file not yet written"}
 
@@ -55,6 +75,7 @@ class FlowCoreDaemon:
             return {"stopped": False, "note": "daemon not running"}
         try:
             os.kill(pid, signal.SIGTERM)
+            # Wait up to 2s for clean shutdown
             for _ in range(20):
                 if not _pid_alive(pid):
                     break
@@ -101,6 +122,8 @@ class FlowCoreDaemon:
             return None
 
 
+# ── Shared helper ─────────────────────────────────────────────────────────────
+
 def _pid_alive(pid: int) -> bool:
     try:
         os.kill(pid, 0)
@@ -109,18 +132,27 @@ def _pid_alive(pid: int) -> bool:
         return False
 
 
-async def _async_daemon_loop(interval: int) -> None:
-    """Async daemon loop running workers and updating state."""
+# ── Daemon loop (runs in the child process) ───────────────────────────────────
+
+def _run_daemon_loop(interval: int) -> None:
+    """Heartbeat loop executed inside the spawned subprocess."""
     _DAEMON_DIR.mkdir(parents=True, exist_ok=True)
+
     my_pid = os.getpid()
     _PID_FILE.write_text(str(my_pid))
 
     started_at = time.time()
-    # Start background agent workers
-    await start_all_workers()
+    running = True
+
+    def _handle_term(sig: int, frame: object) -> None:
+        nonlocal running
+        running = False
+
+    signal.signal(signal.SIGTERM, _handle_term)
+    signal.signal(signal.SIGINT, _handle_term)
 
     cycle = 0
-    while True:
+    while running:
         cycle += 1
         state = {
             "pid": my_pid,
@@ -128,7 +160,6 @@ async def _async_daemon_loop(interval: int) -> None:
             "started_at": started_at,
             "ts": time.time(),
             "interval": interval,
-            "workers_active": True,
         }
         try:
             tmp = _STATE_FILE.with_suffix(".tmp")
@@ -136,23 +167,22 @@ async def _async_daemon_loop(interval: int) -> None:
             tmp.replace(_STATE_FILE)
         except Exception:
             pass
-        await asyncio.sleep(interval)
 
+        # Sleep in small slices so SIGTERM is handled promptly
+        slept = 0.0
+        while running and slept < interval:
+            time.sleep(0.5)
+            slept += 0.5
 
-def _run_daemon_loop(interval: int) -> None:
-    try:
-        asyncio.run(_async_daemon_loop(interval))
-    except (KeyboardInterrupt, SystemExit):
-        pass
-    finally:
-        _PID_FILE.unlink(missing_ok=True)
+    _PID_FILE.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":
     import argparse as _ap
     p = _ap.ArgumentParser(description="FlowCore daemon loop")
     p.add_argument("--interval", type=int, default=60)
-    p.add_argument("--check", action="store_true", help="Exit 0 if daemon running, 1 otherwise")
+    p.add_argument("--check", action="store_true",
+                   help="Exit 0 if daemon running, 1 otherwise")
     opts = p.parse_args()
 
     if opts.check:

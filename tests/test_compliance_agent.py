@@ -1,81 +1,58 @@
-"""Tests for ComplianceAgent in agents/compliance_agent.py."""
+"""Unit tests for ComplianceAgent."""
 
 import pytest
 from agents.compliance_agent import ComplianceAgent
 
 
 @pytest.mark.asyncio
-async def test_compliance_agent_empty_run():
+async def test_compliance_agent_defaults():
     agent = ComplianceAgent()
-    res = await agent.run()
-    assert res["status"] == "ok"
-    assert "data" in res
-    assert "total" in res["data"]
-    assert "critical" in res["data"]
-    assert "warnings" in res["data"]
-    assert "items" in res["data"]
+    result = await agent.run()
+
+    assert result["status"] == "ok"
+    assert result["total"] > 0
+    assert "critical" in result
+    assert "warnings" in result
+    assert len(result["items"]) == result["total"]
 
 
 @pytest.mark.asyncio
-async def test_compliance_agent_evaluates_violations():
+async def test_compliance_agent_severity_thresholds():
     agent = ComplianceAgent()
-    portfolio = {
-        "id": "cliente-456",
-        "name": "Maria Oliveira",
-        "current_allocation": {
-            "renda_variavel_brasil": 25.0,
-            "renda_variavel_global": 15.0,
-            "renda_fixa_brasil": 40.0,
+
+    test_clients = [
+        {
+            "client_id": "c1",
+            "client_name": "Warning Client",
+            "allocations": {"renda_variavel": 32.0},
+            "limits": {"renda_variavel": 30.0},  # +2 p.p. -> WARNING
         },
-        "sleeve_limits": {
-            "renda_variavel_max": 30.0,
-            "renda_fixa_total_min": 55.0,
+        {
+            "client_id": "c2",
+            "client_name": "Critical Client",
+            "allocations": {"renda_variavel": 38.0},
+            "limits": {"renda_variavel": 30.0},  # +8 p.p. -> CRITICAL
         },
-    }
-
-    res = await agent.run({"portfolio": portfolio})
-    assert res["status"] == "ok"
-    data = res["data"]
-    assert data["total"] == 2
-    assert data["critical"] == 2
-    items = data["items"]
-
-    rv_item = next((i for i in items if i["type"] == "EXCESSO_RV"), None)
-    assert rv_item is not None
-    assert rv_item["client_id"] == "cliente-456"
-    assert rv_item["current"] == 40.0
-    assert rv_item["limit"] == 30.0
-    assert rv_item["diff"] == 10.0
-    assert rv_item["severity"] == "CRITICAL"
-
-    rf_item = next((i for i in items if i["type"] == "DEFICIT_RF"), None)
-    assert rf_item is not None
-    assert rf_item["current"] == 40.0
-    assert rf_item["limit"] == 55.0
-    assert rf_item["diff"] == 15.0
-    assert rf_item["severity"] == "CRITICAL"
-
-
-@pytest.mark.asyncio
-async def test_compliance_agent_warning_threshold():
-    agent = ComplianceAgent()
-    portfolio = {
-        "id": "cliente-789",
-        "name": "Carlos Souza",
-        "current_allocation": {
-            "renda_variavel_brasil": 32.0,
-            "renda_fixa_brasil": 68.0,
+        {
+            "client_id": "c3",
+            "client_name": "Balanced Client",
+            "allocations": {"renda_variavel": 25.0},
+            "limits": {"renda_variavel": 30.0},  # Compliant -> 0 violations
         },
-        "sleeve_limits": {
-            "renda_variavel_max": 30.0,
-            "renda_fixa_total_min": 55.0,
-        },
-    }
+    ]
 
-    res = await agent.run({"portfolio": portfolio})
-    data = res["data"]
-    assert data["warnings"] == 1
-    item = data["items"][0]
-    assert item["type"] == "EXCESSO_RV"
-    assert item["severity"] == "WARNING"
-    assert item["diff"] == 2.0
+    result = await agent.run({"clients": test_clients})
+
+    assert result["total"] == 2
+    assert result["critical"] == 1
+    assert result["warnings"] == 1
+
+    items = result["items"]
+    warn_item = next(i for i in items if i["client_id"] == "c1")
+    crit_item = next(i for i in items if i["client_id"] == "c2")
+
+    assert warn_item["severity"] == "WARNING"
+    assert warn_item["diff"] == 2.0
+
+    assert crit_item["severity"] == "CRITICAL"
+    assert crit_item["diff"] == 8.0

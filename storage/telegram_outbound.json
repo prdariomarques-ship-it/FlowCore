@@ -1,7 +1,0 @@
-[
-  {
-    "event_id": "evt_5bcd0cd7ea31",
-    "message": "🚨 *ALERTA PROATIVO FlowCore*\nTipo: CLIENT_WITHDRAWAL\nCliente: cli_001\nPrioridade: CRITICAL\nDetalhes: {'amount': 100000}",
-    "status": "DELIVERED"
-  }
-]
