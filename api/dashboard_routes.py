@@ -120,6 +120,117 @@ async def _answer_compliance_question() -> str:
     return "\n".join(lines)
 
 
+_MARKET_KEYWORDS = (
+    "mercado", "ibovespa", "s&p", "s&p500", "nasdaq", "dólar", "dolar", "usd/brl",
+    "treasury", "juros americano", "di jan", "petróleo", "petroleo", "ouro", "cobre",
+    "movimento de mercado", "indicador",
+)
+_INTELLIGENCE_KEYWORDS = (
+    "override", "recalibr", "inteligência", "inteligencia",
+    "o que mudou na carteira", "o que mudou nas prioridades", "o que mudou hoje",
+    "por que essa carteira", "por que a carteira", "por que está em alerta",
+    "por que esta em alerta", "tese", "muda a tese",
+)
+_PRIORITY_KEYWORDS = (
+    "prioridade", "priorizar", "o que fazer primeiro", "mais urgente", "por onde começar", "por onde comecar",
+)
+
+
+def _is_market_question(question: str) -> bool:
+    q = question.lower()
+    return any(kw in q for kw in _MARKET_KEYWORDS)
+
+
+def _is_intelligence_question(question: str) -> bool:
+    q = question.lower()
+    return any(kw in q for kw in _INTELLIGENCE_KEYWORDS)
+
+
+def _is_priority_question(question: str) -> bool:
+    q = question.lower()
+    return any(kw in q for kw in _PRIORITY_KEYWORDS)
+
+
+async def _answer_market_question() -> str:
+    """Real-data answer for "o que mudou no mercado hoje?", sourced from
+    MarketAgent — same data as GET /api/market, formatted as chat prose."""
+    from agents.market_agent import MarketAgent
+
+    result = await MarketAgent().run()
+    data = result["data"]
+    movements = data["movements"]
+    relevant = [m for m in movements if m["relevance"] in ("HIGH", "MEDIUM")]
+
+    status_label = {"NORMAL": "sem movimentos relevantes", "ATTENTION": "atenção", "ALERT": "alerta"}
+    lines = [f"**Mercado hoje: {status_label.get(data['market_status'], data['market_status'])}**", ""]
+
+    if not relevant:
+        observed = [m for m in movements if m["current_value"] is not None]
+        if not observed:
+            return "Não há dados de mercado disponíveis no momento (fonte indisponível)."
+        lines.append("Nenhum indicador se moveu o suficiente para ser destacado hoje.")
+        return "\n".join(lines)
+
+    for m in relevant:
+        icon = "🔴" if m["relevance"] == "HIGH" else "🟡"
+        mock_tag = " *(MOCK — sem fonte real conectada)*" if m["source"] == "MOCK" else ""
+        direction = "subiu" if (m["change"] or 0) >= 0 else "caiu"
+        unit = "p.p." if m["unit"] == "percentage_points" else "%"
+        lines.append(f"- {icon} **{m['asset']}** {direction} {abs(m['change']):.2f}{unit}{mock_tag}")
+    return "\n".join(lines)
+
+
+async def _answer_intelligence_question() -> str:
+    """Real-data answer for "por que essa carteira está em alerta?" /
+    "explique esse override", sourced from IntelligenceEngine — same data
+    as GET /api/intelligence, formatted as chat prose."""
+    from agents.intelligence_engine import IntelligenceEngine
+
+    result = await IntelligenceEngine().run()
+    events = result["data"]["events"]
+    overrides = [e for e in events if e["status"] == "OVERRIDE"]
+    recalibrates = [e for e in events if e["status"] == "RECALIBRATE"]
+
+    if not overrides and not recalibrates:
+        return "Nenhum evento de recalibração ou override no momento — situação estável."
+
+    lines = []
+    if overrides:
+        lines.append(f"**{len(overrides)} override(s) — a tese original não se sustenta mais:**")
+        lines.append("")
+        for e in overrides:
+            lines.append(f"- 🔴 {e['reason']}")
+            lines.append(f"  - Antes: {e.get('previous_thesis', '—')}")
+            lines.append(f"  - Agora: {e.get('new_information', '—')}")
+            if e.get("affected_portfolios"):
+                lines.append(f"  - Carteiras afetadas: {', '.join(e['affected_portfolios'])}")
+            lines.append(f"  - Sugestão: {e.get('suggested_action', '—')}")
+        lines.append("")
+    if recalibrates:
+        lines.append(f"**{len(recalibrates)} recalibração(ões):**")
+        lines.append("")
+        for e in recalibrates:
+            lines.append(f"- 🟡 {e['reason']} — {e.get('suggested_action', '—')}")
+    return "\n".join(lines)
+
+
+async def _answer_priority_question() -> str:
+    """Real-data answer for "o que priorizar hoje?", sourced from
+    PriorityEngine — same data as GET /api/priorities."""
+    from agents.priority_engine import PriorityEngine
+
+    result = await PriorityEngine().run()
+    items = result["data"]["items"]
+    if not items:
+        return "Nenhuma prioridade no momento — nada exige atenção imediata."
+
+    lines = ["**Prioridades de hoje (ordem decrescente):**", ""]
+    for i, item in enumerate(items, start=1):
+        icon = {"CRITICAL": "🔴", "HIGH": "🟠", "MEDIUM": "🟡", "LOW": "🔵", "NEUTRAL": "⚪"}.get(item["level"], "⚪")
+        lines.append(f"{i}. {icon} **{item['title']}** — {item['reason']}")
+    return "\n".join(lines)
+
+
 # ── Request schemas (module-level so FastAPI resolves them correctly) ──────────
 
 class AskRequest(BaseModel):
@@ -291,11 +402,27 @@ def register_dashboard_routes(app, version: str) -> None:
         if not data.question.strip():
             raise HTTPException(status_code=422, detail="question is required")
 
-        # Desenquadramento is a real-data lookup, not something an LLM
-        # should guess at — answer it directly from ComplianceAgent instead
-        # of routing through OpenAI/Ollama.
-        if _is_compliance_question(data.question):
-            return {"answer": await _answer_compliance_question(), "provider": "flowcore-compliance-agent", "model": ""}
+        # Wealth Copilot questions are real-data lookups, not something an
+        # LLM should guess at — answer them directly from the relevant
+        # agent instead of routing through OpenAI/Ollama. Checked in this
+        # order because "priorizar"/"override"/"mercado" questions are
+        # more specific than a generic compliance question and should not
+        # be swallowed by broader keyword sets. Same "never 5xx" contract
+        # as the JSON agent endpoints (/api/alerts, /api/market, ...): an
+        # agent failure degrades to an honest chat message, not a 500.
+        agent_intents = (
+            (_is_compliance_question, _answer_compliance_question, "flowcore-compliance-agent"),
+            (_is_priority_question, _answer_priority_question, "flowcore-priority-engine"),
+            (_is_market_question, _answer_market_question, "flowcore-market-agent"),
+            (_is_intelligence_question, _answer_intelligence_question, "flowcore-intelligence-engine"),
+        )
+        for matches, answer_fn, provider in agent_intents:
+            if matches(data.question):
+                try:
+                    answer = await answer_fn()
+                except Exception as exc:  # noqa: BLE001 - degrade, never 500
+                    answer = f"Não foi possível consultar os dados agora ({type(exc).__name__}). Tente novamente em instantes."
+                return {"answer": answer, "provider": provider, "model": ""}
 
         # Try FlowCore AgentRunner (ask agent) first
         try:
