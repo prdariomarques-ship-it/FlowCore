@@ -165,6 +165,7 @@ class AgentRunner:
             ("agents.compliance_agent", "ComplianceAgent"),
             ("agents.market_agent", "MarketAgent"),
             ("agents.intelligence_engine", "IntelligenceEngine"),
+            ("agents.priority_engine", "PriorityEngine"),
         ):
             try:
                 mod = __import__(cls_path[0], fromlist=[cls_path[1]])

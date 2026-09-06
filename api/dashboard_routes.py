@@ -974,6 +974,21 @@ def register_dashboard_routes(app, version: str) -> None:
                 "stub": False, **_market_unavailable("intelligence", exc),
             }
 
+    @app.get("/api/priorities")
+    async def priorities():
+        """PriorityEngine's ranked events (Wealth Copilot MVP 2, phase 3)
+        — same IntelligenceEngine events as /api/intelligence, ordered
+        CRITICAL first. Never executes anything; ranking only."""
+        try:
+            from agents.priority_engine import PriorityEngine
+            result = await PriorityEngine().run()
+            return {**result["data"], "available": True, "stub": False}
+        except Exception as exc:
+            return {
+                "total": 0, "by_level": {}, "items": [],
+                "stub": False, **_market_unavailable("priorities", exc),
+            }
+
     # ── Assets [STUB] ─────────────────────────────────────────────────────────
 
     @app.get("/api/portfolios/{portfolio_id}/review")
