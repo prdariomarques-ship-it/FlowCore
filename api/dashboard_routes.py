@@ -42,7 +42,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException, Query, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 _OLLAMA_DEFAULT = "http://localhost:11434"
 _DATA_DIR = Path.home() / ".flowcore"
@@ -242,6 +242,26 @@ class SignupRequest(BaseModel):
     name: str
     email: str
     password: str
+
+    @field_validator("password")
+    @classmethod
+    def _password_meets_nist_minimum(cls, value: str) -> str:
+        # NIST 800-63b: enforce a minimum length, not composition rules
+        # (no forced uppercase/digit/symbol — those push users toward
+        # predictable patterns without actually raising entropy). Upper
+        # bound is only to cap the cost of hashing pathological input.
+        if len(value) < 8:
+            raise ValueError("A senha precisa ter pelo menos 8 caracteres.")
+        if len(value) > 128:
+            raise ValueError("A senha pode ter no máximo 128 caracteres.")
+        return value
+
+    @field_validator("email")
+    @classmethod
+    def _email_looks_like_an_email(cls, value: str) -> str:
+        if "@" not in value or value.startswith("@") or value.endswith("@"):
+            raise ValueError("Informe um email válido.")
+        return value
 
 
 class LoginRequest(BaseModel):
@@ -456,10 +476,22 @@ def register_dashboard_routes(app, version: str) -> None:
 
     @app.post("/api/auth/login")
     async def auth_login(data: LoginRequest):
+        """Throttled per OWASP's Authentication Cheat Sheet: an
+        unbounded login endpoint is a standing invitation to credential
+        stuffing / brute force. 5 failed attempts in 15 minutes blocks
+        further attempts for that email until the window rolls off —
+        checked before verifying the password so a locked-out attacker
+        can't keep guessing while blocked."""
         from storage.tenant_repo import TenantRepository
 
         tenant_repo = TenantRepository()
+        if await tenant_repo.is_rate_limited(data.email):
+            raise HTTPException(
+                status_code=429,
+                detail="Muitas tentativas de login. Tente novamente em alguns minutos.",
+            )
         user = await tenant_repo.verify_password(data.email, data.password)
+        await tenant_repo.record_login_attempt(data.email, success=bool(user))
         if not user:
             raise HTTPException(status_code=401, detail="Email ou senha inválidos.")
         session = await tenant_repo.create_session(user["id"])

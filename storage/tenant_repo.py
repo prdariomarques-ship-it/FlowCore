@@ -18,7 +18,23 @@ on. Simplest robust option for the project's actual dependency budget,
 not a shortcut: PBKDF2 is a standard, still-recommended KDF, and a
 DB-backed token gets free logout/revocation an unsigned JWT wouldn't.
 
-Three tables:
+Checked against OWASP's Password Storage and Authentication Cheat
+Sheets (cheatsheetseries.owasp.org) — current guidance and two things
+fixed as a result:
+- 600,000 iterations for PBKDF2-HMAC-SHA256 (OWASP's 2026-current
+  number, calibrated to ~0.1s per attempt on consumer hardware) —
+  stored self-describing as `pbkdf2_sha256$<iterations>$<salt>$<hash>`
+  (the same encoding convention Django's password hasher uses) so a
+  *future* iteration bump doesn't invalidate every password already
+  hashed at a lower count: verify_password() reads the count baked into
+  each stored hash rather than assuming today's constant, and
+  transparently re-hashes at the current count on a successful login
+  (upgrade-on-login, the standard migration path for this).
+- Per-account login throttling (see `login_attempts` below) — OWASP's
+  Authentication Cheat Sheet calls out unthrottled login endpoints as
+  vulnerable to credential stuffing/brute force.
+
+Four tables:
 - offices: the tenant boundary. Every other wealth-management table
   (storage/client_repo.py's office_policies/clients, and eventually
   every future domain table) is scoped by office_id.
@@ -29,6 +45,8 @@ Three tables:
   product needs custom per-office roles.
 - sessions: opaque bearer tokens, one row per active login. Deleting the
   row is the entire logout implementation.
+- login_attempts: every login attempt (success or failure), used only to
+  throttle brute force per email — see is_rate_limited().
 """
 from __future__ import annotations
 
@@ -42,12 +60,41 @@ import aiosqlite
 
 from storage.database import get_db_path
 
-_PBKDF2_ITERATIONS = 200_000
+_PBKDF2_ITERATIONS = 600_000  # OWASP Password Storage Cheat Sheet, PBKDF2-HMAC-SHA256
 _SESSION_TTL_SECONDS = 14 * 24 * 3600  # 14 days
+_MAX_FAILED_ATTEMPTS = 5
+_RATE_LIMIT_WINDOW_SECONDS = 15 * 60  # OWASP Authentication Cheat Sheet: throttle, don't leave login unbounded
 
 
-def _hash_password(password: str, salt: str) -> str:
-    return hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), _PBKDF2_ITERATIONS).hex()
+def _hash_password(password: str, salt: str, iterations: int = _PBKDF2_ITERATIONS) -> str:
+    """Self-describing hash: `pbkdf2_sha256$<iterations>$<salt>$<hex digest>`
+    — the iteration count travels with the hash so verify_password() can
+    check a password against however many iterations it was ORIGINALLY
+    hashed with, not today's constant. Without this, raising
+    _PBKDF2_ITERATIONS later would silently break every existing
+    password (verify would recompute at the new, higher count and never
+    match the old hash)."""
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), iterations).hex()
+    return f"pbkdf2_sha256${iterations}${salt}${digest}"
+
+
+def _verify_password_hash(password: str, salt: str, stored_hash: str) -> bool:
+    """Handles both the current `pbkdf2_sha256$<iter>$<salt>$<hex>` format
+    and a bare hex digest left over from before this encoding existed
+    (verified at the hardcoded legacy count of 200,000 iterations)."""
+    if stored_hash.startswith("pbkdf2_sha256$"):
+        _, iterations_str, hash_salt, digest = stored_hash.split("$", 3)
+        candidate = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), hash_salt.encode("utf-8"), int(iterations_str)).hex()
+        return secrets.compare_digest(candidate, digest)
+    legacy_digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), 200_000).hex()
+    return secrets.compare_digest(legacy_digest, stored_hash)
+
+
+def _needs_rehash(stored_hash: str) -> bool:
+    if not stored_hash.startswith("pbkdf2_sha256$"):
+        return True  # legacy bare-hex format
+    iterations = int(stored_hash.split("$", 2)[1])
+    return iterations < _PBKDF2_ITERATIONS
 
 
 class TenantRepository:
@@ -90,8 +137,17 @@ class TenantRepository:
                     FOREIGN KEY (user_id) REFERENCES users(id)
                 )
             """)
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS login_attempts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email TEXT NOT NULL,
+                    success INTEGER NOT NULL,
+                    attempted_at REAL NOT NULL
+                )
+            """)
             await db.execute("CREATE INDEX IF NOT EXISTS idx_users_office ON users(office_id)")
             await db.execute("CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)")
+            await db.execute("CREATE INDEX IF NOT EXISTS idx_login_attempts_email ON login_attempts(email, attempted_at)")
             await db.commit()
 
     # ── Offices ─────────────────────────────────────────────────────────────
@@ -178,9 +234,52 @@ class TenantRepository:
         if not row:
             return None
         user_id, office_id, stored_email, password_hash, salt, name, role, created_at = row
-        if not secrets.compare_digest(_hash_password(password, salt), password_hash):
+        if not _verify_password_hash(password, salt, password_hash):
             return None
+        if _needs_rehash(password_hash):
+            # Upgrade-on-login: this account's hash predates the current
+            # iteration count (or the pre-fase-0 bare-hex format). Now
+            # that the correct password has just been proven, silently
+            # re-hash at the current standard — the normal, gradual way
+            # to raise KDF cost without a forced mass password reset.
+            new_hash = _hash_password(password, salt)
+            async with aiosqlite.connect(self._db_path) as db:
+                await db.execute("UPDATE users SET password_hash = ? WHERE id = ?", (new_hash, user_id))
+                await db.commit()
         return self._public_user(user_id, office_id, stored_email, name, role, created_at)
+
+    # ── Login throttling (OWASP Authentication Cheat Sheet) ─────────────────
+
+    async def record_login_attempt(self, email: str, success: bool) -> None:
+        await self.ensure_tables()
+        async with aiosqlite.connect(self._db_path) as db:
+            await db.execute(
+                "INSERT INTO login_attempts (email, success, attempted_at) VALUES (?, ?, ?)",
+                (email.lower(), int(success), time.time()),
+            )
+            await db.commit()
+
+    async def is_rate_limited(self, email: str) -> bool:
+        """True when this email has _MAX_FAILED_ATTEMPTS or more failed
+        logins within the last _RATE_LIMIT_WINDOW_SECONDS. A single
+        success resets the count implicitly — only consecutive-since-
+        last-success failures count, so a legitimate user who mistypes
+        a few times then gets in isn't punished by attempts from before
+        their last successful login."""
+        await self.ensure_tables()
+        window_start = time.time() - _RATE_LIMIT_WINDOW_SECONDS
+        async with aiosqlite.connect(self._db_path) as db:
+            cursor = await db.execute(
+                "SELECT success FROM login_attempts WHERE email = ? AND attempted_at >= ? ORDER BY attempted_at DESC",
+                (email.lower(), window_start),
+            )
+            rows = await cursor.fetchall()
+        failures = 0
+        for (success,) in rows:
+            if success:
+                break
+            failures += 1
+        return failures >= _MAX_FAILED_ATTEMPTS
 
     async def list_users(self, office_id: str) -> list[dict[str, Any]]:
         await self.ensure_tables()

@@ -142,3 +142,127 @@ class TestSessions:
         assert deleted_first is True
         assert resolved_after is None
         assert deleted_second is False
+
+
+class TestPasswordHashingStandard:
+    """Checked against OWASP's Password Storage Cheat Sheet
+    (cheatsheetseries.owasp.org): PBKDF2-HMAC-SHA256 at 600,000
+    iterations, self-describing so a future increase doesn't break
+    already-hashed passwords."""
+
+    def test_stored_hash_is_self_describing_and_never_plaintext(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            office = await repo.create_office("Escritório")
+            await repo.create_user(office["id"], "dario@example.com", "senha-correta-123", "Dário", "owner")
+            import aiosqlite
+
+            async with aiosqlite.connect(repo._db_path) as db:
+                cursor = await db.execute("SELECT password_hash FROM users WHERE email = ?", ("dario@example.com",))
+                row = await cursor.fetchone()
+            return row[0]
+
+        stored = asyncio.run(scenario())
+        assert stored.startswith("pbkdf2_sha256$600000$")
+        assert "senha-correta-123" not in stored
+
+    def test_legacy_bare_hex_hash_still_verifies(self, tmp_path):
+        """A password hashed before this format existed (plain hex
+        digest, 200,000 iterations, no `pbkdf2_sha256$...` prefix) must
+        keep working — fase 0 shipped before this fix, so real accounts
+        could already be in that shape."""
+        import hashlib
+
+        from storage.tenant_repo import TenantRepository
+
+        async def scenario():
+            repo = _repo(tmp_path)
+            office = await repo.create_office("Escritório")
+            user = await repo.create_user(office["id"], "dario@example.com", "senha-legada", "Dário", "owner")
+            # Overwrite with a pre-fix legacy hash (bare hex, 200k iterations).
+            salt = "legacy-salt"
+            legacy_hash = hashlib.pbkdf2_hmac("sha256", "senha-legada".encode(), salt.encode(), 200_000).hex()
+            import aiosqlite
+
+            async with aiosqlite.connect(repo._db_path) as db:
+                await db.execute(
+                    "UPDATE users SET password_hash = ?, password_salt = ? WHERE id = ?",
+                    (legacy_hash, salt, user["id"]),
+                )
+                await db.commit()
+            return await repo.verify_password("dario@example.com", "senha-legada")
+
+        assert asyncio.run(scenario()) is not None
+
+    def test_successful_login_upgrades_a_legacy_hash_in_place(self, tmp_path):
+        import hashlib
+
+        async def scenario():
+            repo = _repo(tmp_path)
+            office = await repo.create_office("Escritório")
+            user = await repo.create_user(office["id"], "dario@example.com", "senha-legada", "Dário", "owner")
+            salt = "legacy-salt"
+            legacy_hash = hashlib.pbkdf2_hmac("sha256", "senha-legada".encode(), salt.encode(), 200_000).hex()
+            import aiosqlite
+
+            async with aiosqlite.connect(repo._db_path) as db:
+                await db.execute(
+                    "UPDATE users SET password_hash = ?, password_salt = ? WHERE id = ?",
+                    (legacy_hash, salt, user["id"]),
+                )
+                await db.commit()
+
+            await repo.verify_password("dario@example.com", "senha-legada")  # triggers upgrade-on-login
+
+            async with aiosqlite.connect(repo._db_path) as db:
+                cursor = await db.execute("SELECT password_hash FROM users WHERE id = ?", (user["id"],))
+                row = await cursor.fetchone()
+            return row[0]
+
+        upgraded = asyncio.run(scenario())
+        assert upgraded.startswith("pbkdf2_sha256$600000$")
+
+
+class TestLoginRateLimiting:
+    """OWASP's Authentication Cheat Sheet: throttle repeated login
+    attempts to blunt credential stuffing / brute force."""
+
+    def test_not_rate_limited_before_threshold(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            office = await repo.create_office("Escritório")
+            await repo.create_user(office["id"], "dario@example.com", "senha-correta", "Dário", "owner")
+            for _ in range(4):  # one under the 5-failure threshold
+                await repo.record_login_attempt("dario@example.com", success=False)
+            return await repo.is_rate_limited("dario@example.com")
+
+        assert asyncio.run(scenario()) is False
+
+    def test_rate_limited_after_threshold_failed_attempts(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            for _ in range(5):
+                await repo.record_login_attempt("dario@example.com", success=False)
+            return await repo.is_rate_limited("dario@example.com")
+
+        assert asyncio.run(scenario()) is True
+
+    def test_a_success_resets_the_failure_count(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            for _ in range(4):
+                await repo.record_login_attempt("dario@example.com", success=False)
+            await repo.record_login_attempt("dario@example.com", success=True)
+            await repo.record_login_attempt("dario@example.com", success=False)  # only 1 failure since the success
+            return await repo.is_rate_limited("dario@example.com")
+
+        assert asyncio.run(scenario()) is False
+
+    def test_rate_limiting_is_per_email_not_global(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            for _ in range(5):
+                await repo.record_login_attempt("attacker-target@example.com", success=False)
+            return await repo.is_rate_limited("someone-else@example.com")
+
+        assert asyncio.run(scenario()) is False
