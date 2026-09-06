@@ -264,8 +264,24 @@ details.mi>summary::marker{display:none}
 .mobile-only{display:block}
 
 @media(min-width:960px){
+  /* Desktop-only re-theme: light background with a purple accent,
+     following the "NeuroVest"-style reference the team picked over the
+     dark FlowCore palette. Scoped to `body` inside this media query only
+     — :root (used below 960px, i.e. the phone experience) is untouched,
+     so mobile keeps its original dark theme exactly as shipped. Every
+     desktop rule below already reads color via these custom properties
+     (var(--bg), var(--text), ...) rather than hardcoded values, so
+     redefining them here re-themes the whole desktop dashboard without
+     touching a single other rule. */
+  body{
+    --bg:#f7f6fc;--bg2:#ffffff;--bg3:#f1eefa;--border:#e3dff2;
+    --accent:#7c3aed;--accent2:#a78bfa;
+    --text:#1f1b3a;--text2:#6b6480;
+    --shadow:0 4px 20px rgba(124,58,237,.08);
+  }
   body{padding-bottom:0;display:flex}
   .header{display:none}
+  .kpi-icon.info{background:rgba(124,58,237,.12)}
   .sidebar{
     display:flex;flex-direction:column;width:220px;flex-shrink:0;min-height:100vh;
     background:var(--bg2);border-right:1px solid var(--border);padding:18px 12px;
