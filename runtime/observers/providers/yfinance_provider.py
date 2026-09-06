@@ -24,7 +24,13 @@ _DEFAULT_TIMEOUT_SECONDS = 10.0
 _DEFAULT_RETRIES = 2
 _RETRY_BACKOFF_SECONDS = 0.5
 
-_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="observer-yfinance")
+# evaluate_alerts() now fans out to all ~10 distinct ALERT_DEFAULTS sources
+# concurrently (see runtime/market_intelligence/alerts.py). With only 4 workers
+# here, those 10 callers queued for this shared executor 4 at a time — the
+# alerts.py parallelism bought nothing, since every fetch_quote() call still
+# serialized behind the same 4 slots. Sized with headroom above the current
+# source count so a full alert sweep doesn't itself become the bottleneck.
+_executor = ThreadPoolExecutor(max_workers=16, thread_name_prefix="observer-yfinance")
 
 
 def _to_float(value: Any) -> float | None:
