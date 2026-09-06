@@ -105,7 +105,24 @@ class ClientRepository:
                 )
             """)
             await db.execute("CREATE INDEX IF NOT EXISTS idx_clients_office ON clients(office_id)")
+            await self._ensure_contact_columns(db)
             await db.commit()
+
+    @staticmethod
+    async def _ensure_contact_columns(db: aiosqlite.Connection) -> None:
+        """email/phone added after the initial `clients` table shipped —
+        `CREATE TABLE IF NOT EXISTS` above doesn't add columns to an
+        already-existing table, so migrate in place. Real contact fields,
+        always nullable: never fabricated for a client (the 27 example
+        clients are fictitious people, so they get none at all — see
+        seed_office() — and a real client only has one once someone
+        actually enters it)."""
+        cursor = await db.execute("PRAGMA table_info(clients)")
+        existing = {row[1] for row in await cursor.fetchall()}
+        if "email" not in existing:
+            await db.execute("ALTER TABLE clients ADD COLUMN email TEXT")
+        if "phone" not in existing:
+            await db.execute("ALTER TABLE clients ADD COLUMN phone TEXT")
 
     # ── Seeding (called once, at office creation) ───────────────────────────
 
@@ -122,11 +139,16 @@ class ClientRepository:
             if with_demo_clients:
                 for c in _load_bundled_demo_clients():
                     allocation = json.dumps(c.get("current_allocation") or {}, ensure_ascii=False)
+                    # email/phone deliberately NULL — these 27 are fictitious
+                    # people (see runtime/portfolio/demo_clients.py); inventing
+                    # contact details for them would fabricate PII-shaped data
+                    # for a person who doesn't exist, worse than the financial
+                    # placeholder numbers, so real outreach can never target them.
                     await db.execute(
                         """INSERT OR REPLACE INTO clients
                            (id, office_id, name, profile, reference_value, current_allocation_json,
-                            original_allocation_json, is_demo, created_at, updated_at)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)""",
+                            original_allocation_json, is_demo, created_at, updated_at, email, phone)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, NULL, NULL)""",
                         (c["id"], office_id, c.get("name", ""), c.get("profile", ""),
                          c.get("reference_value"), allocation, allocation, now, now),
                     )
@@ -177,13 +199,16 @@ class ClientRepository:
 
     # ── Clients ─────────────────────────────────────────────────────────────
 
+    _CLIENT_COLUMNS = (
+        "id, office_id, name, profile, reference_value, current_allocation_json, is_demo, "
+        "created_at, updated_at, email, phone"
+    )
+
     async def list_clients(self, office_id: str) -> list[dict[str, Any]]:
         await self.ensure_tables()
         async with aiosqlite.connect(self._db_path) as db:
             cursor = await db.execute(
-                """SELECT id, office_id, name, profile, reference_value, current_allocation_json, is_demo,
-                          created_at, updated_at
-                   FROM clients WHERE office_id = ? ORDER BY created_at ASC""",
+                f"SELECT {self._CLIENT_COLUMNS} FROM clients WHERE office_id = ? ORDER BY created_at ASC",
                 (office_id,),
             )
             rows = await cursor.fetchall()
@@ -193,9 +218,7 @@ class ClientRepository:
         await self.ensure_tables()
         async with aiosqlite.connect(self._db_path) as db:
             cursor = await db.execute(
-                """SELECT id, office_id, name, profile, reference_value, current_allocation_json, is_demo,
-                          created_at, updated_at
-                   FROM clients WHERE office_id = ? AND id = ?""",
+                f"SELECT {self._CLIENT_COLUMNS} FROM clients WHERE office_id = ? AND id = ?",
                 (office_id, client_id),
             )
             row = await cursor.fetchone()
@@ -214,6 +237,24 @@ class ClientRepository:
             await db.execute(
                 "UPDATE clients SET current_allocation_json = ?, updated_at = ? WHERE office_id = ? AND id = ?",
                 (json.dumps(merged, ensure_ascii=False), time.time(), office_id, client_id),
+            )
+            await db.commit()
+        return await self.get_client(office_id, client_id)
+
+    async def save_client_contact(self, office_id: str, client_id: str, email: str | None, phone: str | None) -> dict[str, Any]:
+        """Set (or clear, by passing an empty string) a real client's own
+        contact info — never inferred, never defaulted. Raises KeyError if
+        no such client in this office (same tenant-scoping guarantee as
+        save_client_allocation)."""
+        existing = await self.get_client(office_id, client_id)
+        if existing is None:
+            raise KeyError(client_id)
+        new_email = existing["email"] if email is None else (email or None)
+        new_phone = existing["phone"] if phone is None else (phone or None)
+        async with aiosqlite.connect(self._db_path) as db:
+            await db.execute(
+                "UPDATE clients SET email = ?, phone = ?, updated_at = ? WHERE office_id = ? AND id = ?",
+                (new_email, new_phone, time.time(), office_id, client_id),
             )
             await db.commit()
         return await self.get_client(office_id, client_id)
@@ -238,4 +279,5 @@ class ClientRepository:
             "id": row[0], "office_id": row[1], "name": row[2], "profile": row[3],
             "reference_value": row[4], "current_allocation": json.loads(row[5]),
             "is_demo": bool(row[6]), "created_at": row[7], "updated_at": row[8],
+            "email": row[9], "phone": row[10],
         }

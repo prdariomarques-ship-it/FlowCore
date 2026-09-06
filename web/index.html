@@ -1606,13 +1606,29 @@ function renderDwAlertsTable(alerts){
     box.innerHTML='<div class="dw-empty">✅ Nenhuma carteira desenquadrada no momento.</div>';
     return;
   }
-  let html='<table class="dw-table"><tr><th>Carteira</th><th>Atual</th><th>Limite</th><th>Desvio</th></tr>';
+  let html='<table class="dw-table"><tr><th>Carteira</th><th>Atual</th><th>Limite</th><th>Desvio</th><th></th></tr>';
   for(const it of alerts.items){
     const crit=it.severity==='CRITICAL';
     const demoTag=it.is_demo?' <span class="tag ty" style="font-size:9px">exemplo</span>':'';
-    html+=`<tr><td>${crit?'🔴':'🟡'} ${initialsAvatar(it.client_name)}${escapeHtml(it.client_name)}${demoTag}</td><td>${it.current}%</td><td>${it.limit}%</td><td style="color:${crit?'var(--red)':'var(--yellow)'}">+${it.diff}p.p.</td></tr>`;
+    const clientNameAttr=escapeHtml(it.client_name).replace(/'/g,"&#39;");
+    html+=`<tr><td>${crit?'🔴':'🟡'} ${initialsAvatar(it.client_name)}${escapeHtml(it.client_name)}${demoTag}</td><td>${it.current}%</td><td>${it.limit}%</td><td style="color:${crit?'var(--red)':'var(--yellow)'}">+${it.diff}p.p.</td><td><button class="btn-sm" onclick="requestClientReview('${it.client_id}','${clientNameAttr}')" title="Enviar convite de revisão por email/WhatsApp">✉️ Convidar</button></td></tr>`;
   }
   box.innerHTML=html+'</table>';
+}
+
+async function requestClientReview(clientId, clientName){
+  // Explicit, per-client, human-triggered — never automatic. See
+  // runtime/client_outreach.py's module docstring for why sending a
+  // real message to a real client is a confirm-before-you-send action.
+  if(!confirm(`Enviar convite de revisão para ${clientName} por email e WhatsApp?`)) return;
+  try{
+    const r=await api(`/api/clients/${clientId}/request-review`,{method:'POST',body:JSON.stringify({channels:['email','whatsapp']})});
+    const labels={sent:'enviado',no_contact_info:'sem contato cadastrado',not_configured:'canal não configurado',error:'falha ao enviar'};
+    const parts=Object.entries(r.channels).map(([ch,res])=>`${ch}: ${labels[res.status]||res.status}`);
+    toast(parts.join(' · '));
+  }catch(e){
+    toast('Erro: '+e.message);
+  }
 }
 
 let _dwMarketData=null;

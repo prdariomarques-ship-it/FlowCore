@@ -311,6 +311,19 @@ class DemoClientUpdate(BaseModel):
     current_allocation: dict[str, float]
 
 
+class ClientContactUpdate(BaseModel):
+    """Real contact info for one client, entered explicitly — never
+    inferred or defaulted. Empty string clears the field; omitted field
+    leaves it untouched (same partial-update convention used everywhere
+    else in this module)."""
+    email: str | None = None
+    phone: str | None = None
+
+
+class ReviewRequestSend(BaseModel):
+    channels: list[str] = ["email", "whatsapp"]
+
+
 class AdvisorProfileUpdate(BaseModel):
     """Partial update for the dashboard's advisor card — same
     partial-merge convention as AIConfig/ai_config_patch. Deliberately no
@@ -1137,6 +1150,98 @@ def register_dashboard_routes(app, version: str) -> None:
 
         user = await get_current_user(request)
         return {"reset": True, "clients": await reset_demo_clients(user["office_id"])}
+
+    @app.put("/api/clients/demo/{client_id}/contact")
+    async def demo_client_contact_update(client_id: str, data: ClientContactUpdate, request: Request):
+        """Real contact info for a real client — the 27 example clients
+        never have one (see storage/client_repo.py's seed_office), so
+        this is only meaningful for clients an office actually enters."""
+        from storage.client_repo import ClientRepository
+
+        user = await get_current_user(request)
+        try:
+            updated = await ClientRepository().save_client_contact(user["office_id"], client_id, data.email, data.phone)
+        except KeyError:
+            raise HTTPException(status_code=404, detail=f"unknown client: {client_id}")
+        return {"saved": True, "client": updated}
+
+    # ── Client review-request outreach (email + WhatsApp) ───────────────────
+    # Turns a real ComplianceAgent violation into a drafted invitation to a
+    # review meeting. Never sent automatically — see
+    # runtime/client_outreach.py's module docstring for why this is
+    # explicit-approval-per-client only, triggered by the advisor from the
+    # dashboard, never a background job.
+
+    async def _advisor_and_office_names(office_id: str) -> tuple[str, str]:
+        from storage.tenant_repo import TenantRepository
+
+        advisor = {**_ADVISOR_DEFAULT, **_read_json(f"advisor_{office_id}.json", {})}
+        office = await TenantRepository().get_office(office_id)
+        return advisor["name"], (office["name"] if office else "")
+
+    @app.get("/api/clients/review-requests")
+    async def review_requests_list(request: Request):
+        """One entry per client with at least one open compliance
+        violation AND a real client record (the office's own policy
+        "carteira" isn't itself emailable) — the drafted email/WhatsApp
+        text, and whether each channel actually has somewhere to send to."""
+        from agents.compliance_agent import ComplianceAgent
+        from runtime.client_outreach import draft_review_request
+        from storage.client_repo import ClientRepository
+
+        user = await get_current_user(request)
+        office_id = user["office_id"]
+        try:
+            result = await ComplianceAgent().run({"office_id": office_id})
+            violations_by_client: dict[str, list[dict]] = {}
+            for v in result["data"]["violations"]:
+                violations_by_client.setdefault(v["client_id"], []).append(v)
+
+            advisor_name, office_name = await _advisor_and_office_names(office_id)
+            repo = ClientRepository()
+            items = []
+            for client_id, violations in violations_by_client.items():
+                client = await repo.get_client(office_id, client_id)
+                if client is None:
+                    continue  # not a real, contactable client (e.g. the office's own policy)
+                draft = draft_review_request(client["name"], violations, advisor_name, office_name)
+                items.append({
+                    "client_id": client_id, "client_name": client["name"],
+                    "severity": "CRITICAL" if any(v["severity"] == "CRITICAL" for v in violations) else "WARNING",
+                    "violations": violations, "is_demo": client["is_demo"],
+                    "email": client["email"], "phone": client["phone"],
+                    "can_send_email": bool(client["email"]), "can_send_whatsapp": bool(client["phone"]),
+                    "draft": draft,
+                })
+            return {"total": len(items), "items": items, "available": True}
+        except Exception as exc:
+            return {"total": 0, "items": [], "stub": False, **_market_unavailable("review-requests", exc)}
+
+    @app.post("/api/clients/{client_id}/request-review")
+    async def client_request_review(client_id: str, data: ReviewRequestSend, request: Request):
+        """The actual send — an explicit, human-triggered action. Every
+        channel result is honest: "sent", "no_contact_info", "not_configured",
+        or "error", never a fabricated success."""
+        from agents.compliance_agent import ComplianceAgent
+        from runtime.client_outreach import draft_review_request, send_review_request
+        from storage.client_repo import ClientRepository
+
+        user = await get_current_user(request)
+        office_id = user["office_id"]
+        repo = ClientRepository()
+        client = await repo.get_client(office_id, client_id)
+        if client is None:
+            raise HTTPException(status_code=404, detail=f"unknown client: {client_id}")
+
+        result = await ComplianceAgent().run({"office_id": office_id})
+        violations = [v for v in result["data"]["violations"] if v["client_id"] == client_id]
+        if not violations:
+            raise HTTPException(status_code=400, detail="Este cliente não possui violações abertas no momento.")
+
+        advisor_name, office_name = await _advisor_and_office_names(office_id)
+        draft = draft_review_request(client["name"], violations, advisor_name, office_name)
+        results = send_review_request(office_id, client, draft, data.channels, user["id"])
+        return {"client_id": client_id, "channels": results}
 
     @app.get("/api/portfolio/risk-breakdown")
     async def portfolio_risk_breakdown(request: Request):
