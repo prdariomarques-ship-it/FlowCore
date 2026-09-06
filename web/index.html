@@ -272,37 +272,83 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 <div class="wrap">
 
   <!-- ══ VISÃO FINANCEIRA ══ -->
-  <div class="page active" id="page-home">
-    <div class="gap">
-      <div class="card">
-        <div class="ch"><span class="ct">Visão financeira</span><span class="tag ty">Referência</span></div>
-        <div class="metric-grid">
-          <div class="metric"><small>Carteira-modelo</small><strong>R$ 1,0 mi</strong><span class="tag tp">Moderada</span></div>
-          <div class="metric"><small>Exposição IA</small><strong>7%</strong><span class="tag tg">Satélite</span></div>
-          <div class="metric"><small>Renda fixa total</small><strong>60%</strong><span class="tag tg">Âncora</span></div>
-          <div class="metric"><small>Revisão</small><strong id="review-status">Diária</strong><span class="tag ty">Sem ordens</span></div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="ch"><span class="ct">Mercado</span><span class="ci">📈</span></div>
-        <div class="row"><span class="rl">USD/BRL PTAX</span><span class="rv" id="market-usd">A carregar…</span></div>
-        <div class="row"><span class="rl">Ibovespa</span><span class="rv" id="market-ibov">A carregar…</span></div>
-        <div class="row"><span class="rl">Atualização</span><span class="rv" id="market-updated" style="color:var(--text2)">A carregar…</span></div>
-      </div>
-      <div class="card">
-        <div class="ch"><span class="ct">Macro</span><span class="ci">🌐</span></div>
-        <div class="row"><span class="rl">Selic</span><span class="rv" id="macro-selic">A carregar…</span></div>
-        <div class="row"><span class="rl">IPCA acumulado 12m</span><span class="rv" id="macro-ipca">A carregar…</span></div>
-        <div class="row"><span class="rl">Fontes</span><span class="rv" id="macro-source" style="color:var(--text2)">BCB / Yahoo</span></div>
-      </div>
-      <div class="card">
-        <div class="ch"><span class="ct">IA no portfólio</span><span class="ci">🧠</span></div>
-        <div class="row"><span class="rl">Papel</span><span class="rv">Crescimento satélite</span></div>
-        <div class="row"><span class="rl">Limite operacional</span><span class="rv">4%–10%</span></div>
-        <div class="row"><span class="rl">Concentração por emissor</span><span class="rv">Máx. 2%</span></div>
+  <!-- ══ INÍCIO - DASHBOARD EXECUTIVO ══ -->
+<div class="page active" id="page-home">
+  <div class="gap">
+    
+    <!-- Saudação e status -->
+    <div class="exec-greeting" id="exec-greeting">Bom dia</div>
+    
+    <!-- Status do FlowCore -->
+    <div class="card" id="home-status-card">
+      <div class="ch"><span class="ct">Status do Sistema</span><span class="ci" id="home-status-icon">🟢</span></div>
+      <div id="home-status-content"><div class="sk"></div></div>
+    </div>
+    
+    <!-- Alertas importantes -->
+    <div class="card" id="home-alerts-card">
+      <div class="ch"><span class="ct">Atenção Necessária</span><span class="ci">⚠</span></div>
+      <div id="home-alerts-content">
+        <div class="empty">Nenhum alerta no momento.</div>
       </div>
     </div>
+    
+    <!-- Ações pendentes -->
+    <div class="card" id="home-actions-card">
+      <div class="ch"><span class="ct">Ações para Hoje</span><span class="ci">✓</span></div>
+      <div id="home-actions-content">
+        <div class="empty">Nenhuma ação pendente.</div>
+      </div>
+    </div>
+    
+    <!-- Mercado -->
+    <div class="card" id="home-market-card">
+      <div class="ch"><span class="ct">Mercado</span><span class="ci">📊</span></div>
+      <div class="exec-grid">
+        <div class="exec-card">
+          <div class="exec-label">Ibovespa</div>
+          <div class="exec-val" id="home-ibov">--</div>
+        </div>
+        <div class="exec-card">
+          <div class="exec-label">Dólar</div>
+          <div class="exec-val" id="home-usd">--</div>
+        </div>
+        <div class="exec-card">
+          <div class="exec-label">Selic</div>
+          <div class="exec-val" id="home-selic">--</div>
+        </div>
+        <div class="exec-card">
+          <div class="exec-label">IPCA 12m</div>
+          <div class="exec-val" id="home-ipca">--</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Insight da IA -->
+    <div class="card" id="home-insight-card">
+      <div class="ch"><span class="ct">Insight do FlowCore</span><span class="ci">🧠</span></div>
+      <div id="home-insight-content">
+        <div class="insight-card">
+          <span class="insight-badge">ANÁLISE</span>
+          <div class="insight-text" id="home-insight-text">Carregando insights...</div>
+          <div class="insight-link" onclick="pg('ai',document.querySelectorAll('.ni')[2])">VER ANÁLISE COMPLETA</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Flows recentes -->
+    <div class="card" id="home-flows-card">
+      <div class="ch">
+        <span class="ct">Flows Recentes</span>
+        <button class="btn-sm" onclick="openNewFlowModal()">+ Novo</button>
+      </div>
+      <div id="home-flows-content">
+        <div class="empty">Nenhum flow executado recentemente.</div>
+      </div>
+    </div>
+    
   </div>
+</div>
 
   <!-- ══ PORTFOLIO ══ -->
   <div class="page" id="page-portfolio"><div class="gap">
@@ -434,6 +480,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
         <div class="ch">
           <span class="ct">Flows</span>
           <button class="btn-sm" onclick="loadFlows()">↻</button>
+          <button class="btn-sm" onclick="openNewFlowModal()">+ Novo</button>
         </div>
         <div id="flow-cards" style="display:flex;flex-direction:column;gap:8px">
           <div class="sk" style="height:42px"></div>
@@ -451,14 +498,77 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 
 </div>
 
+<!-- Modal Novo Flow -->
+<div class="modal-overlay" id="modal-new-flow">
+  <div class="modal">
+    <div class="modal-title">Novo Flow</div>
+    <div style="margin-bottom:12px">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">Nome do Flow</label>
+      <input type="text" id="flow-name" placeholder="Ex: Fechamento de Mercado" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:13px;outline:none;box-sizing:border-box">
+    </div>
+    <div style="margin-bottom:16px">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">Descrição (opcional)</label>
+      <input type="text" id="flow-desc" placeholder="Ex: Análise diária do mercado e carteira" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:13px;outline:none;box-sizing:border-box">
+    </div>
+    <div style="margin-bottom:8px">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">Etapas</label>
+      <div id="flow-steps-container"></div>
+      <button class="btn-sm" onclick="addFlowStep()" style="margin-top:8px;width:100%">+ Adicionar Etapa</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:20px">
+      <button class="btn-sm" onclick="closeNewFlowModal()" style="flex:1;background:var(--bg3)">Cancelar</button>
+      <button class="btn-sm" onclick="createFlow()" style="flex:1;background:var(--accent);color:#fff;border:none">Criar Flow</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ AÇÕES ══ -->
+<div class="page" id="page-actions">
+  <div class="gap">
+    <div class="card">
+      <div class="ch"><span class="ct">Ações Pendentes</span><span class="ci">✓</span></div>
+      <div id="actions-list" style="display:flex;flex-direction:column;gap:10px">
+        <div class="empty">Nenhuma ação pendente no momento.</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ch"><span class="ct">Ações Recentes</span><span class="ci">🕐</span></div>
+      <div id="actions-history" style="display:flex;flex-direction:column;gap:8px">
+        <div class="empty">Nenhuma ação recente.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MAIS ══ -->
+<div class="page" id="page-more">
+  <div class="gap">
+    <div class="card">
+      <div class="ch"><span class="ct">Ferramentas</span><span class="ci">⚙</span></div>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <button class="btn-sm" onclick="pg('agents',document.querySelectorAll('.ni')[4])" style="text-align:left;background:var(--bg3);justify-content:flex-start">🤖 Agentes</button>
+        <button class="btn-sm" onclick="pg('agents',document.querySelectorAll('.ni')[4]);openNewFlowModal()" style="text-align:left;background:var(--bg3);justify-content:flex-start">➕ Novo Flow</button>
+        <button class="btn-sm" onclick="pg('mem',document.querySelectorAll('.ni')[4])" style="text-align:left;background:var(--bg3);justify-content:flex-start">🧠 Memórias</button>
+        <button class="btn-sm" onclick="pg('notes',document.querySelectorAll('.ni')[4])" style="text-align:left;background:var(--bg3);justify-content:flex-start">📝 Notas</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ch"><span class="ct">Sistema</span><span class="ci">▣</span></div>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <button class="btn-sm" onclick="pg('admin',document.querySelectorAll('.ni')[4])" style="text-align:left;background:var(--bg3);justify-content:flex-start">⚙ Configurações</button>
+        <button class="btn-sm" onclick="pg('caps',document.querySelectorAll('.ni')[4])" style="text-align:left;background:var(--bg3);justify-content:flex-start">🩺 Diagnóstico</button>
+      </div>
+    </div>
+  </div>
+</div>
+
   <!-- Bottom nav -->
 <div class="nav">
-  <button class="ni active" onclick="pg('home',this)"><span class="ni-icon">⌂</span><span>Visão</span></button>
-  <button class="ni" onclick="pg('portfolio',this)"><span class="ni-icon">◒</span><span>Carteira</span></button>
+  <button class="ni active" onclick="pg('home',this)"><span class="ni-icon">⌂</span><span>Início</span></button>
+  <button class="ni" onclick="pg('portfolio',this)"><span class="ni-icon">◒</span><span>Finanças</span></button>
   <button class="ni" onclick="pg('ai',this)"><span class="ni-icon">✦</span><span>IA</span></button>
-  <button class="ni" onclick="pg('mem',this)"><span class="ni-icon">🧠</span><span>Memórias</span></button>
-  <button class="ni" onclick="pg('agents',this)"><span class="ni-icon">⚙</span><span>Agentes</span></button>
-  <button class="ni" onclick="pg('admin',this)"><span class="ni-icon">▣</span><span>Admin</span></button>
+  <button class="ni" onclick="pg('actions',this)"><span class="ni-icon">✓</span><span>Ações</span></button>
+  <button class="ni" onclick="pg('more',this)"><span class="ni-icon">⋯</span><span>Mais</span></button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -473,10 +583,14 @@ function pg(name,btn){
   document.querySelectorAll('.ni').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   btn.classList.add('active');
+  if(name==='home') loadHomeDashboard();
   if(name==='admin') loadSys();
   if(name==='portfolio') loadPortfolio();
   if(name==='notes') loadNotes();
+  if(name==='mem'){api('/api/memories').then(r=>renderMems(r.memories||[]));}
   if(name==='agents'){loadAgents();loadFlows();}
+  if(name==='actions') loadActions();
+  if(name==='more') loadMorePage();
 }
 
 /* ── Toast ── */
@@ -498,6 +612,7 @@ async function api(path,opts={}){
 async function refresh(){
   const dot=document.getElementById('dot');
   loadMarketSnapshot();
+  loadHomeDashboard();
   try{
     const [s,mems,notes]=await Promise.all([
       api('/api/status'),
@@ -517,6 +632,85 @@ async function refresh(){
   }
 }
 
+/* ── Dashboard Executivo (HOME) ── */
+async function loadHomeDashboard(){
+  // Saudação baseada no horário
+  const hour=new Date().getHours();
+  let greeting='Bom dia';
+  if(hour>=12&&hour<18)greeting='Boa tarde';
+  else if(hour>=18)greeting='Boa noite';
+  const greetEl=document.getElementById('exec-greeting');
+  if(greetEl)greetEl.textContent=greeting+', Dario';
+  
+  // Status do sistema
+  try{
+    const status=await api('/api/status');
+    const statusIcon=document.getElementById('home-status-icon');
+    const statusContent=document.getElementById('home-status-content');
+    if(statusIcon&&statusContent){
+      const isOk=status.doctor_summary?.passed>0&&(status.doctor_summary?.failed||0)===0;
+      statusIcon.textContent=isOk?'🟢':'🟡';
+      const passed=status.doctor_summary?.passed||0;
+      const warnings=status.doctor_summary?.warnings||0;
+      const failed=status.doctor_summary?.failed||0;
+      statusContent.innerHTML=`<div style="font-size:13px;color:var(--text2)">Doctor: <strong>${passed}</strong> OK, <strong>${warnings}</strong> alertas, <strong>${failed}</strong> falhas</div>`;
+    }
+  }catch(e){
+    const statusIcon=document.getElementById('home-status-icon');
+    const statusContent=document.getElementById('home-status-content');
+    if(statusIcon)statusIcon.textContent='🔴';
+    if(statusContent)statusContent.innerHTML='<div style="color:var(--red)">Erro ao carregar status</div>';
+  }
+  
+  // Ações pendentes (placeholder - API futura)
+  // Quando existir GET /api/actions, substituir este bloco
+  const actionsContent=document.getElementById('home-actions-content');
+  if(actionsContent){
+    actionsContent.innerHTML='<div class="empty">Nenhuma ação pendente no momento.</div>';
+  }
+  
+  // Alertas (baseado em doctor warnings/failures)
+  try{
+    const status=await api('/api/status');
+    const alertsContent=document.getElementById('home-alerts-content');
+    if(alertsContent){
+      const warnings=status.doctor_summary?.warnings||0;
+      const failed=status.doctor_summary?.failed||0;
+      if(warnings>0||failed>0){
+        let html='';
+        if(failed>0){
+          html+=`<div class="alert-card red"><div class="alert-title">🔴 ${failed} ponto(s) crítico(s)</div><div class="alert-desc">O FlowCore detectou falhas que precisam de atenção imediata.</div><div class="alert-action"><button class="btn-alert btn-primary" onclick="pg('caps',document.querySelectorAll('.ni')[4])">VER DIAGNÓSTICO</button></div></div>`;
+        }
+        if(warnings>0){
+          html+=`<div class="alert-card"><div class="alert-title">🟡 ${warnings} alerta(s)</div><div class="alert-desc">Atenção recomendada para itens abaixo do ideal.</div></div>`;
+        }
+        alertsContent.innerHTML=html;
+      }else{
+        alertsContent.innerHTML='<div class="empty">Nenhum alerta no momento.</div>';
+      }
+    }
+  }catch(e){
+    // Silencioso para alertas
+  }
+  
+  // Flows recentes
+  try{
+    const flows=await api('/api/flows');
+    const flowsContent=document.getElementById('home-flows-content');
+    if(flowsContent&&flows.flows&&flows.flows.length>0){
+      const recent=flows.flows.slice(0,3);
+      let html='';
+      recent.forEach(f=>{
+        const stepsCount=f.steps?f.steps.length:0;
+        html+=`<div class="history-item"><div class="history-header"><span class="history-title">${f.name||'Flow sem nome'}</span><span class="history-time">${new Date((f.created_at||0)*1000).toLocaleString('pt-BR')}</span></div><div class="history-details">${stepsCount} etapa(s)</div></div>`;
+      });
+      flowsContent.innerHTML=html;
+    }
+  }catch(e){
+    // Silencioso para flows
+  }
+}
+
 /* ── Mercado e macro — fontes públicas, sem valores sintetizados ── */
 function marketValue(value, suffix=''){
   return value===null||value===undefined?'Sem dados':new Intl.NumberFormat('pt-BR',{maximumFractionDigits:2}).format(value)+suffix;
@@ -525,6 +719,7 @@ async function loadMarketSnapshot(){
   const set=(id,value)=>{const e=document.getElementById(id);if(e)e.textContent=value;};
   try{
     const data=await api('/api/market/snapshot');
+    // Atualiza tela antiga (Visão Financeira)
     set('market-usd',marketValue(data.brl_usd,' R$'));
     const ibov=data.ibov_last===null||data.ibov_last===undefined?'Sem dados':marketValue(data.ibov_last)+(data.ibov_change_pct===null||data.ibov_change_pct===undefined?'':' ('+(data.ibov_change_pct>=0?'+':'')+marketValue(data.ibov_change_pct,'%')+')');
     set('market-ibov',ibov);
@@ -533,10 +728,25 @@ async function loadMarketSnapshot(){
     const sources=Object.values(data.observations||{}).filter(o=>o&&o.available).map(o=>o.source).filter(Boolean);
     set('macro-source',sources.length?[...new Set(sources)].join(' / '):'Sem dados de fonte');
     set('market-updated',data.timestamp?'Atualizado '+new Date(data.timestamp).toLocaleTimeString('pt-BR'):'Sem timestamp');
+    
+    // Atualiza dashboard executivo (HOME)
+    const homeIbov=document.getElementById('home-ibov');
+    const homeUsd=document.getElementById('home-usd');
+    const homeSelic=document.getElementById('home-selic');
+    const homeIpca=document.getElementById('home-ipca');
+    if(homeIbov)homeIbov.textContent=data.ibov_last!==null&&data.ibov_last!==undefined?marketValue(data.ibov_last):'--';
+    if(homeUsd)homeUsd.textContent=data.brl_usd!==null&&data.brl_usd!==undefined?marketValue(data.brl_usd,' R$'):'--';
+    if(homeSelic)homeSelic.textContent=data.selic_rate!==null&&data.selic_rate!==undefined?marketValue(data.selic_rate,'%'):'--';
+    if(homeIpca)homeIpca.textContent=data.ipca_12m!==null&&data.ipca_12m!==undefined?marketValue(data.ipca_12m,'%'):'--';
   }catch(e){
     ['market-usd','market-ibov','macro-selic','macro-ipca'].forEach(id=>set(id,'Sem dados'));
     set('market-updated','Fonte indisponível');
     set('macro-source','Sem dados de fonte');
+    // Dashboard executivo
+    ['home-ibov','home-usd','home-selic','home-ipca'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el)el.textContent='--';
+    });
   }
 }
 
@@ -903,9 +1113,126 @@ async function runFlow(id,name){
   }
 }
 
+/* ── Novo Flow Modal ── */
+let _flowStepCounter=0;
+let _availableAgents=[];
+
+async function loadAvailableAgents(){
+  try{
+    const res=await api('/api/agent/agents');
+    _availableAgents=res.agents||[];
+  }catch(e){
+    _availableAgents=[{name:'health',description:'Health check'},{name:'doctor',description:'Doctor agent'}];
+  }
+}
+
+function openNewFlowModal(){
+  document.getElementById('modal-new-flow').classList.add('active');
+  document.getElementById('flow-name').value='';
+  document.getElementById('flow-desc').value='';
+  _flowStepCounter=0;
+  document.getElementById('flow-steps-container').innerHTML='';
+  addFlowStep();
+  loadAvailableAgents();
+}
+
+function closeNewFlowModal(){
+  document.getElementById('modal-new-flow').classList.remove('active');
+}
+
+function addFlowStep(){
+  _flowStepCounter++;
+  const container=document.getElementById('flow-steps-container');
+  const stepDiv=document.createElement('div');
+  stepDiv.className='flow-step';
+  stepDiv.id='flow-step-'+_flowStepCounter;
+  
+  let agentOptions=_availableAgents.map(a=>`<option value="${a.name}">${a.name}${a.description?' — '+a.description:''}</option>`).join('');
+  
+  stepDiv.innerHTML=`
+    <div class="flow-step-num">${_flowStepCounter}</div>
+    <div class="flow-step-content">
+      <select id="step-agent-${_flowStepCounter}" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);font-size:13px;outline:none">
+        ${agentOptions}
+      </select>
+    </div>
+    <button class="btn-sm" onclick="removeFlowStep(${_flowStepCounter})" style="background:var(--red);color:#fff;border:none">×</button>
+  `;
+  container.appendChild(stepDiv);
+}
+
+function removeFlowStep(num){
+  const step=document.getElementById('flow-step-'+num);
+  if(step)step.remove();
+  renumberFlowSteps();
+}
+
+function renumberFlowSteps(){
+  const steps=document.querySelectorAll('#flow-steps-container .flow-step');
+  steps.forEach((step,idx)=>{
+    step.querySelector('.flow-step-num').textContent=idx+1;
+  });
+}
+
+async function createFlow(){
+  const name=document.getElementById('flow-name').value.trim();
+  const desc=document.getElementById('flow-desc').value.trim();
+  const stepsDivs=document.querySelectorAll('#flow-steps-container .flow-step');
+  
+  if(!name){
+    toast('❌ Nome do flow é obrigatório');
+    return;
+  }
+  if(stepsDivs.length===0){
+    toast('❌ Adicione pelo menos uma etapa');
+    return;
+  }
+  
+  const steps=[];
+  stepsDivs.forEach(div=>{
+    const select=div.querySelector('select[id^="step-agent-"]');
+    if(select&&select.value){
+      steps.push({agent:select.value});
+    }
+  });
+  
+  if(steps.length===0){
+    toast('❌ Nenhuma etapa válida');
+    return;
+  }
+  
+  const btn=document.querySelector('#modal-new-flow button[onclick="createFlow()"]');
+  if(btn){btn.disabled=true;btn.innerHTML='Criando...';}
+  
+  try{
+    const payload={name:name,description:desc,steps:steps};
+    const result=await api('/api/flows',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    toast('✅ Flow criado: '+result.name);
+    closeNewFlowModal();
+    loadFlows();
+  }catch(e){
+    toast('❌ Erro ao criar flow: '+e.message);
+  }finally{
+    if(btn){btn.disabled=false;btn.innerHTML='Criar Flow';}
+  }
+}
+
 /* ── Init ── */
 refresh();
 setInterval(refresh,30000);
+
+/* ── Ações ── */
+function loadActions(){
+  const list=document.getElementById('actions-list');
+  const hist=document.getElementById('actions-history');
+  if(list)list.innerHTML='<div class="empty">Nenhuma ação pendente no momento.</div>';
+  if(hist)hist.innerHTML='<div class="empty">Nenhuma ação recente.</div>';
+}
+
+/* ── Mais ── */
+function loadMorePage(){
+  // Página estática, nada a carregar
+}
 </script>
 </body>
 </html>
