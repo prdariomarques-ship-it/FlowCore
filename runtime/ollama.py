@@ -36,7 +36,16 @@ DEFAULT_NUM_CTX = int(os.getenv("FLOWCORE_OLLAMA_NUM_CTX", "8192"))
 WARMUP_POLL_INTERVAL = 2  # segundos entre checagens de /api/ps durante o warm-up
 
 # Ordem de preferência ao escolher automaticamente um modelo instalado.
-MODEL_PRIORITY = ["gpt-oss", "glm", "qwen", "deepseek", "llama", "mistral", "phi", "gemma"]
+MODEL_PRIORITY = [
+    "gpt-oss",
+    "glm",
+    "qwen",
+    "deepseek",
+    "llama",
+    "mistral",
+    "phi",
+    "gemma",
+]
 
 
 class OllamaError(RuntimeError):
@@ -195,13 +204,19 @@ def discover_default_model() -> str:
         with urllib.request.urlopen(request, timeout=5) as response:
             data = json.loads(response.read().decode("utf-8"))
     except (urllib.error.URLError, ConnectionRefusedError, TimeoutError, OSError) as e:
-        raise OllamaDiscoveryError(f"Falha ao consultar modelos em {base_url}: {e}") from e
+        raise OllamaDiscoveryError(
+            f"Falha ao consultar modelos em {base_url}: {e}"
+        ) from e
 
     models = data.get("models", [])
     if not models:
         raise OllamaDiscoveryError(f"Nenhum modelo instalado no Ollama em {base_url}")
 
-    local_models = [m for m in models if not m.get("remote_host") and not (m.get("name") or "").endswith(":cloud")]
+    local_models = [
+        m
+        for m in models
+        if not m.get("remote_host") and not (m.get("name") or "").endswith(":cloud")
+    ]
     if not local_models:
         raise OllamaDiscoveryError(
             f"Só há modelos Ollama Cloud instalados em {base_url} (exigem assinatura paga). "
@@ -232,11 +247,15 @@ def list_loaded_models(base_url: str, timeout: float = 5) -> list[str]:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             data = json.loads(response.read().decode("utf-8"))
     except (urllib.error.URLError, ConnectionRefusedError, TimeoutError, OSError) as e:
-        raise OllamaUnreachableError(f"Falha ao consultar /api/ps em {base_url}: {e}") from e
+        raise OllamaUnreachableError(
+            f"Falha ao consultar /api/ps em {base_url}: {e}"
+        ) from e
     return [m.get("name") or m.get("model", "") for m in data.get("models", [])]
 
 
-def _classify_http_error(e: urllib.error.HTTPError, base_url: str, model: str) -> OllamaError:
+def _classify_http_error(
+    e: urllib.error.HTTPError, base_url: str, model: str
+) -> OllamaError:
     """Traduz um HTTPError de /api/generate num tipo de erro específico."""
     try:
         body = e.read().decode("utf-8", errors="replace")
@@ -288,10 +307,14 @@ def _trigger_warmup(base_url: str, model: str, timeout: float) -> None:
     except TimeoutError:
         return
     except (urllib.error.URLError, ConnectionRefusedError, OSError) as e:
-        raise OllamaUnreachableError(f"Ollama inacessível em {base_url} durante warm-up: {e}") from e
+        raise OllamaUnreachableError(
+            f"Ollama inacessível em {base_url} durante warm-up: {e}"
+        ) from e
 
 
-def ensure_model_loaded(base_url: str, model: str, timeout: float = DEFAULT_GENERATE_TIMEOUT) -> None:
+def ensure_model_loaded(
+    base_url: str, model: str, timeout: float = DEFAULT_GENERATE_TIMEOUT
+) -> None:
     """Garante que `model` está carregado em memória antes de gerar.
 
     Consulta /api/ps primeiro; se o modelo já estiver carregado, retorna
@@ -327,7 +350,9 @@ def ensure_model_loaded(base_url: str, model: str, timeout: float = DEFAULT_GENE
     )
 
 
-def generate(base_url: str, model: str, prompt: str, timeout: float = DEFAULT_GENERATE_TIMEOUT) -> str:
+def generate(
+    base_url: str, model: str, prompt: str, timeout: float = DEFAULT_GENERATE_TIMEOUT
+) -> str:
     """Executa uma chamada de geração completa: garante o modelo carregado
     (ver ensure_model_loaded) e então chama /api/generate com stream=True.
 
@@ -344,12 +369,14 @@ def generate(base_url: str, model: str, prompt: str, timeout: float = DEFAULT_GE
     """
     ensure_model_loaded(base_url, model, timeout=timeout)
 
-    payload = json.dumps({
-        "model": model,
-        "prompt": prompt,
-        "stream": True,
-        "options": {"num_ctx": DEFAULT_NUM_CTX},
-    })
+    payload = json.dumps(
+        {
+            "model": model,
+            "prompt": prompt,
+            "stream": True,
+            "options": {"num_ctx": DEFAULT_NUM_CTX},
+        }
+    )
     request = urllib.request.Request(
         f"{base_url.rstrip('/')}/api/generate",
         data=payload.encode("utf-8"),
@@ -364,7 +391,9 @@ def generate(base_url: str, model: str, prompt: str, timeout: float = DEFAULT_GE
                     continue
                 chunk = json.loads(line)
                 if chunk.get("error"):
-                    raise OllamaError(f"Erro durante geração em {base_url}: {chunk['error']}")
+                    raise OllamaError(
+                        f"Erro durante geração em {base_url}: {chunk['error']}"
+                    )
                 parts.append(chunk.get("response", ""))
                 if chunk.get("done"):
                     break
