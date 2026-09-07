@@ -1,0 +1,56 @@
+{
+  "case_maria_oliveira_renda_variável": {
+    "id": "case_maria_oliveira_renda_variável",
+    "client_id": "maria_oliveira",
+    "portfolio_id": "port_maria_001",
+    "type": "EXCESSO_RENDA_VARIÁVEL",
+    "severity": "CRITICAL",
+    "current_value": 38.0,
+    "limit_value": 30.0,
+    "difference": 8.0,
+    "policy_id": "pol_rv_moderado",
+    "reason": "Excesso em Renda Variável: 38.0% (limite: 30.0%, excesso: 8.0 p.p.)",
+    "suggested_action": "Reduzir Renda Variável em 8.0 p.p.",
+    "status": "RESOLVED",
+    "created_at": "2026-09-07T04:27:36.493006+00:00",
+    "updated_at": "2026-09-07T04:27:36.495280+00:00",
+    "resolved_at": null,
+    "resolved_by": "System / ComplianceOrchestrator",
+    "proposed_rebalancing": {
+      "proposed": true,
+      "client_id": "maria_oliveira",
+      "client_name": "Maria Oliveira",
+      "portfolio_value": 1000000.0,
+      "trades_count": 2,
+      "trades": [
+        {
+          "action": "SELL",
+          "asset_class": "Renda Variável",
+          "percentage_delta": -8.0,
+          "approximate_value": 80000.0,
+          "reason": "Reduzir excesso de 8.0 p.p. acima do teto de compliance.",
+          "liquidity_impact": "Alta (Ativos negociados em mercado secundário)",
+          "risk_impact": "Redução do VaR e volatilidade da carteira"
+        },
+        {
+          "action": "BUY",
+          "asset_class": "Renda Fixa / Tesouro Selic",
+          "percentage_delta": 8.0,
+          "approximate_value": 80000.0,
+          "reason": "Alocar recursos reduzidos de Renda Variável para enquadrar perfil.",
+          "liquidity_impact": "Liquidez D+0 / D+1",
+          "risk_impact": "Preservação de capital com rendimento CDI"
+        }
+      ],
+      "summary": "Proposta de rebalanceamento gerada: 2 operações sugeridas para enquadramento."
+    },
+    "ai_explanation": {
+      "o_que_aconteceu": "Renda Variável representa 38.0% da carteira total (R$ 1,000,000.00).",
+      "por_que_aconteceu": "A concentração aumentou e excedeu o teto estipulado para o perfil Moderado.",
+      "qual_limite_violado": "Limite máximo de 30.0% para Renda Variável.",
+      "qual_politica_utilizada": "Política ID: pol_rv_moderado (Perfil Moderado).",
+      "impacto": "Excesso de 8.0 p.p. (aproximadamente R$ 80,000.00 desproporcionais ao risco do perfil).",
+      "acao_sugerida": "Reduzir exposição em Renda Variável em 8.0 p.p. e rebalancear para Renda Fixa ou Caixa."
+    }
+  }
+}

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <meta name="theme-color" content="#030712">
-<title>FlowCore — Modern AI Wealth Copilot</title>
+<title>FlowCore — Autonomous Wealth Copilot V2</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
@@ -19,18 +19,13 @@
   --primary-cyan: #38bdf8;
   --primary-glow: rgba(56, 189, 248, 0.25);
   --accent-purple: #818cf8;
-  --accent-glow: rgba(129, 140, 248, 0.25);
 
   --status-green: #10b981;
-  --status-green-glow: rgba(16, 185, 129, 0.3);
   --status-yellow: #f59e0b;
-  --status-yellow-glow: rgba(245, 158, 11, 0.3);
   --status-red: #f43f5e;
-  --status-red-glow: rgba(244, 63, 94, 0.3);
 
   --text-main: #f8fafc;
   --text-muted: #94a3b8;
-  --text-dim: #64748b;
 
   --font-sans: 'Plus Jakarta Sans', -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
@@ -42,8 +37,7 @@ body {
   background-color: var(--bg-dark);
   background-image:
     radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.08) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(129, 140, 248, 0.08) 0px, transparent 50%),
-    radial-gradient(at 50% 50%, rgba(16, 185, 129, 0.04) 0px, transparent 50%);
+    radial-gradient(at 100% 100%, rgba(129, 140, 248, 0.08) 0px, transparent 50%);
   background-attachment: fixed;
   color: var(--text-main);
   font-family: var(--font-sans);
@@ -51,448 +45,123 @@ body {
   line-height: 1.5;
   min-height: 100vh;
   padding-bottom: 90px;
-  -webkit-font-smoothing: antialiased;
 }
 
-/* Glassmorphism Header */
 header {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(3, 7, 18, 0.8);
+  background: rgba(3, 7, 18, 0.85);
   backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border-color);
   padding: 14px 24px;
 }
 
 .header-container {
-  max-width: 800px;
+  max-width: 900px;
   margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
+.brand { display: flex; align-items: center; gap: 12px; }
 .brand-logo {
-  width: 40px;
-  height: 40px;
+  width: 40px; height: 40px;
   background: linear-gradient(135deg, var(--primary-cyan), var(--accent-purple));
   border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: 20px;
-  color: #ffffff;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 20px; color: #fff;
   box-shadow: 0 0 20px var(--primary-glow);
 }
-
 .brand-text h1 {
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: -0.5px;
+  font-size: 18px; font-weight: 800;
   background: linear-gradient(135deg, #ffffff, #94a3b8);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
 }
+.brand-text p { font-size: 11px; color: var(--primary-cyan); font-weight: 600; text-transform: uppercase; }
 
-.brand-text p {
-  font-size: 11px;
-  color: var(--primary-cyan);
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-}
+main { max-width: 900px; margin: 24px auto; padding: 0 16px; display: flex; flex-direction: column; gap: 20px; }
 
-.status-badge {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(17, 24, 39, 0.8);
-  border: 1px solid var(--border-color);
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background-color: var(--status-green);
-  box-shadow: 0 0 10px var(--status-green);
-  animation: pulse-dot 2s infinite;
-}
-
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(0.8); }
-}
-
-/* Main Layout */
-main {
-  max-width: 800px;
-  margin: 24px auto;
-  padding: 0 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-/* Card Styling */
 .card {
   background: var(--bg-card);
   backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border-color);
   border-radius: 20px;
   padding: 20px;
   box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.card:hover {
-  border-color: var(--border-highlight);
-  box-shadow: 0 14px 40px -10px rgba(56, 189, 248, 0.15);
-}
+.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.card-title { font-size: 13px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
 
-.card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-
-.card-title {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.card-badge {
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 700;
-}
-
+.card-badge { padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; }
 .badge-green { background: rgba(16, 185, 129, 0.15); color: var(--status-green); border: 1px solid rgba(16, 185, 129, 0.3); }
 .badge-yellow { background: rgba(245, 158, 11, 0.15); color: var(--status-yellow); border: 1px solid rgba(245, 158, 11, 0.3); }
 .badge-red { background: rgba(244, 63, 94, 0.15); color: var(--status-red); border: 1px solid rgba(244, 63, 94, 0.3); }
 
-/* Desenquadramento / Compliance Hero Card */
-.compliance-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-bottom: 16px;
-}
+/* Grid metrics */
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+.metric-chip { background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); border-radius: 14px; padding: 12px; text-align: center; }
+.metric-val { font-family: var(--font-mono); font-size: 22px; font-weight: 700; }
+.metric-lbl { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; margin-top: 2px; }
 
-.summary-chip {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid var(--border-color);
-  border-radius: 14px;
-  padding: 12px;
-  text-align: center;
-}
-
-.summary-val {
-  font-family: var(--font-mono);
-  font-size: 22px;
-  font-weight: 700;
-}
-
-.summary-lbl {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-weight: 600;
-  margin-top: 2px;
-  text-transform: uppercase;
-}
-
-/* Compliance Alert Rows */
-.alert-item {
-  background: rgba(15, 23, 42, 0.8);
+/* HITL Case Cards */
+.case-card {
+  background: rgba(15, 23, 42, 0.85);
   border: 1px solid var(--border-color);
   border-radius: 16px;
   padding: 16px;
   margin-bottom: 12px;
-  position: relative;
-  overflow: hidden;
-  transition: transform 0.2s;
+  border-left: 4px solid var(--status-red);
 }
 
-.alert-item:last-child { margin-bottom: 0; }
+.case-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.case-client { font-size: 16px; font-weight: 700; }
 
-.alert-item.critical { border-left: 4px solid var(--status-red); }
-.alert-item.warning { border-left: 4px solid var(--status-yellow); }
-
-.alert-item-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-
-.client-name {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-main);
-}
-
-.alert-type {
-  font-size: 11px;
-  font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 8px;
-}
-
-.alert-metrics {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-bottom: 8px;
-  background: rgba(3, 7, 18, 0.4);
-  padding: 8px 12px;
-  border-radius: 10px;
-}
-
-.metric-highlight {
-  font-family: var(--font-mono);
-  font-weight: 700;
-  color: var(--text-main);
-}
-
-.progress-track {
-  position: relative;
-  height: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
-  margin: 12px 0 10px;
-}
-
-.progress-fill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.6s ease;
-}
-
-.progress-fill.critical { background: linear-gradient(90deg, var(--status-yellow), var(--status-red)); box-shadow: 0 0 10px var(--status-red-glow); }
-.progress-fill.warning { background: linear-gradient(90deg, var(--status-green), var(--status-yellow)); box-shadow: 0 0 10px var(--status-yellow-glow); }
-
-.limit-pin {
-  position: absolute;
-  top: -3px;
-  bottom: -3px;
-  width: 2px;
-  background: #ffffff;
-  box-shadow: 0 0 8px #ffffff;
-  z-index: 2;
-}
-
-.alert-action {
-  font-size: 12px;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(255, 255, 255, 0.03);
-  padding: 8px 12px;
-  border-radius: 10px;
-  margin-top: 10px;
-}
-
-.copilot-btn {
-  background: linear-gradient(135deg, var(--primary-cyan), var(--accent-purple));
-  color: #ffffff;
-  border: none;
-  padding: 6px 14px;
-  border-radius: 10px;
-  font-weight: 700;
-  font-size: 12px;
-  cursor: pointer;
-  box-shadow: 0 0 12px var(--primary-glow);
-  transition: all 0.2s;
-}
-
-.copilot-btn:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
-}
-
-/* Empty State */
-.empty-state {
-  text-align: center;
-  padding: 36px 16px;
-}
-
-.empty-icon {
-  width: 48px;
-  height: 48px;
-  background: rgba(16, 185, 129, 0.15);
-  color: var(--status-green);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  margin: 0 auto 12px;
-  box-shadow: 0 0 20px var(--status-green-glow);
-}
-
-.empty-state h3 {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text-main);
-}
-
-.empty-state p {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-top: 4px;
-}
-
-/* Financial Dashboard Grid */
-.grid-2 {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-}
-
-.metric-card {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid var(--border-color);
-  border-radius: 14px;
-  padding: 14px;
-}
-
-.metric-card small {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-weight: 600;
-  display: block;
-}
-
-.metric-card strong {
-  font-family: var(--font-mono);
-  font-size: 20px;
-  color: var(--primary-cyan);
-  display: block;
-  margin-top: 4px;
-}
-
-.market-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.market-row:last-child { border-bottom: none; }
-
-.market-lbl { font-size: 13px; color: var(--text-muted); }
-.market-val { font-family: var(--font-mono); font-weight: 700; font-size: 14px; }
-
-/* Chat Drawer */
-.chat-log {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  max-height: 320px;
-  overflow-y: auto;
-  padding-right: 4px;
-  margin-bottom: 16px;
-}
-
-.chat-msg {
-  max-width: 85%;
-  padding: 10px 14px;
-  border-radius: 16px;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.chat-msg.user {
-  align-self: flex-end;
-  background: linear-gradient(135deg, var(--primary-cyan), var(--accent-purple));
-  color: #ffffff;
-  border-bottom-right-radius: 4px;
-}
-
-.chat-msg.bot {
-  align-self: flex-start;
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid var(--border-color);
-  border-bottom-left-radius: 4px;
-}
-
-.chat-input-box {
-  display: flex;
-  gap: 8px;
-}
-
-.chat-input {
-  flex: 1;
-  background: rgba(15, 23, 42, 0.8);
+.explanation-box {
+  background: rgba(3, 7, 18, 0.6);
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  color: var(--text-main);
-  padding: 10px 14px;
-  font-size: 13px;
-  outline: none;
+  padding: 12px;
+  font-size: 12px;
+  margin: 10px 0;
+  display: flex; flex-direction: column; gap: 6px;
 }
 
-.chat-input:focus { border-color: var(--primary-cyan); }
+.hitl-actions { display: flex; gap: 10px; margin-top: 12px; }
+.btn-approve {
+  background: linear-gradient(135deg, var(--status-green), #059669);
+  color: #fff; border: none; padding: 8px 16px; border-radius: 10px; font-weight: 700; cursor: pointer;
+}
+.btn-reject {
+  background: rgba(244, 63, 94, 0.15); color: var(--status-red); border: 1px solid rgba(244, 63, 94, 0.3);
+  padding: 8px 16px; border-radius: 10px; font-weight: 700; cursor: pointer;
+}
 
-/* Bottom Nav */
+/* AI Activity Stream */
+.activity-stream { display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto; }
+.activity-item {
+  font-size: 12px; font-family: var(--font-mono); background: rgba(15, 23, 42, 0.5);
+  padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color);
+  display: flex; justify-content: space-between;
+}
+
+/* Chat Drawer */
+.chat-log { display: flex; flex-direction: column; gap: 10px; max-height: 280px; overflow-y: auto; margin-bottom: 12px; }
+.chat-msg { max-width: 85%; padding: 10px 14px; border-radius: 14px; font-size: 13px; }
+.chat-msg.user { align-self: flex-end; background: linear-gradient(135deg, var(--primary-cyan), var(--accent-purple)); color: #fff; }
+.chat-msg.bot { align-self: flex-start; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); }
+
+.chat-input-box { display: flex; gap: 8px; }
+.chat-input { flex: 1; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: 10px; color: #fff; padding: 10px; }
+
 nav {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: rgba(3, 7, 18, 0.9);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  justify-content: space-around;
-  padding: 10px 0 14px;
-  z-index: 50;
+  position: fixed; bottom: 0; left: 0; right: 0; background: rgba(3, 7, 18, 0.9); backdrop-filter: blur(16px);
+  border-top: 1px solid var(--border-color); display: flex; justify-content: space-around; padding: 10px 0 14px; z-index: 50;
 }
-
-.nav-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: color 0.2s;
-}
-
+.nav-item { background: none; border: none; color: var(--text-muted); font-size: 11px; font-weight: 600; cursor: pointer; }
 .nav-item.active { color: var(--primary-cyan); }
-.nav-icon { font-size: 18px; }
-
 .page { display: none; }
 .page.active { display: block; }
 </style>
@@ -504,276 +173,205 @@ nav {
     <div class="brand">
       <div class="brand-logo">F</div>
       <div class="brand-text">
-        <h1>FlowCore</h1>
-        <p>Investment Copilot</p>
+        <h1>FlowCore V2</h1>
+        <p>Autonomous Wealth Copilot</p>
       </div>
     </div>
-    <div class="status-badge">
-      <div class="status-dot"></div>
-      <span id="header-status">Online</span>
-    </div>
+    <div class="card-badge badge-green" id="header-status">Event Bus Online</div>
   </div>
 </header>
 
 <main>
-  <!-- Page: Home -->
   <div class="page active" id="page-home">
     <div style="display:flex; flex-direction:column; gap:20px;">
 
-      <!-- HERO CARD: Desenquadramento Alerts -->
-      <div class="card" id="compliance-card">
+      <!-- HERO: HITL Cases & Alerts -->
+      <div class="card">
         <div class="card-header">
-          <div class="card-title">
-            <span>⚡</span>
-            <span>Alertas de Desenquadramento</span>
-          </div>
-          <span class="card-badge badge-green" id="compliance-status-badge">A carregar...</span>
+          <div class="card-title">⚡ Casos de Desenquadramento (HITL Approval)</div>
+          <span class="card-badge badge-red" id="cases-count-badge">Carregando...</span>
         </div>
 
-        <div class="compliance-summary-grid" id="compliance-chips" style="display:none">
-          <div class="summary-chip">
-            <div class="summary-val" id="chip-critical" style="color:var(--status-red)">0</div>
-            <div class="summary-lbl">Críticos</div>
+        <div class="grid-3">
+          <div class="metric-chip">
+            <div class="metric-val" id="metric-critical" style="color:var(--status-red)">0</div>
+            <div class="metric-lbl">Críticos</div>
           </div>
-          <div class="summary-chip">
-            <div class="summary-val" id="chip-warning" style="color:var(--status-yellow)">0</div>
-            <div class="summary-lbl">Atenção</div>
+          <div class="metric-chip">
+            <div class="metric-val" id="metric-waiting" style="color:var(--status-yellow)">0</div>
+            <div class="metric-lbl">Aguardando Aprovação</div>
           </div>
-          <div class="summary-chip">
-            <div class="summary-val" id="chip-total" style="color:var(--primary-cyan)">0</div>
-            <div class="summary-lbl">Afetados</div>
+          <div class="metric-chip">
+            <div class="metric-val" id="metric-resolved" style="color:var(--status-green)">0</div>
+            <div class="metric-lbl">Resolvidos</div>
           </div>
         </div>
 
-        <div id="alerts-container">
-          <div class="empty-state">
-            <p>Carregando monitoramento de carteiras...</p>
-          </div>
+        <div id="cases-container">
+          <p style="color:var(--text-muted); text-align:center; padding:20px;">Carregando casos em tempo real...</p>
         </div>
       </div>
 
-      <!-- Financial Overview -->
+      <!-- AI Activity Log -->
       <div class="card">
         <div class="card-header">
-          <div class="card-title">📊 Visão Geral da Carteira</div>
-          <span class="card-badge badge-green">Moderada</span>
+          <div class="card-title">📡 AI Activity Stream & Event Log</div>
+          <span class="card-badge badge-green">Live Event Bus</span>
         </div>
-        <div class="grid-2">
-          <div class="metric-card">
-            <small>Patrimônio sob Custódia</small>
-            <strong>R$ 1.000.000</strong>
-          </div>
-          <div class="metric-card">
-            <small>Exposição Alvo em IA</small>
-            <strong>7.0%</strong>
-          </div>
-          <div class="metric-card">
-            <small>Alocação Renda Fixa</small>
-            <strong>60.0%</strong>
-          </div>
-          <div class="metric-card">
-            <small>Revisão Automática</small>
-            <strong style="color:var(--status-green)">Diária</strong>
-          </div>
-        </div>
-      </div>
-
-      <!-- Live Market Snapshot -->
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">📈 Indicadores de Mercado</div>
-          <span class="card-badge badge-green" style="font-size:10px">Ao Vivo</span>
-        </div>
-        <div class="market-row">
-          <span class="market-lbl">Dólar PTAX (USD/BRL)</span>
-          <span class="market-val" id="mkt-usd">R$ 5,13</span>
-        </div>
-        <div class="market-row">
-          <span class="market-lbl">Ibovespa (IBOV)</span>
-          <span class="market-val" id="mkt-ibov">185.147 pts</span>
-        </div>
-        <div class="market-row">
-          <span class="market-lbl">Taxa Selic</span>
-          <span class="market-val" id="mkt-selic">10,75% a.a.</span>
+        <div class="activity-stream" id="activity-stream">
+          <div class="activity-item"><span>SYSTEM_INITIALIZED</span><span>EventBus Active</span></div>
         </div>
       </div>
 
     </div>
   </div>
 
-  <!-- Page: Finanças -->
-  <div class="page" id="page-finance">
-    <div class="card">
-      <div class="card-header"><div class="card-title">💹 Posições Consolidadas</div></div>
-      <p style="color:var(--text-muted);">Módulo de alocação detalhada ativo.</p>
-    </div>
-  </div>
-
-  <!-- Page: Copilot AI Chat -->
+  <!-- Page: Copilot -->
   <div class="page" id="page-copilot">
     <div class="card">
       <div class="card-header">
-        <div class="card-title">🤖 Copilot Conversacional</div>
+        <div class="card-title">🤖 Copilot AI Conversacional</div>
         <span class="card-badge badge-green">Desenquadramento Ready</span>
       </div>
       <div class="chat-log" id="chat-log">
         <div class="chat-msg bot">
-          Olá! Sou seu Investment Copilot. Pergunte-me: <strong>"Quais clientes estão desenquadrados?"</strong> ou peça análises de rebalanceamento.
+          Olá! Sou o FlowCore Copilot V2. Pergunte: <strong>"Quais clientes estão desenquadrados hoje?"</strong> ou solicite detalhes do reenquadramento.
         </div>
       </div>
       <div class="chat-input-box">
-        <input class="chat-input" id="chat-input" placeholder="Escreva sua pergunta..." onkeydown="if(event.key==='Enter')sendChatMsg()">
-        <button class="copilot-btn" onclick="sendChatMsg()">Enviar</button>
+        <input class="chat-input" id="chat-input" placeholder="Pergunte ao Copilot..." onkeydown="if(event.key==='Enter')sendChat()">
+        <button class="btn-approve" onclick="sendChat()">Enviar</button>
       </div>
     </div>
   </div>
 </main>
 
 <nav>
-  <button class="nav-item active" onclick="switchNav('home', this)">
-    <span class="nav-icon">🏠</span>
-    <span>Início</span>
-  </button>
-  <button class="nav-item" onclick="switchNav('finance', this)">
-    <span class="nav-icon">💹</span>
-    <span>Finanças</span>
-  </button>
-  <button class="nav-item" onclick="switchNav('copilot', this)">
-    <span class="nav-icon">🤖</span>
-    <span>Copilot</span>
-  </button>
+  <button class="nav-item active" onclick="switchNav('home', this)">🏠 Dashboard</button>
+  <button class="nav-item" onclick="switchNav('copilot', this)">🤖 Copilot</button>
 </nav>
 
 <script>
-function switchNav(pageId, btn) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-  document.getElementById('page-' + pageId).classList.add('active');
-  btn.classList.add('active');
+function switchNav(p, b) {
+  document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
+  document.getElementById('page-' + p).classList.add('active');
+  b.classList.add('active');
 }
 
-async function fetchAlerts() {
-  const badge = document.getElementById('compliance-status-badge');
-  const chips = document.getElementById('compliance-chips');
-  const container = document.getElementById('alerts-container');
-
+async function loadComplianceData() {
   try {
-    const res = await fetch('/api/alerts');
+    const res = await fetch('/api/compliance/cases');
     const data = await res.json();
+    const cases = data.cases || [];
 
-    if (!data || data.total === 0) {
-      badge.textContent = "100% Em Conformidade";
-      badge.className = "card-badge badge-green";
-      chips.style.display = "none";
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon">✓</div>
-          <h3>Nenhuma carteira desenquadrada</h3>
-          <p>Todas as posições e limites operacionais estão perfeitamente ajustados.</p>
-        </div>
-      `;
+    let critical = 0, waiting = 0, resolved = 0;
+    cases.forEach(c => {
+      if (c.severity === 'CRITICAL') critical++;
+      if (c.status === 'WAITING_APPROVAL') waiting++;
+      if (c.status === 'RESOLVED') resolved++;
+    });
+
+    document.getElementById('metric-critical').textContent = critical;
+    document.getElementById('metric-waiting').textContent = waiting;
+    document.getElementById('metric-resolved').textContent = resolved;
+    document.getElementById('cases-count-badge').textContent = `${waiting} Pendente(s)`;
+
+    const container = document.getElementById('cases-container');
+    if (cases.length === 0) {
+      container.innerHTML = `<p style="color:var(--status-green); text-align:center; padding:20px;">✓ Todas as carteiras estão 100% em conformidade com as políticas.</p>`;
       return;
     }
 
-    badge.textContent = `${data.total} Desenquadramento${data.total > 1 ? 's' : ''}`;
-    badge.className = data.critical > 0 ? "card-badge badge-red" : "card-badge badge-yellow";
-
-    chips.style.display = "grid";
-    document.getElementById('chip-critical').textContent = data.critical || 0;
-    document.getElementById('chip-warning').textContent = data.warnings || 0;
-    document.getElementById('chip-total').textContent = data.total || 0;
-
     let html = '';
-    data.items.forEach(item => {
-      const isCrit = item.severity === 'CRITICAL';
-      const sevClass = isCrit ? 'critical' : 'warning';
-      const badgeClass = isCrit ? 'badge-red' : 'badge-yellow';
-      const diffLabel = item.diff > 0 ? `+${item.diff} p.p.` : `${item.diff} p.p.`;
-
-      const maxVal = Math.max(item.current, item.limit, 100);
-      const currPct = Math.min(100, Math.round((item.current / maxVal) * 100));
-      const limitPct = Math.min(100, Math.round((item.limit / maxVal) * 100));
-
+    cases.forEach(c => {
+      const exp = c.ai_explanation || {};
       html += `
-        <div class="alert-item ${sevClass}">
-          <div class="alert-item-header">
+        <div class="case-card">
+          <div class="case-card-header">
             <div>
-              <div class="client-name">${item.client_name}</div>
-              <span class="card-badge ${badgeClass}" style="margin-top:4px; display:inline-block;">${item.type}</span>
+              <div class="case-client">${c.client_id} — ${c.type}</div>
+              <small style="color:var(--text-muted)">Status: <strong style="color:var(--status-yellow)">${c.status}</strong> | Política: ${c.policy_id}</small>
             </div>
-            <button class="copilot-btn" onclick="askCopilotAbout('${item.client_name}')">⚡ Analisar Copilot</button>
+            <span class="card-badge badge-red">${c.severity} (+${c.difference} p.p.)</span>
           </div>
 
-          <div class="alert-metrics">
-            <span>Posição Atual: <span class="metric-highlight">${item.current}%</span></span>
-            <span>Limite Teto: <span class="metric-highlight">${item.limit}%</span></span>
-            <span style="color:${isCrit ? 'var(--status-red)' : 'var(--status-yellow)'}; font-weight:700;">${diffLabel}</span>
+          <div class="explanation-box">
+            <div><strong>O QUE:</strong> ${exp.o_que_aconteceu || c.reason}</div>
+            <div><strong>POR QUE:</strong> ${exp.por_que_aconteceu || 'Desvio de alocação'}</div>
+            <div><strong>IMPACTO:</strong> ${exp.impacto || 'Risco desalinhado'}</div>
+            <div><strong>AÇÃO SUGERIDA:</strong> ${c.suggested_action}</div>
           </div>
 
-          <div class="progress-track">
-            <div class="progress-fill ${sevClass}" style="width: ${currPct}%"></div>
-            <div class="limit-pin" style="left: ${limitPct}%" title="Limite Teto ${item.limit}%"></div>
-          </div>
-
-          <div class="alert-action">
-            <span>💡</span>
-            <span><strong>Sugestão:</strong> ${item.suggested_action}</span>
-          </div>
+          ${c.status === 'WAITING_APPROVAL' ? `
+            <div class="hitl-actions">
+              <button class="btn-approve" onclick="approveCase('${c.id}')">✓ Aprovar Rebalanceamento</button>
+              <button class="btn-reject" onclick="rejectCase('${c.id}')">✕ Rejeitar</button>
+            </div>
+          ` : `
+            <small style="color:var(--status-green)">Resolvido/Aprovado por: ${c.resolved_by || 'Sistema'}</small>
+          `}
         </div>
       `;
     });
-
     container.innerHTML = html;
 
-  } catch (err) {
-    badge.textContent = "Erro ao Carregar";
-    badge.className = "card-badge badge-red";
-    container.innerHTML = `<p style="color:var(--text-muted); text-align:center;">Não foi possível consultar os alertas.</p>`;
+  } catch(err) {
+    console.error(err);
   }
 }
 
-function askCopilotAbout(clientName) {
-  switchNav('copilot', document.querySelectorAll('.nav-item')[2]);
-  const input = document.getElementById('chat-input');
-  input.value = `Quais ações tomar para rebalancear a carteira de ${clientName}?`;
-  sendChatMsg();
+async function approveCase(caseId) {
+  await fetch(`/api/compliance/cases/${caseId}/approve`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ approved_by: 'Advisor (Interface Web)' })
+  });
+  loadComplianceData();
+  loadActivityStream();
 }
 
-let chatHistory = [];
-async function sendChatMsg() {
-  const input = document.getElementById('chat-input');
-  const text = input.value.trim();
-  if (!text) return;
+async function rejectCase(caseId) {
+  await fetch(`/api/compliance/cases/${caseId}/reject`, { method: 'POST' });
+  loadComplianceData();
+  loadActivityStream();
+}
 
-  input.value = '';
-  appendMsg(text, 'user');
-
+async function loadActivityStream() {
   try {
-    const res = await fetch('/api/ask', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: text, history: chatHistory })
-    });
+    const res = await fetch('/api/compliance/activity');
     const data = await res.json();
-    appendMsg(data.answer || 'Sem resposta do Copilot.', 'bot');
-    chatHistory.push({ role: 'user', content: text });
-    chatHistory.push({ role: 'assistant', content: data.answer || '' });
-  } catch (err) {
-    appendMsg('Erro ao conectar com o agente Copilot.', 'bot');
-  }
+    const stream = document.getElementById('activity-stream');
+    let html = '';
+    (data.activity || []).slice(-8).reverse().forEach(act => {
+      html += `<div class="activity-item"><span>${act.event_type}</span><span>${act.client_id} (${act.source})</span></div>`;
+    });
+    stream.innerHTML = html || `<div class="activity-item">Sem atividades registradas</div>`;
+  } catch(e) {}
 }
 
-function appendMsg(text, sender) {
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const txt = input.value.trim();
+  if (!txt) return;
+  input.value = '';
+
   const log = document.getElementById('chat-log');
-  const msg = document.createElement('div');
-  msg.className = `chat-msg ${sender}`;
-  msg.innerHTML = text;
-  log.appendChild(msg);
+  log.innerHTML += `<div class="chat-msg user">${txt}</div>`;
+
+  const res = await fetch('/api/ask', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ question: txt })
+  });
+  const data = await res.json();
+  log.innerHTML += `<div class="chat-msg bot">${data.answer || 'Sem resposta.'}</div>`;
   log.scrollTop = log.scrollHeight;
 }
 
-fetchAlerts();
-setInterval(fetchAlerts, 30000);
+loadComplianceData();
+loadActivityStream();
+setInterval(() => { loadComplianceData(); loadActivityStream(); }, 15000);
 </script>
 </body>
 </html>

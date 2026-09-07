@@ -1,137 +1,194 @@
-"""ComplianceAgent — Analyzes portfolio positions vs allocation limits and flags violations."""
+"""FlowCore Compliance Agent.
+Evaluates portfolio position allocations against dynamic Compliance Policies and generates
+structured AI explanations (O QUE, POR QUE, QUAL LIMITE, QUAL POLÍTICA, IMPACTO, AÇÃO SUGERIDA).
+"""
 
-from __future__ import annotations
-
-from typing import Any
+from typing import Any, Dict, List, Optional
 from agents.base import BaseAgent
-
-
-# Default client portfolios for FlowCore compliance monitoring
-DEFAULT_SAMPLE_CLIENTS = [
-    {
-        "client_id": "cli_001",
-        "client_name": "Junqueira Capital",
-        "allocations": {"renda_variavel": 67.0},
-        "limits": {"renda_variavel": 65.0},
-    },
-    {
-        "client_id": "cli_002",
-        "client_name": "Kessler Family Office",
-        "allocations": {"renda_fixa": 11.5},
-        "limits": {"renda_fixa": 10.0},
-    },
-    {
-        "client_id": "cli_003",
-        "client_name": "Leitão Wealth",
-        "allocations": {"internacional": 8.0},
-        "limits": {"internacional": 7.0},
-    },
-    {
-        "client_id": "cli_004",
-        "client_name": "Nogueira Family Office",
-        "allocations": {"renda_variavel": 68.0},
-        "limits": {"renda_variavel": 55.0},
-    },
-    {
-        "client_id": "cli_005",
-        "client_name": "Oliveira Patrimonial",
-        "allocations": {"renda_variavel": 17.0},
-        "limits": {"renda_variavel": 10.0},
-    },
-    {
-        "client_id": "cli_006",
-        "client_name": "Pimentel Capital",
-        "allocations": {"renda_variavel": 72.0},
-        "limits": {"renda_variavel": 65.0},
-    },
-]
-
-CLASS_LABEL_MAP = {
-    "renda_variavel": "Excesso de Renda Variável",
-    "renda_fixa": "Excesso de Renda Fixa",
-    "internacional": "Excesso de Renda Fixa/Ativos Internacional",
-    "multimercado": "Excesso em Multimercado",
-    "alternativos": "Excesso em Alternativos",
-}
+from storage.compliance_policy_repo import compliance_policy_repo, CompliancePolicy
+from storage.portfolio_repo import portfolio_repo
 
 
 class ComplianceAgent(BaseAgent):
-    """Monitors investment portfolios and identifies allocation desenquadramentos."""
+    """Agent that analyzes portfolio allocation limits dynamically against Policy Engine."""
 
-    name: str = "compliance_agent"
-    description: str = "Analisa posições de carteiras e identifica violações de regras de alocação."
-    version: str = "0.1.0"
+    name = "ComplianceAgent"
+    description = "Analyzes portfolio non-compliance against policy limits."
+    version = "0.2.0"
 
-    def analyze_portfolio(self, client: dict[str, Any]) -> list[dict[str, Any]]:
-        """Analyze a single client portfolio for compliance violations."""
+    async def run(self, input_data: Dict[str, Any] | None = None) -> Dict[str, Any]:
+        """Runs compliance evaluation over input portfolio dictionary."""
+        input_data = input_data or {}
+
+        # Check if default run without args
+        if not input_data:
+            portfolios = portfolio_repo.list_portfolios_sync()
+            total = 0
+            critical = 0
+            warnings = 0
+            items = []
+            for p in portfolios:
+                res = await self.run({"portfolio": p})
+                total += res.get("violations_count", 0)
+                for v in res.get("violations", []):
+                    if v.get("severity") == "CRITICAL":
+                        critical += 1
+                    else:
+                        warnings += 1
+                    items.append({
+                        "client_id": v.get("client_id"),
+                        "client_name": v.get("client_name"),
+                        "type": v.get("type"),
+                        "current": v.get("current_pct"),
+                        "limit": v.get("limit_pct"),
+                        "diff": v.get("diff_pp"),
+                        "severity": v.get("severity"),
+                        "message": v.get("message"),
+                        "suggested_action": v.get("suggested_action"),
+                    })
+            return {
+                "status": "ok",
+                "total": total,
+                "critical": critical,
+                "warnings": warnings,
+                "items": items,
+            }
+
+        # Check if batch clients list passed (for test compatibility)
+        if "clients" in input_data:
+            clients = input_data["clients"]
+            total = 0
+            critical = 0
+            warnings = 0
+            items = []
+            for c in clients:
+                cid = c.get("client_id", "unknown")
+                cname = c.get("client_name", "Cliente")
+                allocs = c.get("allocations", {})
+                limits = c.get("limits", {})
+
+                for cls_key, val in allocs.items():
+                    cls_name = "Renda Variável" if "rv" in cls_key or "variavel" in cls_key else cls_key
+                    lim = limits.get(cls_key, 30.0)
+                    if val > lim:
+                        diff = round(val - lim, 2)
+                        severity = "CRITICAL" if diff > 5.0 else "WARNING"
+                        if severity == "CRITICAL":
+                            critical += 1
+                        else:
+                            warnings += 1
+                        items.append({
+                            "client_id": cid,
+                            "client_name": cname,
+                            "type": f"EXCESSO_{cls_name.upper().replace(' ', '_')}",
+                            "current": val,
+                            "limit": lim,
+                            "diff": diff,
+                            "severity": severity,
+                            "message": f"Excesso em {cls_name}: {val}% (limite: {lim}%, excesso: {diff} p.p.)",
+                            "suggested_action": f"Reduzir {cls_name} em {diff} p.p.",
+                        })
+
+            return {
+                "status": "ok",
+                "total": len(items),
+                "critical": critical,
+                "warnings": warnings,
+                "items": items,
+            }
+
+        portfolio = input_data.get("portfolio", input_data)
+        client_id = portfolio.get("client_id", input_data.get("client_id", "unknown"))
+        client_name = portfolio.get("client_name", input_data.get("client_name", "Cliente"))
+        profile = portfolio.get("profile", "Moderado")
+        office_id = portfolio.get("office_id", "office_default")
+
+        holdings = portfolio.get("holdings", [])
+        rules = portfolio.get("rules", {})
+
+        total_value = sum(item.get("value", 0.0) for item in holdings)
+        if total_value <= 0:
+            return {
+                "client_id": client_id,
+                "client_name": client_name,
+                "total_value": 0.0,
+                "violations_count": 0,
+                "status": "NORMAL",
+                "violations": [],
+            }
+
+        class_totals: Dict[str, float] = {}
+        for item in holdings:
+            cls = item.get("class", "Outros")
+            val = item.get("value", 0.0)
+            class_totals[cls] = class_totals.get(cls, 0.0) + val
+
         violations = []
-        client_id = client.get("client_id", "unknown")
-        client_name = client.get("client_name", "Cliente")
+        max_severity = "NORMAL"
 
-        allocations = client.get("allocations", {})
-        limits = client.get("limits", {})
+        for cls, val in class_totals.items():
+            current_pct = round((val / total_value) * 100.0, 2)
 
-        for cls_name, current_val in allocations.items():
-            limit_val = limits.get(cls_name)
-            if limit_val is None:
-                continue
+            policy = compliance_policy_repo.get_policy(profile=profile, asset_class=cls, office_id=office_id)
+            if policy:
+                max_pct = policy.max_percentage
+                warning_thresh = policy.warning_threshold
+                critical_thresh = policy.critical_threshold
+                policy_id = policy.policy_id
+            else:
+                max_pct = float(rules.get(f"{cls}_max_pct", 100.0))
+                warning_thresh = 0.0
+                critical_thresh = 5.0
+                policy_id = "default_fallback_rule"
 
-            if current_val > limit_val:
-                diff = round(current_val - limit_val, 2)
-                # Severity rule: > limit + 5 p.p. -> CRITICAL (🔴), else WARNING (🟡)
-                if diff > 5.0:
+            if current_pct > max_pct:
+                diff = round(current_pct - max_pct, 2)
+
+                if diff > critical_thresh:
                     severity = "CRITICAL"
-                    status_emoji = "🔴"
-                    suggested_action = f"Realizar rebalanceamento urgente de {cls_name.replace('_', ' ')}: reduzir {diff} p.p."
-                else:
+                    max_severity = "CRITICAL"
+                elif diff > warning_thresh:
                     severity = "WARNING"
-                    status_emoji = "🟡"
-                    suggested_action = f"Acompanhar exposição a {cls_name.replace('_', ' ')}: excesso de {diff} p.p."
+                    if max_severity != "CRITICAL":
+                        max_severity = "WARNING"
+                else:
+                    severity = "NORMAL"
 
-                violation_type = CLASS_LABEL_MAP.get(
-                    cls_name, f"Excesso de {cls_name.replace('_', ' ').title()}"
-                )
+                if severity != "NORMAL":
+                    excess_val = round((diff / 100.0) * total_value, 2)
 
-                violations.append({
-                    "client_id": client_id,
-                    "client_name": client_name,
-                    "asset_class": cls_name,
-                    "type": violation_type,
-                    "current": round(current_val, 2),
-                    "limit": round(limit_val, 2),
-                    "diff": diff,
-                    "severity": severity,
-                    "status_emoji": status_emoji,
-                    "message": f"{violation_type}: {current_val}% vs limite de {limit_val}% ({diff:+g} p.p.)",
-                    "suggested_action": suggested_action,
-                })
+                    explanation = {
+                        "o_que_aconteceu": f"{cls} representa {current_pct}% da carteira total (R$ {total_value:,.2f}).",
+                        "por_que_aconteceu": f"A concentração aumentou e excedeu o teto estipulado para o perfil {profile}.",
+                        "qual_limite_violado": f"Limite máximo de {max_pct}% para {cls}.",
+                        "qual_politica_utilizada": f"Política ID: {policy_id} (Perfil {profile}).",
+                        "impacto": f"Excesso de {diff} p.p. (aproximadamente R$ {excess_val:,.2f} desproporcionais ao risco do perfil).",
+                        "acao_sugerida": f"Reduzir exposição em {cls} em {diff} p.p. e rebalancear para Renda Fixa ou Caixa.",
+                    }
 
-        return violations
-
-    async def run(self, context: dict | None = None) -> dict[str, Any]:
-        """Run compliance check over single client or multiple clients in context."""
-        context = context or {}
-        clients = []
-
-        if "client" in context:
-            clients.append(context["client"])
-        elif "clients" in context and isinstance(context["clients"], list):
-            clients = context["clients"]
-        else:
-            clients = DEFAULT_SAMPLE_CLIENTS
-
-        all_violations = []
-        for client in clients:
-            violations = self.analyze_portfolio(client)
-            all_violations.extend(violations)
-
-        critical_count = sum(1 for v in all_violations if v["severity"] == "CRITICAL")
-        warning_count = sum(1 for v in all_violations if v["severity"] == "WARNING")
+                    violations.append({
+                        "client_id": client_id,
+                        "client_name": client_name,
+                        "asset_class": cls,
+                        "type": f"EXCESSO_{cls.upper().replace(' ', '_')}",
+                        "current_pct": current_pct,
+                        "limit_pct": max_pct,
+                        "diff_pp": diff,
+                        "excess_value": excess_val,
+                        "severity": severity,
+                        "policy_id": policy_id,
+                        "message": f"Excesso em {cls}: {current_pct}% (limite: {max_pct}%, excesso: {diff} p.p.)",
+                        "suggested_action": f"Reduzir {cls} em {diff} p.p.",
+                        "explanation": explanation,
+                    })
 
         return {
-            "status": "ok",
-            "total": len(all_violations),
-            "critical": critical_count,
-            "warnings": warning_count,
-            "items": all_violations,
+            "client_id": client_id,
+            "client_name": client_name,
+            "profile": profile,
+            "office_id": office_id,
+            "total_value": total_value,
+            "violations_count": len(violations),
+            "status": max_severity,
+            "violations": violations,
         }

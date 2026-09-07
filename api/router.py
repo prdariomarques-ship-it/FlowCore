@@ -140,6 +140,11 @@ class ObsidianSyncRequest(BaseModel):
     content: str | None = None
 
 
+class CaseApproveRequest(BaseModel):
+    approved_by: str = "Advisor"
+    updated_portfolio: dict | None = None
+
+
 # ---------------------------------------------------------------------------
 # Stores
 # ---------------------------------------------------------------------------
@@ -739,7 +744,7 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             raise HTTPException(status_code=404, detail="Execution not found")
         return ExecutionResponse(**_executions[exec_id])
 
-    # ── Alerts / Compliance ──────────────────────────────────────────────
+    # ── Alerts / Compliance (V1 Compatibility + V2 Orchestrator) ────────
     @app.get("/api/alerts")
     async def get_alerts():
         """Return portfolio compliance desenquadramento alerts."""
@@ -750,6 +755,77 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             return result
         except Exception as e:
             logger.error("Error retrieving alerts: {}", e)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # ── Compliance V2 Endpoints (Cases, Policies, HITL) ───────────────
+    @app.get("/api/compliance/cases")
+    async def list_compliance_cases(status: str | None = Query(None), client_id: str | None = Query(None)):
+        try:
+            from storage.compliance_case_repo import compliance_case_repo
+            cases = compliance_case_repo.list_cases(status=status, client_id=client_id)
+            return {"cases": [c.to_dict() for c in cases]}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/api/compliance/cases/{case_id}/approve")
+    async def approve_compliance_case(case_id: str, req: CaseApproveRequest):
+        try:
+            from agents.compliance_events import event_bus, FlowCoreEvent, EventType
+            from storage.compliance_case_repo import compliance_case_repo
+
+            case = compliance_case_repo.get_by_id(case_id)
+            if not case:
+                raise HTTPException(status_code=404, detail="Case not found")
+
+            event = FlowCoreEvent(
+                event_type=EventType.REBALANCING_APPROVED,
+                client_id=case.client_id,
+                portfolio_id=case.portfolio_id,
+                source="API/HITL",
+                payload={
+                    "case_id": case_id,
+                    "approved_by": req.approved_by,
+                    "updated_portfolio": req.updated_portfolio,
+                },
+            )
+            event_bus.publish(event)
+            return {"status": "APPROVED", "case_id": case_id}
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/api/compliance/cases/{case_id}/reject")
+    async def reject_compliance_case(case_id: str, reason: str = Query("Rejeitado pelo gestor")):
+        try:
+            from storage.compliance_case_repo import compliance_case_repo, CaseStatus
+            case = compliance_case_repo.get_by_id(case_id)
+            if not case:
+                raise HTTPException(status_code=404, detail="Case not found")
+            case.status = CaseStatus.REJECTED
+            case.resolved_by = f"Advisor (Reason: {reason})"
+            compliance_case_repo.save(case)
+            return {"status": "REJECTED", "case_id": case_id}
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.get("/api/compliance/policies")
+    async def list_compliance_policies():
+        try:
+            from storage.compliance_policy_repo import compliance_policy_repo
+            policies = compliance_policy_repo.list_policies()
+            return {"policies": [p.to_dict() for p in policies]}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.get("/api/compliance/activity")
+    async def compliance_activity():
+        try:
+            from agents.compliance_events import event_bus
+            return {"activity": event_bus.get_audit_log()}
+        except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
     # ── Watchdog ─────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
-"""Unit tests for POST /api/ask desenquadramento conversational queries."""
+"""Integration test for conversational ask compliance queries."""
 
 import pytest
-from fastapi.testclient import TestClient
+from starlette.testclient import TestClient
 from api.router import create_app
 
 
@@ -21,4 +21,4 @@ def test_ask_desenquadrado_query(client):
 
     assert data["provider"] == "compliance-agent"
     assert "carteira(s) com alertas" in data["answer"]
-    assert "Junqueira Capital" in data["answer"] or "Nogueira Family Office" in data["answer"]
+    assert "Maria Oliveira" in data["answer"]

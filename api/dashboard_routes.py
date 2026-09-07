@@ -264,7 +264,7 @@ def register_dashboard_routes(app, version: str) -> None:
                 else:
                     lines = [f"Encontrei {result['total']} carteira(s) com alertas de desenquadramento ({result['critical']} crítica(s) 🔴 e {result['warnings']} em atenção 🟡):\n"]
                     for item in result["items"]:
-                        lines.append(f"• {item['status_emoji']} {item['client_name']}: {item['message']} — Sugestão: {item['suggested_action']}")
+                        lines.append(f"• {item['client_name']}: {item['message']} — Sugestão: {item['suggested_action']}")
                     answer = "\n".join(lines)
                 return {"answer": answer, "provider": "compliance-agent", "model": "rule-engine"}
             except Exception:

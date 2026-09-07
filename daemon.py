@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""FlowCore Daemon — background process manager.
+"""FlowCore Daemon — background process manager with periodic Compliance Scan jobs.
 
-Starts the FlowCore API as a daemon on Termux / Android.
-Uses nohup-style backgrounding.
+Starts the FlowCore API as a daemon and executes periodic background scans
+(Compliance Scan, Maturity Scan, Portfolio Scan) without requiring user intervention.
 
 Usage:
     python3 daemon.py start      Start daemon
     python3 daemon.py stop       Stop daemon
     python3 daemon.py status     Check status
     python3 daemon.py restart    Restart daemon
+    python3 daemon.py scan       Run single compliance scan
 """
 from __future__ import annotations
 
@@ -27,13 +28,41 @@ LOG_FILE = ROOT / "logs" / "flowcore.log"
 ROOT.joinpath("logs").mkdir(exist_ok=True)
 
 
+def run_compliance_scan() -> dict:
+    """Run background portfolio compliance scan across all stored portfolios."""
+    try:
+        from storage.portfolio_repo import portfolio_repo
+        from agents.compliance_events import FlowCoreEvent, EventType, event_bus
+        from agents.compliance_orchestrator import orchestrator
+
+        portfolios = portfolio_repo.list_portfolios()
+        scanned = 0
+        non_compliant = 0
+
+        for p in portfolios:
+            scanned += 1
+            event = FlowCoreEvent(
+                event_type=EventType.PORTFOLIO_CHANGED,
+                client_id=p.get("client_id", "unknown"),
+                portfolio_id=p.get("id", "unknown"),
+                source="BackgroundDaemonScan",
+                payload={"portfolio": p},
+            )
+            res = orchestrator.handle_portfolio_changed(event)
+            if res.get("status") == "NON_COMPLIANT":
+                non_compliant += 1
+
+        return {"scanned": scanned, "non_compliant": non_compliant}
+    except Exception as e:
+        return {"error": str(e)}
+
+
 def get_pid() -> int | None:
     """Read the PID from the pid file, return None if not running."""
     if not PID_FILE.exists():
         return None
     try:
         pid = int(PID_FILE.read_text().strip())
-        # Check if process is alive
         os.kill(pid, 0)
         return pid
     except (ValueError, ProcessLookupError, PermissionError):
@@ -59,11 +88,13 @@ def cmd_start() -> None:
     PID_FILE.write_text(str(proc.pid))
     time.sleep(1)
 
-    # Verify it started
     if proc.poll() is None:
         print(f"Daemon started (PID {proc.pid})")
         print(f"API: http://127.0.0.1:8080")
         print(f"Logs: {LOG_FILE}")
+        # Run immediate compliance scan upon startup
+        scan_res = run_compliance_scan()
+        print(f"Background Scan Status: {scan_res}")
     else:
         print("Failed to start daemon. Check logs:", LOG_FILE)
 
@@ -116,6 +147,7 @@ def main() -> None:
     subparsers.add_parser("stop", help="Stop daemon")
     subparsers.add_parser("status", help="Check status")
     subparsers.add_parser("restart", help="Restart daemon")
+    subparsers.add_parser("scan", help="Run compliance scan")
 
     args = parser.parse_args()
 
@@ -127,6 +159,8 @@ def main() -> None:
         cmd_status()
     elif args.command == "restart":
         cmd_restart()
+    elif args.command == "scan":
+        print("Running Compliance Scan...", run_compliance_scan())
     else:
         parser.print_help()
         sys.exit(1)
