@@ -615,7 +615,12 @@ def register_dashboard_routes(app, version: str) -> None:
                     answer = f"Não foi possível consultar os dados agora ({type(exc).__name__}). Tente novamente em instantes."
                 return {"answer": answer, "provider": provider, "model": ""}
 
-        # Try FlowCore AgentRunner (ask agent) first
+        # Try the "ask" agent first -- AgentEngine's tool-calling (see
+        # agents/ask_agent.py) restricted to the tenant-safe market/
+        # analysis tools, so a question like "qual a correlação entre
+        # ouro e dólar?" gets a real computed answer instead of an LLM
+        # guessing. No conversation history: AgentEngine is single-turn
+        # by design (a tool-selection call, not a chat model).
         try:
             from agents.runner import AgentRunner
             runner = AgentRunner(require_passport=False)
@@ -623,11 +628,16 @@ def register_dashboard_routes(app, version: str) -> None:
             if "ask" in agents:
                 record = await runner.run(
                     "ask",
-                    {"question": data.question, "history": data.history},
+                    {"question": data.question},
                     passport_agent_name="dashboard",
                 )
-                if record.status == "completed" and record.result:
-                    return {"answer": record.result, "provider": "flowcore-agent", "model": ""}
+                if record.status == "completed" and record.result and record.result.get("status") == "ok":
+                    answer_data = record.result["data"]
+                    return {
+                        "answer": answer_data["answer"],
+                        "provider": "flowcore-agent",
+                        "model": answer_data.get("model") or "",
+                    }
         except Exception:
             pass
 

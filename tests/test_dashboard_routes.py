@@ -80,6 +80,55 @@ class TestAsk:
         assert r.status_code == 200
 
 
+class TestAskAgentTierIsTriedFirst:
+    """The "ask" agent (agents/ask_agent.py, restricted to tenant-safe
+    market/analysis tools) used to be dead code -- no agent named "ask"
+    was ever registered, so this branch never fired and the Chat IA fell
+    straight to raw Ollama/OpenAI/DeepSeek chat with no tool access."""
+
+    def test_used_before_ollama_when_it_succeeds(self):
+        from tests._auth_helper import signup_office
+        c = _client()
+        headers = signup_office(c)["headers"]
+
+        fake_record = type("Record", (), {
+            "status": "completed",
+            "result": {"status": "ok", "data": {
+                "answer": "Correlação de 0.42 entre ouro e dólar.",
+                "model": "deepseek-chat", "tool_used": "market_correlation", "tool_result": None,
+            }},
+        })()
+
+        with patch("agents.runner.AgentRunner.run", return_value=fake_record) as mocked_run, \
+             patch("api.dashboard_routes._tcp_reachable") as mocked_reachable:
+            r = c.post("/api/ask", json={"question": "oi"}, headers=headers)
+
+        assert r.status_code == 200
+        data = r.json()
+        assert data["answer"] == "Correlação de 0.42 entre ouro e dólar."
+        assert data["provider"] == "flowcore-agent"
+        assert data["model"] == "deepseek-chat"
+        mocked_run.assert_called_once()
+        mocked_reachable.assert_not_called()  # never even tried Ollama
+
+    def test_falls_through_to_ollama_when_ask_agent_errors(self):
+        from tests._auth_helper import signup_office
+        c = _client()
+        headers = signup_office(c)["headers"]
+
+        fake_record = type("Record", (), {
+            "status": "completed",
+            "result": {"status": "error", "data": {"reason": "no provider available"}},
+        })()
+
+        with patch("agents.runner.AgentRunner.run", return_value=fake_record), \
+             patch("api.dashboard_routes._tcp_reachable", return_value=False):
+            r = c.post("/api/ask", json={"question": "oi"}, headers=headers)
+
+        assert r.status_code == 200
+        assert r.json()["provider"] == "unavailable"
+
+
 # ── _tcp_reachable — fast-fail probe used before AI provider calls ────────────
 
 class TestTcpReachable:
@@ -153,6 +202,17 @@ class TestAskDeepSeekFallback:
         # candidates are skipped via _tcp_reachable returning False.
         return patch("api.dashboard_routes._tcp_reachable", return_value=False)
 
+    def _ask_agent_tier_skipped(self):
+        # These tests target the DeepSeek-specific tier that runs after
+        # both Ollama candidates fail -- but the "ask" agent tier (see
+        # agents/ask_agent.py) runs first and shares the same mocked
+        # service._llm_router.generate() these tests patch, so it would
+        # otherwise "succeed" first with provider=flowcore-agent. A
+        # RuntimeError here is what a real environment produces when the
+        # question doesn't map to any market/analysis tool and no LLM
+        # is reachable to answer directly either.
+        return patch("agents.runner.AgentRunner.run", side_effect=RuntimeError("no ask agent available"))
+
     def _session(self):
         from tests._auth_helper import signup_office
         c = _client()
@@ -165,7 +225,7 @@ class TestAskDeepSeekFallback:
             text="Resposta via DeepSeek", provider="deepseek", model="deepseek-chat", latency_ms=42.0,
         )
         c, session = self._session()
-        with self._unreachable_client():
+        with self._unreachable_client(), self._ask_agent_tier_skipped():
             with patch("service._llm_router.generate", return_value=fake_response) as mocked_generate:
                 r = c.post("/api/ask", json={"question": "oi"}, headers=session["headers"])
 
@@ -183,7 +243,7 @@ class TestAskDeepSeekFallback:
         from runtime.llm.models import LLMAllProvidersFailedError
 
         c, session = self._session()
-        with self._unreachable_client():
+        with self._unreachable_client(), self._ask_agent_tier_skipped():
             with patch(
                 "service._llm_router.generate",
                 side_effect=LLMAllProvidersFailedError("deepseek: DEEPSEEK_API_KEY not configured"),
@@ -201,7 +261,7 @@ class TestAskDeepSeekFallback:
         fake_response = LLMResponse(text="ok", provider="deepseek", model="deepseek-chat", latency_ms=1.0)
         c, session = self._session()
 
-        with self._unreachable_client():
+        with self._unreachable_client(), self._ask_agent_tier_skipped():
             with patch("service._llm_router.generate", return_value=fake_response) as mocked_generate:
                 r = c.post("/api/ask", json={"question": "oi"}, headers=session["headers"])
 
