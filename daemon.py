@@ -10,6 +10,7 @@ Usage:
     python3 daemon.py status     Check status
     python3 daemon.py restart    Restart daemon
 """
+
 from __future__ import annotations
 
 import os

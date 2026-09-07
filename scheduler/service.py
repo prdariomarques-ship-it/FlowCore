@@ -3,6 +3,7 @@
 Wraps APScheduler (AsyncIOScheduler) to schedule recurring tasks.
 Lightweight enough for Termux; only one scheduler instance per process.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -72,8 +73,7 @@ class SchedulerService:
     def list_tasks(self) -> list[dict[str, Any]]:
         """Return a list of all scheduled jobs."""
         return [
-            {"id": job.id, "name": job.id, "next_run": str(job.next_run_time)}
-            for job in self._scheduler.get_jobs()
+            {"id": job.id, "name": job.id, "next_run": str(job.next_run_time)} for job in self._scheduler.get_jobs()
         ]
 
     @property

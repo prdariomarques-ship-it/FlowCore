@@ -10,6 +10,7 @@ Usage:
 
 Updates VERSION file, config/default.yml, and appends to CHANGELOG.md.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -51,6 +52,7 @@ def update_changelog_header(version: str) -> None:
     """Append a new version section header to CHANGELOG.md."""
     today = Path().cwd()  # not used; we use fixed format
     import datetime
+
     today_str = datetime.date.today().isoformat()
 
     changelog = CHANGELOG_FILE.read_text()

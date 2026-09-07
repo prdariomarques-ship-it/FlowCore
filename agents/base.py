@@ -5,6 +5,7 @@ Agents are lightweight and run within the executor engine.
 
 This module provides the base class; concrete agents go in ``agents/``.
 """
+
 from __future__ import annotations
 
 import asyncio

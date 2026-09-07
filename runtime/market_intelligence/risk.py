@@ -69,8 +69,7 @@ def correlation_matrix(symbols: list[str], days: int = 60) -> dict:
             row[b] = round(_pearson(xa, xb), 3)
         matrix[a] = row
 
-    return {"symbols": syms, "matrix": matrix, "dropped": dropped,
-            "window_days": days, "min_observations": _MIN_OBS}
+    return {"symbols": syms, "matrix": matrix, "dropped": dropped, "window_days": days, "min_observations": _MIN_OBS}
 
 
 def _paired(a: list[float], b: list[float]) -> tuple[list[float], list[float]]:
@@ -110,8 +109,7 @@ def risk_contribution(holdings: dict[str, float], days: int = 60) -> dict:
 
     syms = list(series.keys())
     if len(syms) < 2:
-        return {"symbols": syms, "analysis": None, "dropped": rc_dropped,
-                "error": "insufficient_data"}
+        return {"symbols": syms, "analysis": None, "dropped": rc_dropped, "error": "insufficient_data"}
 
     total_w = sum(holdings.get(s, 0.0) for s in syms) or 1.0
     w = {s: holdings.get(s, 0.0) / total_w for s in syms}
@@ -122,20 +120,17 @@ def risk_contribution(holdings: dict[str, float], days: int = 60) -> dict:
     cov = {}
     for i, a in enumerate(syms):
         mean_a = sum(returns[a]) / n
-        vols[a] = ((sum((r - mean_a) ** 2 for r in returns[a]) / (n - 1)) ** 0.5
-                   * (252 ** 0.5))
+        vols[a] = (sum((r - mean_a) ** 2 for r in returns[a]) / (n - 1)) ** 0.5 * (252**0.5)
         for j, b in enumerate(syms):
             mean_b = sum(returns[b]) / n
-            cov[(a, b)] = sum((ra - mean_a) * (rb - mean_b)
-                              for ra, rb in zip(returns[a], returns[b])) / (n - 1)
+            cov[(a, b)] = sum((ra - mean_a) * (rb - mean_b) for ra, rb in zip(returns[a], returns[b])) / (n - 1)
 
     port_var = sum(w[a] * w[b] * cov[(a, b)] for a in syms for b in syms)
-    port_vol = port_var ** 0.5 if port_var > 0 else 0.0
+    port_vol = port_var**0.5 if port_var > 0 else 0.0
 
     analysis: dict[str, dict] = {}
     for a in syms:
-        marginal = (sum(w[b] * cov[(a, b)] for b in syms) / port_vol
-                    if port_vol > 0 else 0.0)
+        marginal = sum(w[b] * cov[(a, b)] for b in syms) / port_vol if port_vol > 0 else 0.0
         analysis[a] = {
             "weight": round(w[a], 4),
             "volatility_annualized": round(vols[a], 4),
@@ -143,6 +138,10 @@ def risk_contribution(holdings: dict[str, float], days: int = 60) -> dict:
             "total_contribution": round(w[a] * marginal, 4),
         }
 
-    return {"symbols": syms, "analysis": analysis, "dropped": rc_dropped,
-            "portfolio_volatility_annualized": round(port_vol, 4),
-            "window_days": days}
+    return {
+        "symbols": syms,
+        "analysis": analysis,
+        "dropped": rc_dropped,
+        "portfolio_volatility_annualized": round(port_vol, 4),
+        "window_days": days,
+    }

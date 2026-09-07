@@ -53,8 +53,7 @@ class YieldCurve:
     def to_dict(self) -> dict:
         return {
             "points": [
-                {"source": p.source, "label": p.label,
-                 "yield_pct": p.yield_pct, "previous_close": p.previous_close}
+                {"source": p.source, "label": p.label, "yield_pct": p.yield_pct, "previous_close": p.previous_close}
                 for p in self.points
             ],
             "slope_10y_2y_bps": self.slope_10y_2y,
@@ -83,17 +82,20 @@ def build_yield_curve() -> YieldCurve:
     points: list[CurvePoint] = []
     for source, label in CURVE_SOURCES:
         data = _fetch(source)
-        points.append(CurvePoint(
-            source=source, label=label,
-            yield_pct=data.get("yield_pct"),
-            previous_close=data.get("previous_close"),
-        ))
+        points.append(
+            CurvePoint(
+                source=source,
+                label=label,
+                yield_pct=data.get("yield_pct"),
+                previous_close=data.get("previous_close"),
+            )
+        )
 
     yields = [p.yield_pct for p in points if p.yield_pct is not None]
     if len(yields) < 2:
-        return YieldCurve(points=points, slope_10y_2y=None,
-                          slope_30y_10y=None, previous_slope_10y_2y=None,
-                          state="insufficient_data")
+        return YieldCurve(
+            points=points, slope_10y_2y=None, slope_30y_10y=None, previous_slope_10y_2y=None, state="insufficient_data"
+        )
 
     by_source = {p.source: p.yield_pct for p in points if p.yield_pct is not None}
 
@@ -107,8 +109,7 @@ def build_yield_curve() -> YieldCurve:
 
     prev = {}
     for source, _label in CURVE_SOURCES:
-        pc = next((p.previous_close for p in points
-                   if p.source == source and p.previous_close is not None), None)
+        pc = next((p.previous_close for p in points if p.source == source and p.previous_close is not None), None)
         if pc is not None:
             prev[source] = pc
     prev_slope = None
@@ -117,10 +118,15 @@ def build_yield_curve() -> YieldCurve:
 
     state = _classify_state(s_10y_2y, prev_slope)
     shape, interpretation = _classify_shape(points, prev)
-    return YieldCurve(points=points, slope_10y_2y=s_10y_2y,
-                      slope_30y_10y=s_30y_10y,
-                      previous_slope_10y_2y=prev_slope, state=state,
-                      shape=shape, interpretation=interpretation)
+    return YieldCurve(
+        points=points,
+        slope_10y_2y=s_10y_2y,
+        slope_30y_10y=s_30y_10y,
+        previous_slope_10y_2y=prev_slope,
+        state=state,
+        shape=shape,
+        interpretation=interpretation,
+    )
 
 
 def _classify_state(slope_bps: float | None, prev_bps: float | None) -> str:
@@ -138,9 +144,7 @@ def _classify_state(slope_bps: float | None, prev_bps: float | None) -> str:
     return "normal" if slope_bps > 100 else "flat"
 
 
-def _classify_shape(
-    points: list[CurvePoint], prev: dict[str, float]
-) -> tuple[str | None, str | None]:
+def _classify_shape(points: list[CurvePoint], prev: dict[str, float]) -> tuple[str | None, str | None]:
     """Bull/bear steepening|flattening classification.
 
     Level move = weighted average delta of long-end yields (10Y, 30Y)
@@ -153,9 +157,12 @@ def _classify_shape(
     if len(prev) < 2:
         return None, None
 
-    delta = {src: (p.yield_pct - prev[src]) * 100
-             for p in points for src in (p.source,)
-             if p.source in prev and p.yield_pct is not None}
+    delta = {
+        src: (p.yield_pct - prev[src]) * 100
+        for p in points
+        for src in (p.source,)
+        if p.source in prev and p.yield_pct is not None
+    }
     if len(delta) < 2:
         return None, None
 
@@ -165,8 +172,8 @@ def _classify_shape(
     if not longs or short is None:
         return None, None
 
-    level_move = sum(longs) / len(longs)          # bps long-end average move
-    slope_move = (delta.get("treasury", 0.0) - short)  # bps spread change
+    level_move = sum(longs) / len(longs)  # bps long-end average move
+    slope_move = delta.get("treasury", 0.0) - short  # bps spread change
 
     if abs(level_move) < 5 and abs(slope_move) < 5:
         return None, None

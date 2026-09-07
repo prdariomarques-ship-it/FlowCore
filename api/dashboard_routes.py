@@ -33,6 +33,7 @@ Ollama (local or remote via Tailscale):
 
 All values are read at request time — no restart needed after editing.
 """
+
 from __future__ import annotations
 
 import json
@@ -60,10 +61,17 @@ def _load_reference_portfolio() -> dict[str, Any]:
                     return data
         except (OSError, json.JSONDecodeError):
             continue
-    return {"id": "moderate-ia-1m", "name": "Carteira Moderada — R$ 1 milhão", "reference_value": 1000000, "target_allocation": []}
+    return {
+        "id": "moderate-ia-1m",
+        "name": "Carteira Moderada — R$ 1 milhão",
+        "reference_value": 1000000,
+        "target_allocation": [],
+    }
 
 
-def _review_reference_portfolio(portfolio: dict[str, Any], events: list[str] | None = None, current: dict[str, float] | None = None) -> dict[str, Any]:
+def _review_reference_portfolio(
+    portfolio: dict[str, Any], events: list[str] | None = None, current: dict[str, float] | None = None
+) -> dict[str, Any]:
     now = datetime.now(timezone.utc).isoformat()
     allocation = portfolio.get("target_allocation", [])
     events = events or []
@@ -76,23 +84,44 @@ def _review_reference_portfolio(portfolio: dict[str, Any], events: list[str] | N
         target = float(item.get("weight", 0))
         actual = float(current.get(item.get("id", ""), target if not current else 0))
         points = round(actual - target, 2)
-        drift.append({"id": item.get("id"), "target_weight": target, "current_weight": actual, "drift_points": points, "outside_band": abs(points) >= threshold})
+        drift.append(
+            {
+                "id": item.get("id"),
+                "target_weight": target,
+                "current_weight": actual,
+                "drift_points": points,
+                "outside_band": abs(points) >= threshold,
+            }
+        )
         if current and abs(points) >= threshold:
             alerts.append(f"Desvio de {points:+.2f} p.p. em {item.get('label', item.get('id'))}")
     if not current:
-        alerts.extend(["Carteira de referência sem posições reais informadas", "Revisão de mercado ao vivo depende de uma fonte de dados configurada"])
+        alerts.extend(
+            [
+                "Carteira de referência sem posições reais informadas",
+                "Revisão de mercado ao vivo depende de uma fonte de dados configurada",
+            ]
+        )
     if events:
         alerts.extend([f"Evento recebido: {event}" for event in events])
     return {
-        "portfolio_id": portfolio.get("id", "moderate-ia-1m"), "reviewed_at": now,
-        "mode": "review_and_alert_only", "live_data": bool(events), "orders_executed": False,
+        "portfolio_id": portfolio.get("id", "moderate-ia-1m"),
+        "reviewed_at": now,
+        "mode": "review_and_alert_only",
+        "live_data": bool(events),
+        "orders_executed": False,
         "status": "alert" if alerts and (events or current) else "reference_only",
-        "alerts": alerts, "events_received": events, "drift": drift,
-        "next_action": "Avaliar proposta e exigir aprovação humana antes de qualquer ordem" if alerts and (events or current) else "Configurar posições e fonte de dados antes de qualquer rebalanceamento",
+        "alerts": alerts,
+        "events_received": events,
+        "drift": drift,
+        "next_action": "Avaliar proposta e exigir aprovação humana antes de qualquer ordem"
+        if alerts and (events or current)
+        else "Configurar posições e fonte de dados antes de qualquer rebalanceamento",
     }
 
 
 # ── Request schemas (module-level so FastAPI resolves them correctly) ──────────
+
 
 class AskRequest(BaseModel):
     question: str
@@ -159,6 +188,7 @@ class BriefRequest(BaseModel):
 
 # ── Shared helpers ─────────────────────────────────────────────────────────────
 
+
 def _http_json(method: str, url: str, body: dict | None = None, timeout: int = 30) -> dict:
     """Raw HTTP JSON call used by both providers."""
     import urllib.error
@@ -166,7 +196,9 @@ def _http_json(method: str, url: str, body: dict | None = None, timeout: int = 3
 
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(
-        url, data=data, method=method,
+        url,
+        data=data,
+        method=method,
         headers={"Content-Type": "application/json"},
     )
     try:
@@ -188,11 +220,16 @@ def _openai_chat(messages: list[dict], model: str, timeout: int = 90) -> str:
         raise RuntimeError("openai_url not configured")
     resolved_model = model or cfg.get("openai_model", "")
     url = f"{base}/v1/chat/completions"
-    resp = _http_json("POST", url, {
-        "model": resolved_model,
-        "messages": messages,
-        "stream": False,
-    }, timeout=timeout)
+    resp = _http_json(
+        "POST",
+        url,
+        {
+            "model": resolved_model,
+            "messages": messages,
+            "stream": False,
+        },
+        timeout=timeout,
+    )
     return resp["choices"][0]["message"]["content"]
 
 
@@ -220,6 +257,7 @@ def _read_json(filename: str, default: Any = None) -> Any:
 
 # ── Registration ───────────────────────────────────────────────────────────────
 
+
 def register_dashboard_routes(app, version: str) -> None:
     """Register all Dashboard v4 API routes onto *app*."""
 
@@ -233,6 +271,7 @@ def register_dashboard_routes(app, version: str) -> None:
         # Try FlowCore AgentRunner (ask agent) first
         try:
             from agents.runner import AgentRunner
+
             runner = AgentRunner(require_passport=False)
             agents = {a["name"] for a in runner.list_agents()}
             if "ask" in agents:
@@ -261,11 +300,16 @@ def register_dashboard_routes(app, version: str) -> None:
         # Ollama fallback
         model = data.model or cfg.get("model", "llama3")
         try:
-            resp = _ollama("POST", "/api/chat", {
-                "model": model,
-                "messages": messages,
-                "stream": False,
-            }, timeout=90)
+            resp = _ollama(
+                "POST",
+                "/api/chat",
+                {
+                    "model": model,
+                    "messages": messages,
+                    "stream": False,
+                },
+                timeout=90,
+            )
             answer = resp.get("message", {}).get("content", "")
             return {"answer": answer, "provider": "ollama", "model": model}
         except RuntimeError as exc:
@@ -352,12 +396,17 @@ def register_dashboard_routes(app, version: str) -> None:
     @app.post("/api/ai-runtime/load")
     async def ai_load(data: ModelAction):
         try:
-            _ollama("POST", "/api/generate", {
-                "model": data.model,
-                "prompt": "",
-                "keep_alive": data.keep_alive,
-                "stream": False,
-            }, timeout=120)
+            _ollama(
+                "POST",
+                "/api/generate",
+                {
+                    "model": data.model,
+                    "prompt": "",
+                    "keep_alive": data.keep_alive,
+                    "stream": False,
+                },
+                timeout=120,
+            )
             return {"loaded": True, "model": data.model}
         except RuntimeError as exc:
             return {"loaded": False, "model": data.model, "error": str(exc)}
@@ -365,12 +414,17 @@ def register_dashboard_routes(app, version: str) -> None:
     @app.post("/api/ai-runtime/unload")
     async def ai_unload(data: ModelAction):
         try:
-            _ollama("POST", "/api/generate", {
-                "model": data.model,
-                "prompt": "",
-                "keep_alive": 0,
-                "stream": False,
-            }, timeout=30)
+            _ollama(
+                "POST",
+                "/api/generate",
+                {
+                    "model": data.model,
+                    "prompt": "",
+                    "keep_alive": 0,
+                    "stream": False,
+                },
+                timeout=30,
+            )
             return {"unloaded": True, "model": data.model}
         except RuntimeError as exc:
             return {"unloaded": False, "model": data.model, "error": str(exc)}
@@ -381,6 +435,7 @@ def register_dashboard_routes(app, version: str) -> None:
     async def ai_registry_list():
         """List all models in the Model Registry."""
         from runtime.ai.model_registry import get_registry
+
         reg = get_registry()
         cfg = _read_json("ai.json", {})
         ollama_url = cfg.get("ollama_url", _OLLAMA_DEFAULT)
@@ -395,6 +450,7 @@ def register_dashboard_routes(app, version: str) -> None:
     async def ai_routing_table():
         """Return the full routing table (task → model)."""
         from runtime.ai.router import get_router
+
         router = get_router()
         return {"routing": router.routing_table(), "rules": router.get_rules()}
 
@@ -402,6 +458,7 @@ def register_dashboard_routes(app, version: str) -> None:
     async def ai_routing_pin(data: RoutingPinRequest):
         """Pin a model for a specific task type."""
         from runtime.ai.router import get_router, TASK_TYPES
+
         if data.task not in TASK_TYPES:
             raise HTTPException(status_code=422, detail=f"task must be one of {list(TASK_TYPES)}")
         get_router().pin(data.task, data.model_id)
@@ -411,6 +468,7 @@ def register_dashboard_routes(app, version: str) -> None:
     async def ai_routing_unpin(task: str):
         """Remove a pinned model for a task type."""
         from runtime.ai.router import get_router
+
         get_router().unpin(task)
         return {"unpinned": True, "task": task}
 
@@ -419,11 +477,13 @@ def register_dashboard_routes(app, version: str) -> None:
         """Run benchmark tasks against a model. Runs in background — returns immediately."""
         import asyncio
         from runtime.ai.benchmark import get_benchmark
+
         cfg = _read_json("ai.json", {})
         ollama_url = cfg.get("ollama_url", _OLLAMA_DEFAULT)
 
         async def _run():
             import concurrent.futures
+
             loop = asyncio.get_event_loop()
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                 await loop.run_in_executor(
@@ -438,12 +498,14 @@ def register_dashboard_routes(app, version: str) -> None:
     async def ai_benchmark_history(model_id: str | None = Query(None), limit: int = Query(10)):
         """Return benchmark run history."""
         from runtime.ai.benchmark import get_benchmark
+
         return {"runs": get_benchmark().history(model_id=model_id, limit=limit)}
 
     @app.get("/api/ai/benchmark/compare")
     async def ai_benchmark_compare(model_a: str = Query(...), model_b: str = Query(...)):
         """Compare two models using their latest benchmark results."""
         from runtime.ai.benchmark import get_benchmark
+
         return get_benchmark().compare(model_a, model_b)
 
     # ── AI Memory Engine ──────────────────────────────────────────────────────
@@ -456,6 +518,7 @@ def register_dashboard_routes(app, version: str) -> None:
         limit: int = Query(20),
     ):
         from runtime.ai.memory import get_memory
+
         tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else None
         mem = get_memory()
         results = mem.search(q, tags=tag_list, origin=origin, limit=limit)
@@ -464,6 +527,7 @@ def register_dashboard_routes(app, version: str) -> None:
     @app.post("/api/ai/memory")
     async def memory_remember(data: MemoryRequest):
         from runtime.ai.memory import get_memory, ORIGINS
+
         if data.origin not in ORIGINS:
             raise HTTPException(status_code=422, detail=f"origin must be one of {list(ORIGINS)}")
         entry = get_memory().remember(
@@ -479,12 +543,14 @@ def register_dashboard_routes(app, version: str) -> None:
     @app.delete("/api/ai/memory/{entry_id}")
     async def memory_delete(entry_id: str):
         from runtime.ai.memory import get_memory
+
         deleted = get_memory().delete(entry_id)
         return {"deleted": deleted, "id": entry_id}
 
     @app.post("/api/ai/memory/{entry_id}/invalidate")
     async def memory_invalidate(entry_id: str, data: MemoryInvalidateRequest):
         from runtime.ai.memory import get_memory
+
         ok = get_memory().invalidate(entry_id, reason=data.reason)
         return {"invalidated": ok, "id": entry_id}
 
@@ -502,22 +568,38 @@ def register_dashboard_routes(app, version: str) -> None:
     async def market_fx():
         try:
             from runtime.market_intelligence.fx_analysis import analyze_fx
+
             return {**analyze_fx(), "available": True, "updated_at": time.time(), "stub": False}
         except Exception as exc:
-            return {"pairs": [], "usd_regime": "unknown", "dxy_delta_pct_1d": None, "stub": False, **_market_unavailable("fx", exc)}
+            return {
+                "pairs": [],
+                "usd_regime": "unknown",
+                "dxy_delta_pct_1d": None,
+                "stub": False,
+                **_market_unavailable("fx", exc),
+            }
 
     @app.get("/api/market/yield-curve")
     async def market_yield_curve():
         try:
             from runtime.market_intelligence.yield_curve import build_yield_curve
+
             return {**build_yield_curve().to_dict(), "available": True, "updated_at": time.time(), "stub": False}
         except Exception as exc:
-            return {"points": [], "slope_10y_2y_bps": None, "shape": None, "interpretation": None, "stub": False, **_market_unavailable("yield_curve", exc)}
+            return {
+                "points": [],
+                "slope_10y_2y_bps": None,
+                "shape": None,
+                "interpretation": None,
+                "stub": False,
+                **_market_unavailable("yield_curve", exc),
+            }
 
     @app.get("/api/market/watchlists")
     async def market_watchlists():
         try:
             from runtime.market_intelligence.watchlist import list_watchlists
+
             return {**list_watchlists(), "available": True, "updated_at": time.time(), "stub": False}
         except Exception as exc:
             return {"watchlists": [], "stub": False, **_market_unavailable("watchlists", exc)}
@@ -526,6 +608,7 @@ def register_dashboard_routes(app, version: str) -> None:
     async def market_watchlist_snapshot(watchlist: str):
         try:
             from runtime.market_intelligence.watchlist import snapshot
+
             return {**snapshot(watchlist), "available": True, "updated_at": time.time(), "stub": False}
         except Exception as exc:
             return {"watchlist": watchlist, "items": [], "stub": False, **_market_unavailable("watchlist", exc)}
@@ -534,6 +617,7 @@ def register_dashboard_routes(app, version: str) -> None:
     async def market_asset_classes():
         try:
             from runtime.market_intelligence.asset_classes import analyze_asset_classes
+
             return {**analyze_asset_classes(), "available": True, "updated_at": time.time(), "stub": False}
         except Exception as exc:
             return {"classes": {}, "stub": False, **_market_unavailable("asset_classes", exc)}
@@ -542,6 +626,7 @@ def register_dashboard_routes(app, version: str) -> None:
     async def market_briefing():
         try:
             from runtime.market_intelligence.briefing import build_briefing
+
             return {**build_briefing(), "available": True, "stub": False}
         except Exception as exc:
             return {"lines": [], "stub": False, **_market_unavailable("briefing", exc)}
@@ -552,31 +637,36 @@ def register_dashboard_routes(app, version: str) -> None:
         try:
             from runtime.market_intelligence.alerts import list_alerts
             from runtime.market_intelligence.source_catalog import source_snapshot
+
             sources = source_snapshot()
             items = []
             for observation in sources.get("official_observations", []):
                 if not observation.get("available"):
                     continue
                 if observation.get("instrument"):
-                    items.append({
-                        "symbol": observation["instrument"],
-                        "label": observation.get("label", observation["instrument"]),
-                        "level": observation.get("value"),
-                        "delta_pct_1d": None,
-                        "status": "ok",
-                        "source": observation.get("source"),
-                        "observation_date": observation.get("observation_date"),
-                    })
+                    items.append(
+                        {
+                            "symbol": observation["instrument"],
+                            "label": observation.get("label", observation["instrument"]),
+                            "level": observation.get("value"),
+                            "delta_pct_1d": None,
+                            "status": "ok",
+                            "source": observation.get("source"),
+                            "observation_date": observation.get("observation_date"),
+                        }
+                    )
                 for point in observation.get("points", []):
-                    items.append({
-                        "symbol": point["instrument"],
-                        "label": point.get("label", point["instrument"]),
-                        "level": point.get("value"),
-                        "delta_pct_1d": None,
-                        "status": "ok",
-                        "source": point.get("source"),
-                        "observation_date": point.get("observation_date"),
-                    })
+                    items.append(
+                        {
+                            "symbol": point["instrument"],
+                            "label": point.get("label", point["instrument"]),
+                            "level": point.get("value"),
+                            "delta_pct_1d": None,
+                            "status": "ok",
+                            "source": point.get("source"),
+                            "observation_date": point.get("observation_date"),
+                        }
+                    )
             return {
                 "items": items,
                 "alerts": list_alerts(limit=8),
@@ -587,19 +677,31 @@ def register_dashboard_routes(app, version: str) -> None:
                 "stub": False,
             }
         except Exception as exc:
-            return {"items": [], "alerts": [], "source": "market_intelligence", "stub": False, **_market_unavailable("overview", exc)}
+            return {
+                "items": [],
+                "alerts": [],
+                "source": "market_intelligence",
+                "stub": False,
+                **_market_unavailable("overview", exc),
+            }
 
     @app.get("/api/market/snapshot")
     async def market_snapshot():
         """Public-source macro and market snapshot with field-level provenance."""
         try:
             from runtime.market_data.fetcher import fetch_snapshot
+
             return fetch_snapshot()
         except Exception as exc:
             return {
-                "brl_usd": None, "selic_rate": None, "ipca_12m": None,
-                "ibov_last": None, "ibov_change_pct": None, "observations": {},
-                "timestamp": datetime.now(timezone.utc).isoformat(), "stub": False,
+                "brl_usd": None,
+                "selic_rate": None,
+                "ipca_12m": None,
+                "ibov_last": None,
+                "ibov_change_pct": None,
+                "observations": {},
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "stub": False,
                 **_market_unavailable("snapshot", exc),
             }
 
@@ -608,6 +710,7 @@ def register_dashboard_routes(app, version: str) -> None:
         """Source catalog and official observations with provenance metadata."""
         try:
             from runtime.market_intelligence.source_catalog import source_snapshot
+
             return {**source_snapshot(), "available": True, "stub": False}
         except Exception as exc:
             return {"catalog": [], "official_observations": [], "stub": False, **_market_unavailable("sources", exc)}
@@ -620,7 +723,14 @@ def register_dashboard_routes(app, version: str) -> None:
     async def market_alerts():
         try:
             from runtime.market_intelligence.alerts import evaluate_alerts, list_alerts
-            return {"fired_now": evaluate_alerts(), "alerts": list_alerts(), "available": True, "updated_at": time.time(), "stub": False}
+
+            return {
+                "fired_now": evaluate_alerts(),
+                "alerts": list_alerts(),
+                "available": True,
+                "updated_at": time.time(),
+                "stub": False,
+            }
         except Exception as exc:
             return {"fired_now": [], "alerts": [], "stub": False, **_market_unavailable("alerts", exc)}
 
@@ -628,6 +738,7 @@ def register_dashboard_routes(app, version: str) -> None:
     async def market_economic_calendar():
         try:
             from runtime.market_intelligence.calendar import today_events
+
             return {"events": today_events(), "available": True, "updated_at": time.time(), "stub": False}
         except Exception as exc:
             return {"events": [], "stub": False, **_market_unavailable("calendar", exc)}
@@ -641,6 +752,7 @@ def register_dashboard_routes(app, version: str) -> None:
         """Source-attributed financial headlines for web, mobile and briefing consumers."""
         try:
             from runtime.market_intelligence.news import SUPPORTED_NEWS_SECTIONS, fetch_news
+
             if section not in SUPPORTED_NEWS_SECTIONS:
                 raise HTTPException(status_code=422, detail=f"unsupported news section: {section}")
             return {
@@ -655,8 +767,13 @@ def register_dashboard_routes(app, version: str) -> None:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         except Exception as exc:
             return {
-                "items": [], "groups": [], "section": section, "supported_sections": [],
-                "next_cursor": None, "partial_errors": [], "stub": False,
+                "items": [],
+                "groups": [],
+                "section": section,
+                "supported_sections": [],
+                "next_cursor": None,
+                "partial_errors": [],
+                "stub": False,
                 **_market_unavailable("news", exc),
             }
 
@@ -731,8 +848,12 @@ def register_dashboard_routes(app, version: str) -> None:
         return {
             "portfolio_id": portfolio_id,
             "by_asset_class": [{"label": k, "weight": round(v, 2)} for k, v in sorted(grouped.items())],
-            "by_sector": [], "by_industry": [], "by_country": [], "by_currency": [],
-            "mode": "reference_target_allocation", "stub": False,
+            "by_sector": [],
+            "by_industry": [],
+            "by_country": [],
+            "by_currency": [],
+            "mode": "reference_target_allocation",
+            "stub": False,
         }
 
     @app.get("/api/portfolios/{portfolio_id}/impact")
@@ -745,7 +866,9 @@ def register_dashboard_routes(app, version: str) -> None:
         review = _review_reference_portfolio(portfolio)
         return {
             "portfolio_id": portfolio_id,
-            "decisions": [{"type": "hold_reference", "label": "Manter alvos até receber posições reais e dados de mercado"}],
+            "decisions": [
+                {"type": "hold_reference", "label": "Manter alvos até receber posições reais e dados de mercado"}
+            ],
             "readiness_score": 0,
             "sub_scores": {"positions": 0, "market_data": 0, "suitability": 0},
             "top_risks": review["alerts"],
@@ -845,12 +968,15 @@ def register_dashboard_routes(app, version: str) -> None:
             raise HTTPException(status_code=422, detail="text is required")
         try:
             from capability.adapters.android import AndroidTTSAdapter
+
             adapter = AndroidTTSAdapter()
             if not adapter.is_available():
-                return {"spoken": False, "error": "termux-tts-speak not available",
-                        "corrective_action": "pkg install termux-api"}
-            result = adapter.speak(data.text, language=data.language,
-                                   pitch=data.pitch, rate=data.rate)
+                return {
+                    "spoken": False,
+                    "error": "termux-tts-speak not available",
+                    "corrective_action": "pkg install termux-api",
+                }
+            result = adapter.speak(data.text, language=data.language, pitch=data.pitch, rate=data.rate)
             return {"spoken": result.success, "error": result.error if not result.success else None}
         except Exception as exc:
             raise HTTPException(status_code=500, detail=str(exc))
@@ -859,10 +985,14 @@ def register_dashboard_routes(app, version: str) -> None:
     async def android_sms_inbox(limit: int = Query(20, le=100), offset: int = Query(0, ge=0)):
         try:
             from capability.adapters.android import AndroidSMSAdapter
+
             adapter = AndroidSMSAdapter()
             if not adapter.is_available():
-                return {"messages": [], "error": "termux-sms-send not available",
-                        "corrective_action": "pkg install termux-api"}
+                return {
+                    "messages": [],
+                    "error": "termux-sms-send not available",
+                    "corrective_action": "pkg install termux-api",
+                }
             result = adapter.inbox(limit=limit, offset=offset)
             if result.success:
                 return result.data
@@ -876,6 +1006,7 @@ def register_dashboard_routes(app, version: str) -> None:
             raise HTTPException(status_code=422, detail="number and message are required")
         try:
             from capability.adapters.android import AndroidSMSAdapter
+
             adapter = AndroidSMSAdapter()
             if not adapter.is_available():
                 return {"sent": False, "error": "termux-sms-send not available"}
@@ -888,10 +1019,14 @@ def register_dashboard_routes(app, version: str) -> None:
     async def android_contacts(q: str = Query(None)):
         try:
             from capability.adapters.android import AndroidContactAdapter
+
             adapter = AndroidContactAdapter()
             if not adapter.is_available():
-                return {"contacts": [], "error": "termux-contact-list not available",
-                        "corrective_action": "pkg install termux-api"}
+                return {
+                    "contacts": [],
+                    "error": "termux-contact-list not available",
+                    "corrective_action": "pkg install termux-api",
+                }
             result = adapter.find(q) if q else adapter.list_contacts()
             if result.success:
                 return result.data
@@ -905,10 +1040,12 @@ def register_dashboard_routes(app, version: str) -> None:
     async def brief_get():
         """Return the last generated brief (from cache) or generate a new one."""
         from runtime.ai.brief_diario import get_last_brief, build_brief
+
         cached = get_last_brief()
         if cached:
             return {**cached, "from_cache": True}
         import asyncio, concurrent.futures
+
         loop = asyncio.get_event_loop()
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
             brief = await loop.run_in_executor(pool, lambda: build_brief(use_llm=False))
@@ -919,6 +1056,7 @@ def register_dashboard_routes(app, version: str) -> None:
         """Generate a fresh brief and optionally send to Telegram."""
         import asyncio, concurrent.futures
         from runtime.ai.brief_diario import build_brief, send_brief_to_telegram
+
         loop = asyncio.get_event_loop()
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
             brief = await loop.run_in_executor(pool, lambda: build_brief(use_llm=data.use_llm))
@@ -932,6 +1070,7 @@ def register_dashboard_routes(app, version: str) -> None:
         """Return last 30 brief summaries."""
         from pathlib import Path
         import json as _json
+
         hist_path = Path.home() / ".flowcore" / "brief_history.json"
         if hist_path.exists():
             try:
@@ -946,12 +1085,14 @@ def register_dashboard_routes(app, version: str) -> None:
     async def metrics():
         """Internal FlowCore metrics — request counts, latency, AI calls."""
         from runtime.observability import get_metrics
+
         return get_metrics()
 
     @app.post("/api/metrics/reset")
     async def metrics_reset():
         """Reset in-process metrics counters."""
         from runtime.observability import reset_metrics
+
         reset_metrics()
         return {"reset": True}
 
@@ -965,12 +1106,14 @@ def register_dashboard_routes(app, version: str) -> None:
     @app.get("/api/scheduler/jobs")
     async def scheduler_list():
         from runtime.job_scheduler import JobScheduler
+
         return {"jobs": JobScheduler().list_jobs()}
 
     @app.post("/api/scheduler/brief/enable")
     async def scheduler_brief_enable():
         """Register daily morning brief cron job (07:30 BRT, weekdays)."""
         from runtime.job_scheduler import JobScheduler
+
         sched = JobScheduler()
         try:
             ok = sched.add_job(_BRIEF_JOB_NAME, _BRIEF_JOB_SCRIPT, _BRIEF_JOB_CRON)
@@ -982,6 +1125,7 @@ def register_dashboard_routes(app, version: str) -> None:
     async def scheduler_brief_disable():
         """Unregister the daily morning brief cron job."""
         from runtime.job_scheduler import JobScheduler
+
         removed = JobScheduler().remove_job(_BRIEF_JOB_NAME)
         return {"disabled": removed}
 
@@ -990,6 +1134,7 @@ def register_dashboard_routes(app, version: str) -> None:
         """Trigger the brief job immediately (blocking — may take up to 2 min with LLM)."""
         import asyncio, concurrent.futures
         from runtime.ai.brief_diario import build_brief, send_brief_to_telegram
+
         loop = asyncio.get_event_loop()
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
             brief = await loop.run_in_executor(pool, lambda: build_brief(use_llm=True))

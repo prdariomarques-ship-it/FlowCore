@@ -3,6 +3,7 @@
 Centralises every SQLite operation on the `documents` table.
 Previously these were duplicated inline across 8+ functions in flowcore.py.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -54,14 +55,9 @@ class DocumentRepository:
     async def list_all(self) -> list[dict[str, Any]]:
         await self.ensure_table()
         async with aiosqlite.connect(self._db_path) as db:
-            cursor = await db.execute(
-                "SELECT id, title, source, created_at FROM documents ORDER BY created_at DESC"
-            )
+            cursor = await db.execute("SELECT id, title, source, created_at FROM documents ORDER BY created_at DESC")
             rows = await cursor.fetchall()
-            return [
-                {"id": r[0], "title": r[1], "source": r[2], "created_at": r[3]}
-                for r in rows
-            ]
+            return [{"id": r[0], "title": r[1], "source": r[2], "created_at": r[3]} for r in rows]
 
     async def get_by_id(self, doc_id: int) -> dict[str, Any] | None:
         await self.ensure_table()

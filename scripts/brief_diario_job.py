@@ -4,6 +4,7 @@
 Scheduled via crontab at 07:30 BRT (10:30 UTC) on weekdays.
 Safe to run manually: python3 ~/FlowCore/scripts/brief_diario_job.py
 """
+
 from __future__ import annotations
 
 import sys

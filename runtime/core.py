@@ -7,6 +7,7 @@ Responsible for:
 
 Designed to run on Termux / Android with minimal resource footprint.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -43,6 +44,7 @@ def detect_platform() -> dict[str, Any]:
 # Database initialisation
 # ---------------------------------------------------------------------------
 
+
 async def init_database(cfg: dict) -> Any:
     """Initialise the SQLite database and create tables if missing."""
     from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
@@ -52,7 +54,8 @@ async def init_database(cfg: dict) -> Any:
     engine = create_async_engine(url, echo=False)
 
     async with engine.begin() as conn:
-        await conn.execute(text("""
+        await conn.execute(
+            text("""
             CREATE TABLE IF NOT EXISTS flows (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -61,8 +64,10 @@ async def init_database(cfg: dict) -> Any:
                 created_at REAL,
                 updated_at REAL
             )
-        """))
-        await conn.execute(text("""
+        """)
+        )
+        await conn.execute(
+            text("""
             CREATE TABLE IF NOT EXISTS executions (
                 id TEXT PRIMARY KEY,
                 flow_id TEXT NOT NULL,
@@ -72,14 +77,17 @@ async def init_database(cfg: dict) -> Any:
                 finished_at REAL,
                 FOREIGN KEY (flow_id) REFERENCES flows(id)
             )
-        """))
-        await conn.execute(text("""
+        """)
+        )
+        await conn.execute(
+            text("""
             CREATE TABLE IF NOT EXISTS settings (
                 key TEXT PRIMARY KEY,
                 value TEXT,
                 updated_at REAL
             )
-        """))
+        """)
+        )
 
     logger.info("Database initialised: {}", url)
     return engine
@@ -88,6 +96,7 @@ async def init_database(cfg: dict) -> Any:
 # ---------------------------------------------------------------------------
 # Lifecycle
 # ---------------------------------------------------------------------------
+
 
 class FlowCoreRuntime:
     """Main application runtime.

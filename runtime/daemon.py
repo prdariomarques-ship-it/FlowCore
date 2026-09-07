@@ -22,6 +22,7 @@ Usage (daemon loop directly)::
     python3 runtime/daemon.py          # starts and stays running
     python3 runtime/daemon.py --check  # exits 0 if running, 1 if not
 """
+
 from __future__ import annotations
 
 import json
@@ -35,12 +36,13 @@ from typing import Any
 
 
 _DAEMON_DIR = Path.home() / ".flowcore" / "daemon"
-_PID_FILE   = _DAEMON_DIR / "flowcore.pid"
+_PID_FILE = _DAEMON_DIR / "flowcore.pid"
 _STATE_FILE = _DAEMON_DIR / "daemon.state.json"
-_LOG_FILE   = _DAEMON_DIR / "daemon.log"
+_LOG_FILE = _DAEMON_DIR / "daemon.log"
 
 
 # ── Manager (used by CLI and other modules) ───────────────────────────────────
+
 
 class FlowCoreDaemon:
     """Start, stop, and query the FlowCore background daemon."""
@@ -53,7 +55,8 @@ class FlowCoreDaemon:
         with open(_LOG_FILE, "a") as log:
             proc = subprocess.Popen(
                 [sys.executable, __file__, "--interval", str(interval)],
-                stdout=log, stderr=log,
+                stdout=log,
+                stderr=log,
                 close_fds=True,
                 start_new_session=True,
             )
@@ -65,8 +68,7 @@ class FlowCoreDaemon:
                 return {"started": True, "pid": pid, "log": str(_LOG_FILE)}
             time.sleep(0.1)
         # Fallback: use the Popen pid
-        return {"started": True, "pid": proc.pid, "log": str(_LOG_FILE),
-                "note": "pid file not yet written"}
+        return {"started": True, "pid": proc.pid, "log": str(_LOG_FILE), "note": "pid file not yet written"}
 
     def stop(self) -> dict[str, Any]:
         """Send SIGTERM to the daemon and clean up PID file."""
@@ -124,6 +126,7 @@ class FlowCoreDaemon:
 
 # ── Shared helper ─────────────────────────────────────────────────────────────
 
+
 def _pid_alive(pid: int) -> bool:
     try:
         os.kill(pid, 0)
@@ -133,6 +136,7 @@ def _pid_alive(pid: int) -> bool:
 
 
 # ── Daemon loop (runs in the child process) ───────────────────────────────────
+
 
 def _run_daemon_loop(interval: int) -> None:
     """Heartbeat loop executed inside the spawned subprocess."""
@@ -179,10 +183,10 @@ def _run_daemon_loop(interval: int) -> None:
 
 if __name__ == "__main__":
     import argparse as _ap
+
     p = _ap.ArgumentParser(description="FlowCore daemon loop")
     p.add_argument("--interval", type=int, default=60)
-    p.add_argument("--check", action="store_true",
-                   help="Exit 0 if daemon running, 1 otherwise")
+    p.add_argument("--check", action="store_true", help="Exit 0 if daemon running, 1 otherwise")
     opts = p.parse_args()
 
     if opts.check:

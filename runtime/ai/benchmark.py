@@ -5,6 +5,7 @@ cost. Results are persisted to ~/.flowcore/benchmark_results.json.
 Only promotes model changes to the registry after a full benchmark run —
 never from a single isolated call.
 """
+
 from __future__ import annotations
 
 import json
@@ -60,7 +61,7 @@ class TaskResult:
     latency_ms: float
     tokens_per_sec: float
     response_text: str
-    quality_score: float   # 0.0–1.0, keyword hit rate
+    quality_score: float  # 0.0–1.0, keyword hit rate
     success: bool
     error: str = ""
     timestamp: float = 0.0
@@ -105,11 +106,14 @@ def _score_response(text: str, keywords: list[str]) -> float:
 def _call_ollama(model_id: str, prompt: str, ollama_url: str, timeout: int = 60) -> tuple[str, float, float]:
     """Call Ollama and return (response_text, latency_ms, tokens_per_sec)."""
     import urllib.request
-    payload = json.dumps({
-        "model": model_id,
-        "messages": [{"role": "user", "content": prompt}],
-        "stream": False,
-    }).encode()
+
+    payload = json.dumps(
+        {
+            "model": model_id,
+            "messages": [{"role": "user", "content": prompt}],
+            "stream": False,
+        }
+    ).encode()
     t0 = time.perf_counter()
     req = urllib.request.Request(
         f"{ollama_url.rstrip('/')}/api/chat",
@@ -158,30 +162,34 @@ class BenchmarkEngine:
             try:
                 text, latency_ms, tps = _call_ollama(model_id, task["prompt"], ollama_url)
                 quality = _score_response(text, task.get("expected_keywords", []))
-                results.append(TaskResult(
-                    task_id=task["id"],
-                    task_type=task["type"],
-                    model_id=model_id,
-                    latency_ms=latency_ms,
-                    tokens_per_sec=tps,
-                    response_text=text[:500],
-                    quality_score=quality,
-                    success=True,
-                    timestamp=time.time(),
-                ))
+                results.append(
+                    TaskResult(
+                        task_id=task["id"],
+                        task_type=task["type"],
+                        model_id=model_id,
+                        latency_ms=latency_ms,
+                        tokens_per_sec=tps,
+                        response_text=text[:500],
+                        quality_score=quality,
+                        success=True,
+                        timestamp=time.time(),
+                    )
+                )
             except Exception as exc:
-                results.append(TaskResult(
-                    task_id=task["id"],
-                    task_type=task["type"],
-                    model_id=model_id,
-                    latency_ms=0.0,
-                    tokens_per_sec=0.0,
-                    response_text="",
-                    quality_score=0.0,
-                    success=False,
-                    error=str(exc),
-                    timestamp=time.time(),
-                ))
+                results.append(
+                    TaskResult(
+                        task_id=task["id"],
+                        task_type=task["type"],
+                        model_id=model_id,
+                        latency_ms=0.0,
+                        tokens_per_sec=0.0,
+                        response_text="",
+                        quality_score=0.0,
+                        success=False,
+                        error=str(exc),
+                        timestamp=time.time(),
+                    )
+                )
 
         finished_at = time.time()
         successes = [r for r in results if r.success]
@@ -223,6 +231,7 @@ class BenchmarkEngine:
 
     def compare(self, model_a: str, model_b: str) -> dict[str, Any]:
         """Return a side-by-side comparison of the latest runs for two models."""
+
         def _latest(mid: str) -> dict | None:
             runs = [r for r in self._runs if r["model_id"] == mid]
             return runs[-1] if runs else None
@@ -231,8 +240,18 @@ class BenchmarkEngine:
         if not a or not b:
             return {"error": "One or both models have no benchmark results."}
         return {
-            "model_a": {"id": model_a, "avg_latency_ms": a["avg_latency_ms"], "avg_quality": a["avg_quality"], "success_rate": a["overall_success_rate"]},
-            "model_b": {"id": model_b, "avg_latency_ms": b["avg_latency_ms"], "avg_quality": b["avg_quality"], "success_rate": b["overall_success_rate"]},
+            "model_a": {
+                "id": model_a,
+                "avg_latency_ms": a["avg_latency_ms"],
+                "avg_quality": a["avg_quality"],
+                "success_rate": a["overall_success_rate"],
+            },
+            "model_b": {
+                "id": model_b,
+                "avg_latency_ms": b["avg_latency_ms"],
+                "avg_quality": b["avg_quality"],
+                "success_rate": b["overall_success_rate"],
+            },
             "winner_latency": model_a if a["avg_latency_ms"] < b["avg_latency_ms"] else model_b,
             "winner_quality": model_a if a["avg_quality"] > b["avg_quality"] else model_b,
         }
