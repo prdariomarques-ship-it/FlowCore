@@ -1,644 +1,779 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#080d1a">
-<title>FlowCore — Investment Copilot</title>
+<meta name="theme-color" content="#030712">
+<title>FlowCore — Modern AI Wealth Copilot</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-:root{
-  --bg:#060a17;
-  --bg2:#0d1527;
-  --bg3:#131f37;
-  --bg-glass:rgba(13, 21, 39, 0.75);
-  --border:rgba(30, 58, 95, 0.6);
-  --border-focus:rgba(0, 212, 255, 0.5);
-  --accent:#00d4ff;
-  --accent-glow:rgba(0, 212, 255, 0.35);
-  --accent2:#7c3aed;
-  --accent2-glow:rgba(124, 58, 237, 0.35);
-  --green:#10b981;
-  --green-glow:rgba(16, 185, 129, 0.35);
-  --yellow:#f59e0b;
-  --yellow-glow:rgba(245, 158, 11, 0.35);
-  --red:#ef4444;
-  --red-glow:rgba(239, 68, 68, 0.35);
-  --purple:#a78bfa;
-  --text:#f1f5f9;
-  --text2:#94a3b8;
-  --radius:16px;
-  --radius-sm:10px;
-  --shadow:0 8px 32px 0 rgba(0,0,0,0.45);
-  --glow-box:0 0 20px rgba(0, 212, 255, 0.15);
+:root {
+  --bg-dark: #030712;
+  --bg-card: rgba(17, 24, 39, 0.7);
+  --bg-card-hover: rgba(31, 41, 55, 0.8);
+  --border-color: rgba(255, 255, 255, 0.08);
+  --border-highlight: rgba(56, 189, 248, 0.3);
+
+  --primary-cyan: #38bdf8;
+  --primary-glow: rgba(56, 189, 248, 0.25);
+  --accent-purple: #818cf8;
+  --accent-glow: rgba(129, 140, 248, 0.25);
+
+  --status-green: #10b981;
+  --status-green-glow: rgba(16, 185, 129, 0.3);
+  --status-yellow: #f59e0b;
+  --status-yellow-glow: rgba(245, 158, 11, 0.3);
+  --status-red: #f43f5e;
+  --status-red-glow: rgba(244, 63, 94, 0.3);
+
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+
+  --font-sans: 'Plus Jakarta Sans', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
 }
-*{box-sizing:border-box;margin:0;padding:0}
-body{
-  background:var(--bg);
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background-color: var(--bg-dark);
   background-image:
-    radial-gradient(circle at 15% 15%, rgba(124, 58, 237, 0.12) 0%, transparent 40%),
-    radial-gradient(circle at 85% 65%, rgba(0, 212, 255, 0.10) 0%, transparent 40%);
-  background-attachment:fixed;
-  color:var(--text);
-  font-family:'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size:14px;
-  min-height:100vh;
-  padding-bottom:90px;
-  -webkit-font-smoothing:antialiased;
+    radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.08) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(129, 140, 248, 0.08) 0px, transparent 50%),
+    radial-gradient(at 50% 50%, rgba(16, 185, 129, 0.04) 0px, transparent 50%);
+  background-attachment: fixed;
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 100vh;
+  padding-bottom: 90px;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Header */
-.header{
-  background:rgba(6, 10, 23, 0.85);
-  border-bottom:1px solid var(--border);
-  padding:16px 20px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  position:sticky;
-  top:0;
-  z-index:100;
-  backdrop-filter:blur(16px);
-  -webkit-backdrop-filter:blur(16px);
-}
-.hb{display:flex;align-items:center;gap:12px}
-.logo{
-  width:38px;
-  height:38px;
-  background:linear-gradient(135deg, var(--accent), var(--accent2));
-  border-radius:12px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:19px;
-  font-weight:900;
-  color:#fff;
-  box-shadow:0 0 16px var(--accent-glow);
-}
-.bn{
-  font-size:18px;
-  font-weight:800;
-  letter-spacing:-0.4px;
-  background:linear-gradient(135deg, #ffffff 30%, var(--accent) 100%);
-  -webkit-background-clip:text;
-  -webkit-text-fill-color:transparent;
-}
-.bs{font-size:11px;color:var(--text2);margin-top:1px;font-weight:500}
-.hr{display:flex;align-items:center;gap:10px}
-.sdot{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite}
-.sdot.off{background:var(--red);box-shadow:0 0 8px var(--red);animation:none}
-@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(0.85)}}
-.btn-sm{
-  background:var(--bg3);
-  border:1px solid var(--border);
-  color:var(--accent);
-  padding:6px 14px;
-  border-radius:10px;
-  font-size:12px;
-  font-weight:600;
-  cursor:pointer;
-  transition:all .2s ease;
-  backdrop-filter:blur(8px);
-}
-.btn-sm:hover{
-  background:var(--border);
-  box-shadow:0 0 12px var(--accent-glow);
-  transform:translateY(-1px);
+/* Glassmorphism Header */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(3, 7, 18, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border-color);
+  padding: 14px 24px;
 }
 
-/* Layout */
-.wrap{max-width:680px;margin:0 auto;padding:18px 16px}
-.gap{display:flex;flex-direction:column;gap:16px}
-
-/* Cards */
-.card{
-  background:var(--bg-glass);
-  border:1px solid var(--border);
-  border-radius:var(--radius);
-  padding:18px;
-  box-shadow:var(--shadow);
-  backdrop-filter:blur(12px);
-  -webkit-backdrop-filter:blur(12px);
-  transition:all .3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.card:hover{
-  border-color:rgba(0, 212, 255, 0.3);
-}
-.ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
-.ct{
-  font-size:11px;
-  font-weight:700;
-  text-transform:uppercase;
-  letter-spacing:1px;
-  color:var(--text2);
-  display:flex;
-  align-items:center;
-  gap:6px;
-}
-.ci{font-size:16px}
-
-/* Compliance Alerts High-Res Visual Styling */
-.compliance-summary-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
-.compliance-chip{
-  background:rgba(19, 31, 55, 0.6);
-  border:1px solid var(--border);
-  border-radius:var(--radius-sm);
-  padding:10px 12px;
-  text-align:center;
-  transition:all .2s;
-}
-.compliance-chip:hover{background:var(--bg3)}
-.compliance-chip .c-num{font-size:22px;font-weight:800;font-family:'JetBrains Mono', monospace}
-.compliance-chip .c-lbl{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-top:3px;font-weight:600}
-
-.compliance-item-card{
-  background:linear-gradient(135deg, rgba(19, 31, 55, 0.8), rgba(13, 21, 39, 0.9));
-  border:1px solid var(--border);
-  border-radius:var(--radius);
-  padding:16px;
-  margin-bottom:12px;
-  transition:all .25s ease;
-  position:relative;
-  overflow:hidden;
-}
-.compliance-item-card::before{
-  content:'';
-  position:absolute;
-  top:0;left:0;bottom:0;
-  width:4px;
-}
-.compliance-item-card.critical::before{background:var(--red);box-shadow:0 0 10px var(--red)}
-.compliance-item-card.warning::before{background:var(--yellow);box-shadow:0 0 10px var(--yellow)}
-
-.compliance-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.compliance-client{font-weight:800;font-size:15px;color:#fff;letter-spacing:-0.2px}
-.compliance-meta{
-  font-size:12px;
-  color:var(--text2);
-  margin-bottom:12px;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  background:rgba(0,0,0,0.2);
-  padding:8px 12px;
-  border-radius:8px;
-  border:1px solid rgba(255,255,255,0.04);
-}
-.compliance-progress-track{
-  position:relative;
-  background:rgba(6, 10, 23, 0.8);
-  height:12px;
-  border-radius:8px;
-  overflow:visible;
-  margin:14px 0 10px;
-  border:1px solid var(--border);
-}
-.compliance-progress-bar{
-  height:100%;
-  border-radius:8px;
-  transition:width .6s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.compliance-progress-bar.critical{background:linear-gradient(90deg, #f59e0b, #ef4444);box-shadow:0 0 12px rgba(239, 68, 68, 0.4)}
-.compliance-progress-bar.warning{background:linear-gradient(90deg, #10b981, #f59e0b);box-shadow:0 0 12px rgba(245, 158, 11, 0.4)}
-.compliance-limit-marker{
-  position:absolute;
-  top:-4px;
-  bottom:-4px;
-  width:3px;
-  background:#ffffff;
-  box-shadow:0 0 8px #ffffff, 0 0 14px var(--accent);
-  z-index:2;
-  border-radius:2px;
-}
-.compliance-action-box{
-  background:rgba(0,0,0,0.3);
-  border-radius:10px;
-  padding:10px 12px;
-  font-size:12px;
-  color:var(--text);
-  margin-top:10px;
-  display:flex;
-  align-items:flex-start;
-  gap:8px;
-  border:1px solid rgba(255,255,255,0.06);
-  line-height:1.4;
+.header-container {
+  max-width: 800px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-/* Stats */
-.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-.st{background:var(--bg3);border-radius:12px;padding:12px 8px;text-align:center;border:1px solid var(--border)}
-.sv{font-size:22px;font-weight:800;color:var(--accent);font-family:'JetBrains Mono', monospace}
-.sl{font-size:9px;color:var(--text2);margin-top:4px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
-
-/* Rows */
-.row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border)}
-.row:last-child{border-bottom:none}
-.rl{color:var(--text2);font-size:13px;font-weight:500}
-.rv{font-weight:700;font-size:13.5px;font-family:'JetBrains Mono', monospace}
-
-/* Tags */
-.tag{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.3px}
-.tg{background:rgba(16,185,129,.15);color:var(--green);border:1px solid rgba(16,185,129,.35);box-shadow:0 0 8px rgba(16,185,129,.1)}
-.tr{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.35);box-shadow:0 0 8px rgba(239,68,68,.1)}
-.ty{background:rgba(245,158,11,.15);color:var(--yellow);border:1px solid rgba(245,158,11,.35);box-shadow:0 0 8px rgba(245,158,11,.1)}
-.tp{background:rgba(167,139,250,.15);color:var(--purple);border:1px solid rgba(167,139,250,.35)}
-
-/* Buttons */
-.btns{display:flex;gap:10px;margin-top:14px}
-.btn{flex:1;padding:10px;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s ease}
-.bg{background:rgba(16,185,129,.2);color:var(--green);border:1px solid rgba(16,185,129,.4)}
-.bg:hover{background:rgba(16,185,129,.35);box-shadow:0 0 12px var(--green-glow)}
-.br{background:rgba(239,68,68,.2);color:var(--red);border:1px solid rgba(239,68,68,.4)}
-.br:hover{background:rgba(239,68,68,.35);box-shadow:0 0 12px var(--red-glow)}
-
-/* Input row */
-.ir{display:flex;gap:10px;margin-bottom:14px}
-.if{
-  flex:1;
-  background:var(--bg3);
-  border:1px solid var(--border);
-  border-radius:10px;
-  color:var(--text);
-  padding:10px 14px;
-  font-size:13px;
-  outline:none;
-  transition:all .2s;
-  font-family:inherit;
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
-.if:focus{border-color:var(--accent);box-shadow:0 0 12px var(--accent-glow)}
-textarea.if{resize:vertical;min-height:42px}
-textarea.if.grow{min-height:140px}
-.if::placeholder{color:var(--text2)}
-.bs2{
-  background:linear-gradient(135deg,var(--accent),var(--accent2));
-  border:none;
-  border-radius:10px;
-  color:#fff;
-  font-size:16px;
-  width:44px;
-  cursor:pointer;
-  flex-shrink:0;
-  transition:all .2s;
-  box-shadow:0 0 12px var(--accent-glow);
+
+.brand-logo {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, var(--primary-cyan), var(--accent-purple));
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 20px;
+  color: #ffffff;
+  box-shadow: 0 0 20px var(--primary-glow);
 }
-.bs2:hover{opacity:.9;transform:scale(1.02)}
 
-/* Metric Grid */
-.metric-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-.metric{background:var(--bg3);border-radius:12px;padding:14px;border:1px solid var(--border)}
-.metric strong{display:block;font-size:22px;color:var(--accent);margin-top:6px;font-family:'JetBrains Mono', monospace}
-.metric small{color:var(--text2);font-size:11px;font-weight:600}
+.brand-text h1 {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, #ffffff, #94a3b8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
 
-/* Skeleton & Empty */
-.sk{background:linear-gradient(90deg,var(--bg3) 25%,var(--border) 50%,var(--bg3) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:8px;height:14px;margin-bottom:8px}
-@keyframes shimmer{0%{background-position:200%}100%{background-position:-200%}}
-.empty{text-align:center;color:var(--text2);padding:24px;font-size:13px}
+.brand-text p {
+  font-size: 11px;
+  color: var(--primary-cyan);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
 
-/* Toast */
-.toast{position:fixed;bottom:96px;left:50%;transform:translateX(-50%) translateY(14px);background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;z-index:200;box-shadow:var(--shadow)}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(17, 24, 39, 0.8);
+  border: 1px solid var(--border-color);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
 
-/* Bottom nav */
-.nav{position:fixed;bottom:0;left:0;right:0;background:rgba(13, 21, 39, 0.95);border-top:1px solid var(--border);display:flex;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);z-index:100;overflow-x:auto}
-.ni{flex:1 0 auto;min-width:60px;display:flex;flex-direction:column;align-items:center;padding:10px 6px 14px;gap:4px;cursor:pointer;color:var(--text2);font-size:10px;font-weight:600;border:none;background:none;transition:all .2s;white-space:nowrap}
-.ni.active{color:var(--accent)}
-.ni:hover{color:var(--text)}
-.ni-icon{font-size:20px}
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--status-green);
+  box-shadow: 0 0 10px var(--status-green);
+  animation: pulse-dot 2s infinite;
+}
 
-/* Chat */
-.chat-wrap{display:flex;flex-direction:column;height:calc(100vh - 180px);min-height:340px}
-.chat-log{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-bottom:12px}
-.msg{max-width:85%;padding:10px 14px;border-radius:16px;font-size:13.5px;line-height:1.5;word-wrap:break-word;white-space:pre-wrap}
-.msg.user{align-self:flex-end;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border-bottom-right-radius:4px;box-shadow:0 0 12px var(--accent-glow)}
-.msg.bot{align-self:flex-start;background:var(--bg3);border:1px solid var(--border);border-bottom-left-radius:4px}
-.msg.bot.err{border-color:rgba(239,68,68,.4);color:var(--red)}
-.msg.typing{align-self:flex-start;background:var(--bg3);border:1px solid var(--border);border-bottom-left-radius:4px;color:var(--text2);font-style:italic}
-.chat-meta{font-size:10px;color:var(--text2);margin-top:4px;opacity:.75}
-.chat-input-row{display:flex;gap:10px;padding-top:12px;border-top:1px solid var(--border)}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
 
-/* Pages */
-.page{display:none}
-.page.active{display:block}
+/* Main Layout */
+main {
+  max-width: 800px;
+  margin: 24px auto;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
 
-/* More Menu */
-.more-menu{position:fixed;bottom:88px;right:14px;background:var(--bg2);border:1px solid var(--border);border-radius:16px;z-index:140;min-width:180px;box-shadow:0 12px 36px rgba(0,0,0,.6);overflow:hidden;backdrop-filter:blur(16px)}
-.more-menu button{width:100%;display:flex;align-items:center;gap:12px;padding:12px 16px;background:none;border:none;color:var(--text);font-size:13.5px;font-weight:600;cursor:pointer;transition:all .2s;border-bottom:1px solid var(--border);text-align:left}
-.more-menu button:last-child{border-bottom:none}
-.more-menu button:hover{background:var(--bg3);color:var(--accent)}
+/* Card Styling */
+.card {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
-/* FAB */
-.fab{position:fixed;bottom:100px;right:18px;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;font-size:28px;font-weight:bold;cursor:pointer;box-shadow:0 6px 20px var(--accent-glow);z-index:150;transition:all .3s;display:none;align-items:center;justify-content:center}
-.fab:hover{transform:scale(1.1)}
-@media(max-width:768px){.fab{display:flex}}
+.card:hover {
+  border-color: var(--border-highlight);
+  box-shadow: 0 14px 40px -10px rgba(56, 189, 248, 0.15);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.card-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.badge-green { background: rgba(16, 185, 129, 0.15); color: var(--status-green); border: 1px solid rgba(16, 185, 129, 0.3); }
+.badge-yellow { background: rgba(245, 158, 11, 0.15); color: var(--status-yellow); border: 1px solid rgba(245, 158, 11, 0.3); }
+.badge-red { background: rgba(244, 63, 94, 0.15); color: var(--status-red); border: 1px solid rgba(244, 63, 94, 0.3); }
+
+/* Desenquadramento / Compliance Hero Card */
+.compliance-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.summary-chip {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 12px;
+  text-align: center;
+}
+
+.summary-val {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.summary-lbl {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-top: 2px;
+  text-transform: uppercase;
+}
+
+/* Compliance Alert Rows */
+.alert-item {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 12px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s;
+}
+
+.alert-item:last-child { margin-bottom: 0; }
+
+.alert-item.critical { border-left: 4px solid var(--status-red); }
+.alert-item.warning { border-left: 4px solid var(--status-yellow); }
+
+.alert-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.client-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.alert-type {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 8px;
+}
+
+.alert-metrics {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  background: rgba(3, 7, 18, 0.4);
+  padding: 8px 12px;
+  border-radius: 10px;
+}
+
+.metric-highlight {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.progress-track {
+  position: relative;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  margin: 12px 0 10px;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s ease;
+}
+
+.progress-fill.critical { background: linear-gradient(90deg, var(--status-yellow), var(--status-red)); box-shadow: 0 0 10px var(--status-red-glow); }
+.progress-fill.warning { background: linear-gradient(90deg, var(--status-green), var(--status-yellow)); box-shadow: 0 0 10px var(--status-yellow-glow); }
+
+.limit-pin {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: #ffffff;
+  box-shadow: 0 0 8px #ffffff;
+  z-index: 2;
+}
+
+.alert-action {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 8px 12px;
+  border-radius: 10px;
+  margin-top: 10px;
+}
+
+.copilot-btn {
+  background: linear-gradient(135deg, var(--primary-cyan), var(--accent-purple));
+  color: #ffffff;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  box-shadow: 0 0 12px var(--primary-glow);
+  transition: all 0.2s;
+}
+
+.copilot-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 36px 16px;
+}
+
+.empty-icon {
+  width: 48px;
+  height: 48px;
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--status-green);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  margin: 0 auto 12px;
+  box-shadow: 0 0 20px var(--status-green-glow);
+}
+
+.empty-state h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.empty-state p {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* Financial Dashboard Grid */
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.metric-card {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.metric-card small {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+  display: block;
+}
+
+.metric-card strong {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  color: var(--primary-cyan);
+  display: block;
+  margin-top: 4px;
+}
+
+.market-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.market-row:last-child { border-bottom: none; }
+
+.market-lbl { font-size: 13px; color: var(--text-muted); }
+.market-val { font-family: var(--font-mono); font-weight: 700; font-size: 14px; }
+
+/* Chat Drawer */
+.chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 4px;
+  margin-bottom: 16px;
+}
+
+.chat-msg {
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.chat-msg.user {
+  align-self: flex-end;
+  background: linear-gradient(135deg, var(--primary-cyan), var(--accent-purple));
+  color: #ffffff;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-msg.bot {
+  align-self: flex-start;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid var(--border-color);
+  border-bottom-left-radius: 4px;
+}
+
+.chat-input-box {
+  display: flex;
+  gap: 8px;
+}
+
+.chat-input {
+  flex: 1;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  color: var(--text-main);
+  padding: 10px 14px;
+  font-size: 13px;
+  outline: none;
+}
+
+.chat-input:focus { border-color: var(--primary-cyan); }
+
+/* Bottom Nav */
+nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(3, 7, 18, 0.9);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-around;
+  padding: 10px 0 14px;
+  z-index: 50;
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.nav-item.active { color: var(--primary-cyan); }
+.nav-icon { font-size: 18px; }
+
+.page { display: none; }
+.page.active { display: block; }
 </style>
 </head>
 <body>
 
-<div class="header">
-  <div class="hb">
-    <div class="logo">F</div>
-    <div>
-      <div class="bn">FlowCore</div>
-      <div class="bs" id="last-upd">A carregar...</div>
+<header>
+  <div class="header-container">
+    <div class="brand">
+      <div class="brand-logo">F</div>
+      <div class="brand-text">
+        <h1>FlowCore</h1>
+        <p>Investment Copilot</p>
+      </div>
+    </div>
+    <div class="status-badge">
+      <div class="status-dot"></div>
+      <span id="header-status">Online</span>
     </div>
   </div>
-  <div class="hr">
-    <div class="sdot off" id="dot"></div>
-    <button class="btn-sm" onclick="refresh()">↻ Atualizar</button>
-  </div>
-</div>
+</header>
 
-<div class="wrap">
-
-  <!-- ══ VISÃO PRINCIPAL / INÍCIO ══ -->
+<main>
+  <!-- Page: Home -->
   <div class="page active" id="page-home">
-    <div class="gap">
-      <!-- Alertas de Desenquadramento -->
-      <div class="card" id="alerts-card">
-        <div class="ch">
-          <span class="ct">⚡ ALERTAS DE DESENQUADRAMENTO</span>
-          <span class="tag tr" id="alerts-count-badge">A carregar…</span>
+    <div style="display:flex; flex-direction:column; gap:20px;">
+
+      <!-- HERO CARD: Desenquadramento Alerts -->
+      <div class="card" id="compliance-card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>⚡</span>
+            <span>Alertas de Desenquadramento</span>
+          </div>
+          <span class="card-badge badge-green" id="compliance-status-badge">A carregar...</span>
         </div>
 
-        <div class="compliance-summary-row" id="compliance-summary-chips" style="display:none">
-          <div class="compliance-chip"><div class="c-num" id="c-num-critical" style="color:var(--red)">0</div><div class="c-lbl">Críticos</div></div>
-          <div class="compliance-chip"><div class="c-num" id="c-num-warnings" style="color:var(--yellow)">0</div><div class="c-lbl">Atenção</div></div>
-          <div class="compliance-chip"><div class="c-num" id="c-num-total" style="color:var(--accent)">0</div><div class="c-lbl">Afetados</div></div>
+        <div class="compliance-summary-grid" id="compliance-chips" style="display:none">
+          <div class="summary-chip">
+            <div class="summary-val" id="chip-critical" style="color:var(--status-red)">0</div>
+            <div class="summary-lbl">Críticos</div>
+          </div>
+          <div class="summary-chip">
+            <div class="summary-val" id="chip-warning" style="color:var(--status-yellow)">0</div>
+            <div class="summary-lbl">Atenção</div>
+          </div>
+          <div class="summary-chip">
+            <div class="summary-val" id="chip-total" style="color:var(--primary-cyan)">0</div>
+            <div class="summary-lbl">Afetados</div>
+          </div>
         </div>
 
-        <div id="alerts-list">
-          <div class="sk"></div>
+        <div id="alerts-container">
+          <div class="empty-state">
+            <p>Carregando monitoramento de carteiras...</p>
+          </div>
         </div>
       </div>
 
-      <!-- Visão Financeira Geral -->
+      <!-- Financial Overview -->
       <div class="card">
-        <div class="ch"><span class="ct">📊 Visão Financeira</span><span class="tag ty">Referência</span></div>
-        <div class="metric-grid">
-          <div class="metric"><small>Carteira-modelo</small><strong>R$ 1,0 mi</strong><span class="tag tp" style="margin-top:6px">Moderada</span></div>
-          <div class="metric"><small>Exposição IA</small><strong>7%</strong><span class="tag tg" style="margin-top:6px">Satélite</span></div>
-          <div class="metric"><small>Renda fixa total</small><strong>60%</strong><span class="tag tg" style="margin-top:6px">Âncora</span></div>
-          <div class="metric"><small>Revisão</small><strong id="review-status">Diária</strong><span class="tag ty" style="margin-top:6px">Sem ordens</span></div>
+        <div class="card-header">
+          <div class="card-title">📊 Visão Geral da Carteira</div>
+          <span class="card-badge badge-green">Moderada</span>
+        </div>
+        <div class="grid-2">
+          <div class="metric-card">
+            <small>Patrimônio sob Custódia</small>
+            <strong>R$ 1.000.000</strong>
+          </div>
+          <div class="metric-card">
+            <small>Exposição Alvo em IA</small>
+            <strong>7.0%</strong>
+          </div>
+          <div class="metric-card">
+            <small>Alocação Renda Fixa</small>
+            <strong>60.0%</strong>
+          </div>
+          <div class="metric-card">
+            <small>Revisão Automática</small>
+            <strong style="color:var(--status-green)">Diária</strong>
+          </div>
         </div>
       </div>
 
-      <!-- Mercado e Macro -->
+      <!-- Live Market Snapshot -->
       <div class="card">
-        <div class="ch"><span class="ct">📈 Mercado ao Vivo</span><span class="ci">🌍</span></div>
-        <div class="row"><span class="rl">USD/BRL PTAX</span><span class="rv" id="market-usd">A carregar…</span></div>
-        <div class="row"><span class="rl">Ibovespa</span><span class="rv" id="market-ibov">A carregar…</span></div>
-        <div class="row"><span class="rl">Selic Meta</span><span class="rv" id="macro-selic">A carregar…</span></div>
-        <div class="row"><span class="rl">IPCA 12m</span><span class="rv" id="macro-ipca">A carregar…</span></div>
-        <div class="row"><span class="rl">Última atualização</span><span class="rv" id="market-updated" style="color:var(--text2);font-weight:400;font-size:12px">A carregar…</span></div>
+        <div class="card-header">
+          <div class="card-title">📈 Indicadores de Mercado</div>
+          <span class="card-badge badge-green" style="font-size:10px">Ao Vivo</span>
+        </div>
+        <div class="market-row">
+          <span class="market-lbl">Dólar PTAX (USD/BRL)</span>
+          <span class="market-val" id="mkt-usd">R$ 5,13</span>
+        </div>
+        <div class="market-row">
+          <span class="market-lbl">Ibovespa (IBOV)</span>
+          <span class="market-val" id="mkt-ibov">185.147 pts</span>
+        </div>
+        <div class="market-row">
+          <span class="market-lbl">Taxa Selic</span>
+          <span class="market-val" id="mkt-selic">10,75% a.a.</span>
+        </div>
       </div>
+
     </div>
   </div>
 
-  <!-- ══ FINANÇAS ══ -->
-  <div class="page" id="page-portfolio"><div class="gap">
-    <div class="card"><div class="ch"><span class="ct">Carteira Moderada</span><span class="tag tp">R$ 1.000.000</span></div><div id="portfolio-summary"><div class="sk"></div><div class="sk"></div></div></div>
-    <div class="card"><div class="ch"><span class="ct">Alocação por Classe</span><span class="ci">◒</span></div><div id="portfolio-exposure"><div class="sk"></div></div></div>
-    <div class="card"><div class="ch"><span class="ct">Revisão Diária</span><button class="btn-sm" onclick="loadPortfolio(true)">↻ Revisar</button></div><div id="portfolio-review"><div class="empty">A revisão é informacional e não executa ordens automaticamente.</div></div></div>
-  </div></div>
-
-  <!-- ══ INTELIGÊNCIA / IA ══ -->
-  <div class="page" id="page-ai"><div class="gap">
-    <div class="card"><div class="ch"><span class="ct">Exposição à Inteligência Artificial</span><span class="tag tg">7% Alvo</span></div><div class="metric-grid"><div class="metric"><small>Valor de referência</small><strong>R$ 70 mil</strong></div><div class="metric"><small>Faixa permitida</small><strong>4%–10%</strong></div></div></div>
-    <div class="card"><div class="ch"><span class="ct">Subtemas Acompanhados</span><span class="ci">◈</span></div><div class="row"><span class="rl">Semicondutores</span><span class="tag ty">Cíclico</span></div><div class="row"><span class="rl">Nuvem e Infraestrutura</span><span class="tag tg">Estrutural</span></div><div class="row"><span class="rl">Software & Aplicações</span><span class="tag tp">Crescimento</span></div></div>
-  </div></div>
-
-  <!-- ══ AÇÕES / AGENTES ══ -->
-  <div class="page" id="page-agents"><div class="gap">
+  <!-- Page: Finanças -->
+  <div class="page" id="page-finance">
     <div class="card">
-      <div class="ch"><span class="ct">Agentes do Copilot</span><span class="ci">🤖</span></div>
-      <div id="agent-cards" style="display:flex;flex-direction:column;gap:10px">
-        <div class="sk" style="height:52px"></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="ch"><span class="ct">Histórico de Tarefas</span><button class="btn-sm" onclick="loadAgents()">↻</button></div>
-      <div id="task-history"><div class="sk"></div></div>
-    </div>
-  </div></div>
-
-  <!-- ══ CHAT / ASSISTENTE ══ -->
-  <div class="page" id="page-chat">
-    <div class="gap">
-      <div class="card chat-wrap">
-        <div class="ch"><span class="ct">Copilot Conversacional</span><span class="tag tg">Desenquadramento Ready</span></div>
-        <div class="chat-log" id="chat-log">
-          <div class="msg bot">Olá! Sou o seu Copilot de Investimentos. Você pode me perguntar: "Quais clientes estão desenquadrados hoje?" ou pedir sugestões de rebalanceamento.</div>
-        </div>
-        <div class="chat-input-row">
-          <input class="if" id="chat-inp" placeholder="Pergunte sobre clientes desenquadrados..." onkeydown="if(event.key==='Enter')sendChat()">
-          <button class="bs2" onclick="sendChat()">➤</button>
-        </div>
-      </div>
+      <div class="card-header"><div class="card-title">💹 Posições Consolidadas</div></div>
+      <p style="color:var(--text-muted);">Módulo de alocação detalhada ativo.</p>
     </div>
   </div>
 
-  <!-- ══ NOTÍCIAS & NOTAS ══ -->
-  <div class="page" id="page-news"><div class="gap"><div class="card"><div class="ch"><span class="ct">Notícias de Mercado</span><span class="ci">📰</span></div><div class="ml" id="news-list"><div class="sk"></div></div></div></div></div>
-  <div class="page" id="page-notes"><div class="gap"><div class="card"><div class="ch"><span class="ct">Anotações</span><span class="ci">📝</span></div><div id="notes-list"><div class="sk"></div></div></div></div></div>
-  <div class="page" id="page-admin"><div class="gap"><div class="card"><div class="ch"><span class="ct">Sistema & Storage</span><span class="ci">⚙</span></div><div id="sys-storage-card"><div class="sk"></div></div></div></div></div>
+  <!-- Page: Copilot AI Chat -->
+  <div class="page" id="page-copilot">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🤖 Copilot Conversacional</div>
+        <span class="card-badge badge-green">Desenquadramento Ready</span>
+      </div>
+      <div class="chat-log" id="chat-log">
+        <div class="chat-msg bot">
+          Olá! Sou seu Investment Copilot. Pergunte-me: <strong>"Quais clientes estão desenquadrados?"</strong> ou peça análises de rebalanceamento.
+        </div>
+      </div>
+      <div class="chat-input-box">
+        <input class="chat-input" id="chat-input" placeholder="Escreva sua pergunta..." onkeydown="if(event.key==='Enter')sendChatMsg()">
+        <button class="copilot-btn" onclick="sendChatMsg()">Enviar</button>
+      </div>
+    </div>
+  </div>
+</main>
 
-</div>
-
-<!-- Bottom Navigation -->
-<div class="nav">
-  <button class="ni active" onclick="pg('home',this)"><span class="ni-icon">🏠</span><span>Início</span></button>
-  <button class="ni" onclick="pg('portfolio',this)"><span class="ni-icon">💹</span><span>Finanças</span></button>
-  <button class="ni" onclick="pg('ai',this)"><span class="ni-icon">🧠</span><span>Inteligência</span></button>
-  <button class="ni" onclick="pg('agents',this)"><span class="ni-icon">⚡</span><span>Ações</span></button>
-  <button class="ni" onclick="toggleMoreMenu()"><span class="ni-icon">⋯</span><span>Mais</span></button>
-</div>
-
-<!-- FAB (Quick Action) -->
-<button class="fab" onclick="openQuickActions()">+</button>
-
-<!-- More Menu -->
-<div class="more-menu" id="more-menu" style="display:none">
-  <button onclick="pg('chat',this);closeMoreMenu()"><span class="ni-icon">💬</span><span>Copilot Chat</span></button>
-  <button onclick="pg('news',this);closeMoreMenu()"><span class="ni-icon">📰</span><span>Notícias</span></button>
-  <button onclick="pg('notes',this);closeMoreMenu()"><span class="ni-icon">📝</span><span>Anotações</span></button>
-  <button onclick="pg('admin',this);closeMoreMenu()"><span class="ni-icon">⚙️</span><span>Sistema</span></button>
-</div>
-
-<div class="toast" id="toast"></div>
+<nav>
+  <button class="nav-item active" onclick="switchNav('home', this)">
+    <span class="nav-icon">🏠</span>
+    <span>Início</span>
+  </button>
+  <button class="nav-item" onclick="switchNav('finance', this)">
+    <span class="nav-icon">💹</span>
+    <span>Finanças</span>
+  </button>
+  <button class="nav-item" onclick="switchNav('copilot', this)">
+    <span class="nav-icon">🤖</span>
+    <span>Copilot</span>
+  </button>
+</nav>
 
 <script>
-const API='';
-let _chatHistory=[];
-
-function pg(name,btn){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.ni').forEach(b=>b.classList.remove('active'));
-  document.getElementById('page-'+name).classList.add('active');
-  if(btn) btn.classList.add('active');
-  if(name==='portfolio') loadPortfolio();
-  if(name==='agents') loadAgents();
-  if(name==='news') loadNews();
-  closeMoreMenu();
+function switchNav(pageId, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + pageId).classList.add('active');
+  btn.classList.add('active');
 }
 
-function toggleMoreMenu(){
-  const m=document.getElementById('more-menu');
-  m.style.display=m.style.display==='none'?'block':'none';
-}
-function closeMoreMenu(){ document.getElementById('more-menu').style.display='none'; }
-function openQuickActions(){ toggleMoreMenu(); }
+async function fetchAlerts() {
+  const badge = document.getElementById('compliance-status-badge');
+  const chips = document.getElementById('compliance-chips');
+  const container = document.getElementById('alerts-container');
 
-let _tt;
-function toast(m,ms=2500){
-  const e=document.getElementById('toast');
-  e.textContent=m; e.classList.add('show');
-  clearTimeout(_tt); _tt=setTimeout(()=>e.classList.remove('show'),ms);
-}
-
-async function api(path,opts={}){
-  const r=await fetch(API+path,{headers:{'Content-Type':'application/json'},...opts});
-  if(!r.ok) throw new Error(r.status);
-  return r.json();
-}
-
-async function refresh(){
-  const dot=document.getElementById('dot');
-  loadMarketSnapshot();
-  loadAlerts();
-  try{
-    const s=await api('/api/status');
-    dot.classList.remove('off');
-    document.getElementById('last-upd').textContent='Atualizado '+new Date().toLocaleTimeString('pt-BR');
-  }catch(e){
-    dot.classList.add('off');
-    document.getElementById('last-upd').textContent='Offline';
-  }
-}
-
-function marketValue(value, suffix=''){
-  return value===null||value===undefined?'Sem dados':new Intl.NumberFormat('pt-BR',{maximumFractionDigits:2}).format(value)+suffix;
-}
-
-async function loadAlerts(){
-  const badge = document.getElementById('alerts-count-badge');
-  const container = document.getElementById('alerts-list');
-  const summaryChips = document.getElementById('compliance-summary-chips');
-  if(!container) return;
   try {
-    const data = await api('/api/alerts');
-    if(!data || data.total === 0) {
-      if(badge) { badge.textContent = '0 desenquadramentos'; badge.className = 'tag tg'; }
-      if(summaryChips) summaryChips.style.display = 'none';
-      container.innerHTML = '<div class="empty" style="padding:32px 12px"><div style="font-size:28px;margin-bottom:8px">🟢</div><strong style="color:#fff;font-size:15px">Nenhuma carteira desenquadrada</strong><br><span style="font-size:12px;color:var(--text2)">Todas as posições estão dentro dos limites de alocação estabelecidos.</span></div>';
+    const res = await fetch('/api/alerts');
+    const data = await res.json();
+
+    if (!data || data.total === 0) {
+      badge.textContent = "100% Em Conformidade";
+      badge.className = "card-badge badge-green";
+      chips.style.display = "none";
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">✓</div>
+          <h3>Nenhuma carteira desenquadrada</h3>
+          <p>Todas as posições e limites operacionais estão perfeitamente ajustados.</p>
+        </div>
+      `;
       return;
     }
-    if(badge) {
-      badge.textContent = `${data.total} desenquadramento${data.total > 1 ? 's' : ''}`;
-      badge.className = data.critical > 0 ? 'tag tr' : 'tag ty';
-    }
-    if(summaryChips) {
-      summaryChips.style.display = 'grid';
-      document.getElementById('c-num-critical').textContent = data.critical || 0;
-      document.getElementById('c-num-warnings').textContent = data.warnings || 0;
-      document.getElementById('c-num-total').textContent = data.total || 0;
-    }
+
+    badge.textContent = `${data.total} Desenquadramento${data.total > 1 ? 's' : ''}`;
+    badge.className = data.critical > 0 ? "card-badge badge-red" : "card-badge badge-yellow";
+
+    chips.style.display = "grid";
+    document.getElementById('chip-critical').textContent = data.critical || 0;
+    document.getElementById('chip-warning').textContent = data.warnings || 0;
+    document.getElementById('chip-total').textContent = data.total || 0;
+
     let html = '';
     data.items.forEach(item => {
-      const isCritical = item.severity === 'CRITICAL';
-      const severityClass = isCritical ? 'critical' : 'warning';
-      const tagClass = isCritical ? 'tr' : 'ty';
-      const diffStr = item.diff > 0 ? `+${item.diff} p.p.` : `${item.diff} p.p.`;
+      const isCrit = item.severity === 'CRITICAL';
+      const sevClass = isCrit ? 'critical' : 'warning';
+      const badgeClass = isCrit ? 'badge-red' : 'badge-yellow';
+      const diffLabel = item.diff > 0 ? `+${item.diff} p.p.` : `${item.diff} p.p.`;
+
       const maxVal = Math.max(item.current, item.limit, 100);
       const currPct = Math.min(100, Math.round((item.current / maxVal) * 100));
       const limitPct = Math.min(100, Math.round((item.limit / maxVal) * 100));
 
       html += `
-        <div class="compliance-item-card ${severityClass}">
-          <div class="compliance-header">
+        <div class="alert-item ${sevClass}">
+          <div class="alert-item-header">
             <div>
-              <div class="compliance-client">${item.client_name}</div>
-              <span class="tag ${tagClass}" style="margin-top:4px">${item.type}</span>
+              <div class="client-name">${item.client_name}</div>
+              <span class="card-badge ${badgeClass}" style="margin-top:4px; display:inline-block;">${item.type}</span>
             </div>
-            <button class="btn-sm" onclick="pg('chat');setTimeout(()=>{document.getElementById('chat-inp').value='Analise o desenquadramento de ${item.client_name}';sendChat();},200)">
-              ⚡ Analisar Copilot
-            </button>
+            <button class="copilot-btn" onclick="askCopilotAbout('${item.client_name}')">⚡ Analisar Copilot</button>
           </div>
-          <div class="compliance-meta">
-            <span>Posição Atual: <strong style="color:#fff">${item.current}%</strong></span>
-            <span>Limite Teto: <strong style="color:var(--text2)">${item.limit}%</strong></span>
-            <span style="color:${isCritical?'var(--red)':'var(--yellow)'};font-weight:700">${diffStr}</span>
+
+          <div class="alert-metrics">
+            <span>Posição Atual: <span class="metric-highlight">${item.current}%</span></span>
+            <span>Limite Teto: <span class="metric-highlight">${item.limit}%</span></span>
+            <span style="color:${isCrit ? 'var(--status-red)' : 'var(--status-yellow)'}; font-weight:700;">${diffLabel}</span>
           </div>
-          <div class="compliance-progress-track">
-            <div class="compliance-progress-bar ${severityClass}" style="width: ${currPct}%"></div>
-            <div class="compliance-limit-marker" style="left: ${limitPct}%" title="Limite Max: ${item.limit}%"></div>
+
+          <div class="progress-track">
+            <div class="progress-fill ${sevClass}" style="width: ${currPct}%"></div>
+            <div class="limit-pin" style="left: ${limitPct}%" title="Limite Teto ${item.limit}%"></div>
           </div>
-          <div class="compliance-action-box">
+
+          <div class="alert-action">
             <span>💡</span>
-            <span><strong>Ação Sugerida:</strong> ${item.suggested_action}</span>
+            <span><strong>Sugestão:</strong> ${item.suggested_action}</span>
           </div>
         </div>
       `;
     });
+
     container.innerHTML = html;
-  } catch(e) {
-    if(badge) { badge.textContent = 'Erro ao carregar'; badge.className = 'tag tr'; }
-    if(summaryChips) summaryChips.style.display = 'none';
-    container.innerHTML = '<div class="empty">Erro ao verificar limites de compliance.</div>';
+
+  } catch (err) {
+    badge.textContent = "Erro ao Carregar";
+    badge.className = "card-badge badge-red";
+    container.innerHTML = `<p style="color:var(--text-muted); text-align:center;">Não foi possível consultar os alertas.</p>`;
   }
 }
 
-async function loadMarketSnapshot(){
-  const set=(id,value)=>{const e=document.getElementById(id);if(e)e.textContent=value;};
-  try{
-    const data=await api('/api/market/snapshot');
-    set('market-usd',marketValue(data.brl_usd,' R$'));
-    const ibov=data.ibov_last===null||data.ibov_last===undefined?'Sem dados':marketValue(data.ibov_last)+(data.ibov_change_pct===null||data.ibov_change_pct===undefined?'':' ('+(data.ibov_change_pct>=0?'+':'')+marketValue(data.ibov_change_pct,'%')+')');
-    set('market-ibov',ibov);
-    set('macro-selic',marketValue(data.selic_rate,'% a.a.'));
-    set('macro-ipca',marketValue(data.ipca_12m,'%'));
-    set('market-updated',data.timestamp?'Atualizado '+new Date(data.timestamp).toLocaleTimeString('pt-BR'):'Sem timestamp');
-  }catch(e){
-    ['market-usd','market-ibov','macro-selic','macro-ipca'].forEach(id=>set(id,'Sem dados'));
-    set('market-updated','Fonte indisponível');
+function askCopilotAbout(clientName) {
+  switchNav('copilot', document.querySelectorAll('.nav-item')[2]);
+  const input = document.getElementById('chat-input');
+  input.value = `Quais ações tomar para rebalancear a carteira de ${clientName}?`;
+  sendChatMsg();
+}
+
+let chatHistory = [];
+async function sendChatMsg() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  appendMsg(text, 'user');
+
+  try {
+    const res = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: text, history: chatHistory })
+    });
+    const data = await res.json();
+    appendMsg(data.answer || 'Sem resposta do Copilot.', 'bot');
+    chatHistory.push({ role: 'user', content: text });
+    chatHistory.push({ role: 'assistant', content: data.answer || '' });
+  } catch (err) {
+    appendMsg('Erro ao conectar com o agente Copilot.', 'bot');
   }
 }
 
-async function sendChat(){
-  const inp=document.getElementById('chat-inp');
-  const question=inp.value.trim();
-  if(!question) return;
-  inp.value='';
-  appendChatMsg(question,'user');
-  const typing=appendChatMsg('Analisando carteiras…','typing');
-  try{
-    const data=await api('/api/ask',{method:'POST',body:JSON.stringify({question,history:_chatHistory})});
-    typing.remove();
-    appendChatMsg(data.answer||'(Sem resposta)','bot',data.provider||'Copilot');
-    _chatHistory.push({role:'user',content:question});
-    _chatHistory.push({role:'assistant',content:data.answer||''});
-  }catch(e){
-    typing.remove();
-    appendChatMsg('Erro ao se comunicar com o Copilot: '+e.message,'bot err');
-  }
+function appendMsg(text, sender) {
+  const log = document.getElementById('chat-log');
+  const msg = document.createElement('div');
+  msg.className = `chat-msg ${sender}`;
+  msg.innerHTML = text;
+  log.appendChild(msg);
+  log.scrollTop = log.scrollHeight;
 }
 
-function appendChatMsg(text,who,meta){
-  const log=document.getElementById('chat-log');
-  const el=document.createElement('div');
-  el.className='msg '+who;
-  el.textContent=text;
-  if(meta){const m=document.createElement('div');m.className='chat-meta';m.textContent=meta;el.appendChild(m);}
-  log.appendChild(el);
-  log.scrollTop=log.scrollHeight;
-  return el;
-}
-
-refresh();
-setInterval(refresh,30000);
+fetchAlerts();
+setInterval(fetchAlerts, 30000);
 </script>
 </body>
 </html>
