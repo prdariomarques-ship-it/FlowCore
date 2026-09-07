@@ -15,6 +15,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from runtime.observers.providers.ptax_provider import fetch_usdbrl_ptax
 from runtime.observers.providers.yfinance_provider import ObserverError, fetch_quote
 
 DEFAULT_WATCHLISTS: dict[str, list[str]] = {
@@ -42,6 +43,24 @@ def list_watchlists() -> dict:
     return {"watchlists": list(DEFAULT_WATCHLISTS)}
 
 
+def _try_fallback(symbol: str) -> dict | None:
+    """None if this symbol has no fallback, or the fallback itself fails
+    too -- the caller then reports the original failure honestly rather
+    than a fabricated value.
+
+    Only USDBRL=X has one today, because it's the "Câmbio" group's single
+    indicator (config/market_thresholds.py) -- a yfinance hiccup there
+    empties the whole tab, unlike Índices/Commodities/Juros which have
+    several indicators each. PTAX (Banco Central) is an independent
+    source that never depends on Yahoo Finance's availability."""
+    if symbol != "USDBRL=X":
+        return None
+    try:
+        return fetch_usdbrl_ptax()
+    except Exception:
+        return None
+
+
 def snapshot(watchlist: str) -> dict:
     symbols = DEFAULT_WATCHLISTS.get(watchlist)
     if symbols is None:
@@ -53,9 +72,13 @@ def snapshot(watchlist: str) -> dict:
         try:
             q = fetch_quote(symbol, timeout=2.5, retries=0)
         except ObserverError:
-            return WatchlistItem(symbol=symbol, level=None, delta_pct_1d=None, status="no_data")
+            q = _try_fallback(symbol)
+            if q is None:
+                return WatchlistItem(symbol=symbol, level=None, delta_pct_1d=None, status="no_data")
         except Exception:
-            return WatchlistItem(symbol=symbol, level=None, delta_pct_1d=None, status="error")
+            q = _try_fallback(symbol)
+            if q is None:
+                return WatchlistItem(symbol=symbol, level=None, delta_pct_1d=None, status="error")
         price = q.get("price")
         prev = q.get("previous_close")
         delta = None
