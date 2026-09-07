@@ -645,7 +645,9 @@ details.mi>summary::marker{display:none}
         <div class="ir"><input class="if" id="office-telegram-chat-id" placeholder="Telegram chat_id (ex: 123456789)"><button class="bs2" onclick="saveOfficeNotifications()">✓</button></div>
         <div class="row" style="padding-top:0;border:none"><span class="rl">Status atual</span><span class="rv" id="office-notify-status">─</span></div>
         <button class="btn-sm" style="margin-top:8px" onclick="discoverTelegramChatId()">🔍 Descobrir automaticamente</button>
+        <button class="btn-sm" style="margin-top:8px" onclick="testOfficeNotification()">🔔 Enviar teste</button>
         <div id="office-notify-discover-result" style="margin-top:8px"></div>
+        <div id="office-notify-test-result" style="margin-top:8px"></div>
       </div>
       <div class="card" id="sessions-card">
         <div class="ch"><span class="ct">Sessões ativas</span><span class="ci">💻</span></div>
@@ -708,11 +710,14 @@ details.mi>summary::marker{display:none}
           <div class="sr-title" style="margin-bottom:6px">Principal (PC)</div>
           <div class="ai-cfg-row"><input class="if" id="ai-ollama-url" placeholder="URL do Ollama no PC (ex: http://192.168.1.50:11434)"></div>
           <div class="ai-cfg-row"><input class="if" id="ai-model" placeholder="Modelo no PC (ex: qwen2.5:3b)"></div>
+          <div id="ai-status-pc" style="margin:0 0 8px"></div>
           <div class="sr-title" style="margin:10px 0 6px">Backup (celular, usado se o PC não responder)</div>
           <div class="ai-cfg-row"><input class="if" id="ai-fallback-url" placeholder="URL do Ollama no celular (ex: http://127.0.0.1:11434)"></div>
           <div class="ai-cfg-row"><input class="if" id="ai-fallback-model" placeholder="Modelo no celular (ex: qwen2.5:1.5b)"></div>
+          <div id="ai-status-celular" style="margin:0 0 8px"></div>
           <div class="sr-title" style="margin:10px 0 6px">Avançado</div>
           <div class="ai-cfg-row"><input class="if" id="ai-openai-url" placeholder="URL OpenAI-compat (opcional)"></div>
+          <div id="ai-status-openai" style="margin:0 0 8px"></div>
           <div class="btns" style="margin-top:0"><button class="btn bg" onclick="saveAiConfig()">✓ Salvar</button><button class="btn-sm" onclick="loadAiConfig()">↻ Recarregar</button></div>
         </div>
       </div>
@@ -1193,7 +1198,32 @@ async function loadPortfolio(){
 let _chatHistory=[];
 function toggleAiCfg(){
   const box=document.getElementById('ai-cfg-box');
-  box.style.display=box.style.display==='none'?'block':'none';
+  const opening=box.style.display==='none';
+  box.style.display=opening?'block':'none';
+  if(opening) loadAiStatus();
+}
+function renderAiEndpointStatus(info, isOpenai){
+  if(!info || !info.configured) return '<span style="font-size:11px;color:var(--text2)">não configurado</span>';
+  if(!info.reachable) return `<span class="tag tr" style="font-size:11px">offline — ${escapeHtml(info.error||'')}</span>`;
+  if(isOpenai) return '<span class="tag tg" style="font-size:11px">online</span>';
+  if(info.model_available===false) return `<span class="tag tr" style="font-size:11px">${escapeHtml(info.error||'modelo não encontrado')}</span>`;
+  if(info.model_available===null) return '<span class="tag ty" style="font-size:11px">online — não foi possível confirmar o modelo</span>';
+  return '<span class="tag tg" style="font-size:11px">online · modelo OK</span>';
+}
+async function loadAiStatus(){
+  for(const id of ['ai-status-pc','ai-status-celular','ai-status-openai']){
+    document.getElementById(id).innerHTML='<span style="font-size:11px;color:var(--text2)">verificando…</span>';
+  }
+  try{
+    const s=await api('/api/ai-runtime/status');
+    document.getElementById('ai-status-pc').innerHTML=renderAiEndpointStatus(s.pc);
+    document.getElementById('ai-status-celular').innerHTML=renderAiEndpointStatus(s.celular);
+    document.getElementById('ai-status-openai').innerHTML=renderAiEndpointStatus(s.openai_compat, true);
+  }catch(e){
+    for(const id of ['ai-status-pc','ai-status-celular','ai-status-openai']){
+      document.getElementById(id).innerHTML='';
+    }
+  }
 }
 async function loadAiConfig(){
   try{
@@ -1221,6 +1251,7 @@ async function saveAiConfig(){
     })});
     toast('Config de IA salva');
     loadAiConfig();
+    loadAiStatus();
     toggleAiCfg();
   }catch(e){toast('Erro ao salvar: '+e.message);}
 }
@@ -1322,6 +1353,26 @@ async function discoverTelegramChatId(){
     }
   }catch(e){
     box.innerHTML='<div class="empty" style="font-size:12px">Erro ao buscar.</div>';
+  }
+}
+
+async function testOfficeNotification(){
+  const box=document.getElementById('office-notify-test-result');
+  box.innerHTML='<span style="font-size:12px;color:var(--text2)">Enviando…</span>';
+  try{
+    const r=await api('/api/office/notifications/test',{method:'POST'});
+    if(r.sent){
+      box.innerHTML='<div class="tag tg" style="font-size:12px">Enviado! Confira o Telegram.</div>';
+      return;
+    }
+    const reasons={
+      no_chat_id: 'Nenhum chat_id salvo -- preenche e salva o campo acima primeiro.',
+      bot_not_configured: 'O servidor não tem TELEGRAM_BOT_TOKEN configurado (.env do FlowCore no Termux).',
+      telegram_error: r.detail,
+    };
+    box.innerHTML=`<div class="tag tr" style="font-size:12px">Falhou: ${escapeHtml(reasons[r.reason]||r.detail||r.reason)}</div>`;
+  }catch(e){
+    box.innerHTML='<div class="empty" style="font-size:12px">Erro ao enviar teste.</div>';
   }
 }
 

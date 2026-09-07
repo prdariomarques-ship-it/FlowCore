@@ -151,3 +151,61 @@ class TestDiscoverChatId:
         assert body["available"] is False
         assert body["chats"] == []
         assert "unreachable" in body["reason"]
+
+
+class TestNotificationTestSend:
+    """POST /api/office/notifications/test -- an on-demand real send so a
+    silent Telegram pipeline (CoreOrchestrator's _send_telegram swallows
+    failures into an "ignored" agent event) can be diagnosed immediately
+    instead of waiting for a real portfolio violation to trigger it."""
+
+    def test_requires_auth(self):
+        assert _client().post("/api/office/notifications/test").status_code == 401
+
+    def test_no_chat_id_configured(self):
+        c = _client()
+        session = signup_office(c)
+        resp = c.post("/api/office/notifications/test", headers=session["headers"])
+        assert resp.status_code == 200
+        assert resp.json() == {"sent": False, "reason": "no_chat_id",
+                                "detail": "Nenhum chat_id configurado para este escritório. Configure em Ajustes."}
+
+    def test_bot_token_missing_on_server(self, monkeypatch):
+        monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+        c = _client()
+        session = signup_office(c)
+        c.put("/api/office/notifications", json={"telegram_chat_id": "883232211"}, headers=session["headers"])
+
+        resp = c.post("/api/office/notifications/test", headers=session["headers"])
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["sent"] is False
+        assert body["reason"] == "bot_not_configured"
+
+    def test_real_telegram_error_surfaced_honestly(self, monkeypatch):
+        from runtime.telegram import TelegramError
+
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "tok")
+        c = _client()
+        session = signup_office(c)
+        c.put("/api/office/notifications", json={"telegram_chat_id": "883232211"}, headers=session["headers"])
+
+        with patch("runtime.telegram.send_message", side_effect=TelegramError("Telegram API error 403: bot was blocked by the user")):
+            resp = c.post("/api/office/notifications/test", headers=session["headers"])
+        body = resp.json()
+        assert body["sent"] is False
+        assert body["reason"] == "telegram_error"
+        assert "blocked" in body["detail"]
+
+    def test_success_sends_to_the_configured_chat_id(self, monkeypatch):
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "tok")
+        c = _client()
+        session = signup_office(c)
+        c.put("/api/office/notifications", json={"telegram_chat_id": "883232211"}, headers=session["headers"])
+
+        with patch("runtime.telegram.send_message", return_value={"message_id": 1}) as mocked_send:
+            resp = c.post("/api/office/notifications/test", headers=session["headers"])
+        assert resp.json() == {"sent": True, "chat_id": "883232211"}
+        mocked_send.assert_called_once()
+        args = mocked_send.call_args[0]
+        assert args[1] == "883232211"

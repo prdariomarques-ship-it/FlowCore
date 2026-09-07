@@ -237,7 +237,42 @@ class TestAskDeepSeekFallback:
         mocked_generate.assert_called_once()
         request = mocked_generate.call_args[0][0]
         assert request.metadata["allow_cloud"] is True
+        # No prior turns -- send the bare question, not a fake one-line
+        # "role: content" transcript (see test_strips_a_leading_role_echo
+        # for why that shape confused some models).
+        assert request.prompt == "oi"
+
+    def test_includes_history_when_present(self):
+        from runtime.llm.models import LLMResponse
+
+        fake_response = LLMResponse(text="ok", provider="deepseek", model="deepseek-chat", latency_ms=1.0)
+        c, session = self._session()
+        with self._unreachable_client(), self._ask_agent_tier_skipped():
+            with patch("service._llm_router.generate", return_value=fake_response) as mocked_generate:
+                r = c.post("/api/ask", json={
+                    "question": "e agora?",
+                    "history": [{"role": "user", "content": "oi"}, {"role": "assistant", "content": "olá"}],
+                }, headers=session["headers"])
+
+        assert r.status_code == 200
+        request = mocked_generate.call_args[0][0]
         assert "user: oi" in request.prompt
+        assert "assistant: olá" in request.prompt
+        assert "e agora?" in request.prompt
+
+    def test_strips_a_leading_role_echo_from_the_answer(self):
+        # A real DeepSeek response observed in production: given a raw
+        # "user: hi"-shaped prompt, the model echoed a role label onto
+        # its own answer (": Hello! How can I help you today?").
+        from runtime.llm.models import LLMResponse
+
+        fake_response = LLMResponse(text=": Hello! How can I help you today?", provider="deepseek", model="deepseek-v4-flash", latency_ms=1.0)
+        c, session = self._session()
+        with self._unreachable_client(), self._ask_agent_tier_skipped():
+            with patch("service._llm_router.generate", return_value=fake_response):
+                r = c.post("/api/ask", json={"question": "hi"}, headers=session["headers"])
+
+        assert r.json()["answer"] == "Hello! How can I help you today?"
 
     def test_still_returns_unavailable_when_deepseek_also_fails(self):
         from runtime.llm.models import LLMAllProvidersFailedError
@@ -365,6 +400,113 @@ class TestAIRuntimeConfig:
         assert r.status_code == 200
         assert r.json()["openai_url"] == "http://100.127.43.83:1234"
         assert r.json()["openai_model"] == "nemotron-3.5-lightning"
+
+
+class TestAIRuntimeStatus:
+    """GET /api/ai-runtime/status -- the Ajustes screen only ever showed
+    the static config values (URL/model typed in), never whether they
+    actually work. Distinguishes "endpoint down" from "endpoint up but
+    the model was never pulled", the two failure modes a user can't
+    tell apart just by looking at the config fields."""
+
+    def test_unconfigured_endpoints_report_configured_false(self, tmp_path, monkeypatch):
+        import api.dashboard_routes as dr
+        monkeypatch.setattr(dr, "_DATA_DIR", tmp_path / ".flowcore")
+        (tmp_path / ".flowcore").mkdir(parents=True)
+
+        from fastapi.testclient import TestClient
+        from api.router import create_app
+        c = TestClient(create_app(version="test"))
+
+        with patch("api.dashboard_routes._tcp_reachable", return_value=False):
+            r = c.get("/api/ai-runtime/status")
+        assert r.status_code == 200
+        body = r.json()
+        # No ai.json at all -- pc still defaults to _OLLAMA_DEFAULT, so it's
+        # "configured" (just unreachable in this test's sandbox); the
+        # never-set fallback/openai fields must say so honestly.
+        assert body["celular"] == {"configured": False}
+        assert body["openai_compat"] == {"configured": False}
+
+    def test_unreachable_endpoint_reported_honestly(self, tmp_path, monkeypatch):
+        import api.dashboard_routes as dr
+        monkeypatch.setattr(dr, "_DATA_DIR", tmp_path / ".flowcore")
+        (tmp_path / ".flowcore").mkdir(parents=True)
+        (tmp_path / ".flowcore" / "ai.json").write_text(json.dumps({
+            "ollama_url": "http://10.255.255.1:11434", "model": "phi4-mini",
+        }))
+
+        from fastapi.testclient import TestClient
+        from api.router import create_app
+        c = TestClient(create_app(version="test"))
+
+        with patch("api.dashboard_routes._tcp_reachable", return_value=False):
+            r = c.get("/api/ai-runtime/status")
+        pc = r.json()["pc"]
+        assert pc["configured"] is True
+        assert pc["reachable"] is False
+        assert "não respondeu" in pc["error"]
+
+    def test_reachable_but_model_not_pulled(self, tmp_path, monkeypatch):
+        import api.dashboard_routes as dr
+        monkeypatch.setattr(dr, "_DATA_DIR", tmp_path / ".flowcore")
+        (tmp_path / ".flowcore").mkdir(parents=True)
+        (tmp_path / ".flowcore" / "ai.json").write_text(json.dumps({
+            "ollama_url": "http://127.0.0.1:11434", "model": "qwen2.5:1.5b",
+        }))
+
+        from fastapi.testclient import TestClient
+        from api.router import create_app
+        c = TestClient(create_app(version="test"))
+
+        with patch("api.dashboard_routes._tcp_reachable", return_value=True), \
+             patch("api.dashboard_routes._http_json", return_value={"models": [{"name": "phi4-mini:latest"}]}):
+            r = c.get("/api/ai-runtime/status")
+        pc = r.json()["pc"]
+        assert pc["reachable"] is True
+        assert pc["model_available"] is False
+        assert "qwen2.5:1.5b" in pc["error"]
+        assert "ollama pull" in pc["error"]
+
+    def test_reachable_and_model_available(self, tmp_path, monkeypatch):
+        import api.dashboard_routes as dr
+        monkeypatch.setattr(dr, "_DATA_DIR", tmp_path / ".flowcore")
+        (tmp_path / ".flowcore").mkdir(parents=True)
+        (tmp_path / ".flowcore" / "ai.json").write_text(json.dumps({
+            "ollama_url": "http://127.0.0.1:11434", "model": "qwen2.5",
+        }))
+
+        from fastapi.testclient import TestClient
+        from api.router import create_app
+        c = TestClient(create_app(version="test"))
+
+        with patch("api.dashboard_routes._tcp_reachable", return_value=True), \
+             patch("api.dashboard_routes._http_json", return_value={"models": [{"name": "qwen2.5:1.5b"}]}):
+            r = c.get("/api/ai-runtime/status")
+        pc = r.json()["pc"]
+        assert pc["reachable"] is True
+        assert pc["model_available"] is True
+        assert pc["error"] is None
+
+    def test_tags_call_failing_is_distinct_from_unreachable(self, tmp_path, monkeypatch):
+        import api.dashboard_routes as dr
+        monkeypatch.setattr(dr, "_DATA_DIR", tmp_path / ".flowcore")
+        (tmp_path / ".flowcore").mkdir(parents=True)
+        (tmp_path / ".flowcore" / "ai.json").write_text(json.dumps({
+            "ollama_url": "http://127.0.0.1:11434", "model": "phi4-mini",
+        }))
+
+        from fastapi.testclient import TestClient
+        from api.router import create_app
+        c = TestClient(create_app(version="test"))
+
+        with patch("api.dashboard_routes._tcp_reachable", return_value=True), \
+             patch("api.dashboard_routes._http_json", side_effect=RuntimeError("HTTP error: 500")):
+            r = c.get("/api/ai-runtime/status")
+        pc = r.json()["pc"]
+        assert pc["reachable"] is True
+        assert pc["model_available"] is None
+        assert "listar modelos" in pc["error"]
 
 
 class TestAIRuntime:

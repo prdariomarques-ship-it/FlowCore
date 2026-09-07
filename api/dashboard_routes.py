@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -694,16 +695,31 @@ def register_dashboard_routes(app, version: str) -> None:
             from runtime.llm import LLMRequest
             from service import _llm_router
 
-            # Flatten the conversation (messages already includes prior
-            # turns + this question) into one prompt -- LLMRequest takes a
-            # single string, unlike Ollama's /api/chat message-list shape.
-            history_text = "\n".join(f"{m['role']}: {m['content']}" for m in messages)
+            # LLMRequest takes a single prompt string, unlike Ollama's
+            # /api/chat message-list shape -- flattening prior turns as
+            # "role: content" lines confused some models into echoing a
+            # "role:" prefix onto their own answer (e.g. ": Hello!"), so
+            # the common case (no prior turns) sends the bare question
+            # instead of a fake single-line "chat transcript".
+            if data.history:
+                history_text = "\n".join(f"{m['role']}: {m['content']}" for m in data.history)
+                prompt = (
+                    f"Conversa até agora:\n{history_text}\n\n"
+                    f"Pergunta atual do usuário: {data.question}\n\n"
+                    "Responda apenas o texto da resposta, sem repetir rótulos como "
+                    '"user:" ou "assistant:".'
+                )
+            else:
+                prompt = data.question
             llm_request = LLMRequest(
-                prompt=history_text,
+                prompt=prompt,
                 metadata={"allow_cloud": True, "purpose": "chat", "office_id": user["office_id"]},
             )
             response = await asyncio.to_thread(_llm_router.generate, llm_request)
-            return {"answer": response.text, "provider": response.provider, "model": response.model}
+            # Defensive: strip a stray leading role echo ("assistant: ",
+            # ": ", "bot: ") a model produces despite the instruction above.
+            answer = re.sub(r"^\s*(assistant|ai|bot|flowcore)?\s*:\s*", "", response.text, count=1, flags=re.IGNORECASE)
+            return {"answer": answer, "provider": response.provider, "model": response.model}
         except Exception as exc:  # noqa: BLE001 - genuinely out of options
             last_error = exc
 
@@ -787,6 +803,48 @@ def register_dashboard_routes(app, version: str) -> None:
         config_path.parent.mkdir(parents=True, exist_ok=True)
         config_path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False))
         return {"saved": True, **cfg}
+
+    @app.get("/api/ai-runtime/status")
+    async def ai_status():
+        """Real reachability + model-availability check per configured
+        endpoint (PC, celular, OpenAI-compat) -- the Ajustes screen only
+        ever showed the static config values, never whether they
+        actually work, so a wrong URL or an unpulled model looked
+        identical to "everything's fine" until a chat question failed.
+        Distinguishes the two failure modes that matter most in
+        practice: the endpoint being down (reachable=false) vs. it
+        being up but not having the configured model (model_available=
+        false, e.g. the model was never `ollama pull`ed)."""
+        cfg = _read_json("ai.json", {})
+
+        def _check_ollama(url: str, model: str) -> dict:
+            if not url:
+                return {"configured": False}
+            if not _tcp_reachable(url):
+                return {"configured": True, "url": url, "model": model, "reachable": False,
+                        "error": "Endpoint não respondeu (timeout ou recusado)."}
+            try:
+                tags = _http_json("GET", f"{url.rstrip('/')}/api/tags", timeout=5)
+                names = [m.get("name", "") for m in tags.get("models", [])]
+            except Exception as exc:  # noqa: BLE001 - reachable but broken is still real info
+                return {"configured": True, "url": url, "model": model, "reachable": True,
+                        "model_available": None, "error": f"Não foi possível listar modelos: {exc}"}
+            available = any(n == model or n.startswith(f"{model}:") for n in names) if model else None
+            error = None if available or not model else f"Modelo '{model}' não encontrado neste Ollama. Rode: ollama pull {model}"
+            return {"configured": True, "url": url, "model": model, "reachable": True,
+                    "model_available": available, "models_found": names, "error": error}
+
+        def _check_openai(url: str) -> dict:
+            if not url:
+                return {"configured": False}
+            reachable = _tcp_reachable(url)
+            return {"configured": True, "url": url, "reachable": reachable,
+                    "error": None if reachable else "Endpoint não respondeu (timeout ou recusado)."}
+
+        pc = await asyncio.to_thread(_check_ollama, cfg.get("ollama_url", _OLLAMA_DEFAULT), cfg.get("model", "phi4-mini"))
+        celular = await asyncio.to_thread(_check_ollama, cfg.get("ollama_fallback_url", ""), cfg.get("fallback_model", ""))
+        openai_compat = await asyncio.to_thread(_check_openai, cfg.get("openai_url", ""))
+        return {"pc": pc, "celular": celular, "openai_compat": openai_compat}
 
     @app.get("/api/ai-runtime/models")
     async def ai_models():
@@ -1416,6 +1474,41 @@ def register_dashboard_routes(app, version: str) -> None:
         except TelegramError as e:
             return {"available": False, "reason": str(e), "chats": []}
         return {"available": True, "chats": chats}
+
+    @app.post("/api/office/notifications/test")
+    async def office_notifications_test(request: Request):
+        """Sends one real Telegram message to the office's configured
+        chat_id right now and reports exactly what happened -- instead of
+        waiting for a real portfolio violation to go through
+        CoreOrchestrator (agents/orchestrator.py's _send_telegram, which
+        silently swallows failures into an "ignored" event so the
+        autonomous pipeline never breaks on a notification error). Same
+        three-way outcome that method reports, surfaced honestly here:
+        no chat_id saved, no TELEGRAM_BOT_TOKEN on this install, or a
+        real Telegram API error (bad token, bot blocked, chat not
+        found, ...)."""
+        from runtime.telegram import TelegramError, TelegramNotConfiguredError, send_message
+        from storage.tenant_repo import TenantRepository
+
+        user = await get_current_user(request)
+        office = await TenantRepository().get_office(user["office_id"])
+        chat_id = office.get("telegram_chat_id") if office else None
+        if not chat_id:
+            return {"sent": False, "reason": "no_chat_id",
+                    "detail": "Nenhum chat_id configurado para este escritório. Configure em Ajustes."}
+
+        try:
+            await asyncio.to_thread(
+                send_message,
+                "🔔 Teste do FlowCore — se você recebeu esta mensagem, as notificações estão funcionando.",
+                chat_id,
+            )
+        except TelegramNotConfiguredError:
+            return {"sent": False, "reason": "bot_not_configured",
+                    "detail": "TELEGRAM_BOT_TOKEN não está definido neste servidor (.env)."}
+        except TelegramError as e:
+            return {"sent": False, "reason": "telegram_error", "detail": str(e)}
+        return {"sent": True, "chat_id": chat_id}
 
     # ── Human-in-the-loop approval queue (§9) ────────────────────────────────
     # LEVEL 3+ actions an agent prepares (agents/orchestrator.py) but never
