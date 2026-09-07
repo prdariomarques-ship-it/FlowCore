@@ -639,6 +639,12 @@ details.mi>summary::marker{display:none}
     <div class="gap">
       <div class="card"><div class="ch"><span class="ct">Daemon FlowCore</span><span class="ci">⚙</span></div><div class="row"><span class="rl">Estado</span><span class="rv" id="d-state"><span class="tag ty">─</span></span></div><div class="row"><span class="rl">PID / uptime / ciclo</span><span class="rv" id="d-pid">─</span></div><div class="row"><span class="rl">Detalhe</span><span class="rv" id="d-up" style="color:var(--text2)">─</span></div><div class="row"><span class="rl">Heartbeat</span><span class="rv" id="d-cyc" style="color:var(--text2)">─</span></div><div class="btns"><button class="btn bg" onclick="da('start')">▶ Iniciar</button><button class="btn br" onclick="da('stop')">■ Parar</button></div></div>
       <div class="card"><div class="ch"><span class="ct">Notificação Android</span><span class="ci">🔔</span></div><div class="ir"><input class="if" id="n-text" placeholder="Mensagem para o Android..."><button class="bs2" onclick="sendNotify()">🔔</button></div><div class="row" style="padding-top:0;border:none"><span class="rl">via Termux API</span><span class="tag ty" id="n-status">nativo Android</span></div></div>
+      <div class="card" id="office-notify-card">
+        <div class="ch"><span class="ct">Notificações do Telegram</span><span class="ci">📨</span></div>
+        <div style="font-size:12px;color:var(--text2);padding:0 2px 8px">Os agentes autônomos avisam por aqui quando encontram algo (carteira desenquadrada, cliente pendente de contato). Precisa do <b>chat_id</b> da conversa com o bot do escritório.</div>
+        <div class="ir"><input class="if" id="office-telegram-chat-id" placeholder="Telegram chat_id (ex: 123456789)"><button class="bs2" onclick="saveOfficeNotifications()">✓</button></div>
+        <div class="row" style="padding-top:0;border:none"><span class="rl">Status atual</span><span class="rv" id="office-notify-status">─</span></div>
+      </div>
       <div class="card" id="sys-storage-card">
         <div class="ch"><span class="ct">Armazenamento</span><span class="ci">💾</span></div>
         <div class="sk"></div>
@@ -876,7 +882,7 @@ function pg(name,btn){
   const sbBtn=document.getElementById('sb-'+name);
   if(sbBtn) sbBtn.classList.add('active');
   if(name==='home') loadDashboardOverview();
-  if(name==='admin') loadSys();
+  if(name==='admin'){loadSys();loadOfficeNotifications();}
   if(name==='portfolio'){loadPortfolio();loadComplianceAlerts();loadReferencePortfolio();}
   if(name==='notes') loadNotes();
   if(name==='news') loadNews();
@@ -1244,6 +1250,31 @@ async function loadSys(){
     renderPassport(pp);
   }catch(e){
     document.getElementById('sys-storage-card').querySelector('.ch').insertAdjacentHTML('afterend','<div class="empty">Sem dados</div>');
+  }
+}
+
+async function loadOfficeNotifications(){
+  try{
+    const r=await api('/api/office/notifications');
+    document.getElementById('office-telegram-chat-id').value=r.telegram_chat_id||'';
+    document.getElementById('office-notify-status').innerHTML=r.telegram_chat_id
+      ? `<span class="tag tg">configurado</span>`
+      : `<span class="tag tr">não configurado — agentes não conseguem te avisar</span>`;
+  }catch(e){
+    document.getElementById('office-notify-status').textContent='Erro ao carregar';
+  }
+}
+
+async function saveOfficeNotifications(){
+  const chatId=document.getElementById('office-telegram-chat-id').value.trim();
+  try{
+    const r=await api('/api/office/notifications',{method:'PUT',body:JSON.stringify({telegram_chat_id:chatId||null})});
+    document.getElementById('office-notify-status').innerHTML=r.telegram_chat_id
+      ? `<span class="tag tg">configurado</span>`
+      : `<span class="tag tr">não configurado</span>`;
+    toast('Salvo. Os próximos alertas dos agentes vão pra esse chat.');
+  }catch(e){
+    toast('Erro ao salvar chat_id.');
   }
 }
 
