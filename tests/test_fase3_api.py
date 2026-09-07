@@ -160,43 +160,6 @@ class TestObserverIngest:
         assert r.json()["source"] == "manual"
 
 
-# ── GET /api/telegram/chats ───────────────────────────────────────────────────
-
-class TestTelegramChats:
-    def test_returns_200_unconfigured(self):
-        r = _client().get("/api/telegram/chats")
-        assert r.status_code == 200
-        data = r.json()
-        assert "configured" in data
-        assert "chats" in data
-
-    def test_configured_false_when_no_file(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("HOME", str(tmp_path))
-        r = _client().get("/api/telegram/chats")
-        assert r.status_code == 200
-        # configured may be True or False depending on env; just assert structure
-        assert "configured" in r.json()
-
-    def test_reads_telegram_json_when_present(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("HOME", str(tmp_path))
-        cfg_dir = tmp_path / ".flowcore"
-        cfg_dir.mkdir(parents=True)
-        (cfg_dir / "telegram.json").write_text(
-            json.dumps({"chats": [{"id": -100, "name": "FlowCore Alerts"}]})
-        )
-        from pathlib import Path as _Path
-        monkeypatch.setattr(_Path, "home", staticmethod(lambda: tmp_path))
-
-        from fastapi.testclient import TestClient
-        from api.router import create_app
-        c = TestClient(create_app(version="test"))
-        r = c.get("/api/telegram/chats")
-        assert r.status_code == 200
-        data = r.json()
-        assert data["configured"] is True
-        assert len(data["chats"]) == 1
-
-
 # ── GET /api/whatsapp/qr ──────────────────────────────────────────────────────
 
 class TestWhatsAppQR:

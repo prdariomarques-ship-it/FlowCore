@@ -47,7 +47,6 @@ Endpoints (Fase 3 — Dashboard v4 backend):
   POST /api/scheduler/{id}/run       — run a job immediately
   POST /api/scheduler/{id}/pause     — toggle job enabled/paused
   POST /api/observer/ingest          — trigger observer ingestion (?source=)
-  GET  /api/telegram/chats           — list configured Telegram chats
   GET  /api/whatsapp/qr              — WhatsApp session status / QR code
   POST /api/whatsapp/qr              — request a new WhatsApp QR link
 
@@ -633,18 +632,6 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             }
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-
-    # ── Telegram chats config (Fase 3) ───────────────────────────────────────
-    @app.get("/api/telegram/chats")
-    async def telegram_chats():
-        config_path = Path.home() / ".flowcore" / "telegram.json"
-        if not config_path.exists():
-            return {"configured": False, "chats": []}
-        try:
-            data = json.loads(config_path.read_text(encoding="utf-8"))
-            return {"configured": True, "chats": data.get("chats", [])}
-        except Exception as e:
-            return {"configured": False, "chats": [], "error": str(e)}
 
     # ── WhatsApp QR / session status (Fase 3) ────────────────────────────────
     @app.get("/api/whatsapp/qr")
