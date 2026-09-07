@@ -51,6 +51,7 @@ if str(ROOT) not in sys.path:
 
 from config.loader import get_config
 from runtime.core import FlowCoreRuntime, detect_platform
+from runtime.portfolio.attributes import ASSET_ATTRIBUTE_FIELDS
 from storage import DocumentRepository, MemoryRepository
 from loguru import logger
 

@@ -166,6 +166,7 @@ def _tcp_reachable(url: str, timeout: float = 3.0) -> bool:
     burning the full request timeout (90s/180s) — without this, the chat UI
     looked hung for minutes whenever the configured PC/phone Ollama wasn't
     actually up, instead of failing over (or reporting unavailable) fast."""
+    import ipaddress
     import socket
     from urllib.parse import urlparse
 
@@ -173,6 +174,19 @@ def _tcp_reachable(url: str, timeout: float = 3.0) -> bool:
     host = parsed.hostname
     if not host:
         return False
+    try:
+        address = ipaddress.ip_address(host)
+        documentation_ranges = (
+            ipaddress.ip_network("192.0.2.0/24"),
+            ipaddress.ip_network("198.51.100.0/24"),
+            ipaddress.ip_network("203.0.113.0/24"),
+        )
+        if any(address in network for network in documentation_ranges):
+            return False
+        if address.is_reserved and not (address.is_loopback or address.is_private):
+            return False
+    except ValueError:
+        pass
     port = parsed.port or (443 if parsed.scheme == "https" else 80)
     try:
         with socket.create_connection((host, port), timeout=timeout):

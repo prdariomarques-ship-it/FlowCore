@@ -82,6 +82,17 @@ class CapabilityAdapter(ABC):
         """Return True if this adapter can operate on the current host."""
         ...
 
+    # ── Runtime diagnostics ───────────────────────────────────────────────────
+
+    def get_cpu_usage(self) -> CapabilityResult:
+        return CapabilityResult.fail("getCpuUsage not supported", self.name)
+
+    def get_memory_usage(self) -> CapabilityResult:
+        return CapabilityResult.fail("getMemoryUsage not supported", self.name)
+
+    def get_disk_usage(self, path: str) -> CapabilityResult:
+        return CapabilityResult.fail("getDiskUsage not supported", self.name)
+
     # ── Android APIs ──────────────────────────────────────────────────────────
 
     def get_battery(self) -> CapabilityResult:

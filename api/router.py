@@ -78,7 +78,9 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from loguru import logger
-from pydantic import BaseModel
+from pydantic import BaseModel, create_model
+
+from runtime.portfolio.attributes import ASSET_ATTRIBUTE_FIELDS
 
 _WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
@@ -138,6 +140,13 @@ class NoteCreate(BaseModel):
 
 class ObsidianSyncRequest(BaseModel):
     content: str | None = None
+
+
+# Keep the API contract aligned with the dependency-free canonical schema.
+AssetTagRequest = create_model(
+    "AssetTagRequest",
+    **{field: (str | None, None) for field in ASSET_ATTRIBUTE_FIELDS},
+)
 
 
 # ---------------------------------------------------------------------------

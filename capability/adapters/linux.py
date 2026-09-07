@@ -33,6 +33,53 @@ class LinuxAdapter(CapabilityAdapter):
         import sys
         return sys.platform != "win32"
 
+    # ── Runtime diagnostics ───────────────────────────────────────────────────
+
+    def get_cpu_usage(self) -> CapabilityResult:
+        import os
+
+        try:
+            load_1m = os.getloadavg()[0]
+            cpu_count = os.cpu_count() or 1
+            return CapabilityResult.ok(
+                {"load_1m": load_1m, "cpu_count": cpu_count, "load_percent": min(100.0, load_1m / cpu_count * 100)},
+                self.name,
+            )
+        except (OSError, AttributeError) as exc:
+            return CapabilityResult.fail(str(exc), self.name)
+
+    def get_memory_usage(self) -> CapabilityResult:
+        try:
+            values: dict[str, int] = {}
+            for line in Path("/proc/meminfo").read_text().splitlines():
+                key, _, raw = line.partition(":")
+                if raw.strip().endswith(" kB"):
+                    values[key] = int(raw.strip()[:-3]) * 1024
+            total = values["MemTotal"]
+            available = values.get("MemAvailable", values.get("MemFree", 0))
+            used = total - available
+            return CapabilityResult.ok(
+                {"total_bytes": total, "available_bytes": available, "used_bytes": used,
+                 "used_percent": used / total * 100 if total else 0},
+                self.name,
+            )
+        except (OSError, KeyError, ValueError) as exc:
+            return CapabilityResult.fail(str(exc), self.name)
+
+    def get_disk_usage(self, path: str) -> CapabilityResult:
+        import shutil
+
+        try:
+            usage = shutil.disk_usage(path)
+            return CapabilityResult.ok(
+                {"total_bytes": usage.total, "used_bytes": usage.used,
+                 "free_bytes": usage.free,
+                 "used_percent": usage.used / usage.total * 100 if usage.total else 0},
+                self.name,
+            )
+        except OSError as exc:
+            return CapabilityResult.fail(str(exc), self.name)
+
     # ── Python ────────────────────────────────────────────────────────────────
 
     def run_python(self, script: str, args: list[str] | None = None) -> CapabilityResult:
