@@ -28,6 +28,11 @@ PROBE_TIMEOUT = 1.5  # segundos por candidato
 # chamada, então 30s era curto demais).
 DEFAULT_GENERATE_TIMEOUT = float(os.getenv("FLOWCORE_OLLAMA_TIMEOUT", "180"))
 
+# Tamanho do contexto configurável via FLOWCORE_OLLAMA_NUM_CTX (padrão 8192 —
+# suficiente para briefings e prompts longos; o Ollama usa 4096 por padrão,
+# o que é insuficiente para prompts de mercado com histórico).
+DEFAULT_NUM_CTX = int(os.getenv("FLOWCORE_OLLAMA_NUM_CTX", "8192"))
+
 WARMUP_POLL_INTERVAL = 2  # segundos entre checagens de /api/ps durante o warm-up
 
 # Ordem de preferência ao escolher automaticamente um modelo instalado.
@@ -334,7 +339,12 @@ def generate(base_url: str, model: str, prompt: str, timeout: float = DEFAULT_GE
     """
     ensure_model_loaded(base_url, model, timeout=timeout)
 
-    payload = json.dumps({"model": model, "prompt": prompt, "stream": False})
+    payload = json.dumps({
+        "model": model,
+        "prompt": prompt,
+        "stream": False,
+        "options": {"num_ctx": DEFAULT_NUM_CTX},
+    })
     request = urllib.request.Request(
         f"{base_url.rstrip('/')}/api/generate",
         data=payload.encode("utf-8"),
