@@ -13,7 +13,6 @@ Deterministic path never fails. LLM polish is always optional.
 from __future__ import annotations
 
 import json
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -185,7 +184,7 @@ def _polish_with_llm(raw_text: str, ollama_url: str, model: str) -> str:
 
 def _format_telegram(sections: dict[str, Any], llm_text: str | None, generated_at: str) -> str:
     lines: list[str] = []
-    lines.append(f"📊 *BRIEF MATINAL — FlowCore*")
+    lines.append("📊 *BRIEF MATINAL — FlowCore*")
     lines.append(f"_{generated_at[:10]} {generated_at[11:16]} UTC_")
     lines.append("")
 

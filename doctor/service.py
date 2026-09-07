@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import os
 import socket
-import sys
 import time
 import threading
 from dataclasses import dataclass, field
@@ -553,7 +552,7 @@ class DoctorService:
         if is_available("ollama"):
             result = run(["ollama", "list"], timeout=10)
             if result.success:
-                models = [l.split()[0] for l in result.stdout.strip().splitlines()[1:] if l.strip()]
+                models = [line.split()[0] for line in result.stdout.strip().splitlines()[1:] if line.strip()]
                 return CheckResult("ollama", CheckStatus.OK, f"ollama available, models: {models or ['none']}")
             return CheckResult("ollama", CheckStatus.WARN, "ollama installed but 'ollama list' failed")
         # Try HTTP endpoint
@@ -636,7 +635,7 @@ class DoctorService:
                 "termux_boot",
                 CheckStatus.WARN,
                 "~/.termux/boot/ empty — FlowCore won't auto-start on reboot",
-                fix="mkdir -p ~/.termux/boot && echo 'cd ~/FlowCore && sshd' > ~/.termux/boot/start.sh && chmod +x ~/.termux/boot/start.sh",
+                fix="mkdir -p ~/.termux/boot && echo 'cd ~/FlowCore && sshd' > ~/.termux/boot/start.sh && chmod +x ~/.termux/boot/start.sh",  # noqa: E501
             )
         return CheckResult(
             "termux_boot",
@@ -695,7 +694,7 @@ class DoctorService:
         root = Path(__file__).resolve().parent.parent
         cfg = root / "config" / "default.json"
         if cfg.exists():
-            return CheckResult("flowcore_config", CheckStatus.OK, f"config/default.json found")
+            return CheckResult("flowcore_config", CheckStatus.OK, "config/default.json found")
         return CheckResult(
             "flowcore_config",
             CheckStatus.FAIL,

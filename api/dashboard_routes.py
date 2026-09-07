@@ -882,7 +882,7 @@ def register_dashboard_routes(app, version: str) -> None:
         portfolio = await get_portfolio(portfolio_id)
         return {
             "portfolio_id": portfolio_id,
-            "narrative": "Carteira-modelo moderada de R$ 1 milhão com 45% em renda fixa brasileira, 15% em renda fixa internacional, 10% em multimercados, 25% em renda variável e 4,5% em alternativos. A parcela de IA é satélite, limitada a 7% do patrimônio.",
+            "narrative": "Carteira-modelo moderada de R$ 1 milhão com 45% em renda fixa brasileira, 15% em renda fixa internacional, 10% em multimercados, 25% em renda variável e 4,5% em alternativos. A parcela de IA é satélite, limitada a 7% do patrimônio.",  # noqa: E501
             "review_policy": portfolio.get("review_policy", {}),
             "stub": False,
         }
@@ -1044,7 +1044,8 @@ def register_dashboard_routes(app, version: str) -> None:
         cached = get_last_brief()
         if cached:
             return {**cached, "from_cache": True}
-        import asyncio, concurrent.futures
+        import asyncio
+        import concurrent.futures
 
         loop = asyncio.get_event_loop()
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
@@ -1054,7 +1055,8 @@ def register_dashboard_routes(app, version: str) -> None:
     @app.post("/api/brief/diario")
     async def brief_generate(data: BriefRequest):
         """Generate a fresh brief and optionally send to Telegram."""
-        import asyncio, concurrent.futures
+        import asyncio
+        import concurrent.futures
         from runtime.ai.brief_diario import build_brief, send_brief_to_telegram
 
         loop = asyncio.get_event_loop()
@@ -1132,7 +1134,8 @@ def register_dashboard_routes(app, version: str) -> None:
     @app.post("/api/scheduler/brief/run-now")
     async def scheduler_brief_run_now():
         """Trigger the brief job immediately (blocking — may take up to 2 min with LLM)."""
-        import asyncio, concurrent.futures
+        import asyncio
+        import concurrent.futures
         from runtime.ai.brief_diario import build_brief, send_brief_to_telegram
 
         loop = asyncio.get_event_loop()

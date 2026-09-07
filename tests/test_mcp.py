@@ -7,7 +7,6 @@ import json
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:

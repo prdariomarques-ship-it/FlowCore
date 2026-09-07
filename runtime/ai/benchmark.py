@@ -14,7 +14,7 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any
 
-from .model_registry import get_registry, ModelEntry
+from .model_registry import get_registry
 
 _RESULTS_FILE = Path.home() / ".flowcore" / "benchmark_results.json"
 
@@ -41,13 +41,13 @@ BENCHMARK_TASKS: list[dict[str, Any]] = [
     {
         "id": "t04_classification",
         "type": "classification",
-        "prompt": 'Classifique como POSITIVO, NEGATIVO ou NEUTRO: "O Fed manteve os juros estáveis e sinalizou cautela."',
+        "prompt": 'Classifique como POSITIVO, NEGATIVO ou NEUTRO: "O Fed manteve os juros estáveis e sinalizou cautela."',  # noqa: E501
         "expected_keywords": ["neutro", "positivo", "negativo"],
     },
     {
         "id": "t05_summarization",
         "type": "summarization",
-        "prompt": "Resuma em uma frase: 'O índice de inflação IPCA registrou alta de 0,38% em julho, abaixo das expectativas do mercado de 0,45%, puxado pela queda nos preços de alimentos e energia.'",
+        "prompt": "Resuma em uma frase: 'O índice de inflação IPCA registrou alta de 0,38% em julho, abaixo das expectativas do mercado de 0,45%, puxado pela queda nos preços de alimentos e energia.'",  # noqa: E501
         "expected_keywords": ["ipca", "inflação", "julho"],
     },
 ]

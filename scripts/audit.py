@@ -14,8 +14,6 @@ Checks:
 
 from __future__ import annotations
 
-import ast
-import os
 import sys
 from pathlib import Path
 

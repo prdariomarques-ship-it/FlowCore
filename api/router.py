@@ -206,7 +206,7 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
 
             reg = CapabilityRegistry()
             result["capabilities"] = {cap: (adapter is not None) for cap, adapter in reg.list_capabilities().items()}
-        except Exception as e:
+        except Exception:
             result["capabilities"] = {}
 
         # Doctor (quick run)
@@ -217,7 +217,7 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             result["doctor"] = [
                 {"name": c.name, "status": c.status.value, "message": c.message, "fix": c.fix} for c in report.checks
             ]
-        except Exception as e:
+        except Exception:
             result["doctor"] = []
 
         # Memory count
@@ -713,10 +713,11 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
 
     @app.post("/api/executions", response_model=ExecutionResponse)
     async def submit_execution(data: ExecutionSubmit):
-        if data.flow_id not in _flows:
+        from flows.store import FlowStore
+
+        if FlowStore().get_flow(data.flow_id) is None:
             raise HTTPException(status_code=404, detail="Flow not found")
         exec_id = uuid.uuid4().hex
-        now = time.time()
         execution = {
             "id": exec_id,
             "flow_id": data.flow_id,

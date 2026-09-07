@@ -315,7 +315,7 @@ class TermuxServiceAdapter(CapabilityAdapter):
         pid_file = self._PID_DIR / f"{name}.pid"
         if not pid_file.exists():
             return CapabilityResult.fail(
-                f"Service not running: {name}", self.name, corrective_action=f"Start service first"
+                f"Service not running: {name}", self.name, corrective_action="Start service first"
             )
         try:
             pid = int(pid_file.read_text().strip())
@@ -449,7 +449,9 @@ class TermuxRsyncAdapter(CapabilityAdapter):
         if result.success:
             lines = result.stdout.strip().splitlines()
             transferred = sum(
-                1 for l in lines if l and not l.startswith(("sending", "sent", "total", "Number", "File", "Delta"))
+                1
+                for line in lines
+                if line and not line.startswith(("sending", "sent", "total", "Number", "File", "Delta"))
             )
             return CapabilityResult.ok(
                 {"src": src, "dst": dst, "dry_run": dry_run, "files_transferred": transferred, "output": result.stdout},

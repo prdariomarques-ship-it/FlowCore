@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import sys
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -357,8 +356,8 @@ class TestMCPFlowTools:
 
 class TestFlowAPI:
     def _client(self):
-        fastapi = pytest.importorskip("fastapi")
-        httpx = pytest.importorskip("httpx")
+        pytest.importorskip("fastapi")
+        pytest.importorskip("httpx")
         from fastapi.testclient import TestClient
         from api.router import create_app
 

@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 from runtime.observers.providers.yfinance_provider import ObserverError, fetch_quote
 

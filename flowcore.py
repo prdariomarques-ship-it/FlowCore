@@ -189,7 +189,7 @@ def cmd_selftest() -> None:
 
     def _api_test():
         try:
-            import fastapi
+            import fastapi  # noqa: F401
             from api.router import create_app
             from config.loader import get_config
 
@@ -200,7 +200,7 @@ def cmd_selftest() -> None:
             raise ImportError("FastAPI not installed. Run: bash install_api.sh")
 
     try:
-        import fastapi
+        import fastapi  # noqa: F401
 
         result = selftest_check("API", _api_test, "FastAPI available")
         results.append(result)
@@ -215,7 +215,7 @@ def cmd_selftest() -> None:
 
     def _scheduler_test():
         try:
-            from apscheduler.schedulers.asyncio import AsyncIOScheduler
+            from apscheduler.schedulers.asyncio import AsyncIOScheduler  # noqa: F401
             from scheduler.service import SchedulerService
 
             scheduler = SchedulerService(timezone="UTC")
@@ -224,7 +224,7 @@ def cmd_selftest() -> None:
             raise ImportError("apscheduler not installed. Run: bash install_api.sh")
 
     try:
-        import apscheduler
+        import apscheduler  # noqa: F401
 
         result = selftest_check("SCHEDULER", _scheduler_test, "apscheduler available")
         results.append(result)
@@ -421,7 +421,7 @@ def cmd_selftest() -> None:
     elif result == "FAIL":
         failed += 1
 
-    total = passed + failed + skipped
+    passed + failed + skipped
     print("")
     if failed == 0:
         print(f"{GREEN}{BOLD}══════════════════════════════════════════════════{NC}")
@@ -498,14 +498,14 @@ def cmd_health(cfg: dict) -> None:
     print(f"  {GREEN}✓{NC} Storage")
 
     try:
-        import fastapi
+        import fastapi  # noqa: F401
 
         print(f"  {GREEN}✓{NC} API")
     except ImportError:
         print(f"  {YELLOW}○{NC} API (not installed)")
 
     try:
-        import apscheduler
+        import apscheduler  # noqa: F401
 
         print(f"  {GREEN}✓{NC} Scheduler")
     except ImportError:
@@ -786,8 +786,6 @@ def cmd_doctor() -> None:
         checks["python"] = "FAIL"
 
     try:
-        import aiosqlite
-
         print(f"{GREEN}✓{NC} SQLite (aiosqlite)")
         checks["sqlite"] = "PASS"
     except Exception as e:
@@ -814,7 +812,7 @@ def cmd_doctor() -> None:
         checks["database"] = "FAIL"
 
     try:
-        test_json = json.dumps({"test": "data"})
+        json.dumps({"test": "data"})
         print(f"{GREEN}✓{NC} JSON")
         checks["json"] = "PASS"
     except Exception as e:
@@ -838,7 +836,7 @@ def cmd_doctor() -> None:
         checks["ollama"] = "WARN"
 
     try:
-        import fastapi
+        import fastapi  # noqa: F401
 
         print(f"{GREEN}✓{NC} FastAPI (optional)")
         checks["api"] = "PASS"
@@ -847,7 +845,7 @@ def cmd_doctor() -> None:
         checks["api"] = "WARN"
 
     try:
-        import apscheduler
+        import apscheduler  # noqa: F401
 
         print(f"{GREEN}✓{NC} APScheduler (optional)")
         checks["scheduler"] = "PASS"
@@ -1255,7 +1253,7 @@ def cmd_obsidian_sync(vault_path: str = None) -> None:
         for md_file in md_files:
             try:
                 cmd_import(str(md_file))
-            except Exception as e:
+            except Exception:
                 print(f"  {RED}Error: {md_file.name}{NC}")
 
         print(f"{GREEN}Sync complete: {len(md_files)} file(s) processed.{NC}\n")
@@ -1401,7 +1399,7 @@ def cmd_daemon(action: str, interval: int = 60) -> None:
             print(f"  Log   : {result.get('log', '')}")
         else:
             print(f"{YELLOW}○ Daemon not running{NC}")
-            print(f"  Start with: python3 flowcore.py daemon start")
+            print("  Start with: python3 flowcore.py daemon start")
 
     else:
         print(f"{RED}Unknown daemon action: {action!r}{NC}")
@@ -1537,7 +1535,6 @@ def cmd_flow(
     description: str = "",
 ) -> None:
     """Manage and execute FlowCore flows."""
-    import json as _json
     from flows.schema import Flow
     from flows.store import FlowStore
 

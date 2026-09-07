@@ -12,12 +12,11 @@ from __future__ import annotations
 
 import asyncio
 import os
-import signal
 import sys
 from pathlib import Path
 from typing import Any
 
-from config.loader import get_config, load_config
+from config.loader import load_config
 from loguru import logger
 
 # ---------------------------------------------------------------------------
@@ -47,7 +46,7 @@ def detect_platform() -> dict[str, Any]:
 
 async def init_database(cfg: dict) -> Any:
     """Initialise the SQLite database and create tables if missing."""
-    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+    from sqlalchemy.ext.asyncio import create_async_engine
     from sqlalchemy import text
 
     url = cfg["database"]["url"]

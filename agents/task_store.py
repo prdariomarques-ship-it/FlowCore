@@ -11,7 +11,6 @@ import time
 import uuid
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
-from typing import Any
 
 
 _STORE_PATH = Path.home() / ".flowcore" / "agent_history.json"

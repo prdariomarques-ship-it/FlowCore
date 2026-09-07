@@ -144,7 +144,7 @@ class JobScheduler:
         cron_line = f"{job.schedule} {python} {job.script}  {tag}"
         result = run(["crontab", "-l"], timeout=5)
         existing = result.stdout if result.success else ""
-        lines = [l for l in existing.splitlines() if tag not in l]
+        lines = [line for line in existing.splitlines() if tag not in line]
         lines.append(cron_line)
         new_crontab = "\n".join(lines) + "\n"
         proc = subprocess.Popen(
@@ -164,7 +164,7 @@ class JobScheduler:
         if not result.success:
             return
         tag = f"# flowcore:{job.name}"
-        lines = [l for l in result.stdout.splitlines() if tag not in l]
+        lines = [line for line in result.stdout.splitlines() if tag not in line]
         new_crontab = "\n".join(lines) + "\n"
         proc = subprocess.Popen(
             ["crontab", "-"],

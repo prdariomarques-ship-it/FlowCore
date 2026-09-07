@@ -14,7 +14,7 @@ if str(ROOT) not in sys.path:
 
 
 def _client():
-    fastapi = pytest.importorskip("fastapi")
+    pytest.importorskip("fastapi")
     pytest.importorskip("httpx")
     from fastapi.testclient import TestClient
     from api.router import create_app
@@ -86,8 +86,6 @@ class TestLogsEndpoint:
         log_file.write_text("2024-01-01 INFO startup\n2024-01-01 ERROR crash\n")
 
         import api.router as router_mod
-
-        orig_file = router_mod.__file__
 
         monkeypatch.setattr(router_mod, "__file__", str(tmp_path / "api" / "router.py"))
         (tmp_path / "api").mkdir(exist_ok=True)
