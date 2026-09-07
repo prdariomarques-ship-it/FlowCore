@@ -79,6 +79,9 @@ def _fetch_news(symbol: str) -> list[dict[str, Any]]:
                 publisher = content["provider"].get("displayName") or ""
             canonical = content.get("canonicalUrl")
             link = canonical.get("url", "") or canonical.get("raw", "") if isinstance(canonical, dict) else ""
+            click_through = content.get("clickThroughUrl")
+            if not link and isinstance(click_through, dict):
+                link = click_through.get("url", "")
             link = link or content.get("previewUrl") or item.get("link") or ""
             published_at = content.get("pubDate") or item.get("providerPublishTime") or ""
             if isinstance(published_at, (int, float)):
@@ -188,64 +191,41 @@ _HEADLINE_TRANSLATION_CACHE: dict[str, str] = {}
 
 
 def _translate_to_portuguese(headline: str) -> str:
-    """Translate headline to Portuguese via configured LLM, with cache and graceful degradation.
+    """Translate headline to Portuguese via the shared LLM Router, with
+    cache and graceful degradation.
 
-    Returns the translated headline if available; original English text if translation fails.
-    Cache prevents retranslating the same headline multiple times.
+    Previously this hand-rolled its own HTTP calls: a "deepseek_url" ai.json
+    key that no config screen ever wrote (so that branch never fired), then
+    a direct call to the locally-configured Ollama only -- meaning every
+    headline stayed in English whenever the local Ollama wasn't reachable,
+    which is exactly the common case on a phone. Routes through
+    service._llm_router instead (the same Router /api/ask's DeepSeek
+    fallback and every autonomous agent already use), so translation gets
+    local-first-with-cloud-fallback for free instead of a dead-end.
+
+    Returns the translated headline if available; original English text if
+    translation fails. Cache prevents retranslating the same headline
+    multiple times.
     """
     if headline in _HEADLINE_TRANSLATION_CACHE:
         return _HEADLINE_TRANSLATION_CACHE[headline]
 
     try:
-        import json
-        from pathlib import Path
+        from runtime.llm import LLMRequest
+        from service import _llm_router
 
-        ai_config_path = Path.home() / ".flowcore" / "ai.json"
-        if not ai_config_path.exists():
-            return headline
-
-        ai_config = json.loads(ai_config_path.read_text())
-
-        # Try DeepSeek (preferred for cost/speed on translation tasks)
-        if ai_config.get("deepseek_url"):
-            from api.dashboard_routes import _http_json
-            try:
-                resp = _http_json("POST", f"{ai_config['deepseek_url']}/v1/chat/completions", {
-                    "model": ai_config.get("deepseek_model", "deepseek-chat"),
-                    "messages": [
-                        {"role": "system", "content": "Translate the following market news headline to Portuguese (Brazil). Return ONLY the translated headline, nothing else."},
-                        {"role": "user", "content": headline}
-                    ],
-                    "stream": False,
-                }, timeout=5)
-                translated = resp.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-                if translated:
-                    _HEADLINE_TRANSLATION_CACHE[headline] = translated
-                    return translated
-            except Exception:
-                pass  # fall through to Ollama
-
-        # Fallback: Ollama (local, already wired up in /api/ask)
-        if ai_config.get("ollama_url"):
-            from api.dashboard_routes import _http_json, _tcp_reachable
-            base = ai_config.get("ollama_url", "http://localhost:11434").rstrip("/")
-            if _tcp_reachable(base, timeout=1.0):
-                try:
-                    resp = _http_json("POST", f"{base}/api/chat", {
-                        "model": ai_config.get("model", "llama3"),
-                        "messages": [
-                            {"role": "system", "content": "Traduz a seguinte manchete de notícias de mercado para português (Brasil). Retorne APENAS a manchete traduzida, nada mais."},
-                            {"role": "user", "content": headline}
-                        ],
-                        "stream": False,
-                    }, timeout=5)
-                    translated = resp.get("message", {}).get("content", "").strip()
-                    if translated:
-                        _HEADLINE_TRANSLATION_CACHE[headline] = translated
-                        return translated
-                except Exception:
-                    pass
-
+        prompt = (
+            "Traduza esta manchete de notícia de mercado para português do "
+            "Brasil. Responda apenas com a manchete traduzida, nada mais.\n\n"
+            f'Manchete: "{headline}"'
+        )
+        response = _llm_router.generate(LLMRequest(
+            prompt=prompt, timeout=5, metadata={"allow_cloud": True, "purpose": "news_translation"},
+        ))
+        translated = response.text.strip().strip('"')
+        if translated:
+            _HEADLINE_TRANSLATION_CACHE[headline] = translated
+            return translated
     except Exception:
         pass
 

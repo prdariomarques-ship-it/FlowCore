@@ -1651,17 +1651,39 @@ def register_dashboard_routes(app, version: str) -> None:
         }
 
     @app.get("/api/portfolio/risk-breakdown")
-    async def portfolio_risk_breakdown(request: Request):
+    async def portfolio_risk_breakdown(request: Request, profile: str | None = Query(None)):
         """Aggregate allocation by category (Renda Fixa/Renda Variável/
-        Multimercado/Alternativos) for the dashboard's "Risco da Carteira
-        Agregada" donut. See runtime/portfolio/risk_breakdown.py for why
-        this grouping never double-counts."""
+        Internacional/Multimercado/Alternativos) for the dashboard's
+        "Risco da Carteira Agregada" donut. See
+        runtime/portfolio/risk_breakdown.py for why this grouping never
+        double-counts.
+
+        Without `profile`: the office's own live policy (unchanged
+        behavior). With `profile` (conservador/moderado/arrojado/
+        agressivo): the firm's static model policy for that risk
+        profile instead -- a comparison reference, not tied to this
+        office's actual clients or positions."""
         user = await get_current_user(request)
         try:
-            from runtime.portfolio.risk_breakdown import compute_risk_breakdown
+            from runtime.portfolio.risk_breakdown import compute_model_risk_breakdown, compute_risk_breakdown
+
+            if profile is not None:
+                result = compute_model_risk_breakdown(profile)
+                if result is None:
+                    raise HTTPException(status_code=404, detail=f"unknown profile: {profile}")
+                return {**result, "available": True}
             return {**(await compute_risk_breakdown(user["office_id"])), "available": True}
+        except HTTPException:
+            raise
         except Exception as exc:
             return {"categories": [], "source": "unavailable", "available": False, "error": str(exc)}
+
+    @app.get("/api/portfolio/model-profiles")
+    async def portfolio_model_profiles(request: Request):
+        """The firm's four model risk profiles, for a picker UI."""
+        await get_current_user(request)
+        from runtime.portfolio.model_portfolios import MODEL_PROFILES
+        return {"profiles": list(MODEL_PROFILES)}
 
     # ── Portfolios [STUB + file-backed list] ──────────────────────────────────
     # storage/portfolio_repo.py's PortfolioRepository (personal brokerage

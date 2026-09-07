@@ -105,6 +105,25 @@ class TestMissingOrFailedSource:
         sp500 = next(m for m in result["data"]["movements"] if m["asset"] == "S&P 500")
         assert sp500["current_value"] is None
 
+    def test_real_fetch_error_is_surfaced_not_discarded(self):
+        # Previously the real exception text was thrown away entirely --
+        # every failing tab showed the same generic "fonte indisponível"
+        # with no way to tell a timeout from Yahoo blocking the network.
+        items = _fake_snapshot({"^GSPC": {
+            "level": None, "delta_pct_1d": None, "status": "error",
+            "error": "Timed out fetching ^GSPC after 6.0s",
+        }})
+        with patch("runtime.market_intelligence.watchlist.snapshot", return_value=items):
+            result = _run(MarketAgent().run())
+        sp500 = next(m for m in result["data"]["movements"] if m["asset"] == "S&P 500")
+        assert sp500["error"] == "Timed out fetching ^GSPC after 6.0s"
+
+    def test_symbol_absent_from_watchlist_has_no_error(self):
+        with patch("runtime.market_intelligence.watchlist.snapshot", return_value=_fake_snapshot({})):
+            result = _run(MarketAgent().run())
+        sp500 = next(m for m in result["data"]["movements"] if m["asset"] == "S&P 500")
+        assert sp500["error"] is None
+
 
 class TestMarketStatus:
     def test_normal_when_everything_is_low_relevance(self):

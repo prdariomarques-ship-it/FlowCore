@@ -353,8 +353,8 @@ details.mi>summary::marker{display:none}
   .dw-chat-chip:hover{border-color:var(--accent);color:var(--text)}
 
   .dw-grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px}
-  .dw-tabs{display:flex;gap:4px;margin-bottom:10px;border-bottom:1px solid var(--border)}
-  .dw-tab{background:none;border:none;color:var(--text2);font-size:11px;font-weight:600;padding:6px 10px;cursor:pointer;border-bottom:2px solid transparent}
+  .dw-tabs{display:flex;gap:4px;margin-bottom:10px;border-bottom:1px solid var(--border);overflow-x:auto}
+  .dw-tab{background:none;border:none;color:var(--text2);font-size:11px;font-weight:600;padding:6px 10px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;flex-shrink:0}
   .dw-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
   .dw-spark{vertical-align:middle}
   .mini-list-item{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:11px}
@@ -536,6 +536,13 @@ details.mi>summary::marker{display:none}
           </div>
           <div class="card">
             <div class="ch"><span class="ct">Risco da Carteira Agregada</span></div>
+            <div class="dw-tabs" id="dw-risk-profile-tabs">
+              <button class="dw-tab active" data-profile="" onclick="setDwRiskProfile('')">Escritório</button>
+              <button class="dw-tab" data-profile="conservador" onclick="setDwRiskProfile('conservador')">Conservador</button>
+              <button class="dw-tab" data-profile="moderado" onclick="setDwRiskProfile('moderado')">Moderado</button>
+              <button class="dw-tab" data-profile="arrojado" onclick="setDwRiskProfile('arrojado')">Arrojado</button>
+              <button class="dw-tab" data-profile="agressivo" onclick="setDwRiskProfile('agressivo')">Agressivo</button>
+            </div>
             <div id="dw-risk"><div class="sk"></div><div class="sk"></div></div>
           </div>
         </div>
@@ -683,6 +690,16 @@ details.mi>summary::marker{display:none}
   <!-- ══ NOTÍCIAS ══ -->
   <div class="page" id="page-news">
     <div class="gap">
+      <div class="card">
+        <div class="ch"><span class="ct">Inteligência de Mercado</span><span class="ci">📊</span></div>
+        <div class="dw-tabs" id="nw-market-tabs">
+          <button class="dw-tab active" data-group="indices" onclick="setNwMarketGroup('indices')">Índices</button>
+          <button class="dw-tab" data-group="cambio" onclick="setNwMarketGroup('cambio')">Câmbio</button>
+          <button class="dw-tab" data-group="commodities" onclick="setNwMarketGroup('commodities')">Commodities</button>
+          <button class="dw-tab" data-group="juros" onclick="setNwMarketGroup('juros')">Juros</button>
+        </div>
+        <div id="nw-market-table"><div class="sk"></div><div class="sk"></div></div>
+      </div>
       <div class="card">
         <div class="ch"><span class="ct">Notícias de mercado</span><span class="ci">📰</span></div>
         <div class="ml" id="news-list"><div class="sk"></div><div class="sk"></div></div>
@@ -907,7 +924,7 @@ function pg(name,btn){
   if(name==='admin'){loadSys();loadOfficeNotifications();loadSessions();}
   if(name==='portfolio'){loadPortfolio();loadComplianceAlerts();loadReferencePortfolio();}
   if(name==='notes') loadNotes();
-  if(name==='news'){loadNews();loadMarketSources();}
+  if(name==='news'){loadNews();loadMarketSources();loadNwMarket();}
   if(name==='chat') loadAiConfig();
   if(name==='agents'){loadAgents();loadFlows();loadAgentsObservability();}
   closeMoreMenu();
@@ -1881,7 +1898,7 @@ function loadDashboardOverview(){
   });
 
   api('/api/market').then(renderDwMarketTable).catch(()=>renderDwMarketTable(null));
-  api('/api/portfolio/risk-breakdown').then(renderDwRisk).catch(()=>renderDwRisk(null));
+  loadDwRisk();
 
   api('/api/intelligence').then(intel=>{
     document.getElementById('kpi-override').textContent=intel.override;
@@ -2101,26 +2118,60 @@ function setDwMarketGroup(group){
   renderDwMarketTable(_dwMarketData);
 }
 
-function renderDwMarketTable(market){
-  if(market!==undefined) _dwMarketData=market;
-  market=_dwMarketData;
-  const box=document.getElementById('dw-market-table');
+function marketGroupTableHtml(market, group){
   if(!market||!market.movements||!market.movements.length){
-    box.innerHTML='<div class="dw-empty">Mercado indisponível.</div>';
-    return;
+    return '<div class="dw-empty">Mercado indisponível.</div>';
   }
-  const rows=market.movements.filter(m=>m.group===_dwMarketGroup);
+  const rows=market.movements.filter(m=>m.group===group);
   let html='<table class="dw-table"><tr><th>Ativo</th><th>Valor</th><th>Variação</th><th>Hoje</th></tr>';
   let any=false;
+  const errors=[];
   for(const m of rows){
-    if(m.current_value==null) continue;
+    if(m.current_value==null){
+      if(m.error) errors.push(`${m.asset}: ${m.error}`);
+      continue;
+    }
     any=true;
     const up=(m.change||0)>=0;
     const unit=m.unit==='percentage_points'?'p.p.':'%';
     const mockTag=m.source==='MOCK'?' <span class="tag ty" style="font-size:9px">MOCK</span>':'';
     html+=`<tr><td>${escapeHtml(m.asset)}${mockTag}</td><td>${m.current_value.toFixed(2)}</td><td style="color:${up?'var(--green)':'var(--red)'}">${up?'▲':'▼'} ${Math.abs(m.change).toFixed(2)}${unit}</td><td>${sparklineSvg(m.history,up)}</td></tr>`;
   }
-  box.innerHTML=any?(html+'</table>'):'<div class="dw-empty">Sem dados de mercado nesta categoria (fonte indisponível).</div>';
+  if(any) return html+'</table>';
+  // Real fetch failures, not "nothing to show" -- surface the actual
+  // error per asset instead of a generic "fonte indisponível" that gave
+  // no way to tell a timeout from an auth error from Yahoo blocking
+  // this network entirely.
+  const detail=errors.length?`<div style="font-size:11px;color:var(--text2);margin-top:6px">${errors.map(escapeHtml).join('<br>')}</div>`:'';
+  return `<div class="dw-empty">Sem dados de mercado nesta categoria (fonte indisponível).${detail}</div>`;
+}
+
+function renderDwMarketTable(market){
+  if(market!==undefined) _dwMarketData=market;
+  document.getElementById('dw-market-table').innerHTML=marketGroupTableHtml(_dwMarketData, _dwMarketGroup);
+}
+
+let _nwMarketData=null;
+let _nwMarketGroup='indices';
+
+function setNwMarketGroup(group){
+  _nwMarketGroup=group;
+  document.querySelectorAll('#nw-market-tabs .dw-tab').forEach(b=>b.classList.toggle('active', b.dataset.group===group));
+  renderNwMarketTable();
+}
+
+function renderNwMarketTable(market){
+  if(market!==undefined) _nwMarketData=market;
+  document.getElementById('nw-market-table').innerHTML=marketGroupTableHtml(_nwMarketData, _nwMarketGroup);
+}
+
+async function loadNwMarket(){
+  try{
+    const market=await api('/api/market');
+    renderNwMarketTable(market);
+  }catch(e){
+    renderNwMarketTable(null);
+  }
 }
 
 function renderDwEventList(boxId, intel, status, emptyMsg){
@@ -2136,13 +2187,30 @@ function renderDwEventList(boxId, intel, status, emptyMsg){
   box.innerHTML=html;
 }
 
+let _dwRiskProfile='';
+
+function setDwRiskProfile(profile){
+  _dwRiskProfile=profile;
+  document.querySelectorAll('#dw-risk-profile-tabs .dw-tab').forEach(b=>b.classList.toggle('active', b.dataset.profile===profile));
+  loadDwRisk();
+}
+
+async function loadDwRisk(){
+  const url=_dwRiskProfile?`/api/portfolio/risk-breakdown?profile=${_dwRiskProfile}`:'/api/portfolio/risk-breakdown';
+  try{
+    renderDwRisk(await api(url));
+  }catch(e){
+    renderDwRisk(null);
+  }
+}
+
 function renderDwRisk(risk){
   const box=document.getElementById('dw-risk');
   if(!risk||!risk.categories||!risk.categories.length){
     box.innerHTML='<div class="dw-empty">Sem alocação configurada para calcular o risco agregado.</div>';
     return;
   }
-  const colors=['#00d4ff','#10b981','#f59e0b','#a78bfa'];
+  const colors=['#00d4ff','#10b981','#f59e0b','#a78bfa','#f472b6'];
   const total=risk.categories.reduce((s,c)=>s+c.weight,0)||1;
   let acc=0;
   const stops=risk.categories.map((c,i)=>{

@@ -81,6 +81,49 @@ class TestUsdbrlFallback:
         assert item["level"] is None
 
 
+class TestErrorSurfacing:
+    """The real exception text used to be discarded entirely -- every
+    failing symbol looked identical ("no_data"/"error") with no way to
+    tell a timeout from an auth error from Yahoo blocking the network."""
+
+    def test_no_data_item_carries_the_real_error_text(self):
+        with patch(
+            "runtime.market_intelligence.watchlist.fetch_quote",
+            side_effect=ObserverError("Timed out fetching ^BVSP after 6.0s"),
+        ):
+            from runtime.market_intelligence.watchlist import snapshot
+
+            result = snapshot("brasil")
+
+        item = next(i for i in result["items"] if i["symbol"] == "^BVSP")
+        assert item["error"] == "Timed out fetching ^BVSP after 6.0s"
+
+    def test_generic_exception_error_text_is_also_captured(self):
+        with patch(
+            "runtime.market_intelligence.watchlist.fetch_quote",
+            side_effect=RuntimeError("connection refused"),
+        ):
+            from runtime.market_intelligence.watchlist import snapshot
+
+            result = snapshot("brasil")
+
+        item = next(i for i in result["items"] if i["symbol"] == "^BVSP")
+        assert item["status"] == "error"
+        assert item["error"] == "connection refused"
+
+    def test_ok_item_has_no_error(self):
+        with patch(
+            "runtime.market_intelligence.watchlist.fetch_quote",
+            return_value={"symbol": "^BVSP", "price": 100.0, "previous_close": 99.0},
+        ):
+            from runtime.market_intelligence.watchlist import snapshot
+
+            result = snapshot("brasil")
+
+        item = next(i for i in result["items"] if i["symbol"] == "^BVSP")
+        assert item["error"] is None
+
+
 class TestFetchQuoteTimeoutBudget:
     """Regression guard: the original timeout=2.5/retries=0 was far
     tighter than yfinance_provider's own tuned defaults, and starved

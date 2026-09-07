@@ -625,16 +625,33 @@ class TestMarketEndpoints:
             # (we're mocking it, so this test documents expected behavior)
 
     def test_headline_translation_degrades_when_llm_unavailable(self):
-        """Translation returns original English headline when LLM is unreachable."""
+        """Translation returns original English headline when the shared
+        LLM Router has no provider available (previously this checked for
+        a missing ai.json/dead "deepseek_url" key -- the Router itself is
+        now the single source of truth, matching /api/ask's fallback)."""
         import runtime.market_intelligence.news as news
+        from runtime.llm.models import LLMAllProvidersFailedError
 
-        # Clear cache
         news._HEADLINE_TRANSLATION_CACHE.clear()
 
-        with patch("pathlib.Path.exists", return_value=False):
-            # ai.json doesn't exist
+        with patch("service._llm_router.generate", side_effect=LLMAllProvidersFailedError("no provider")):
             result = news._translate_to_portuguese("Market rally continues")
             assert result == "Market rally continues"
+
+    def test_headline_translation_uses_the_shared_router(self):
+        import runtime.market_intelligence.news as news
+        from runtime.llm.models import LLMResponse
+
+        news._HEADLINE_TRANSLATION_CACHE.clear()
+        fake_response = LLMResponse(text="Mercado em alta continua", provider="deepseek", model="deepseek-chat", latency_ms=1.0)
+
+        with patch("service._llm_router.generate", return_value=fake_response) as mocked_generate:
+            result = news._translate_to_portuguese("Market rally continues")
+
+        assert result == "Mercado em alta continua"
+        request = mocked_generate.call_args[0][0]
+        assert request.metadata["allow_cloud"] is True
+        assert "Market rally continues" in request.prompt
 
 
 # ── /api/macro-score/* ───────────────────────────────────────────────────────

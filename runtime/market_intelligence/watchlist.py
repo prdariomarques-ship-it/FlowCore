@@ -21,7 +21,8 @@ from runtime.observers.providers.yfinance_provider import ObserverError, fetch_q
 DEFAULT_WATCHLISTS: dict[str, list[str]] = {
     "default": ["^BVSP", "USDBRL=X", "^IRX", "^TNX", "^TYX", "^FVX",
                 "^GSPC", "^IXIC", "^DJI", "^RUT", "^VIX", "GC=F", "CL=F",
-                "SI=F", "HG=F", "DX-Y.NYB", "EURUSD=X", "JPY=X", "CNY=X"],
+                "SI=F", "HG=F", "DX-Y.NYB", "EURUSD=X", "JPY=X", "CNY=X",
+                "^FTSE", "^GDAXI", "^FCHI", "^KS11"],
     "brasil": ["^BVSP", "USDBRL=X", "^IRX", "^TNX"],
     "global_rates": ["^IRX", "^FVX", "^TNX", "^TYX", "DE10Y.F"],
     "commodities": ["GC=F", "CL=F", "SI=F", "HG=F", "PL=F", "BZ=F"],
@@ -37,6 +38,11 @@ class WatchlistItem:
     level: float | None
     delta_pct_1d: float | None
     status: str  # "ok" / "no_data" / "error"
+    # The real exception text from the failed fetch (or its fallback, if
+    # one was tried) -- previously discarded entirely, so a whole tab
+    # showing "fonte indisponível" gave no way to tell a timeout from an
+    # auth error from Yahoo simply blocking this network's requests.
+    error: str | None = None
 
 
 def list_watchlists() -> dict:
@@ -81,14 +87,14 @@ def snapshot(watchlist: str) -> dict:
             # budget still bounds worst-case latency for this synchronous
             # dashboard card (paired with fuller parallelism below).
             q = fetch_quote(symbol, timeout=6.0, retries=1)
-        except ObserverError:
+        except ObserverError as exc:
             q = _try_fallback(symbol)
             if q is None:
-                return WatchlistItem(symbol=symbol, level=None, delta_pct_1d=None, status="no_data")
-        except Exception:
+                return WatchlistItem(symbol=symbol, level=None, delta_pct_1d=None, status="no_data", error=str(exc))
+        except Exception as exc:
             q = _try_fallback(symbol)
             if q is None:
-                return WatchlistItem(symbol=symbol, level=None, delta_pct_1d=None, status="error")
+                return WatchlistItem(symbol=symbol, level=None, delta_pct_1d=None, status="error", error=str(exc))
         price = q.get("price")
         prev = q.get("previous_close")
         delta = None
@@ -108,11 +114,11 @@ def snapshot(watchlist: str) -> dict:
             symbol = futures[future]
             try:
                 fetched[symbol] = future.result()
-            except Exception:
-                fetched[symbol] = WatchlistItem(symbol=symbol, level=None, delta_pct_1d=None, status="error")
+            except Exception as exc:
+                fetched[symbol] = WatchlistItem(symbol=symbol, level=None, delta_pct_1d=None, status="error", error=str(exc))
 
     items = [fetched[symbol] for symbol in symbols]
     return {"watchlist": watchlist,
             "items": [{"symbol": i.symbol, "level": i.level,
                        "delta_pct_1d": i.delta_pct_1d,
-                       "status": i.status} for i in items]}
+                       "status": i.status, "error": i.error} for i in items]}

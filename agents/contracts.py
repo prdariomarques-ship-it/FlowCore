@@ -50,13 +50,17 @@ class MarketMovement:
     # the history fetch itself is unavailable (e.g. source == "MOCK", or a
     # live fetch failure) rather than a guessed shape.
     history: list[float] = field(default_factory=list)
+    # The real fetch failure, when current_value is None because the live
+    # source failed rather than because there's genuinely nothing to show
+    # -- see runtime/market_intelligence/watchlist.py's WatchlistItem.error.
+    error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "asset": self.asset, "previous_value": self.previous_value,
             "current_value": self.current_value, "change": self.change,
             "unit": self.unit, "relevance": self.relevance, "source": self.source,
-            "group": self.group, "history": self.history,
+            "group": self.group, "history": self.history, "error": self.error,
         }
 
 

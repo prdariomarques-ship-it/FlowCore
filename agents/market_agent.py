@@ -143,7 +143,7 @@ class MarketAgent(BaseAgent):
             return MarketMovement(
                 asset=cfg["label"], previous_value=None, current_value=None,
                 change=None, unit=cfg["unit"], relevance="LOW", source="live",
-                group=cfg.get("group", ""),
+                group=cfg.get("group", ""), error=item.get("error") if item else None,
             )
         current = item["level"]
         delta_pct = item.get("delta_pct_1d")
