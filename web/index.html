@@ -685,6 +685,16 @@ details.mi>summary::marker{display:none}
         <div class="ch"><span class="ct">Notícias de mercado</span><span class="ci">📰</span></div>
         <div class="ml" id="news-list"><div class="sk"></div><div class="sk"></div></div>
       </div>
+      <div class="card" id="market-sources-card">
+        <div class="ch" style="cursor:pointer" onclick="toggleCollapsible('market-sources-body','market-sources-chevron','block')">
+          <span class="ct"><span id="market-sources-chevron">▸</span> Diagnóstico de fontes oficiais</span>
+          <button class="btn-sm" onclick="event.stopPropagation();loadMarketSources()">↻</button>
+        </div>
+        <div id="market-sources-body" style="display:none">
+          <div style="font-size:12px;color:var(--text2);padding:0 2px 8px">De onde vêm os dados de taxa de juros exibidos no FlowCore — cada fonte com data da observação e disponibilidade em tempo real, nunca um valor sintetizado.</div>
+          <div id="market-sources-list"><div class="sk" style="height:52px"></div></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -892,7 +902,7 @@ function pg(name,btn){
   if(name==='admin'){loadSys();loadOfficeNotifications();loadSessions();}
   if(name==='portfolio'){loadPortfolio();loadComplianceAlerts();loadReferencePortfolio();}
   if(name==='notes') loadNotes();
-  if(name==='news') loadNews();
+  if(name==='news'){loadNews();loadMarketSources();}
   if(name==='chat') loadAiConfig();
   if(name==='agents'){loadAgents();loadFlows();loadAgentsObservability();}
   closeMoreMenu();
@@ -1432,6 +1442,42 @@ function renderNewsList(items){
     el.innerHTML=`<div class="mi-text">${escapeHtml(n.headline||'')}</div>
       <div class="mi-meta">${escapeHtml(source)}${date?' · '+date:''}</div>`;
     l.appendChild(el);
+  }
+}
+
+async function loadMarketSources(){
+  const box=document.getElementById('market-sources-list');
+  try{
+    const r=await api('/api/market/sources');
+    if(r.stub||!(r.catalog&&r.catalog.length)){
+      box.innerHTML='<div class="empty">Diagnóstico de fontes indisponível.</div>';
+      return;
+    }
+    let html='';
+    html+='<div style="font-size:12px;color:var(--text2);margin:6px 0 4px">Observações ao vivo</div>';
+    for(const obs of (r.official_observations||[])){
+      const dot=obs.available?'🟢':'🔴';
+      if(!obs.available){
+        html+=`<div class="row" style="padding:6px 0"><span class="rl">${dot} ${escapeHtml(obs.source)}</span><span class="rv" style="color:var(--text2)">indisponível (${escapeHtml(obs.error||'')})</span></div>`;
+        continue;
+      }
+      if(obs.value!==undefined){
+        html+=`<div class="row" style="padding:6px 0"><span class="rl">${dot} ${escapeHtml(obs.label||obs.instrument||obs.source)}</span><span class="rv">${obs.value.toFixed(2)}% <span style="color:var(--text2);font-size:11px">(${escapeHtml(obs.observation_date||'')})</span></span></div>`;
+      }
+      for(const p of (obs.points||[])){
+        html+=`<div class="row" style="padding:6px 0"><span class="rl">${dot} ${escapeHtml(p.label)} · ${escapeHtml(obs.source)}</span><span class="rv">${p.value.toFixed(2)}% <span style="color:var(--text2);font-size:11px">(${escapeHtml(p.observation_date||'')})</span></span></div>`;
+      }
+    }
+    html+='<div style="font-size:12px;color:var(--text2);margin:12px 0 4px">Catálogo de fontes</div>';
+    const tierLabel={official:'oficial',fallback:'fallback',optional_authenticated:'opcional (requer chave)',reference_only:'referência'};
+    for(const s of r.catalog){
+      const opt=(r.optional_sources||[]).find(o=>o.source===s.id);
+      const configuredTag=opt?(opt.configured?'<span class="tag tg" style="font-size:9px">configurado</span>':'<span class="tag ty" style="font-size:9px">não configurado</span>'):'';
+      html+=`<div class="row" style="padding:6px 0;align-items:flex-start"><span class="rl">${escapeHtml(s.name)}<br><span style="font-size:11px;color:var(--text2)">${escapeHtml((s.coverage||[]).join(', '))}</span></span><span class="rv" style="text-align:right"><span class="tag ty" style="font-size:9px">${tierLabel[s.tier]||s.tier}</span> ${configuredTag}</span></div>`;
+    }
+    box.innerHTML=html;
+  }catch(e){
+    box.innerHTML='<div class="empty">Erro ao carregar diagnóstico de fontes.</div>';
   }
 }
 
