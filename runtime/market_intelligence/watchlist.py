@@ -70,7 +70,17 @@ def snapshot(watchlist: str) -> dict:
 
     def fetch_item(symbol: str) -> WatchlistItem:
         try:
-            q = fetch_quote(symbol, timeout=2.5, retries=0)
+            # This snapshot originally called fetch_quote with timeout=2.5,
+            # retries=0 -- far tighter than the provider's own tuned
+            # defaults (timeout=10.0, retries=2 in yfinance_provider.py).
+            # On a real mobile network (Termux over cellular/weak wifi) a
+            # single slow round-trip to Yahoo killed the quote outright,
+            # which is why Índices/Commodities came back completely empty
+            # while Câmbio (PTAX fallback) and Juros (DI Jan MOCK row)
+            # only *looked* fine. One retry with a mobile-realistic 6s
+            # budget still bounds worst-case latency for this synchronous
+            # dashboard card (paired with fuller parallelism below).
+            q = fetch_quote(symbol, timeout=6.0, retries=1)
         except ObserverError:
             q = _try_fallback(symbol)
             if q is None:
@@ -86,7 +96,13 @@ def snapshot(watchlist: str) -> dict:
             delta = round((price - prev) / prev * 100, 2)
         return WatchlistItem(symbol=symbol, level=price, delta_pct_1d=delta, status="ok")
 
-    with ThreadPoolExecutor(max_workers=min(4, len(symbols))) as executor:
+    # fetch_quote() blocks synchronously per call, so this pool's worker
+    # count -- not the shared internal one in yfinance_provider.py -- is
+    # what actually bounds how many symbols fetch concurrently. 4 workers
+    # meant 18 symbols serialized into ~5 sequential rounds; sized to
+    # yfinance_provider's own 16-worker capacity so a full snapshot
+    # completes in roughly one round even under retries.
+    with ThreadPoolExecutor(max_workers=min(16, len(symbols))) as executor:
         futures = {executor.submit(fetch_item, symbol): symbol for symbol in symbols}
         for future in as_completed(futures):
             symbol = futures[future]

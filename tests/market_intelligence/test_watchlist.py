@@ -79,3 +79,25 @@ class TestUsdbrlFallback:
         item = next(i for i in result["items"] if i["symbol"] == "^BVSP")
         assert item["status"] == "no_data"
         assert item["level"] is None
+
+
+class TestFetchQuoteTimeoutBudget:
+    """Regression guard: the original timeout=2.5/retries=0 was far
+    tighter than yfinance_provider's own tuned defaults, and starved
+    every quote on a real mobile network (Termux) -- see watchlist.py's
+    fetch_item() for the full story. Índices/Commodities came back
+    completely empty while Câmbio (PTAX) and Juros (DI Jan MOCK row)
+    only looked fine."""
+
+    def test_fetch_quote_called_with_a_mobile_realistic_budget(self):
+        with patch(
+            "runtime.market_intelligence.watchlist.fetch_quote",
+            return_value={"symbol": "^BVSP", "price": 100.0, "previous_close": 99.0},
+        ) as mocked_fetch:
+            from runtime.market_intelligence.watchlist import snapshot
+
+            snapshot("brasil")
+
+        for call in mocked_fetch.call_args_list:
+            assert call.kwargs.get("timeout") == 6.0
+            assert call.kwargs.get("retries") == 1
