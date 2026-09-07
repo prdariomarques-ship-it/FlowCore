@@ -33,17 +33,29 @@ def test_route_models_are_module_level_for_fastapi_annotation_resolution():
 # ── /api/ask ─────────────────────────────────────────────────────────────────
 
 class TestAsk:
-    def test_empty_question_returns_422(self):
+    def _headers(self):
+        from tests._auth_helper import signup_office
+        return signup_office(_client())["headers"]
+
+    def test_requires_auth(self):
+        # A missing/invalid session used to only 401 on the Wealth Copilot
+        # agent_intents branch -- a generic question that matched no agent
+        # keyword could reach the AI provider chain (including the
+        # DeepSeek fallback) with zero auth and zero cost attribution.
+        r = _client().post("/api/ask", json={"question": "oi"})
+        assert r.status_code == 401
+
+    def test_empty_question_returns_422_even_without_auth(self):
         r = _client().post("/api/ask", json={"question": ""})
         assert r.status_code == 422
 
-    def test_whitespace_question_returns_422(self):
+    def test_whitespace_question_returns_422_even_without_auth(self):
         r = _client().post("/api/ask", json={"question": "   "})
         assert r.status_code == 422
 
     def test_valid_question_returns_200(self):
         # Ollama won't be running in CI — expect graceful fallback
-        r = _client().post("/api/ask", json={"question": "oi"})
+        r = _client().post("/api/ask", json={"question": "oi"}, headers=self._headers())
         assert r.status_code == 200
         data = r.json()
         assert "answer" in data
@@ -51,20 +63,20 @@ class TestAsk:
         assert "model" in data
 
     def test_unavailable_provider_still_200(self):
-        r = _client().post("/api/ask", json={"question": "test"})
+        r = _client().post("/api/ask", json={"question": "test"}, headers=self._headers())
         assert r.status_code == 200
         # provider may be "unavailable" when Ollama is absent
         assert r.json()["provider"] in ("ollama", "flowcore-agent", "unavailable")
 
     def test_missing_question_field_returns_422(self):
-        r = _client().post("/api/ask", json={})
+        r = _client().post("/api/ask", json={}, headers=self._headers())
         assert r.status_code == 422
 
     def test_history_accepted(self):
         r = _client().post("/api/ask", json={
             "question": "continue",
             "history": [{"role": "user", "content": "hello"}, {"role": "assistant", "content": "hi"}],
-        })
+        }, headers=self._headers())
         assert r.status_code == 200
 
 
@@ -116,9 +128,13 @@ class TestAskSkipsUnreachableEndpoints:
             json.dumps({"ollama_url": "http://10.255.255.1:11434"})
         )
 
+        from tests._auth_helper import signup_office
+        c = _client()
+        headers = signup_office(c)["headers"]
+
         with patch("api.dashboard_routes._tcp_reachable", return_value=False) as mocked_reachable:
             with patch("api.dashboard_routes._http_json") as mocked_http:
-                r = _client().post("/api/ask", json={"question": "oi"})
+                r = c.post("/api/ask", json={"question": "oi"}, headers=headers)
 
         assert r.status_code == 200
         assert r.json()["provider"] == "unavailable"
@@ -137,15 +153,21 @@ class TestAskDeepSeekFallback:
         # candidates are skipped via _tcp_reachable returning False.
         return patch("api.dashboard_routes._tcp_reachable", return_value=False)
 
+    def _session(self):
+        from tests._auth_helper import signup_office
+        c = _client()
+        return c, signup_office(c)
+
     def test_deepseek_used_as_last_resort_when_ollama_unreachable(self):
         from runtime.llm.models import LLMResponse
 
         fake_response = LLMResponse(
             text="Resposta via DeepSeek", provider="deepseek", model="deepseek-chat", latency_ms=42.0,
         )
+        c, session = self._session()
         with self._unreachable_client():
             with patch("service._llm_router.generate", return_value=fake_response) as mocked_generate:
-                r = _client().post("/api/ask", json={"question": "oi"})
+                r = c.post("/api/ask", json={"question": "oi"}, headers=session["headers"])
 
         assert r.status_code == 200
         data = r.json()
@@ -160,12 +182,13 @@ class TestAskDeepSeekFallback:
     def test_still_returns_unavailable_when_deepseek_also_fails(self):
         from runtime.llm.models import LLMAllProvidersFailedError
 
+        c, session = self._session()
         with self._unreachable_client():
             with patch(
                 "service._llm_router.generate",
                 side_effect=LLMAllProvidersFailedError("deepseek: DEEPSEEK_API_KEY not configured"),
             ):
-                r = _client().post("/api/ask", json={"question": "oi"})
+                r = c.post("/api/ask", json={"question": "oi"}, headers=session["headers"])
 
         assert r.status_code == 200
         data = r.json()
@@ -173,12 +196,10 @@ class TestAskDeepSeekFallback:
         assert "DEEPSEEK_API_KEY" in data["error"]
 
     def test_office_id_attributed_when_authenticated(self):
-        from tests._auth_helper import signup_office
         from runtime.llm.models import LLMResponse
 
         fake_response = LLMResponse(text="ok", provider="deepseek", model="deepseek-chat", latency_ms=1.0)
-        c = _client()
-        session = signup_office(c)
+        c, session = self._session()
 
         with self._unreachable_client():
             with patch("service._llm_router.generate", return_value=fake_response) as mocked_generate:
@@ -188,17 +209,16 @@ class TestAskDeepSeekFallback:
         request = mocked_generate.call_args[0][0]
         assert request.metadata["office_id"] == session["office_id"]
 
-    def test_office_id_none_when_unauthenticated(self):
-        from runtime.llm.models import LLMResponse
-
-        fake_response = LLMResponse(text="ok", provider="deepseek", model="deepseek-chat", latency_ms=1.0)
+    def test_unauthenticated_request_never_reaches_deepseek(self):
+        # /api/ask now requires a valid session unconditionally (see
+        # ask()'s auth comment) -- an anonymous request must 401 before
+        # any provider, DeepSeek included, is ever called.
         with self._unreachable_client():
-            with patch("service._llm_router.generate", return_value=fake_response) as mocked_generate:
+            with patch("service._llm_router.generate") as mocked_generate:
                 r = _client().post("/api/ask", json={"question": "oi"})
 
-        assert r.status_code == 200
-        request = mocked_generate.call_args[0][0]
-        assert request.metadata["office_id"] is None
+        assert r.status_code == 401
+        mocked_generate.assert_not_called()
 
 
 # ── /api/market/overview — must evaluate alerts, not just read stale ones ────

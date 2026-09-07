@@ -585,6 +585,14 @@ def register_dashboard_routes(app, version: str) -> None:
         if not data.question.strip():
             raise HTTPException(status_code=422, detail="question is required")
 
+        # Requires a valid session for every path below, including the
+        # OpenAI-compat/Ollama/DeepSeek fallbacks -- previously only the
+        # Wealth Copilot agent_intents branch called get_current_user(),
+        # so an unauthenticated request that matched no agent keyword
+        # could reach the AI provider chain (DeepSeek included) with no
+        # session and no cost attribution at all.
+        user = await get_current_user(request)
+
         # Wealth Copilot questions are real-data lookups, not something an
         # LLM should guess at — answer them directly from the relevant
         # agent instead of routing through OpenAI/Ollama. Checked in this
@@ -592,9 +600,7 @@ def register_dashboard_routes(app, version: str) -> None:
         # more specific than a generic compliance question and should not
         # be swallowed by broader keyword sets. Same "never 5xx" contract
         # as the JSON agent endpoints (/api/alerts, /api/market, ...): an
-        # agent failure degrades to an honest chat message, not a 500 —
-        # except a missing/invalid session, which still 401s (a chat
-        # answer can't be scoped to an office without one).
+        # agent failure degrades to an honest chat message, not a 500.
         agent_intents = (
             (_is_compliance_question, _answer_compliance_question, "flowcore-compliance-agent"),
             (_is_priority_question, _answer_priority_question, "flowcore-priority-engine"),
@@ -603,7 +609,6 @@ def register_dashboard_routes(app, version: str) -> None:
         )
         for matches, answer_fn, provider in agent_intents:
             if matches(data.question):
-                user = await get_current_user(request)
                 try:
                     answer = await answer_fn(user["office_id"])
                 except Exception as exc:  # noqa: BLE001 - degrade, never 500
@@ -679,18 +684,13 @@ def register_dashboard_routes(app, version: str) -> None:
             from runtime.llm import LLMRequest
             from service import _llm_router
 
-            office_id = None
-            try:
-                office_id = (await get_current_user(request))["office_id"]
-            except HTTPException:
-                pass  # unauthenticated chat still gets a cloud fallback; just no cost attribution
             # Flatten the conversation (messages already includes prior
             # turns + this question) into one prompt -- LLMRequest takes a
             # single string, unlike Ollama's /api/chat message-list shape.
             history_text = "\n".join(f"{m['role']}: {m['content']}" for m in messages)
             llm_request = LLMRequest(
                 prompt=history_text,
-                metadata={"allow_cloud": True, "purpose": "chat", "office_id": office_id},
+                metadata={"allow_cloud": True, "purpose": "chat", "office_id": user["office_id"]},
             )
             response = await asyncio.to_thread(_llm_router.generate, llm_request)
             return {"answer": response.text, "provider": response.provider, "model": response.model}
