@@ -644,6 +644,8 @@ details.mi>summary::marker{display:none}
         <div style="font-size:12px;color:var(--text2);padding:0 2px 8px">Os agentes autônomos avisam por aqui quando encontram algo (carteira desenquadrada, cliente pendente de contato). Precisa do <b>chat_id</b> da conversa com o bot do escritório.</div>
         <div class="ir"><input class="if" id="office-telegram-chat-id" placeholder="Telegram chat_id (ex: 123456789)"><button class="bs2" onclick="saveOfficeNotifications()">✓</button></div>
         <div class="row" style="padding-top:0;border:none"><span class="rl">Status atual</span><span class="rv" id="office-notify-status">─</span></div>
+        <button class="btn-sm" style="margin-top:8px" onclick="discoverTelegramChatId()">🔍 Descobrir automaticamente</button>
+        <div id="office-notify-discover-result" style="margin-top:8px"></div>
       </div>
       <div class="card" id="sys-storage-card">
         <div class="ch"><span class="ct">Armazenamento</span><span class="ci">💾</span></div>
@@ -1275,6 +1277,36 @@ async function saveOfficeNotifications(){
     toast('Salvo. Os próximos alertas dos agentes vão pra esse chat.');
   }catch(e){
     toast('Erro ao salvar chat_id.');
+  }
+}
+
+async function discoverTelegramChatId(){
+  const box=document.getElementById('office-notify-discover-result');
+  box.innerHTML='<span style="font-size:12px;color:var(--text2)">Buscando…</span>';
+  try{
+    const r=await api('/api/office/notifications/discover-chat-id');
+    if(!r.available){
+      box.innerHTML=`<div class="empty" style="font-size:12px">Não foi possível buscar automaticamente (${r.reason==='not_configured'?'bot do FlowCore não configurado neste servidor':r.reason}). Use o método manual (getUpdates) descrito na documentação.</div>`;
+      return;
+    }
+    if(!r.chats.length){
+      box.innerHTML='<div class="empty" style="font-size:12px">Nenhuma conversa encontrada ainda. Manda uma mensagem qualquer pro bot no Telegram e tenta de novo.</div>';
+      return;
+    }
+    box.innerHTML='';
+    for(const c of r.chats){
+      const el=document.createElement('div');
+      el.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border:1px solid var(--border);border-radius:8px;margin-bottom:4px;cursor:pointer';
+      el.innerHTML=`<span style="font-size:12px">${escapeHtml(c.name)} <span style="color:var(--text2)">(${c.type})</span></span><span class="tag ty" style="font-size:10px">usar</span>`;
+      el.onclick=()=>{
+        document.getElementById('office-telegram-chat-id').value=c.chat_id;
+        box.innerHTML='';
+        toast('Preenchido. Clica em ✓ pra salvar.');
+      };
+      box.appendChild(el);
+    }
+  }catch(e){
+    box.innerHTML='<div class="empty" style="font-size:12px">Erro ao buscar.</div>';
   }
 }
 

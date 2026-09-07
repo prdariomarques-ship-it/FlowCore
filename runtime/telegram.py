@@ -66,6 +66,40 @@ def check_health() -> dict[str, Any]:
     return _call("getMe", token)
 
 
+def get_recent_chats(limit: int = 20, timeout: float = 10) -> list[dict[str, Any]]:
+    """Distinct chats the bot has recently seen a message from, newest
+    first — Telegram's getUpdates, which is otherwise only useful from a
+    terminal (a real pain point: discovering a chat_id today means
+    reading raw JSON off curl). Lets the dashboard offer a "descobrir
+    automaticamente" picker instead of the user hand-copying a number out
+    of a JSON blob.
+
+    Only sees chats where someone has messaged the bot in the last ~24h
+    (Telegram's own getUpdates retention) and that haven't already been
+    consumed by another poller — same limitation as the manual curl
+    workflow it replaces, just automated."""
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    if not token:
+        raise TelegramNotConfiguredError("TELEGRAM_BOT_TOKEN not set. Add the bot's token to .env.")
+    updates = _call("getUpdates", token, {"limit": 100}, timeout=timeout)
+    seen: dict[str, dict[str, Any]] = {}
+    for update in updates:
+        message = update.get("message") or update.get("channel_post")
+        if not message:
+            continue
+        chat = message.get("chat") or {}
+        chat_id = chat.get("id")
+        if chat_id is None:
+            continue
+        name = chat.get("title") or " ".join(
+            part for part in (chat.get("first_name"), chat.get("last_name")) if part
+        ) or chat.get("username") or str(chat_id)
+        seen[str(chat_id)] = {"chat_id": str(chat_id), "name": name, "type": chat.get("type", "private")}
+    chats = list(seen.values())
+    chats.reverse()  # dict preserves insertion order; updates arrive oldest-first
+    return chats[:limit]
+
+
 def send_message(text: str, chat_id: str | None = None, timeout: float = 10) -> dict[str, Any]:
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     if not token:

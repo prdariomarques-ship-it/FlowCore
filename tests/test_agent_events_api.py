@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -115,3 +116,38 @@ class TestOfficeNotifications:
 
         resp_b = c.get("/api/office/notifications", headers=session_b["headers"])
         assert resp_b.json()["telegram_chat_id"] is None
+
+
+class TestDiscoverChatId:
+    def test_requires_auth(self):
+        assert _client().get("/api/office/notifications/discover-chat-id").status_code == 401
+
+    def test_not_configured_when_no_bot_token(self, monkeypatch):
+        monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+        c = _client()
+        session = signup_office(c)
+        resp = c.get("/api/office/notifications/discover-chat-id", headers=session["headers"])
+        assert resp.status_code == 200
+        assert resp.json() == {"available": False, "reason": "not_configured", "chats": []}
+
+    def test_returns_chats_from_telegram(self, monkeypatch):
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "tok")
+        c = _client()
+        session = signup_office(c)
+        found = [{"chat_id": "883232211", "name": "Dário marques", "type": "private"}]
+        with patch("runtime.telegram.get_recent_chats", return_value=found):
+            resp = c.get("/api/office/notifications/discover-chat-id", headers=session["headers"])
+        assert resp.json() == {"available": True, "chats": found}
+
+    def test_telegram_error_reported_honestly(self, monkeypatch):
+        from runtime.telegram import TelegramError
+
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "tok")
+        c = _client()
+        session = signup_office(c)
+        with patch("runtime.telegram.get_recent_chats", side_effect=TelegramError("Telegram unreachable")):
+            resp = c.get("/api/office/notifications/discover-chat-id", headers=session["headers"])
+        body = resp.json()
+        assert body["available"] is False
+        assert body["chats"] == []
+        assert "unreachable" in body["reason"]

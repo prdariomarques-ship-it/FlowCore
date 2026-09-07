@@ -1326,6 +1326,24 @@ def register_dashboard_routes(app, version: str) -> None:
         office = await TenantRepository().set_telegram_chat_id(user["office_id"], data.telegram_chat_id)
         return {"saved": True, "telegram_chat_id": office["telegram_chat_id"] if office else None}
 
+    @app.get("/api/office/notifications/discover-chat-id")
+    async def office_notifications_discover(request: Request):
+        """Lists chats the office's Telegram bot has recently seen a
+        message from -- lets the dashboard replace the manual "curl
+        getUpdates, read raw JSON, copy a number" workflow with a picker.
+        Requires the advisor to have already messaged the bot at least
+        once (Telegram's own getUpdates rule -- no way around it)."""
+        from runtime.telegram import TelegramError, TelegramNotConfiguredError, get_recent_chats
+
+        await get_current_user(request)
+        try:
+            chats = await asyncio.to_thread(get_recent_chats)
+        except TelegramNotConfiguredError:
+            return {"available": False, "reason": "not_configured", "chats": []}
+        except TelegramError as e:
+            return {"available": False, "reason": str(e), "chats": []}
+        return {"available": True, "chats": chats}
+
     # ── Human-in-the-loop approval queue (§9) ────────────────────────────────
     # LEVEL 3+ actions an agent prepares (agents/orchestrator.py) but never
     # executes alone land here as "pending" -- only a human approving from
