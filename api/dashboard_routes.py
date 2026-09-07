@@ -668,6 +668,35 @@ def register_dashboard_routes(app, version: str) -> None:
                 last_error = exc
                 continue
 
+        # Last resort: DeepSeek via the shared LLM Router -- the same
+        # infra the autonomous agents already use (agents/orchestrator.py),
+        # reused rather than a third hand-rolled cloud client. Only
+        # reached once neither local Ollama endpoint answered -- local-
+        # first is preserved, DeepSeek is the fallback, never the first
+        # choice. See runtime/llm/policy.py's LocalFirstPolicy: this is
+        # the one call site in the interactive chat that opts into cloud.
+        try:
+            from runtime.llm import LLMRequest
+            from service import _llm_router
+
+            office_id = None
+            try:
+                office_id = (await get_current_user(request))["office_id"]
+            except HTTPException:
+                pass  # unauthenticated chat still gets a cloud fallback; just no cost attribution
+            # Flatten the conversation (messages already includes prior
+            # turns + this question) into one prompt -- LLMRequest takes a
+            # single string, unlike Ollama's /api/chat message-list shape.
+            history_text = "\n".join(f"{m['role']}: {m['content']}" for m in messages)
+            llm_request = LLMRequest(
+                prompt=history_text,
+                metadata={"allow_cloud": True, "purpose": "chat", "office_id": office_id},
+            )
+            response = await asyncio.to_thread(_llm_router.generate, llm_request)
+            return {"answer": response.text, "provider": response.provider, "model": response.model}
+        except Exception as exc:  # noqa: BLE001 - genuinely out of options
+            last_error = exc
+
         return {
             "answer": "Nenhum provider de IA disponível. Configure openai_url ou inicie o Ollama.",
             "provider": "unavailable",

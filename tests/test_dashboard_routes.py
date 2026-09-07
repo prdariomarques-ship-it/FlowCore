@@ -126,6 +126,81 @@ class TestAskSkipsUnreachableEndpoints:
         mocked_http.assert_not_called()
 
 
+class TestAskDeepSeekFallback:
+    """The interactive Chat IA hits this hand-rolled /api/ask handler, not
+    service.py's Router-based ask() -- so it needed its own explicit
+    opt-in to the shared LLM Router's DeepSeek provider as a last resort
+    once both Ollama endpoints (PC and phone) are unreachable/fail."""
+
+    def _unreachable_client(self):
+        # No ollama_url/ollama_fallback_url configured -- both Ollama
+        # candidates are skipped via _tcp_reachable returning False.
+        return patch("api.dashboard_routes._tcp_reachable", return_value=False)
+
+    def test_deepseek_used_as_last_resort_when_ollama_unreachable(self):
+        from runtime.llm.models import LLMResponse
+
+        fake_response = LLMResponse(
+            text="Resposta via DeepSeek", provider="deepseek", model="deepseek-chat", latency_ms=42.0,
+        )
+        with self._unreachable_client():
+            with patch("service._llm_router.generate", return_value=fake_response) as mocked_generate:
+                r = _client().post("/api/ask", json={"question": "oi"})
+
+        assert r.status_code == 200
+        data = r.json()
+        assert data["answer"] == "Resposta via DeepSeek"
+        assert data["provider"] == "deepseek"
+        assert data["model"] == "deepseek-chat"
+        mocked_generate.assert_called_once()
+        request = mocked_generate.call_args[0][0]
+        assert request.metadata["allow_cloud"] is True
+        assert "user: oi" in request.prompt
+
+    def test_still_returns_unavailable_when_deepseek_also_fails(self):
+        from runtime.llm.models import LLMAllProvidersFailedError
+
+        with self._unreachable_client():
+            with patch(
+                "service._llm_router.generate",
+                side_effect=LLMAllProvidersFailedError("deepseek: DEEPSEEK_API_KEY not configured"),
+            ):
+                r = _client().post("/api/ask", json={"question": "oi"})
+
+        assert r.status_code == 200
+        data = r.json()
+        assert data["provider"] == "unavailable"
+        assert "DEEPSEEK_API_KEY" in data["error"]
+
+    def test_office_id_attributed_when_authenticated(self):
+        from tests._auth_helper import signup_office
+        from runtime.llm.models import LLMResponse
+
+        fake_response = LLMResponse(text="ok", provider="deepseek", model="deepseek-chat", latency_ms=1.0)
+        c = _client()
+        session = signup_office(c)
+
+        with self._unreachable_client():
+            with patch("service._llm_router.generate", return_value=fake_response) as mocked_generate:
+                r = c.post("/api/ask", json={"question": "oi"}, headers=session["headers"])
+
+        assert r.status_code == 200
+        request = mocked_generate.call_args[0][0]
+        assert request.metadata["office_id"] == session["office_id"]
+
+    def test_office_id_none_when_unauthenticated(self):
+        from runtime.llm.models import LLMResponse
+
+        fake_response = LLMResponse(text="ok", provider="deepseek", model="deepseek-chat", latency_ms=1.0)
+        with self._unreachable_client():
+            with patch("service._llm_router.generate", return_value=fake_response) as mocked_generate:
+                r = _client().post("/api/ask", json={"question": "oi"})
+
+        assert r.status_code == 200
+        request = mocked_generate.call_args[0][0]
+        assert request.metadata["office_id"] is None
+
+
 # ── /api/market/overview — must evaluate alerts, not just read stale ones ────
 
 class TestMarketOverviewEvaluatesAlerts:
