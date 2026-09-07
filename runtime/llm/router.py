@@ -94,9 +94,13 @@ class LLMRouter:
                         (time.monotonic() - start) * 1000,
                         False,
                         str(error),
+                        purpose=request.metadata.get("purpose"),
                     )
                     raise
-                self._metrics.record_call(name, response.model, response.latency_ms, True, None)
+                self._metrics.record_call(
+                    name, response.model, response.latency_ms, True, None,
+                    purpose=request.metadata.get("purpose"),
+                )
                 return response
 
             try:

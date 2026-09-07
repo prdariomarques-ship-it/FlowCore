@@ -234,3 +234,39 @@ class TestMarkResolved:
 
         untouched = asyncio.run(scenario())
         assert untouched["status"] == "pending"
+
+
+class TestCountAggregates:
+    def test_count_by_status(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            pending = await repo.publish("office-1", _event(entity={"kind": "client", "id": "c1"}))
+            processed = await repo.publish("office-1", _event(entity={"kind": "client", "id": "c2"}))
+            await repo.record_decision("office-1", processed["id"], "processed", {"action": "notify_advisor"})
+            return await repo.count_by_status("office-1")
+
+        counts = asyncio.run(scenario())
+        assert counts == {"pending": 1, "processed": 1}
+
+    def test_count_by_type(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            await repo.publish("office-1", _event(type="PORTFOLIO_OUT_OF_PROFILE", entity={"kind": "client", "id": "c1"}))
+            await repo.publish("office-1", _event(type="CLIENT_FOLLOWUP_OVERDUE", entity={"kind": "client", "id": "c1"}))
+            await repo.publish("office-1", _event(type="PORTFOLIO_OUT_OF_PROFILE", entity={"kind": "client", "id": "c2"}))
+            return await repo.count_by_type("office-1")
+
+        counts = asyncio.run(scenario())
+        assert counts == {"PORTFOLIO_OUT_OF_PROFILE": 2, "CLIENT_FOLLOWUP_OVERDUE": 1}
+
+    def test_counts_scoped_to_one_office(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            await repo.publish("office-a", _event())
+            await repo.publish("office-b", _event())
+            await repo.publish("office-b", _event(entity={"kind": "client", "id": "c2"}))
+            return await repo.count_by_status("office-a"), await repo.count_by_status("office-b")
+
+        counts_a, counts_b = asyncio.run(scenario())
+        assert counts_a == {"pending": 1}
+        assert counts_b == {"pending": 2}

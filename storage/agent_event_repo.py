@@ -131,6 +131,27 @@ class AgentEventRepository:
             columns = [d[0] for d in cursor.description]
             return [self._row_to_dict(dict(zip(columns, r))) for r in rows]
 
+    async def count_by_status(self, office_id: str) -> dict[str, int]:
+        """Exact counts per status for this office -- used by the Agent
+        Runtime observability dashboard (§18), not derived from a
+        possibly-truncated list_events() page."""
+        await self.ensure_tables()
+        async with aiosqlite.connect(self._db_path) as db:
+            cursor = await db.execute(
+                "SELECT status, COUNT(*) FROM agent_events WHERE office_id = ? GROUP BY status", (office_id,),
+            )
+            rows = await cursor.fetchall()
+            return {r[0]: r[1] for r in rows}
+
+    async def count_by_type(self, office_id: str) -> dict[str, int]:
+        await self.ensure_tables()
+        async with aiosqlite.connect(self._db_path) as db:
+            cursor = await db.execute(
+                "SELECT type, COUNT(*) FROM agent_events WHERE office_id = ? GROUP BY type", (office_id,),
+            )
+            rows = await cursor.fetchall()
+            return {r[0]: r[1] for r in rows}
+
     async def first_seen(self, office_id: str, dedup_key: str) -> float | None:
         """The created_at of the earliest event with this dedup_key still
         on record -- "how long has this exact situation been open", used

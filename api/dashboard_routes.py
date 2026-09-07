@@ -35,6 +35,7 @@ All values are read at request time — no restart needed after editing.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from datetime import datetime, timezone
@@ -1401,6 +1402,64 @@ def register_dashboard_routes(app, version: str) -> None:
         except ValueError as e:
             raise HTTPException(status_code=409, detail=str(e))
         return {"approval": updated}
+
+    @app.get("/api/agents/dashboard")
+    async def agents_dashboard(request: Request):
+        """Aggregated observability data for the Agent Runtime (§18/§25):
+        is the autonomous loop actually running, what has it seen, what's
+        waiting on a human, and what has it cost. One call so the frontend
+        panel doesn't have to fan out to five endpoints and interleave
+        loading states."""
+        import os as _os
+
+        from storage.agent_approval_repo import AgentApprovalRepository
+        from storage.agent_event_repo import AgentEventRepository
+        from storage.llm_call_repo import LLMCallRepository
+
+        user = await get_current_user(request)
+        office_id = user["office_id"]
+
+        event_repo = AgentEventRepository()
+        approval_repo = AgentApprovalRepository()
+        llm_repo = LLMCallRepository()
+
+        events_by_status, events_by_type, approvals_by_status, recent_events = await asyncio.gather(
+            event_repo.count_by_status(office_id),
+            event_repo.count_by_type(office_id),
+            approval_repo.count_by_status(office_id),
+            event_repo.list_events(office_id, limit=20),
+        )
+
+        # app.state.agent_scheduler doesn't exist at all under
+        # create_app(version="test") -- see api/router.py's wiring -- so
+        # this can't assume the attribute is even set, only that it might
+        # be None (apscheduler missing) or a real SchedulerService.
+        scheduler = getattr(request.app.state, "agent_scheduler", None)
+        scheduler_status = {
+            "enabled": scheduler is not None,
+            "running": scheduler.is_running if scheduler is not None else False,
+            "interval_seconds": int(_os.environ.get("FLOWCORE_AGENT_OBSERVE_INTERVAL_SECONDS", "300")),
+            "tasks": scheduler.list_tasks() if scheduler is not None else [],
+        }
+
+        return {
+            "scheduler": scheduler_status,
+            "events": {
+                "by_status": events_by_status,
+                "by_type": events_by_type,
+                "total": sum(events_by_status.values()),
+            },
+            "approvals": {
+                "by_status": approvals_by_status,
+                "pending": approvals_by_status.get("pending", 0),
+            },
+            "llm_usage": {
+                "today": llm_repo.summary(86400),
+                "last_7d": llm_repo.summary(7 * 86400),
+                "last_30d": llm_repo.summary(30 * 86400),
+            },
+            "recent_activity": recent_events,
+        }
 
     @app.get("/api/portfolio/risk-breakdown")
     async def portfolio_risk_breakdown(request: Request):

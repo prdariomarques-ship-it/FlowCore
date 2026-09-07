@@ -93,6 +93,17 @@ class AgentApprovalRepository:
             columns = [d[0] for d in cursor.description]
             return self._row_to_dict(dict(zip(columns, row)))
 
+    async def count_by_status(self, office_id: str) -> dict[str, int]:
+        """Exact counts per status for this office -- used by the Agent
+        Runtime observability dashboard (§18)."""
+        await self.ensure_tables()
+        async with aiosqlite.connect(self._db_path) as db:
+            cursor = await db.execute(
+                "SELECT status, COUNT(*) FROM agent_approvals WHERE office_id = ? GROUP BY status", (office_id,),
+            )
+            rows = await cursor.fetchall()
+            return {r[0]: r[1] for r in rows}
+
     async def list_approvals(self, office_id: str, status: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
         await self.ensure_tables()
         query = "SELECT * FROM agent_approvals WHERE office_id = ?"

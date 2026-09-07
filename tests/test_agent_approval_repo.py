@@ -179,3 +179,34 @@ class TestDecide:
                 await repo.decide("office-b", created["id"], "approved", "user-1")
 
         _run(scenario())
+
+
+class TestCountByStatus:
+    def test_count_by_status(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            await repo.create("office-1", "e1", "a", "contact_client", {"kind": "client", "id": "c1"}, _PAYLOAD)
+            second = await repo.create("office-1", "e2", "a", "contact_client", {"kind": "client", "id": "c2"}, _PAYLOAD)
+            await repo.decide("office-1", second["id"], "approved", "user-1")
+            return await repo.count_by_status("office-1")
+
+        counts = _run(scenario())
+        assert counts == {"pending": 1, "approved": 1}
+
+    def test_counts_scoped_to_one_office(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            await repo.create("office-a", "e1", "a", "contact_client", {"kind": "client", "id": "c1"}, _PAYLOAD)
+            await repo.create("office-b", "e2", "a", "contact_client", {"kind": "client", "id": "c2"}, _PAYLOAD)
+            await repo.create("office-b", "e3", "a", "contact_client", {"kind": "client", "id": "c3"}, _PAYLOAD)
+            return await repo.count_by_status("office-a"), await repo.count_by_status("office-b")
+
+        counts_a, counts_b = _run(scenario())
+        assert counts_a == {"pending": 1}
+        assert counts_b == {"pending": 2}
+
+    def test_no_events_returns_empty_dict(self, tmp_path):
+        async def scenario():
+            return await _repo(tmp_path).count_by_status("office-1")
+
+        assert _run(scenario()) == {}
