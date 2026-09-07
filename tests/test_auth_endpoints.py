@@ -121,6 +121,90 @@ class TestLoginAndLogout:
         assert client.get("/api/auth/me", headers=session["headers"]).status_code == 401
 
 
+class TestSessionsList:
+    def test_requires_auth(self):
+        assert _client().get("/api/auth/sessions").status_code == 401
+
+    def test_lists_the_current_session_marked_as_current(self):
+        client = _client()
+        session = signup_office(client)
+        resp = client.get("/api/auth/sessions", headers=session["headers"])
+        assert resp.status_code == 200
+        sessions = resp.json()["sessions"]
+        assert len(sessions) == 1
+        assert sessions[0]["current"] is True
+        assert "token" not in sessions[0]
+
+    def test_second_login_adds_a_third_session(self):
+        # signup() itself already creates a session (the "keep me logged
+        # in right after signing up" flow), so two logins on top of that
+        # make three, not two.
+        client = _client()
+        email = _unique_email()
+        client.post("/api/auth/signup", json={
+            "office_name": "Escritório", "name": "Teste", "email": email, "password": "senha-de-teste-123",
+        })
+        login1 = client.post("/api/auth/login", json={"email": email, "password": "senha-de-teste-123"})
+        login2 = client.post("/api/auth/login", json={"email": email, "password": "senha-de-teste-123"})
+        headers2 = {"Authorization": f"Bearer {login2.json()['token']}"}
+
+        sessions = client.get("/api/auth/sessions", headers=headers2).json()["sessions"]
+        assert len(sessions) == 3
+        # Exactly one is marked current -- the one whose token made this
+        # very request -- never both, never neither.
+        assert sum(1 for s in sessions if s["current"]) == 1
+
+    def test_scoped_to_one_user(self):
+        client = _client()
+        session_a = signup_office(client)
+        session_b = signup_office(client, "Outro Escritório")
+        sessions_b = client.get("/api/auth/sessions", headers=session_b["headers"]).json()["sessions"]
+        assert len(sessions_b) == 1
+
+
+class TestSessionsDelete:
+    def test_requires_auth(self):
+        assert _client().delete("/api/auth/sessions/whatever").status_code == 401
+
+    def test_unknown_session_id_is_404(self):
+        client = _client()
+        session = signup_office(client)
+        resp = client.delete("/api/auth/sessions/does-not-exist", headers=session["headers"])
+        assert resp.status_code == 404
+
+    def test_revoking_a_session_logs_it_out(self):
+        client = _client()
+        email = _unique_email()
+        client.post("/api/auth/signup", json={
+            "office_name": "Escritório", "name": "Teste", "email": email, "password": "senha-de-teste-123",
+        })
+        login1 = client.post("/api/auth/login", json={"email": email, "password": "senha-de-teste-123"})
+        login2 = client.post("/api/auth/login", json={"email": email, "password": "senha-de-teste-123"})
+        headers1 = {"Authorization": f"Bearer {login1.json()['token']}"}
+        headers2 = {"Authorization": f"Bearer {login2.json()['token']}"}
+
+        session_id_1 = next(
+            s["id"] for s in client.get("/api/auth/sessions", headers=headers1).json()["sessions"] if s["current"]
+        )
+        deleted = client.delete(f"/api/auth/sessions/{session_id_1}", headers=headers2)
+        assert deleted.status_code == 200
+
+        assert client.get("/api/auth/me", headers=headers1).status_code == 401
+        assert client.get("/api/auth/me", headers=headers2).status_code == 200
+
+    def test_cannot_delete_another_offices_session(self):
+        client = _client()
+        session_a = signup_office(client)
+        session_b = signup_office(client, "Outro Escritório")
+        session_id_a = client.get("/api/auth/sessions", headers=session_a["headers"]).json()["sessions"][0]["id"]
+
+        resp = client.delete(f"/api/auth/sessions/{session_id_a}", headers=session_b["headers"])
+        assert resp.status_code == 404
+        # session_a's own session must still work -- session_b's attempt
+        # was rejected, not silently accepted against the wrong user.
+        assert client.get("/api/auth/me", headers=session_a["headers"]).status_code == 200
+
+
 class TestLoginRateLimiting:
     def test_sixth_consecutive_failed_attempt_is_429(self):
         client = _client()

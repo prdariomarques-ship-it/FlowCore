@@ -149,7 +149,28 @@ class TenantRepository:
             await db.execute("CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)")
             await db.execute("CREATE INDEX IF NOT EXISTS idx_login_attempts_email ON login_attempts(email, attempted_at)")
             await self._ensure_notification_columns(db)
+            await self._ensure_session_columns(db)
+            await db.execute("CREATE INDEX IF NOT EXISTS idx_sessions_public_id ON sessions(id)")
             await db.commit()
+
+    @staticmethod
+    async def _ensure_session_columns(db: aiosqlite.Connection) -> None:
+        """id/user_agent/ip_address added after the initial `sessions`
+        table shipped -- migrate in place. `id` is a separate, non-secret
+        identifier from `token`: the "sessões ativas" list
+        (GET /api/auth/sessions) must never hand back another session's
+        actual bearer token, so it addresses sessions by this id instead
+        -- randomblob backfills every pre-existing row with a unique id
+        in the same statement, no per-row Python loop needed."""
+        cursor = await db.execute("PRAGMA table_info(sessions)")
+        existing = {row[1] for row in await cursor.fetchall()}
+        if "id" not in existing:
+            await db.execute("ALTER TABLE sessions ADD COLUMN id TEXT")
+            await db.execute("UPDATE sessions SET id = lower(hex(randomblob(8))) WHERE id IS NULL")
+        if "user_agent" not in existing:
+            await db.execute("ALTER TABLE sessions ADD COLUMN user_agent TEXT")
+        if "ip_address" not in existing:
+            await db.execute("ALTER TABLE sessions ADD COLUMN ip_address TEXT")
 
     @staticmethod
     async def _ensure_notification_columns(db: aiosqlite.Connection) -> None:
@@ -331,18 +352,70 @@ class TenantRepository:
 
     # ── Sessions ────────────────────────────────────────────────────────────
 
-    async def create_session(self, user_id: str, ttl_seconds: int = _SESSION_TTL_SECONDS) -> dict[str, Any]:
+    async def create_session(
+        self, user_id: str, ttl_seconds: int = _SESSION_TTL_SECONDS,
+        user_agent: str | None = None, ip_address: str | None = None,
+    ) -> dict[str, Any]:
         await self.ensure_tables()
         token = secrets.token_urlsafe(32)
+        session_id = secrets.token_hex(8)
         now = time.time()
         expires_at = now + ttl_seconds
         async with aiosqlite.connect(self._db_path) as db:
             await db.execute(
-                "INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
-                (token, user_id, now, expires_at),
+                "INSERT INTO sessions (token, id, user_id, created_at, expires_at, user_agent, ip_address) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (token, session_id, user_id, now, expires_at, user_agent, ip_address),
             )
             await db.commit()
-        return {"token": token, "user_id": user_id, "created_at": now, "expires_at": expires_at}
+        return {
+            "token": token, "id": session_id, "user_id": user_id,
+            "created_at": now, "expires_at": expires_at,
+        }
+
+    async def get_session_id(self, token: str) -> str | None:
+        """Resolves a bearer token to its public session id (never the
+        token itself) -- used so GET /api/auth/sessions can mark which
+        row in the list is "this" session, without ever handing a bearer
+        token back to the client that already has it."""
+        await self.ensure_tables()
+        async with aiosqlite.connect(self._db_path) as db:
+            cursor = await db.execute("SELECT id, expires_at FROM sessions WHERE token = ?", (token,))
+            row = await cursor.fetchone()
+        if not row or row[1] < time.time():
+            return None
+        return row[0]
+
+    async def list_sessions(self, user_id: str) -> list[dict[str, Any]]:
+        """Active (non-expired) sessions for this user, newest first --
+        never the bearer token itself, only the public id, so this is
+        safe to return straight to the frontend (the "Sessões ativas"
+        card in Configurações)."""
+        await self.ensure_tables()
+        async with aiosqlite.connect(self._db_path) as db:
+            cursor = await db.execute(
+                "SELECT id, created_at, expires_at, user_agent, ip_address FROM sessions "
+                "WHERE user_id = ? AND expires_at > ? ORDER BY created_at DESC",
+                (user_id, time.time()),
+            )
+            rows = await cursor.fetchall()
+        return [
+            {"id": r[0], "created_at": r[1], "expires_at": r[2], "user_agent": r[3], "ip_address": r[4]}
+            for r in rows
+        ]
+
+    async def delete_session_by_id(self, user_id: str, session_id: str) -> bool:
+        """Revoke one session by its public id, scoped to `user_id` --
+        a user can never revoke someone else's session by guessing an
+        id, the same tenant-isolation guarantee every other repository
+        here gives office-scoped data."""
+        await self.ensure_tables()
+        async with aiosqlite.connect(self._db_path) as db:
+            cursor = await db.execute(
+                "DELETE FROM sessions WHERE id = ? AND user_id = ?", (session_id, user_id),
+            )
+            await db.commit()
+            return cursor.rowcount > 0
 
     async def get_session_user(self, token: str) -> dict[str, Any] | None:
         """Resolves a bearer token straight to the public user dict,

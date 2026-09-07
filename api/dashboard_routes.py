@@ -485,7 +485,7 @@ def register_dashboard_routes(app, version: str) -> None:
     # and api/tenant_auth.py for the full rationale.
 
     @app.post("/api/auth/signup")
-    async def auth_signup(data: SignupRequest):
+    async def auth_signup(data: SignupRequest, request: Request):
         from storage.tenant_repo import TenantRepository
         from storage.client_repo import ClientRepository
 
@@ -502,11 +502,14 @@ def register_dashboard_routes(app, version: str) -> None:
         except ValueError:
             raise HTTPException(status_code=409, detail="Este email já está cadastrado.")
         await ClientRepository().seed_office(office["id"], with_demo_clients=is_first_office)
-        session = await tenant_repo.create_session(user["id"])
+        session = await tenant_repo.create_session(
+            user["id"], user_agent=request.headers.get("User-Agent"),
+            ip_address=request.client.host if request.client else None,
+        )
         return {"token": session["token"], "user": user, "office": office}
 
     @app.post("/api/auth/login")
-    async def auth_login(data: LoginRequest):
+    async def auth_login(data: LoginRequest, request: Request):
         """Throttled per OWASP's Authentication Cheat Sheet: an
         unbounded login endpoint is a standing invitation to credential
         stuffing / brute force. 5 failed attempts in 15 minutes blocks
@@ -525,7 +528,10 @@ def register_dashboard_routes(app, version: str) -> None:
         await tenant_repo.record_login_attempt(data.email, success=bool(user))
         if not user:
             raise HTTPException(status_code=401, detail="Email ou senha inválidos.")
-        session = await tenant_repo.create_session(user["id"])
+        session = await tenant_repo.create_session(
+            user["id"], user_agent=request.headers.get("User-Agent"),
+            ip_address=request.client.host if request.client else None,
+        )
         return {"token": session["token"], "user": user}
 
     @app.post("/api/auth/logout")
@@ -543,6 +549,34 @@ def register_dashboard_routes(app, version: str) -> None:
     @app.get("/api/auth/me")
     async def auth_me(request: Request):
         return await get_current_user(request)
+
+    @app.get("/api/auth/sessions")
+    async def auth_sessions_list(request: Request):
+        """Every device/browser currently logged into this user's
+        account -- the real "Terminais Autorizados" equivalent, backed
+        by storage/tenant_repo.py's sessions table rather than invented
+        hardware-security-module data."""
+        from storage.tenant_repo import TenantRepository
+
+        user = await get_current_user(request)
+        header = request.headers.get("Authorization")
+        token = header[len("Bearer "):].strip() if header and header.startswith("Bearer ") else None
+        tenant_repo = TenantRepository()
+        current_id = await tenant_repo.get_session_id(token) if token else None
+        sessions = await tenant_repo.list_sessions(user["id"])
+        for s in sessions:
+            s["current"] = s["id"] == current_id
+        return {"sessions": sessions}
+
+    @app.delete("/api/auth/sessions/{session_id}")
+    async def auth_sessions_delete(session_id: str, request: Request):
+        from storage.tenant_repo import TenantRepository
+
+        user = await get_current_user(request)
+        deleted = await TenantRepository().delete_session_by_id(user["id"], session_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="unknown session")
+        return {"deleted": True}
 
     # ── Agent chat (/api/ask) ──────────────────────────────────────────────────
 

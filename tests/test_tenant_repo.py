@@ -171,6 +171,137 @@ class TestSessions:
         assert deleted_second is False
 
 
+class TestListSessions:
+    def test_lists_active_sessions_with_device_info(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            office = await repo.create_office("Escritório")
+            user = await repo.create_user(office["id"], "dario@example.com", "senha", "Dário", "owner")
+            await repo.create_session(user["id"], user_agent="Mozilla/5.0", ip_address="10.0.0.5")
+            return user, await repo.list_sessions(user["id"])
+
+        user, sessions = asyncio.run(scenario())
+        assert len(sessions) == 1
+        assert sessions[0]["user_agent"] == "Mozilla/5.0"
+        assert sessions[0]["ip_address"] == "10.0.0.5"
+        assert "id" in sessions[0]
+        assert "token" not in sessions[0]
+
+    def test_never_leaks_the_bearer_token(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            office = await repo.create_office("Escritório")
+            user = await repo.create_user(office["id"], "dario@example.com", "senha", "Dário", "owner")
+            await repo.create_session(user["id"])
+            return await repo.list_sessions(user["id"])
+
+        sessions = asyncio.run(scenario())
+        assert all("token" not in s for s in sessions)
+
+    def test_expired_sessions_excluded(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            office = await repo.create_office("Escritório")
+            user = await repo.create_user(office["id"], "dario@example.com", "senha", "Dário", "owner")
+            await repo.create_session(user["id"], ttl_seconds=-1)
+            await repo.create_session(user["id"])
+            return await repo.list_sessions(user["id"])
+
+        sessions = asyncio.run(scenario())
+        assert len(sessions) == 1
+
+    def test_newest_first(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            office = await repo.create_office("Escritório")
+            user = await repo.create_user(office["id"], "dario@example.com", "senha", "Dário", "owner")
+            first = await repo.create_session(user["id"])
+            second = await repo.create_session(user["id"])
+            return first, second, await repo.list_sessions(user["id"])
+
+        first, second, sessions = asyncio.run(scenario())
+        assert [s["id"] for s in sessions] == [second["id"], first["id"]]
+
+    def test_scoped_to_one_user(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            office = await repo.create_office("Escritório")
+            user_a = await repo.create_user(office["id"], "a@example.com", "senha", "A", "owner")
+            user_b = await repo.create_user(office["id"], "b@example.com", "senha", "B", "advisor")
+            await repo.create_session(user_a["id"])
+            await repo.create_session(user_b["id"])
+            return await repo.list_sessions(user_a["id"])
+
+        sessions = asyncio.run(scenario())
+        assert len(sessions) == 1
+
+
+class TestGetSessionId:
+    def test_resolves_token_to_public_id(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            office = await repo.create_office("Escritório")
+            user = await repo.create_user(office["id"], "dario@example.com", "senha", "Dário", "owner")
+            session = await repo.create_session(user["id"])
+            return session, await repo.get_session_id(session["token"])
+
+        session, resolved_id = asyncio.run(scenario())
+        assert resolved_id == session["id"]
+
+    def test_unknown_token_returns_none(self, tmp_path):
+        assert asyncio.run(_repo(tmp_path).get_session_id("does-not-exist")) is None
+
+    def test_expired_session_returns_none(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            office = await repo.create_office("Escritório")
+            user = await repo.create_user(office["id"], "dario@example.com", "senha", "Dário", "owner")
+            session = await repo.create_session(user["id"], ttl_seconds=-1)
+            return await repo.get_session_id(session["token"])
+
+        assert asyncio.run(scenario()) is None
+
+
+class TestDeleteSessionById:
+    def test_revokes_the_session(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            office = await repo.create_office("Escritório")
+            user = await repo.create_user(office["id"], "dario@example.com", "senha", "Dário", "owner")
+            session = await repo.create_session(user["id"])
+            deleted = await repo.delete_session_by_id(user["id"], session["id"])
+            resolved_after = await repo.get_session_user(session["token"])
+            return deleted, resolved_after
+
+        deleted, resolved_after = asyncio.run(scenario())
+        assert deleted is True
+        assert resolved_after is None
+
+    def test_unknown_id_returns_false(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            office = await repo.create_office("Escritório")
+            user = await repo.create_user(office["id"], "dario@example.com", "senha", "Dário", "owner")
+            return await repo.delete_session_by_id(user["id"], "does-not-exist")
+
+        assert asyncio.run(scenario()) is False
+
+    def test_cannot_delete_another_users_session(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            office = await repo.create_office("Escritório")
+            user_a = await repo.create_user(office["id"], "a@example.com", "senha", "A", "owner")
+            user_b = await repo.create_user(office["id"], "b@example.com", "senha", "B", "advisor")
+            session_b = await repo.create_session(user_b["id"])
+            deleted = await repo.delete_session_by_id(user_a["id"], session_b["id"])
+            still_valid = await repo.get_session_user(session_b["token"])
+            return deleted, still_valid
+
+        deleted, still_valid = asyncio.run(scenario())
+        assert deleted is False
+        assert still_valid is not None
+
+
 class TestPasswordHashingStandard:
     """Checked against OWASP's Password Storage Cheat Sheet
     (cheatsheetseries.owasp.org): PBKDF2-HMAC-SHA256 at 600,000

@@ -647,6 +647,11 @@ details.mi>summary::marker{display:none}
         <button class="btn-sm" style="margin-top:8px" onclick="discoverTelegramChatId()">🔍 Descobrir automaticamente</button>
         <div id="office-notify-discover-result" style="margin-top:8px"></div>
       </div>
+      <div class="card" id="sessions-card">
+        <div class="ch"><span class="ct">Sessões ativas</span><span class="ci">💻</span></div>
+        <div style="font-size:12px;color:var(--text2);padding:0 2px 8px">Todos os dispositivos/navegadores onde sua conta está logada agora. Encerra qualquer um que você não reconhecer.</div>
+        <div id="sessions-list"><div class="sk" style="height:52px"></div></div>
+      </div>
       <div class="card" id="sys-storage-card">
         <div class="ch"><span class="ct">Armazenamento</span><span class="ci">💾</span></div>
         <div class="sk"></div>
@@ -884,7 +889,7 @@ function pg(name,btn){
   const sbBtn=document.getElementById('sb-'+name);
   if(sbBtn) sbBtn.classList.add('active');
   if(name==='home') loadDashboardOverview();
-  if(name==='admin'){loadSys();loadOfficeNotifications();}
+  if(name==='admin'){loadSys();loadOfficeNotifications();loadSessions();}
   if(name==='portfolio'){loadPortfolio();loadComplianceAlerts();loadReferencePortfolio();}
   if(name==='notes') loadNotes();
   if(name==='news') loadNews();
@@ -1307,6 +1312,69 @@ async function discoverTelegramChatId(){
     }
   }catch(e){
     box.innerHTML='<div class="empty" style="font-size:12px">Erro ao buscar.</div>';
+  }
+}
+
+function timeAgo(unixSeconds){
+  const diff=Date.now()/1000-unixSeconds;
+  if(diff<60) return 'agora mesmo';
+  if(diff<3600) return `há ${Math.floor(diff/60)} min`;
+  if(diff<86400) return `há ${Math.floor(diff/3600)}h`;
+  return `há ${Math.floor(diff/86400)}d`;
+}
+
+function deviceLabel(userAgent){
+  if(!userAgent) return 'Dispositivo desconhecido';
+  if(/Android/i.test(userAgent)) return 'Android';
+  if(/iPhone|iPad/i.test(userAgent)) return 'iPhone/iPad';
+  if(/Windows/i.test(userAgent)) return 'Windows';
+  if(/Macintosh/i.test(userAgent)) return 'Mac';
+  if(/Linux/i.test(userAgent)) return 'Linux';
+  return userAgent.length>40?userAgent.slice(0,40)+'…':userAgent;
+}
+
+function deviceIcon(userAgent){
+  if(userAgent && /Android|iPhone/i.test(userAgent)) return '📱';
+  if(userAgent && /iPad/i.test(userAgent)) return '📱';
+  return '💻';
+}
+
+async function loadSessions(){
+  const box=document.getElementById('sessions-list');
+  try{
+    const r=await api('/api/auth/sessions');
+    if(!r.sessions.length){box.innerHTML='<div class="empty">Nenhuma sessão ativa.</div>';return;}
+    box.innerHTML='';
+    for(const s of r.sessions){
+      const el=document.createElement('div');
+      el.style.cssText='display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:10px;margin-bottom:6px'+(s.current?';border-color:var(--green)':'');
+      el.innerHTML=`<div style="display:flex;gap:10px;align-items:center;min-width:0">
+          <span style="font-size:20px">${deviceIcon(s.user_agent)}</span>
+          <div style="min-width:0">
+            <div style="font-size:13px;font-weight:600">${escapeHtml(deviceLabel(s.user_agent))}${s.ip_address?` <span style="font-weight:400;color:var(--text2)">· ${escapeHtml(s.ip_address)}</span>`:''}</div>
+            <div style="font-size:11px;color:var(--text2)">Entrou ${timeAgo(s.created_at)}</div>
+          </div>
+        </div>`+
+        (s.current
+          ? `<span class="tag tg" style="white-space:nowrap">Sessão atual</span>`
+          : `<button class="btn-sm" data-session-id="${s.id}" style="white-space:nowrap">Encerrar</button>`);
+      if(!s.current){
+        el.querySelector('button').onclick=()=>revokeSession(s.id);
+      }
+      box.appendChild(el);
+    }
+  }catch(e){
+    box.innerHTML='<div class="empty">Erro ao carregar sessões.</div>';
+  }
+}
+
+async function revokeSession(sessionId){
+  try{
+    await api(`/api/auth/sessions/${sessionId}`,{method:'DELETE'});
+    toast('Sessão encerrada.');
+    loadSessions();
+  }catch(e){
+    toast('Erro ao encerrar sessão.');
   }
 }
 
