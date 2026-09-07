@@ -191,6 +191,44 @@ class TestAskSkipsUnreachableEndpoints:
         mocked_http.assert_not_called()
 
 
+class TestAskRateLimit:
+    """/api/ask chains into Ollama/OpenAI-compat/DeepSeek per question --
+    the single most CPU/network-heavy endpoint in the app -- and had no
+    rate limiting at all, unlike /api/auth/login's OWASP-style throttle."""
+
+    def setup_method(self):
+        from runtime.rate_limit import reset_rate_limit
+        reset_rate_limit()
+
+    def test_429_after_the_limit_is_exceeded(self):
+        from tests._auth_helper import signup_office
+        c = _client()
+        headers = signup_office(c)["headers"]
+
+        with patch("api.dashboard_routes._tcp_reachable", return_value=False), \
+             patch("agents.runner.AgentRunner.run", side_effect=RuntimeError("no ask agent available")):
+            for _ in range(20):
+                r = c.post("/api/ask", json={"question": "oi"}, headers=headers)
+                assert r.status_code == 200
+            blocked = c.post("/api/ask", json={"question": "oi"}, headers=headers)
+        assert blocked.status_code == 429
+
+    def test_different_offices_have_independent_budgets(self):
+        from tests._auth_helper import signup_office
+        c = _client()
+        headers_a = signup_office(c)["headers"]
+        headers_b = signup_office(c, "Outro Escritório")["headers"]
+
+        with patch("api.dashboard_routes._tcp_reachable", return_value=False), \
+             patch("agents.runner.AgentRunner.run", side_effect=RuntimeError("no ask agent available")):
+            for _ in range(20):
+                c.post("/api/ask", json={"question": "oi"}, headers=headers_a)
+            exhausted_a = c.post("/api/ask", json={"question": "oi"}, headers=headers_a)
+            still_ok_b = c.post("/api/ask", json={"question": "oi"}, headers=headers_b)
+        assert exhausted_a.status_code == 429
+        assert still_ok_b.status_code == 200
+
+
 class TestAskDeepSeekFallback:
     """The interactive Chat IA hits this hand-rolled /api/ask handler, not
     service.py's Router-based ask() -- so it needed its own explicit

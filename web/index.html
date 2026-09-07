@@ -304,6 +304,8 @@ details.mi>summary::marker{display:none}
   .dw-topright{display:flex;align-items:center;gap:16px;font-size:12px;color:var(--text2);white-space:nowrap}
   .dw-bell{position:relative;cursor:pointer;font-size:16px}
   .dw-bell .dot{position:absolute;top:-2px;right:-2px;width:7px;height:7px;border-radius:50%;background:var(--red)}
+  .dw-dropdown{position:absolute;top:26px;right:0;width:260px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px;box-shadow:0 8px 24px rgba(0,0,0,.3);z-index:250;cursor:default}
+  .dw-dropdown-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text2);margin-bottom:8px}
   .dw-avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff}
 
   .dw-wrap{max-width:100%;padding:22px 24px;flex:1}
@@ -436,8 +438,21 @@ details.mi>summary::marker{display:none}
     <div class="dw-topright">
       <span id="dw-datetime">—</span>
       <button class="dw-theme-toggle" id="dw-theme-toggle" onclick="toggleDesktopTheme()" title="Alternar tema claro/escuro">🌙</button>
-      <span class="dw-bell">🔔<span class="dot" id="dw-alert-dot" style="display:none"></span></span>
-      <div class="dw-avatar" id="dw-topbar-avatar" onclick="if(confirm('Sair da conta?'))logoutFlowCore()" style="cursor:pointer" title="Sair">—</div>
+      <span class="dw-bell" onclick="toggleNotifPanel()">🔔<span class="dot" id="dw-alert-dot" style="display:none"></span>
+        <div id="notif-panel" class="dw-dropdown" style="display:none" onclick="event.stopPropagation()">
+          <div class="dw-dropdown-title">Alertas críticos</div>
+          <div id="notif-panel-body"><div class="empty" style="font-size:12px">Nenhum alerta crítico agora.</div></div>
+        </div>
+      </span>
+      <div class="dw-avatar" id="dw-topbar-avatar" onclick="openProfileModal()" style="cursor:pointer" title="Meu perfil">—</div>
+    </div>
+  </div>
+
+  <div id="profile-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;align-items:center;justify-content:center;padding:16px">
+    <div class="card" style="max-width:340px;width:100%">
+      <div class="ch"><span class="ct">Meu perfil</span><span class="ci" style="cursor:pointer" onclick="closeProfileModal()">✕</span></div>
+      <div id="profile-modal-body"><div class="sk" style="height:52px"></div></div>
+      <button class="btn br" style="width:100%;margin-top:10px" onclick="if(confirm('Sair da conta?'))logoutFlowCore()">Sair da conta</button>
     </div>
   </div>
 
@@ -607,6 +622,27 @@ details.mi>summary::marker{display:none}
 
   <!-- ══ PORTFOLIO ══ -->
   <div class="page" id="page-portfolio"><div class="gap">
+    <!-- Real, advisor-entered clients -->
+    <div class="card" id="clients-card">
+      <div class="ch"><span class="ct">Clientes</span><button class="btn-sm" onclick="toggleAddClientForm()">+ Adicionar cliente</button></div>
+      <div id="add-client-form" style="display:none;margin-bottom:10px">
+        <div class="ai-cfg-row"><input class="if" id="new-client-name" placeholder="Nome do cliente *"></div>
+        <div class="ai-cfg-row">
+          <select class="if" id="new-client-profile">
+            <option value="">Perfil (opcional)</option>
+            <option value="conservador">Conservador</option>
+            <option value="moderado">Moderado</option>
+            <option value="arrojado">Arrojado</option>
+            <option value="agressivo">Agressivo</option>
+          </select>
+        </div>
+        <div class="ai-cfg-row"><input class="if" id="new-client-value" type="number" placeholder="Valor de referência (R$, opcional)"></div>
+        <div class="ai-cfg-row"><input class="if" id="new-client-email" placeholder="E-mail (opcional)"></div>
+        <div class="ai-cfg-row"><input class="if" id="new-client-phone" placeholder="Telefone/WhatsApp (opcional)"></div>
+        <div class="btns" style="margin-top:0"><button class="btn bg" onclick="createClient()">✓ Cadastrar</button><button class="btn-sm" onclick="toggleAddClientForm()">Cancelar</button></div>
+      </div>
+      <div id="clients-list"><div class="sk" style="height:52px"></div></div>
+    </div>
     <div class="card"><div class="ch"><span class="ct">Carteira moderada</span><span class="tag tp">R$ 1.000.000</span></div><div id="portfolio-summary"><div class="sk"></div><div class="sk"></div></div></div>
     <div class="card"><div class="ch"><span class="ct">Alocação por classe</span><span class="ci">◒</span></div><div id="portfolio-exposure"><div class="sk"></div></div></div>
     <div class="card"><div class="ch"><span class="ct">Revisão diária</span><button class="btn-sm" onclick="loadPortfolio(true)">↻ Revisar</button></div><div id="portfolio-review"><div class="empty">A revisão é informacional e não executa ordens.</div></div></div>
@@ -723,6 +759,7 @@ details.mi>summary::marker{display:none}
       <div class="card">
         <div class="ch"><span class="ct">Assistente</span><button class="btn-sm" onclick="toggleAiCfg()">⚙ Config</button></div>
         <div class="chat-provider" id="chat-provider-info">Verificando provider…</div>
+        <div id="chat-offline-banner" style="display:none"></div>
         <div id="ai-cfg-box" style="display:none;margin-top:8px">
           <div class="sr-title" style="margin-bottom:6px">Principal (PC)</div>
           <div class="ai-cfg-row"><input class="if" id="ai-ollama-url" placeholder="URL do Ollama no PC (ex: http://192.168.1.50:11434)"></div>
@@ -922,10 +959,10 @@ function pg(name,btn){
   if(sbBtn) sbBtn.classList.add('active');
   if(name==='home') loadDashboardOverview();
   if(name==='admin'){loadSys();loadOfficeNotifications();loadSessions();}
-  if(name==='portfolio'){loadPortfolio();loadComplianceAlerts();loadReferencePortfolio();}
+  if(name==='portfolio'){loadPortfolio();loadComplianceAlerts();loadReferencePortfolio();loadClients();}
   if(name==='notes') loadNotes();
   if(name==='news'){loadNews();loadMarketSources();loadNwMarket();}
-  if(name==='chat') loadAiConfig();
+  if(name==='chat'){loadAiConfig();checkChatOfflineBanner();}
   if(name==='agents'){loadAgents();loadFlows();loadAgentsObservability();}
   closeMoreMenu();
 }
@@ -1200,6 +1237,69 @@ function renderStatus(s){
   if(!chks.length && !s.doctor_summary) cl.innerHTML='<div class="empty">Doctor não disponível</div>';
 }
 
+/* ── Clients (real, advisor-entered) ── */
+function toggleAddClientForm(){
+  const box=document.getElementById('add-client-form');
+  box.style.display=box.style.display==='none'?'block':'none';
+}
+
+async function loadClients(){
+  const box=document.getElementById('clients-list');
+  try{
+    const r=await api('/api/clients/demo');
+    renderClientsList(r.clients||[]);
+  }catch(e){
+    box.innerHTML='<div class="empty">Não foi possível carregar os clientes.</div>';
+  }
+}
+
+function renderClientsList(clients){
+  const box=document.getElementById('clients-list');
+  if(!clients.length){
+    box.innerHTML='<div class="empty">Nenhum cliente cadastrado ainda. Use "+ Adicionar cliente" para começar.</div>';
+    return;
+  }
+  box.innerHTML='';
+  for(const c of clients){
+    const nameAttr=escapeHtml(c.name).replace(/'/g,"&#39;");
+    const el=document.createElement('div');
+    el.className='row';
+    el.style.cursor='pointer';
+    el.onclick=()=>openClient360(c.id, c.name);
+    const demoTag=c.is_demo?' <span class="tag ty" style="font-size:9px">fictício</span>':'';
+    const value=c.reference_value?`R$ ${Number(c.reference_value).toLocaleString('pt-BR')}`:'—';
+    el.innerHTML=`<span class="rl">${escapeHtml(c.name)}${demoTag}</span><span class="rv" style="color:var(--text2)">${escapeHtml(c.profile||'—')} · ${value}</span>`;
+    box.appendChild(el);
+  }
+}
+
+async function createClient(){
+  const name=document.getElementById('new-client-name').value.trim();
+  if(!name){toast('Nome é obrigatório.');return;}
+  const valueRaw=document.getElementById('new-client-value').value.trim();
+  const payload={
+    name,
+    profile: document.getElementById('new-client-profile').value,
+    reference_value: valueRaw?Number(valueRaw):null,
+    email: document.getElementById('new-client-email').value.trim(),
+    phone: document.getElementById('new-client-phone').value.trim(),
+  };
+  try{
+    await api('/api/clients',{method:'POST',body:JSON.stringify(payload)});
+    toast('Cliente cadastrado.');
+    document.getElementById('new-client-name').value='';
+    document.getElementById('new-client-value').value='';
+    document.getElementById('new-client-email').value='';
+    document.getElementById('new-client-phone').value='';
+    document.getElementById('new-client-profile').value='';
+    toggleAddClientForm();
+    loadClients();
+    loadComplianceAlerts();
+  }catch(e){
+    toast('Erro ao cadastrar: '+e.message);
+  }
+}
+
 /* ── Portfolio ── */
 async function loadPortfolio(){
   try{
@@ -1255,6 +1355,27 @@ async function loadAiConfig(){
     document.getElementById('chat-provider-info').textContent=label;
   }catch(e){
     document.getElementById('chat-provider-info').textContent='Não foi possível ler a config de IA.';
+  }
+}
+
+async function checkChatOfflineBanner(){
+  const banner=document.getElementById('chat-offline-banner');
+  try{
+    const s=await api('/api/ai-runtime/status');
+    const pcDown=s.pc && s.pc.configured && !s.pc.reachable;
+    const celularConfiguredAndDown=s.celular && s.celular.configured && !s.celular.reachable;
+    const celularUnconfigured=!s.celular || !s.celular.configured;
+    if(pcDown && (celularUnconfigured || celularConfiguredAndDown)){
+      banner.style.display='block';
+      banner.innerHTML='<div class="tag tr" style="font-size:11px;padding:8px;display:block;margin-top:6px">'
+        +'⚠️ Ollama local offline — as perguntas vão cair no DeepSeek (nuvem) automaticamente. '
+        +'<span style="text-decoration:underline;cursor:pointer" onclick="toggleAiCfg()">Configurar backup local</span>'
+        +'</div>';
+    }else{
+      banner.style.display='none';
+    }
+  }catch(e){
+    banner.style.display='none';
   }
 }
 async function saveAiConfig(){
@@ -1889,6 +2010,7 @@ function loadDashboardOverview(){
     document.getElementById('kpi-healthy').textContent=(alerts.portfolios||[]).filter(p=>p.status==='NORMAL').length;
     document.getElementById('kpi-clients').textContent=(alerts.portfolios||[]).length;
     renderDwAlertsTable(alerts);
+    renderNotifPanel(alerts);
     const dot=document.getElementById('dw-alert-dot');
     if(dot) dot.style.display=alerts.critical>0?'block':'none';
   }).catch(()=>{
@@ -2185,6 +2307,49 @@ function renderDwEventList(boxId, intel, status, emptyMsg){
     html+=`<div class="mini-list-item"><div><b>${escapeHtml(e.reason)}</b>${portfolios?`<span>${escapeHtml(portfolios)}</span>`:''}</div></div>`;
   }
   box.innerHTML=html;
+}
+
+function toggleNotifPanel(){
+  const panel=document.getElementById('notif-panel');
+  panel.style.display=panel.style.display==='none'?'block':'none';
+}
+
+function renderNotifPanel(alerts){
+  const body=document.getElementById('notif-panel-body');
+  const critical=((alerts&&alerts.items)||[]).filter(it=>it.severity==='CRITICAL');
+  if(!critical.length){
+    body.innerHTML='<div class="empty" style="font-size:12px">Nenhum alerta crítico agora.</div>';
+    return;
+  }
+  body.innerHTML=critical.map(it=>{
+    const clickable=it.is_client;
+    const nameAttr=escapeHtml(it.client_name).replace(/'/g,"&#39;");
+    const onclick=clickable?`onclick="openClient360('${it.client_id}','${nameAttr}');toggleNotifPanel()"`:'';
+    return `<div class="row" style="padding:6px 0;${clickable?'cursor:pointer':''}" ${onclick}>
+      <span class="rl" style="font-size:12px">🔴 ${escapeHtml(it.client_name)}</span>
+      <span class="rv" style="font-size:11px;color:var(--red)">+${it.diff}p.p.</span>
+    </div>`;
+  }).join('');
+}
+
+async function openProfileModal(){
+  document.getElementById('profile-overlay').style.display='flex';
+  const body=document.getElementById('profile-modal-body');
+  body.innerHTML='<div class="sk" style="height:52px"></div>';
+  try{
+    const [me, advisor]=await Promise.all([api('/api/auth/me'), api('/api/advisor')]);
+    body.innerHTML=`
+      <div class="row"><span class="rl">Nome</span><span class="rv">${escapeHtml(advisor.name||me.name||'—')}</span></div>
+      <div class="row"><span class="rl">Cargo</span><span class="rv">${escapeHtml(advisor.title||'—')}</span></div>
+      <div class="row"><span class="rl">E-mail</span><span class="rv">${escapeHtml(me.email||'—')}</span></div>
+      <div class="row"><span class="rl">Papel</span><span class="rv">${escapeHtml(me.role||'—')}</span></div>`;
+  }catch(e){
+    body.innerHTML='<div class="empty">Não foi possível carregar o perfil.</div>';
+  }
+}
+
+function closeProfileModal(){
+  document.getElementById('profile-overlay').style.display='none';
 }
 
 let _dwRiskProfile='';

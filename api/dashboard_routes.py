@@ -307,6 +307,18 @@ class ReferencePortfolioUpdate(BaseModel):
     current_allocation: dict[str, float] | None = None
 
 
+class ClientCreate(BaseModel):
+    """A real client, entered by the advisor -- never fabricated. Only
+    `name` is required; everything else can be filled in later via the
+    existing per-client update endpoints (allocation, contact)."""
+    name: str
+    profile: str = ""
+    reference_value: float | None = None
+    current_allocation: dict[str, float] = {}
+    email: str | None = None
+    phone: str | None = None
+
+
 class DemoClientUpdate(BaseModel):
     """Partial update for one demo client's position — same partial-merge
     convention as ReferencePortfolioUpdate."""
@@ -593,6 +605,17 @@ def register_dashboard_routes(app, version: str) -> None:
         # could reach the AI provider chain (DeepSeek included) with no
         # session and no cost attribution at all.
         user = await get_current_user(request)
+
+        # /api/auth/login has OWASP-style brute-force throttling
+        # (storage/tenant_repo.py); this endpoint had none at all despite
+        # being the single most CPU/network-heavy one in the app (chains
+        # into Ollama, OpenAI-compat, or DeepSeek per question) -- exposed
+        # publicly (this server runs behind a Cloudflare tunnel), a script
+        # hammering it could peg the phone's CPU. 20 questions/minute per
+        # office is generous for a human typing, not for a loop.
+        from runtime.rate_limit import check_rate_limit
+        if not check_rate_limit(f"ask:{user['office_id']}", max_requests=20, window_seconds=60):
+            raise HTTPException(status_code=429, detail="Muitas perguntas em pouco tempo. Aguarde um momento.")
 
         # Wealth Copilot questions are real-data lookups, not something an
         # LLM should guess at — answer them directly from the relevant
@@ -1274,6 +1297,24 @@ def register_dashboard_routes(app, version: str) -> None:
     # ── Clients — real (or, for the bootstrap office, explicitly-fictitious
     # example) clients (runtime/portfolio/demo_clients.py). Every response
     # carries is_demo per-client so example data is never presented as real.
+
+    @app.post("/api/clients")
+    async def client_create(data: ClientCreate, request: Request):
+        """Register a real client -- previously there was no way to add
+        one at all: every endpoint under /api/clients/demo/* only ever
+        edited a client that already existed (the 27 seeded examples, or
+        the bootstrap office's own). A freshly-signed-up office started
+        with zero clients and no way to add any."""
+        from storage.client_repo import ClientRepository
+
+        if not data.name.strip():
+            raise HTTPException(status_code=422, detail="name is required")
+        user = await get_current_user(request)
+        client = await ClientRepository().create_client(
+            user["office_id"], data.name.strip(), data.profile,
+            data.reference_value, data.current_allocation, data.email, data.phone,
+        )
+        return {"created": True, "client": client}
 
     @app.get("/api/clients/demo")
     async def demo_clients_list(request: Request):

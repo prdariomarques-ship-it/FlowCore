@@ -164,3 +164,79 @@ class TestDemoClientsEndpoints:
         data = resp.json()
         assert data["items"], "expected at least one out-of-band demo client"
         assert all(item["is_client"] is True for item in data["items"])
+
+
+class TestClientCreationEndpoint:
+    """POST /api/clients -- previously there was no way to register a
+    real client at all (see test_freshly_signed_up_office_has_zero_clients
+    above: a fresh office started at zero with no path forward)."""
+
+    def test_requires_auth(self):
+        resp = _client().post("/api/clients", json={"name": "Cliente Teste"})
+        assert resp.status_code == 401
+
+    def test_creates_a_client_with_just_a_name(self):
+        client = _client()
+        session = signup_office(client)
+        resp = client.post("/api/clients", json={"name": "Família Silva"}, headers=session["headers"])
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["created"] is True
+        assert body["client"]["name"] == "Família Silva"
+        assert body["client"]["is_demo"] is False
+
+    def test_empty_name_is_rejected(self):
+        client = _client()
+        session = signup_office(client)
+        resp = client.post("/api/clients", json={"name": "   "}, headers=session["headers"])
+        assert resp.status_code == 422
+
+    def test_missing_name_is_rejected(self):
+        client = _client()
+        session = signup_office(client)
+        resp = client.post("/api/clients", json={}, headers=session["headers"])
+        assert resp.status_code == 422
+
+    def test_created_client_shows_up_in_the_list(self):
+        client = _client()
+        session = signup_office(client)
+        client.post("/api/clients", json={"name": "Cliente Novo"}, headers=session["headers"])
+        resp = client.get("/api/clients/demo", headers=session["headers"])
+        names = [c["name"] for c in resp.json()["clients"]]
+        assert "Cliente Novo" in names
+
+    def test_created_client_can_then_be_edited_via_the_existing_endpoints(self):
+        client = _client()
+        session = signup_office(client)
+        created = client.post("/api/clients", json={"name": "Editável"}, headers=session["headers"]).json()["client"]
+
+        put_resp = client.put(
+            f"/api/clients/demo/{created['id']}",
+            json={"current_allocation": {"br_equity_funds": 20.0}}, headers=session["headers"],
+        )
+        assert put_resp.status_code == 200
+        assert put_resp.json()["client"]["current_allocation"]["br_equity_funds"] == 20.0
+
+    def test_full_payload_with_allocation_and_contact(self):
+        client = _client()
+        session = signup_office(client)
+        resp = client.post("/api/clients", json={
+            "name": "Cliente Completo", "profile": "arrojado", "reference_value": 750000.0,
+            "current_allocation": {"global_equity": 40.0}, "email": "c@example.com", "phone": "+5511988887777",
+        }, headers=session["headers"])
+        assert resp.status_code == 200
+        c = resp.json()["client"]
+        assert c["profile"] == "arrojado"
+        assert c["reference_value"] == 750000.0
+        assert c["current_allocation"] == {"global_equity": 40.0}
+        assert c["email"] == "c@example.com"
+        assert c["phone"] == "+5511988887777"
+
+    def test_client_created_in_one_office_is_invisible_to_another(self):
+        client = _client()
+        session_a = signup_office(client)
+        session_b = signup_office(client, "Outro Escritório")
+        client.post("/api/clients", json={"name": "Só do Escritório A"}, headers=session_a["headers"])
+
+        resp_b = client.get("/api/clients/demo", headers=session_b["headers"])
+        assert resp_b.json()["clients"] == []

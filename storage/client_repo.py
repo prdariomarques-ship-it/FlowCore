@@ -32,6 +32,7 @@ Two tables:
 from __future__ import annotations
 
 import json
+import secrets
 import time
 from pathlib import Path
 from typing import Any
@@ -223,6 +224,31 @@ class ClientRepository:
             )
             row = await cursor.fetchone()
             return self._row_to_client(row) if row else None
+
+    async def create_client(
+        self, office_id: str, name: str, profile: str = "",
+        reference_value: float | None = None, current_allocation: dict[str, float] | None = None,
+        email: str | None = None, phone: str | None = None,
+    ) -> dict[str, Any]:
+        """A real, advisor-entered client -- is_demo=0 and
+        original_allocation_json=NULL (there is no fabricated "original"
+        state to revert to, unlike the 27 seeded example clients: see
+        reset_demo_clients()'s own docstring for why that's a no-op for
+        a client with no known original position)."""
+        await self.ensure_tables()
+        client_id = f"client-{secrets.token_hex(8)}"
+        now = time.time()
+        allocation = json.dumps(current_allocation or {}, ensure_ascii=False)
+        async with aiosqlite.connect(self._db_path) as db:
+            await db.execute(
+                """INSERT INTO clients
+                   (id, office_id, name, profile, reference_value, current_allocation_json,
+                    original_allocation_json, is_demo, created_at, updated_at, email, phone)
+                   VALUES (?, ?, ?, ?, ?, ?, NULL, 0, ?, ?, ?, ?)""",
+                (client_id, office_id, name, profile, reference_value, allocation, now, now, email, phone),
+            )
+            await db.commit()
+        return await self.get_client(office_id, client_id)
 
     async def save_client_allocation(self, office_id: str, client_id: str, current_allocation: dict[str, float]) -> dict[str, Any]:
         """Merge `current_allocation` onto one client's position. Scoped by

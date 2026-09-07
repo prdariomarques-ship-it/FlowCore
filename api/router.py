@@ -75,7 +75,7 @@ import time
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from loguru import logger
 from pydantic import BaseModel
@@ -444,7 +444,16 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             raise HTTPException(status_code=500, detail=str(e))
 
     @app.post("/api/agent/run", status_code=202)
-    async def run_agent(agent_name: str = Query(...), context: dict | None = None):
+    async def run_agent(request: Request, agent_name: str = Query(...), context: dict | None = None):
+        # This endpoint has no per-office auth (it predates multi-tenancy
+        # -- passport-gated, not bearer-token-gated) and can trigger any
+        # registered agent, several of which do real network/CPU work
+        # (market data fetches, LLM calls). Rate-limited by client IP
+        # since that's the only identity available here.
+        from runtime.rate_limit import check_rate_limit
+        client_ip = request.client.host if request.client else "unknown"
+        if not check_rate_limit(f"agent-run:{client_ip}", max_requests=10, window_seconds=60):
+            raise HTTPException(status_code=429, detail="Muitas execuções em pouco tempo. Aguarde um momento.")
         try:
             from agents.runner import AgentRunner
             runner = AgentRunner()

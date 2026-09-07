@@ -158,6 +158,15 @@ class TestWebUI:
 
 
 class TestAgentEndpoints:
+    def setup_method(self):
+        # /api/agent/run is now rate-limited by client IP (runtime/rate_
+        # limit.py) -- FastAPI's TestClient reports a constant IP for
+        # every request, so without resetting between tests this class's
+        # own four calls would (harmlessly, but flakily) share one budget
+        # with every other test file that happens to hit this endpoint.
+        from runtime.rate_limit import reset_rate_limit
+        reset_rate_limit()
+
     def test_list_agents(self):
         r = _client().get("/api/agent/agents")
         assert r.status_code == 200
@@ -196,6 +205,25 @@ class TestAgentEndpoints:
         r = c.get(f"/api/agent/tasks/{task_id}")
         # May be 200 if the store path is accessible, or 404 in isolated env
         assert r.status_code in (200, 404)
+
+
+class TestAgentRunRateLimit:
+    """/api/agent/run predates multi-tenancy (passport-gated, not bearer-
+    token-gated) and can trigger any registered agent -- several do real
+    network/CPU work. It had no rate limiting at all despite being
+    reachable over this server's public Cloudflare tunnel."""
+
+    def setup_method(self):
+        from runtime.rate_limit import reset_rate_limit
+        reset_rate_limit()
+
+    def test_429_after_the_limit_is_exceeded(self):
+        c = _client()
+        for _ in range(10):
+            r = c.post("/api/agent/run?agent_name=health", json={})
+            assert r.status_code == 202
+        blocked = c.post("/api/agent/run?agent_name=health", json={})
+        assert blocked.status_code == 429
 
     def test_get_task_404(self):
         r = _client().get("/api/agent/tasks/nonexistent_id_xyz")

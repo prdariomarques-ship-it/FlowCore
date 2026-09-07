@@ -128,11 +128,15 @@ class TestFetchQuoteTimeoutBudget:
     """Regression guard: the original timeout=2.5/retries=0 was far
     tighter than yfinance_provider's own tuned defaults, and starved
     every quote on a real mobile network (Termux) -- see watchlist.py's
-    fetch_item() for the full story. Índices/Commodities came back
-    completely empty while Câmbio (PTAX) and Juros (DI Jan MOCK row)
-    only looked fine."""
+    fetch_item() for the full story. A later attempt at timeout=6.0/
+    retries=1 with 16 concurrent workers *still* timed out on a real
+    device (confirmed via the error field this same fase added) --
+    likely from oversubscribing a constrained mobile connection with too
+    many simultaneous sockets, not the per-call budget itself. Falls
+    back fully to fetch_quote()'s own tuned defaults with less
+    parallelism instead of a second guessed timeout value."""
 
-    def test_fetch_quote_called_with_a_mobile_realistic_budget(self):
+    def test_fetch_quote_called_with_its_own_default_budget(self):
         with patch(
             "runtime.market_intelligence.watchlist.fetch_quote",
             return_value={"symbol": "^BVSP", "price": 100.0, "previous_close": 99.0},
@@ -142,5 +146,7 @@ class TestFetchQuoteTimeoutBudget:
             snapshot("brasil")
 
         for call in mocked_fetch.call_args_list:
-            assert call.kwargs.get("timeout") == 6.0
-            assert call.kwargs.get("retries") == 1
+            # No timeout/retries override -- fetch_quote()'s own defaults
+            # (timeout=10.0, retries=2) apply.
+            assert call.kwargs == {}
+            assert call.args == (call.args[0],)
