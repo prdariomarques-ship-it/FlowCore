@@ -1603,7 +1603,9 @@ async function loadAgentsObservability(){
     const u=d.llm_usage||{};
     const t=u.today||{},w=u.last_7d||{},m=u.last_30d||{};
     document.getElementById('aobs-llm-cost').innerHTML=
-      `Hoje: ${t.total_calls||0} chamada${(t.total_calls||0)===1?'':'s'} (${t.failed_calls||0} falha${(t.failed_calls||0)===1?'':'s'}) · 7 dias: ${w.total_calls||0} · 30 dias: ${m.total_calls||0}`;
+      `Hoje: ${t.total_calls||0} chamada${(t.total_calls||0)===1?'':'s'} (${t.failed_calls||0} falha${(t.failed_calls||0)===1?'':'s'}, ${(t.total_tokens||0).toLocaleString('pt-BR')} tokens) · `+
+      `7 dias: ${w.total_calls||0} (${(w.total_tokens||0).toLocaleString('pt-BR')} tokens) · `+
+      `30 dias: ${m.total_calls||0} (${(m.total_tokens||0).toLocaleString('pt-BR')} tokens)`;
 
     const feed=document.getElementById('aobs-activity');
     const items=d.recent_activity||[];
@@ -1614,8 +1616,14 @@ async function loadAgentsObservability(){
       el.style.cssText='padding:8px 0;border-bottom:1px solid var(--border);font-size:12px';
       const when=ev.created_at?new Date(ev.created_at*1000).toLocaleString('pt-BR'):'—';
       const msg=(ev.payload&&ev.payload.message)||'';
+      // Honest provenance instead of a fabricated confidence score: which
+      // path actually produced the decision text (agents/orchestrator.py
+      // always records this, real LLM call vs. deterministic template).
+      const src=ev.decision&&ev.decision.reasoning_source;
+      const srcTag=src==='llm' ? '<span class="tag tg" style="font-size:9px">🤖 IA</span>'
+        : src==='template_fallback' ? '<span class="tag ty" style="font-size:9px">📋 modelo padrão</span>' : '';
       el.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px"><b>${ev.type}</b><span style="color:var(--text2);white-space:nowrap">${when}</span></div>`+
-        `<div style="color:var(--text2)">${msg?msg+' · ':''}status: ${ev.status}</div>`;
+        `<div style="color:var(--text2)">${msg?msg+' · ':''}status: ${ev.status}${srcTag?' · '+srcTag:''}</div>`;
       feed.appendChild(el);
     }
   }catch(e){

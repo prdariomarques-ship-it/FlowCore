@@ -18,12 +18,25 @@ the event loop. Same database file as every other repository
 sync/aiosqlite access safely for this low-frequency, single-row-insert
 workload.
 
-Deliberately NOT office-scoped yet: the LLM Router (service.py's
-_llm_router) is one process-wide instance shared by every office on this
-install, the same way runtime/telegram.py's TELEGRAM_BOT_TOKEN is one
-shared bot. Threading office_id through LLMRequest/LLMResponse/MetricsSink
-would be a real, separate change -- not invented here just to make this
-table look more complete than the call chain actually supports today.
+The LLM Router (service.py's _llm_router) is still one process-wide
+instance shared by every office on this install -- but callers that know
+which office a call is for (agents/orchestrator.py's autonomous
+reasoning) now thread office_id through LLMRequest.metadata, so calls
+made on an office's behalf are attributed to it here; a call with no
+office_id in context (e.g. the interactive /api/ask chat) is recorded
+with office_id=NULL and only shows up in the global summary, never
+double-counted into an office's view.
+
+tokens comes straight from each provider's own API response (e.g.
+DeepSeek's `usage.total_tokens`) -- real, not estimated, despite
+LLMResponse's `tokens_estimated` field name (kept for backward
+compatibility; every current provider populates it with an exact count
+or leaves it None, never a guess). Deliberately no cost-in-dollars field:
+provider pricing changes over time and this codebase has no verified,
+current price table -- inventing one would mean showing a wrong-looking
+dollar figure as if authoritative, exactly what this project's own
+"never fabricate" rule (see agents/orchestrator.py's docstring) exists
+to prevent. Token counts are real and auditable on their own.
 """
 
 from __future__ import annotations
@@ -60,44 +73,63 @@ class LLMCallRepository:
                 )
             """)
             db.execute("CREATE INDEX IF NOT EXISTS idx_llm_calls_created ON llm_calls(created_at)")
+            self._ensure_attribution_columns(db)
             db.commit()
+
+    @staticmethod
+    def _ensure_attribution_columns(db: sqlite3.Connection) -> None:
+        """tokens/office_id added after the initial `llm_calls` table
+        shipped -- migrate in place, same convention as
+        storage/tenant_repo.py's _ensure_session_columns. Existing rows
+        get NULL for both, which is honest: FlowCore genuinely didn't
+        record a token count or an office attribution for calls made
+        before this migration, not zero."""
+        existing = {row[1] for row in db.execute("PRAGMA table_info(llm_calls)").fetchall()}
+        if "tokens" not in existing:
+            db.execute("ALTER TABLE llm_calls ADD COLUMN tokens INTEGER")
+        if "office_id" not in existing:
+            db.execute("ALTER TABLE llm_calls ADD COLUMN office_id TEXT")
 
     def record_call(
         self, provider: str, model: str, latency_ms: float, success: bool, error: str | None,
-        purpose: str | None = None,
+        purpose: str | None = None, tokens: int | None = None, office_id: str | None = None,
     ) -> None:
         self.ensure_tables()
         with sqlite3.connect(self._db_path, timeout=5) as db:
             db.execute(
-                "INSERT INTO llm_calls (provider, model, purpose, latency_ms, success, error, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (provider, model, purpose, latency_ms, int(success), error, time.time()),
+                "INSERT INTO llm_calls (provider, model, purpose, latency_ms, success, error, created_at, tokens, office_id) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (provider, model, purpose, latency_ms, int(success), error, time.time(), tokens, office_id),
             )
             db.commit()
 
-    def summary(self, since_seconds: float) -> dict[str, Any]:
+    def summary(self, since_seconds: float, office_id: str | None = None) -> dict[str, Any]:
         """Aggregate stats for calls in the last `since_seconds` -- total
-        calls, success/failure split, avg latency, and a breakdown by
-        provider and by purpose. Used for the "Hoje / 7 dias / 30 dias"
-        views (§19)."""
+        calls, success/failure split, avg latency, total tokens, and a
+        breakdown by provider and by purpose. Used for the "Hoje / 7 dias
+        / 30 dias" views (§19). `office_id` scopes to calls attributed to
+        that office; omit for the install-wide total (includes calls with
+        no office attribution, e.g. the interactive chat)."""
         self.ensure_tables()
         cutoff = time.time() - since_seconds
+        office_clause = " AND office_id = ?" if office_id is not None else ""
+        params: tuple = (cutoff, office_id) if office_id is not None else (cutoff,)
         with sqlite3.connect(self._db_path, timeout=5) as db:
             db.row_factory = sqlite3.Row
             total_row = db.execute(
-                "SELECT COUNT(*) AS n, SUM(success) AS ok, AVG(latency_ms) AS avg_latency "
-                "FROM llm_calls WHERE created_at >= ?",
-                (cutoff,),
+                "SELECT COUNT(*) AS n, SUM(success) AS ok, AVG(latency_ms) AS avg_latency, SUM(tokens) AS total_tokens "
+                f"FROM llm_calls WHERE created_at >= ?{office_clause}",
+                params,
             ).fetchone()
             by_provider = db.execute(
-                "SELECT provider, COUNT(*) AS n, SUM(success) AS ok, AVG(latency_ms) AS avg_latency "
-                "FROM llm_calls WHERE created_at >= ? GROUP BY provider",
-                (cutoff,),
+                "SELECT provider, COUNT(*) AS n, SUM(success) AS ok, AVG(latency_ms) AS avg_latency, SUM(tokens) AS total_tokens "
+                f"FROM llm_calls WHERE created_at >= ?{office_clause} GROUP BY provider",
+                params,
             ).fetchall()
             by_purpose = db.execute(
                 "SELECT COALESCE(purpose, 'unknown') AS purpose, COUNT(*) AS n "
-                "FROM llm_calls WHERE created_at >= ? GROUP BY purpose",
-                (cutoff,),
+                f"FROM llm_calls WHERE created_at >= ?{office_clause} GROUP BY purpose",
+                params,
             ).fetchall()
 
         total = total_row["n"] or 0
@@ -106,18 +138,27 @@ class LLMCallRepository:
             "successful_calls": total_row["ok"] or 0,
             "failed_calls": total - (total_row["ok"] or 0),
             "avg_latency_ms": total_row["avg_latency"],
+            "total_tokens": total_row["total_tokens"] or 0,
             "by_provider": [
-                {"provider": r["provider"], "calls": r["n"], "successes": r["ok"], "avg_latency_ms": r["avg_latency"]}
+                {
+                    "provider": r["provider"], "calls": r["n"], "successes": r["ok"],
+                    "avg_latency_ms": r["avg_latency"], "total_tokens": r["total_tokens"] or 0,
+                }
                 for r in by_provider
             ],
             "by_purpose": [{"purpose": r["purpose"], "calls": r["n"]} for r in by_purpose],
         }
 
-    def recent_calls(self, limit: int = 50) -> list[dict[str, Any]]:
+    def recent_calls(self, limit: int = 50, office_id: str | None = None) -> list[dict[str, Any]]:
         self.ensure_tables()
+        query = "SELECT * FROM llm_calls"
+        params: tuple = ()
+        if office_id is not None:
+            query += " WHERE office_id = ?"
+            params = (office_id,)
+        query += " ORDER BY created_at DESC LIMIT ?"
+        params = (*params, limit)
         with sqlite3.connect(self._db_path, timeout=5) as db:
             db.row_factory = sqlite3.Row
-            rows = db.execute(
-                "SELECT * FROM llm_calls ORDER BY created_at DESC LIMIT ?", (limit,),
-            ).fetchall()
+            rows = db.execute(query, params).fetchall()
         return [dict(r) for r in rows]

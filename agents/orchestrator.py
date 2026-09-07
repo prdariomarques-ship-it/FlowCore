@@ -92,7 +92,7 @@ class CoreOrchestrator:
         client = await ClientRepository().get_client(office_id, client_id)
         office = await TenantRepository().get_office(office_id)
 
-        reasoning, reasoning_source = await self._reason_violation(client, event, office)
+        reasoning, reasoning_source = await self._reason_violation(client, event, office, office_id)
         emoji = "🔴" if event.get("priority") in ("CRITICAL", "HIGH") else "🟡"
         client_name = client["name"] if client else client_id
         notification = await self._send_telegram(office, f"{emoji} {client_name}\n\n{reasoning}")
@@ -155,7 +155,7 @@ class CoreOrchestrator:
             {"client_id": client_id, "client_name": client["name"], "draft": draft, "channels": ["email", "whatsapp"]},
         )
 
-        reasoning, reasoning_source = await self._reason_followup(client, event, office)
+        reasoning, reasoning_source = await self._reason_followup(client, event, office, office_id)
         notification = await self._send_telegram(
             office,
             f"🟠 {client['name']} precisa de aprovação\n\n{reasoning}\n\n"
@@ -172,6 +172,7 @@ class CoreOrchestrator:
 
     async def _reason_violation(
         self, client: dict[str, Any] | None, event: dict[str, Any], office: dict[str, Any] | None,
+        office_id: str,
     ) -> tuple[str, str]:
         message = event["payload"].get("message", "")
         client_name = client["name"] if client else event["entity"].get("id", "cliente")
@@ -184,10 +185,11 @@ class CoreOrchestrator:
             "foram informados."
         )
         fallback = f"{client_name}: {message} Recomenda-se revisar a carteira com o cliente e avaliar reequilíbrio."
-        return await self._call_llm(prompt, fallback)
+        return await self._call_llm(prompt, fallback, office_id)
 
     async def _reason_followup(
         self, client: dict[str, Any], event: dict[str, Any], office: dict[str, Any] | None,
+        office_id: str,
     ) -> tuple[str, str]:
         days_open = event["payload"].get("days_open")
         days_text = f"há {days_open} dia(s)" if days_open is not None else "há um tempo"
@@ -201,14 +203,17 @@ class CoreOrchestrator:
             f"{client['name']} está com uma violação em aberto {days_text} sem contato registrado. "
             "Rascunho de mensagem de revisão pronto para aprovação."
         )
-        return await self._call_llm(prompt, fallback)
+        return await self._call_llm(prompt, fallback, office_id)
 
-    async def _call_llm(self, prompt: str, fallback: str) -> tuple[str, str]:
+    async def _call_llm(self, prompt: str, fallback: str, office_id: str) -> tuple[str, str]:
         if self._llm_router is not None:
             try:
                 from runtime.llm import LLMRequest
 
-                request = LLMRequest(prompt=prompt, metadata={"allow_cloud": True, "purpose": "orchestrator_reasoning"})
+                request = LLMRequest(
+                    prompt=prompt,
+                    metadata={"allow_cloud": True, "purpose": "orchestrator_reasoning", "office_id": office_id},
+                )
                 response = await asyncio.to_thread(self._llm_router.generate, request)
                 text = response.text.strip()
                 if text:

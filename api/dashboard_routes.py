@@ -1506,9 +1506,14 @@ def register_dashboard_routes(app, version: str) -> None:
                 "pending": approvals_by_status.get("pending", 0),
             },
             "llm_usage": {
-                "today": llm_repo.summary(86400),
-                "last_7d": llm_repo.summary(7 * 86400),
-                "last_30d": llm_repo.summary(30 * 86400),
+                # Scoped to this office's own agent-reasoning calls
+                # (agents/orchestrator.py sets office_id on every request
+                # it makes) -- never another office's spend, and never
+                # the interactive /api/ask chat, which carries no office
+                # attribution today.
+                "today": llm_repo.summary(86400, office_id=office_id),
+                "last_7d": llm_repo.summary(7 * 86400, office_id=office_id),
+                "last_30d": llm_repo.summary(30 * 86400, office_id=office_id),
             },
             "recent_activity": recent_events,
         }

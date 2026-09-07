@@ -94,3 +94,18 @@ class TestAgentsDashboard:
 
         resp_b = c.get("/api/agents/dashboard", headers=session_b["headers"])
         assert resp_b.json()["events"]["total"] == 0
+
+    def test_llm_usage_scoped_to_the_authenticated_office(self):
+        from storage.llm_call_repo import LLMCallRepository
+
+        c = _client()
+        session_a = signup_office(c)
+        session_b = signup_office(c, "Outro Escritório")
+
+        repo = LLMCallRepository()
+        repo.record_call("deepseek", "deepseek-chat", 100.0, True, None, tokens=250, office_id=session_a["office_id"])
+        repo.record_call("deepseek", "deepseek-chat", 100.0, True, None, tokens=999, office_id=session_b["office_id"])
+
+        body_a = c.get("/api/agents/dashboard", headers=session_a["headers"]).json()
+        assert body_a["llm_usage"]["today"]["total_calls"] == 1
+        assert body_a["llm_usage"]["today"]["total_tokens"] == 250

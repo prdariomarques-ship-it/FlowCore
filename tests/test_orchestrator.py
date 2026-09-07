@@ -157,6 +157,23 @@ class TestPortfolioOutOfProfile:
         _run(scenario())
         assert fake_router.calls[0].metadata["allow_cloud"] is True
 
+    def test_reasoning_prompt_carries_the_office_id(self):
+        """LLM cost attribution (GET /api/agents/dashboard's per-office
+        llm_usage) depends on every autonomous reasoning call tagging
+        which office it's for -- see storage/llm_call_repo.py."""
+        fake_router = _FakeLLMRouter()
+
+        async def scenario():
+            office, client, event = await _office_with_client_and_violation()
+            published = await AgentEventRepository().publish(office["id"], event)
+            orchestrator = CoreOrchestrator(llm_router=fake_router)
+            with patch("runtime.telegram.send_message", return_value={"ok": True}):
+                await orchestrator.handle_event(office["id"], published)
+            return office["id"]
+
+        office_id = _run(scenario())
+        assert fake_router.calls[0].metadata["office_id"] == office_id
+
     def test_no_telegram_chat_id_configured_is_honest_not_an_error(self):
         async def scenario():
             office, client, event = await _office_with_client_and_violation(telegram_chat_id=None)
