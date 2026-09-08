@@ -80,12 +80,12 @@ def _history_once(symbol: str, days: int) -> list[float]:
     # yfinance's download() may reject raw float timestamps on some
     # versions — pass datetime objects instead.
     import datetime as _dt
+
     start_dt = _dt.datetime.fromtimestamp(start, tz=_dt.timezone.utc)
     end_dt = _dt.datetime.fromtimestamp(end, tz=_dt.timezone.utc)
 
     def _do_download(kwargs: dict) -> Any:
-        return yf.download(symbol, auto_adjust=True, progress=False,
-                           timeout=_DEFAULT_TIMEOUT_SECONDS, **kwargs)
+        return yf.download(symbol, auto_adjust=True, progress=False, timeout=_DEFAULT_TIMEOUT_SECONDS, **kwargs)
 
     df: Any = None
     last_err: Exception | None = None
@@ -117,8 +117,7 @@ def _history_once(symbol: str, days: int) -> list[float]:
         # MultiIndex columns (e.g. ('Close', 'GC=F')): pick the tuple whose
         # first element matches, using the single-symbol level otherwise.
         if isinstance(df.columns, pd.MultiIndex):
-            candidates = [c for c in df.columns
-                          if isinstance(c, tuple) and c[0] == close_col]
+            candidates = [c for c in df.columns if isinstance(c, tuple) and c[0] == close_col]
             close_col = candidates[0] if candidates else df.columns[0]
     try:
         series = df[close_col]

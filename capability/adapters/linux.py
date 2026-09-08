@@ -12,10 +12,10 @@ Responsibilities:
 This adapter is the lowest-priority fallback: it works on any POSIX system
 that has python3 — including macOS, WSL, CI runners, and cloud VMs.
 """
+
 from __future__ import annotations
 
 import shlex
-import subprocess
 from pathlib import Path
 
 from capability.adapters.base import CapabilityAdapter, CapabilityResult
@@ -31,6 +31,7 @@ class LinuxAdapter(CapabilityAdapter):
     def is_available(self) -> bool:
         """True on any POSIX system with python3 or python."""
         import sys
+
         return sys.platform != "win32"
 
     # ── Runtime diagnostics ───────────────────────────────────────────────────
@@ -59,8 +60,12 @@ class LinuxAdapter(CapabilityAdapter):
             available = values.get("MemAvailable", values.get("MemFree", 0))
             used = total - available
             return CapabilityResult.ok(
-                {"total_bytes": total, "available_bytes": available, "used_bytes": used,
-                 "used_percent": used / total * 100 if total else 0},
+                {
+                    "total_bytes": total,
+                    "available_bytes": available,
+                    "used_bytes": used,
+                    "used_percent": used / total * 100 if total else 0,
+                },
                 self.name,
             )
         except (OSError, KeyError, ValueError) as exc:
@@ -72,9 +77,12 @@ class LinuxAdapter(CapabilityAdapter):
         try:
             usage = shutil.disk_usage(path)
             return CapabilityResult.ok(
-                {"total_bytes": usage.total, "used_bytes": usage.used,
-                 "free_bytes": usage.free,
-                 "used_percent": usage.used / usage.total * 100 if usage.total else 0},
+                {
+                    "total_bytes": usage.total,
+                    "used_bytes": usage.used,
+                    "free_bytes": usage.free,
+                    "used_percent": usage.used / usage.total * 100 if usage.total else 0,
+                },
                 self.name,
             )
         except OSError as exc:
@@ -159,6 +167,7 @@ class LinuxAdapter(CapabilityAdapter):
 
         try:
             import urllib.request
+
             with urllib.request.urlopen(url, timeout=timeout) as resp:
                 body = resp.read().decode("utf-8", errors="replace")
                 return CapabilityResult.ok({"body": body, "via": "urllib"}, self.name)
@@ -202,9 +211,7 @@ class LinuxAdapter(CapabilityAdapter):
                     capacity = (bp / "capacity").read_text().strip()
                     status_file = bp / "status"
                     status = status_file.read_text().strip().lower() if status_file.exists() else "unknown"
-                    return CapabilityResult.ok(
-                        {"level": int(capacity), "status": status}, self.name
-                    )
+                    return CapabilityResult.ok({"level": int(capacity), "status": status}, self.name)
             return CapabilityResult.fail("No battery found in /sys/class/power_supply", self.name)
         except Exception as e:
             return CapabilityResult.fail(str(e), self.name)

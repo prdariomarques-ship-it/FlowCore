@@ -6,6 +6,7 @@ Routing policy (in order):
    breaking ties by lowest avg_latency_ms.
 3. Fall back to the globally configured model in ai.json.
 """
+
 from __future__ import annotations
 
 import json
@@ -15,7 +16,7 @@ from typing import Any
 from .model_registry import ModelEntry, get_registry, TASK_TYPES
 
 _RULES_FILE = Path.home() / ".flowcore" / "routing_rules.json"
-_AI_CONFIG   = Path.home() / ".flowcore" / "ai.json"
+_AI_CONFIG = Path.home() / ".flowcore" / "ai.json"
 
 _DEFAULT_RULES: dict[str, str] = {}
 
@@ -100,14 +101,16 @@ class ModelRouter:
         rows = []
         for task in TASK_TYPES:
             entry = self.select(task)
-            rows.append({
-                "task": task,
-                "model_id": entry.id if entry else None,
-                "provider": entry.provider if entry else None,
-                "pinned": task in self._rules,
-                "success_rate": entry.success_rate if entry else None,
-                "avg_latency_ms": entry.avg_latency_ms if entry else None,
-            })
+            rows.append(
+                {
+                    "task": task,
+                    "model_id": entry.id if entry else None,
+                    "provider": entry.provider if entry else None,
+                    "pinned": task in self._rules,
+                    "success_rate": entry.success_rate if entry else None,
+                    "avg_latency_ms": entry.avg_latency_ms if entry else None,
+                }
+            )
         return rows
 
 

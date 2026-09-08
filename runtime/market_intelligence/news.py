@@ -60,6 +60,7 @@ def _fetch_news(symbol: str) -> list[dict[str, Any]]:
     """Read only the fields supplied by yfinance for one watched symbol."""
     try:
         import yfinance as yf
+
         ticker = yf.Ticker(symbol)
         items = ticker.news or []
     except Exception:  # noqa: BLE001 - source failures become an empty source slice
@@ -83,13 +84,15 @@ def _fetch_news(symbol: str) -> list[dict[str, Any]]:
             published_at = content.get("pubDate") or item.get("providerPublishTime") or ""
             if isinstance(published_at, (int, float)):
                 published_at = _dt.datetime.fromtimestamp(published_at, tz=_dt.timezone.utc).isoformat()
-            out.append({
-                "headline": headline,
-                "publisher": publisher or item.get("publisher") or "",
-                "link": link,
-                "timestamp": str(published_at) if published_at else "",
-                "related_symbol": symbol,
-            })
+            out.append(
+                {
+                    "headline": headline,
+                    "publisher": publisher or item.get("publisher") or "",
+                    "link": link,
+                    "timestamp": str(published_at) if published_at else "",
+                    "related_symbol": symbol,
+                }
+            )
         except Exception:  # noqa: BLE001 - malformed provider items are ignored individually
             continue
     return out
@@ -209,15 +212,24 @@ def _translate_to_portuguese(headline: str) -> str:
         # Try DeepSeek (preferred for cost/speed on translation tasks)
         if ai_config.get("deepseek_url"):
             from api.dashboard_routes import _http_json
+
             try:
-                resp = _http_json("POST", f"{ai_config['deepseek_url']}/v1/chat/completions", {
-                    "model": ai_config.get("deepseek_model", "deepseek-chat"),
-                    "messages": [
-                        {"role": "system", "content": "Translate the following market news headline to Portuguese (Brazil). Return ONLY the translated headline, nothing else."},
-                        {"role": "user", "content": headline}
-                    ],
-                    "stream": False,
-                }, timeout=5)
+                resp = _http_json(
+                    "POST",
+                    f"{ai_config['deepseek_url']}/v1/chat/completions",
+                    {
+                        "model": ai_config.get("deepseek_model", "deepseek-chat"),
+                        "messages": [
+                            {
+                                "role": "system",
+                                "content": "Translate the following market news headline to Portuguese (Brazil). Return ONLY the translated headline, nothing else.",  # noqa: E501
+                            },
+                            {"role": "user", "content": headline},
+                        ],
+                        "stream": False,
+                    },
+                    timeout=5,
+                )
                 translated = resp.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
                 if translated:
                     _HEADLINE_TRANSLATION_CACHE[headline] = translated
@@ -228,17 +240,26 @@ def _translate_to_portuguese(headline: str) -> str:
         # Fallback: Ollama (local, already wired up in /api/ask)
         if ai_config.get("ollama_url"):
             from api.dashboard_routes import _http_json, _tcp_reachable
+
             base = ai_config.get("ollama_url", "http://localhost:11434").rstrip("/")
             if _tcp_reachable(base, timeout=1.0):
                 try:
-                    resp = _http_json("POST", f"{base}/api/chat", {
-                        "model": ai_config.get("model", "llama3"),
-                        "messages": [
-                            {"role": "system", "content": "Traduz a seguinte manchete de notícias de mercado para português (Brasil). Retorne APENAS a manchete traduzida, nada mais."},
-                            {"role": "user", "content": headline}
-                        ],
-                        "stream": False,
-                    }, timeout=5)
+                    resp = _http_json(
+                        "POST",
+                        f"{base}/api/chat",
+                        {
+                            "model": ai_config.get("model", "llama3"),
+                            "messages": [
+                                {
+                                    "role": "system",
+                                    "content": "Traduz a seguinte manchete de notícias de mercado para português (Brasil). Retorne APENAS a manchete traduzida, nada mais.",  # noqa: E501
+                                },
+                                {"role": "user", "content": headline},
+                            ],
+                            "stream": False,
+                        },
+                        timeout=5,
+                    )
                     translated = resp.get("message", {}).get("content", "").strip()
                     if translated:
                         _HEADLINE_TRANSLATION_CACHE[headline] = translated
@@ -275,13 +296,21 @@ def fetch_news(
     if not expanded:
         collected_at = _dt.datetime.now(_dt.timezone.utc).isoformat()
         return {
-            "items": [], "groups": [], "section": section, "supported_sections": list(SUPPORTED_NEWS_SECTIONS),
-            "next_cursor": None, "fetched_at": collected_at, "partial_errors": [], "source": "yahoo_finance",
+            "items": [],
+            "groups": [],
+            "section": section,
+            "supported_sections": list(SUPPORTED_NEWS_SECTIONS),
+            "next_cursor": None,
+            "fetched_at": collected_at,
+            "partial_errors": [],
+            "source": "yahoo_finance",
         }
 
     raw_items: list[dict[str, Any]] = []
     seen: set[tuple[str, str, str]] = set()
-    with ThreadPoolExecutor(max_workers=min(6, sum(len(symbols) for symbols in expanded.values())), thread_name_prefix="flowcore-news") as executor:
+    with ThreadPoolExecutor(
+        max_workers=min(6, sum(len(symbols) for symbols in expanded.values())), thread_name_prefix="flowcore-news"
+    ) as executor:
         futures = {executor.submit(_fetch_news, symbol): symbol for symbols in expanded.values() for symbol in symbols}
         for future in as_completed(futures):
             for item in future.result():
@@ -298,7 +327,7 @@ def fetch_news(
     collected_at = _dt.datetime.now(_dt.timezone.utc).isoformat()
     normalized = [_normalize_item(item, collected_at) for item in filtered_items]
     page_size = max(1, limit if limit is not None else max_per_group * len(groups))
-    page = normalized[offset:offset + page_size]
+    page = normalized[offset : offset + page_size]
     next_offset = offset + len(page)
     return {
         "items": page,

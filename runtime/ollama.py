@@ -28,10 +28,24 @@ PROBE_TIMEOUT = 1.5  # segundos por candidato
 # chamada, então 30s era curto demais).
 DEFAULT_GENERATE_TIMEOUT = float(os.getenv("FLOWCORE_OLLAMA_TIMEOUT", "180"))
 
+# Tamanho do contexto configurável via FLOWCORE_OLLAMA_NUM_CTX (padrão 8192 —
+# suficiente para briefings e prompts longos; o Ollama usa 4096 por padrão,
+# o que é insuficiente para prompts de mercado com histórico).
+DEFAULT_NUM_CTX = int(os.getenv("FLOWCORE_OLLAMA_NUM_CTX", "8192"))
+
 WARMUP_POLL_INTERVAL = 2  # segundos entre checagens de /api/ps durante o warm-up
 
 # Ordem de preferência ao escolher automaticamente um modelo instalado.
-MODEL_PRIORITY = ["gpt-oss", "glm", "qwen", "deepseek", "llama", "mistral", "phi", "gemma"]
+MODEL_PRIORITY = [
+    "gpt-oss",
+    "glm",
+    "qwen",
+    "deepseek",
+    "llama",
+    "mistral",
+    "phi",
+    "gemma",
+]
 
 
 class OllamaError(RuntimeError):
@@ -324,7 +338,12 @@ def ensure_model_loaded(base_url: str, model: str, timeout: float = DEFAULT_GENE
 
 def generate(base_url: str, model: str, prompt: str, timeout: float = DEFAULT_GENERATE_TIMEOUT) -> str:
     """Executa uma chamada de geração completa: garante o modelo carregado
-    (ver ensure_model_loaded) e então chama /api/generate.
+    (ver ensure_model_loaded) e então chama /api/generate com stream=True.
+
+    Streaming NDJSON: cada linha é um JSON com "response" (token parcial) e
+    "done" (bool). Acumular os tokens e retornar o texto completo — mesma
+    interface do caller, mas o socket não fica idle durante a geração inteira,
+    evitando timeout de leitura em modelos lentos ou prompts longos.
 
     Timeout é configurável (padrão DEFAULT_GENERATE_TIMEOUT, ajustável via
     FLOWCORE_OLLAMA_TIMEOUT). Erros são classificados em subclasses de
@@ -334,7 +353,14 @@ def generate(base_url: str, model: str, prompt: str, timeout: float = DEFAULT_GE
     """
     ensure_model_loaded(base_url, model, timeout=timeout)
 
-    payload = json.dumps({"model": model, "prompt": prompt, "stream": False})
+    payload = json.dumps(
+        {
+            "model": model,
+            "prompt": prompt,
+            "stream": True,
+            "options": {"num_ctx": DEFAULT_NUM_CTX},
+        }
+    )
     request = urllib.request.Request(
         f"{base_url.rstrip('/')}/api/generate",
         data=payload.encode("utf-8"),
@@ -342,8 +368,18 @@ def generate(base_url: str, model: str, prompt: str, timeout: float = DEFAULT_GE
     )
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
-            data = json.loads(response.read().decode("utf-8"))
-            return data.get("response", "").strip()
+            parts: list[str] = []
+            for raw_line in response:
+                line = raw_line.strip()
+                if not line:
+                    continue
+                chunk = json.loads(line)
+                if chunk.get("error"):
+                    raise OllamaError(f"Erro durante geração em {base_url}: {chunk['error']}")
+                parts.append(chunk.get("response", ""))
+                if chunk.get("done"):
+                    break
+            return "".join(parts).strip()
     except urllib.error.HTTPError as e:
         raise _classify_http_error(e, base_url, model) from e
     except (urllib.error.URLError, ConnectionRefusedError, TimeoutError, OSError) as e:
