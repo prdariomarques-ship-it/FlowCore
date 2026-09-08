@@ -4,6 +4,7 @@ This module does not synthesize quotes. Each observation carries its
 provider, observation date and retrieval timestamp so dashboard, Telegram and
 the APK can display provenance instead of mixing provider bases silently.
 """
+
 from __future__ import annotations
 
 import csv
@@ -127,15 +128,17 @@ def us_treasury_curve() -> dict[str, Any]:
             if raw in (None, "", "N/A"):
                 continue
             prior_raw = previous.get(column)
-            points.append({
-                "source": "us_treasury",
-                "instrument": f"US_TREASURY_{label}",
-                "label": label,
-                "unit": "percent_per_year",
-                "value": float(raw),
-                "previous_value": float(prior_raw) if prior_raw not in (None, "", "N/A") else None,
-                "observation_date": latest.get("Date"),
-            })
+            points.append(
+                {
+                    "source": "us_treasury",
+                    "instrument": f"US_TREASURY_{label}",
+                    "label": label,
+                    "unit": "percent_per_year",
+                    "value": float(raw),
+                    "previous_value": float(prior_raw) if prior_raw not in (None, "", "N/A") else None,
+                    "observation_date": latest.get("Date"),
+                }
+            )
         return {"source": "us_treasury", "available": True, "points": points, "retrieved_at": _now(), "source_url": url}
     except Exception as error:  # public-source failure must not break the market feed
         return _unavailable("us_treasury", error)

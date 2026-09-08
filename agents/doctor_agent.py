@@ -1,4 +1,5 @@
 """FlowCore Doctor Agent — runs the doctor service and returns a health report."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -14,6 +15,7 @@ class DoctorAgent(BaseAgent):
     async def run(self, context: dict | None = None) -> dict[str, Any]:
         try:
             from doctor.service import DoctorService
+
             report = DoctorService().run(verbose=False)
             checks = [
                 {
@@ -36,7 +38,7 @@ class DoctorAgent(BaseAgent):
             elif failed == 0:
                 emoji = "🟡"
                 status_text = "Funcionando, com avisos"
-                overall = "warning"
+                overall = "degraded"
             else:
                 emoji = "🔴"
                 status_text = "Alguns problemas"

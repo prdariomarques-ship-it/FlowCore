@@ -3,6 +3,7 @@
 Transport: stdio (default) for use with Claude Desktop / Claude Code.
 Run with: python3 flowcore.py mcp
 """
+
 from __future__ import annotations
 
 import anyio

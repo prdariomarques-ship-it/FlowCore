@@ -1,4 +1,5 @@
 """FlowCore FlowRunner — executes flow steps in sequence via AgentRunner."""
+
 from __future__ import annotations
 
 import asyncio
@@ -26,10 +27,9 @@ class FlowRunner:
             loop = asyncio.get_event_loop()
             if loop.is_running():
                 import concurrent.futures
+
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                    return pool.submit(
-                        asyncio.run, self.run(flow, context)
-                    ).result(timeout=300)
+                    return pool.submit(asyncio.run, self.run(flow, context)).result(timeout=300)
             return loop.run_until_complete(self.run(flow, context))
         except RuntimeError:
             return asyncio.run(self.run(flow, context))
@@ -65,18 +65,21 @@ class FlowRunner:
                 step_ctx = {**(context or {}), **step.context}
                 logger.info(
                     "Flow '{}' step {}/{}: running agent '{}'",
-                    flow.name, i + 1, len(flow.steps), step.agent,
+                    flow.name,
+                    i + 1,
+                    len(flow.steps),
+                    step.agent,
                 )
-                record = await agent_runner.run(
-                    step.agent, step_ctx, passport_agent_name="flow-runner"
+                record = await agent_runner.run(step.agent, step_ctx, passport_agent_name="flow-runner")
+                run.step_results.append(
+                    {
+                        "agent": step.agent,
+                        "status": record.status,
+                        "result": record.result,
+                        "error": record.error,
+                        "duration_seconds": record.duration_seconds,
+                    }
                 )
-                run.step_results.append({
-                    "agent": step.agent,
-                    "status": record.status,
-                    "result": record.result,
-                    "error": record.error,
-                    "duration_seconds": record.duration_seconds,
-                })
                 self._store.save_run(run)
 
                 if record.status == "failed":

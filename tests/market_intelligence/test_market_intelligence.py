@@ -51,6 +51,7 @@ class TestWatchlist:
         names = list_watchlists()["watchlists"]
         assert "default" in names and "commodities" in names
 
+    @pytest.mark.live
     def test_snapshot_live_data(self):
         from runtime.market_intelligence.watchlist import snapshot
 

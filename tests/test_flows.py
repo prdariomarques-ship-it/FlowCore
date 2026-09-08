@@ -1,10 +1,10 @@
 """Tests for Sprint 16 — FlowStore, FlowRunner, Flow MCP tools, Flow API."""
+
 from __future__ import annotations
 
 import asyncio
 import sys
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -15,9 +15,11 @@ if str(ROOT) not in sys.path:
 
 # ── FlowStep / Flow / FlowRun ─────────────────────────────────────────────────
 
+
 class TestFlowSchema:
     def test_flow_step_to_dict(self):
         from flows.schema import FlowStep
+
         s = FlowStep(agent="health", context={"key": "val"})
         d = s.to_dict()
         assert d["agent"] == "health"
@@ -25,12 +27,14 @@ class TestFlowSchema:
 
     def test_flow_step_from_dict(self):
         from flows.schema import FlowStep
+
         s = FlowStep.from_dict({"agent": "doctor"})
         assert s.agent == "doctor"
         assert s.context == {}
 
     def test_flow_new(self):
         from flows.schema import Flow
+
         f = Flow.new("Test", steps=[{"agent": "health"}])
         assert f.name == "Test"
         assert len(f.steps) == 1
@@ -39,11 +43,13 @@ class TestFlowSchema:
 
     def test_flow_new_no_steps(self):
         from flows.schema import Flow
+
         f = Flow.new("Empty")
         assert f.steps == []
 
     def test_flow_to_dict_roundtrip(self):
         from flows.schema import Flow
+
         f = Flow.new("MyFlow", steps=[{"agent": "health"}, {"agent": "doctor"}], description="test")
         d = f.to_dict()
         f2 = Flow.from_dict(d)
@@ -54,6 +60,7 @@ class TestFlowSchema:
 
     def test_flow_run_new(self):
         from flows.schema import Flow, FlowRun
+
         f = Flow.new("Run")
         r = FlowRun.new(f)
         assert r.flow_id == f.id
@@ -63,11 +70,13 @@ class TestFlowSchema:
 
     def test_flow_run_duration_none_when_not_finished(self):
         from flows.schema import Flow, FlowRun
+
         r = FlowRun.new(Flow.new("x"))
         assert r.duration_seconds is None
 
     def test_flow_run_duration_computed(self):
         from flows.schema import Flow, FlowRun
+
         r = FlowRun.new(Flow.new("x"))
         r.started_at = 1000.0
         r.finished_at = 1003.5
@@ -75,18 +84,20 @@ class TestFlowSchema:
 
     def test_flow_run_to_dict_has_all_keys(self):
         from flows.schema import Flow, FlowRun
+
         r = FlowRun.new(Flow.new("x"))
         d = r.to_dict()
-        for k in ("id", "flow_id", "flow_name", "status", "step_results",
-                   "created_at", "duration_seconds", "error"):
+        for k in ("id", "flow_id", "flow_name", "status", "step_results", "created_at", "duration_seconds", "error"):
             assert k in d
 
 
 # ── FlowStore ─────────────────────────────────────────────────────────────────
 
+
 class TestFlowStore:
     def _store(self, tmp_path):
         from flows.store import FlowStore
+
         return FlowStore(
             path=tmp_path / "flows.json",
             runs_path=tmp_path / "flow_runs.json",
@@ -94,6 +105,7 @@ class TestFlowStore:
 
     def test_save_and_get_flow(self, tmp_path):
         from flows.schema import Flow
+
         store = self._store(tmp_path)
         f = Flow.new("MyFlow")
         store.save_flow(f)
@@ -111,6 +123,7 @@ class TestFlowStore:
 
     def test_list_flows_returns_all(self, tmp_path):
         from flows.schema import Flow
+
         store = self._store(tmp_path)
         for i in range(3):
             store.save_flow(Flow.new(f"Flow{i}"))
@@ -118,6 +131,7 @@ class TestFlowStore:
 
     def test_delete_flow(self, tmp_path):
         from flows.schema import Flow
+
         store = self._store(tmp_path)
         f = Flow.new("ToDelete")
         store.save_flow(f)
@@ -130,12 +144,14 @@ class TestFlowStore:
 
     def test_atomic_save_no_tmp_left(self, tmp_path):
         from flows.schema import Flow
+
         store = self._store(tmp_path)
         store.save_flow(Flow.new("A"))
         assert not (tmp_path / "flows.tmp").exists()
 
     def test_save_and_get_run(self, tmp_path):
         from flows.schema import Flow, FlowRun
+
         store = self._store(tmp_path)
         f = Flow.new("RunFlow")
         r = FlowRun.new(f)
@@ -147,6 +163,7 @@ class TestFlowStore:
 
     def test_list_runs_filter_by_flow(self, tmp_path):
         from flows.schema import Flow, FlowRun
+
         store = self._store(tmp_path)
         f1 = Flow.new("F1")
         f2 = Flow.new("F2")
@@ -159,6 +176,7 @@ class TestFlowStore:
 
     def test_run_upsert(self, tmp_path):
         from flows.schema import Flow, FlowRun
+
         store = self._store(tmp_path)
         f = Flow.new("Upsert")
         r = FlowRun.new(f)
@@ -172,10 +190,12 @@ class TestFlowStore:
 
 # ── FlowRunner ────────────────────────────────────────────────────────────────
 
+
 class TestFlowRunner:
     def _runner(self, tmp_path):
         from flows.runner import FlowRunner
         from flows.store import FlowStore
+
         store = FlowStore(
             path=tmp_path / "flows.json",
             runs_path=tmp_path / "flow_runs.json",
@@ -184,6 +204,7 @@ class TestFlowRunner:
 
     def test_run_empty_flow_completes(self, tmp_path):
         from flows.schema import Flow
+
         runner, store = self._runner(tmp_path)
         f = Flow.new("Empty")
         store.save_flow(f)
@@ -193,6 +214,7 @@ class TestFlowRunner:
 
     def test_run_single_step(self, tmp_path):
         from flows.schema import Flow
+
         runner, store = self._runner(tmp_path)
         f = Flow.new("Health", steps=[{"agent": "health"}])
         store.save_flow(f)
@@ -204,6 +226,7 @@ class TestFlowRunner:
 
     def test_run_multi_step(self, tmp_path):
         from flows.schema import Flow
+
         runner, store = self._runner(tmp_path)
         f = Flow.new("Multi", steps=[{"agent": "health"}, {"agent": "doctor"}])
         store.save_flow(f)
@@ -213,6 +236,7 @@ class TestFlowRunner:
 
     def test_run_fails_on_bad_agent(self, tmp_path):
         from flows.schema import Flow
+
         runner, store = self._runner(tmp_path)
         f = Flow.new("Bad", steps=[{"agent": "no_such_agent_xyz"}])
         store.save_flow(f)
@@ -223,11 +247,15 @@ class TestFlowRunner:
 
     def test_run_stops_on_first_failure(self, tmp_path):
         from flows.schema import Flow
+
         runner, store = self._runner(tmp_path)
-        f = Flow.new("StopOnFail", steps=[
-            {"agent": "no_such_agent_xyz"},
-            {"agent": "health"},  # should not run
-        ])
+        f = Flow.new(
+            "StopOnFail",
+            steps=[
+                {"agent": "no_such_agent_xyz"},
+                {"agent": "health"},  # should not run
+            ],
+        )
         store.save_flow(f)
         run = runner.run_sync(f)
         assert run.status == "failed"
@@ -235,6 +263,7 @@ class TestFlowRunner:
 
     def test_run_persisted(self, tmp_path):
         from flows.schema import Flow
+
         runner, store = self._runner(tmp_path)
         f = Flow.new("Persist", steps=[{"agent": "health"}])
         store.save_flow(f)
@@ -245,6 +274,7 @@ class TestFlowRunner:
 
     def test_duration_recorded(self, tmp_path):
         from flows.schema import Flow
+
         runner, store = self._runner(tmp_path)
         f = Flow.new("Dur", steps=[{"agent": "health"}])
         run = runner.run_sync(f)
@@ -253,6 +283,7 @@ class TestFlowRunner:
 
     def test_async_run(self, tmp_path):
         from flows.schema import Flow
+
         runner, store = self._runner(tmp_path)
         f = Flow.new("Async", steps=[{"agent": "health"}])
         run = asyncio.run(runner.run(f))
@@ -261,25 +292,32 @@ class TestFlowRunner:
 
 # ── Flow MCP tools ────────────────────────────────────────────────────────────
 
+
 class TestMCPFlowTools:
     def _dispatch(self, name, args=None):
         from flowcore_mcp.tools import dispatch
+
         return dispatch(name, args or {})
 
     def test_flow_list_ok(self):
         result = self._dispatch("flow_list")
         assert result.is_error is False
         import json
+
         data = json.loads(result.content[0].text)
         assert "flows" in data
 
     def test_flow_create_ok(self):
-        result = self._dispatch("flow_create", {
-            "name": "MCP Test Flow",
-            "steps": [{"agent": "health"}],
-        })
+        result = self._dispatch(
+            "flow_create",
+            {
+                "name": "MCP Test Flow",
+                "steps": [{"agent": "health"}],
+            },
+        )
         assert result.is_error is False
         import json
+
         data = json.loads(result.content[0].text)
         assert data["name"] == "MCP Test Flow"
         assert len(data["steps"]) == 1
@@ -294,10 +332,14 @@ class TestMCPFlowTools:
 
     def test_flow_run_ok(self):
         import json
-        create = self._dispatch("flow_create", {
-            "name": "MCP Run Flow",
-            "steps": [{"agent": "health"}],
-        })
+
+        create = self._dispatch(
+            "flow_create",
+            {
+                "name": "MCP Run Flow",
+                "steps": [{"agent": "health"}],
+            },
+        )
         flow_id = json.loads(create.content[0].text)["id"]
         result = self._dispatch("flow_run", {"flow_id": flow_id})
         assert result.is_error is False
@@ -311,12 +353,14 @@ class TestMCPFlowTools:
 
 # ── Flow API endpoints ────────────────────────────────────────────────────────
 
+
 class TestFlowAPI:
     def _client(self):
-        fastapi = pytest.importorskip("fastapi")
-        httpx = pytest.importorskip("httpx")
+        pytest.importorskip("fastapi")
+        pytest.importorskip("httpx")
         from fastapi.testclient import TestClient
         from api.router import create_app
+
         app = create_app(version="test", platform_info={"os_name": "test"})
         return TestClient(app)
 
@@ -333,10 +377,13 @@ class TestFlowAPI:
         assert data["name"] == "API Flow"
 
     def test_create_flow_with_steps(self):
-        r = self._client().post("/api/flows", json={
-            "name": "Stepped Flow",
-            "steps": [{"agent": "health"}],
-        })
+        r = self._client().post(
+            "/api/flows",
+            json={
+                "name": "Stepped Flow",
+                "steps": [{"agent": "health"}],
+            },
+        )
         assert r.status_code == 200
         data = r.json()
         assert len(data["steps"]) == 1

@@ -2,6 +2,7 @@
 demand: real data, client + Instagram texts, visual card, all saved to
 ~/.flowcore/market_close/<date>.*
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -16,4 +17,5 @@ class MarketCloseAgent(BaseAgent):
 
     async def run(self, context: dict | None = None) -> dict[str, Any]:
         from runtime.market_intelligence.market_close import build_market_close
+
         return {"status": "ok", "data": build_market_close()}
