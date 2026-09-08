@@ -155,6 +155,26 @@ class TestRiskBreakdownEndpoint:
         assert data["profile"] == "agressivo"
         assert data["source"] == "target_allocation"
 
+    def test_arrojado_returns_its_own_distinct_weights_not_the_office_default(self):
+        # Regression: the office's own uncustomized policy is seeded from
+        # the SAME bundled moderado JSON as the "moderado" model profile,
+        # so a bug that silently fell through to compute_risk_breakdown()
+        # (the no-`profile` branch) instead of compute_model_risk_breakdown
+        # would go unnoticed for "moderado" -- the numbers would coincide
+        # -- but would visibly return the wrong (moderado) weights for
+        # every other profile. "arrojado" is the case that actually
+        # catches that class of bug.
+        client = _client()
+        session = signup_office(client)
+        resp = client.get("/api/portfolio/risk-breakdown?profile=arrojado", headers=session["headers"])
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["profile"] == "arrojado"
+        by_label = {c["label"]: c["weight"] for c in data["categories"]}
+        assert by_label["Renda Fixa"] == 12.0
+        assert by_label["Renda Variável"] == 33.0
+        assert by_label["Internacional"] == 30.0
+
     def test_unknown_profile_query_param_returns_404(self):
         client = _client()
         session = signup_office(client)
