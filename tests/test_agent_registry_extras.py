@@ -2,13 +2,13 @@
 registered alongside health/doctor so "Agentes" in the dashboard runs actual
 work instead of only trivial diagnostics.
 """
-
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -18,7 +18,6 @@ if str(ROOT) not in sys.path:
 class TestMarketCloseAgent:
     def test_name_and_description(self):
         from agents.market_close_agent import MarketCloseAgent
-
         a = MarketCloseAgent()
         assert a.name == "market_close"
         assert len(a.description) > 5
@@ -40,7 +39,6 @@ class TestMarketCloseAgent:
 class TestDailyBriefAgent:
     def test_name_and_description(self):
         from agents.daily_brief_agent import DailyBriefAgent
-
         a = DailyBriefAgent()
         assert a.name == "daily_brief"
         assert len(a.description) > 5
@@ -49,7 +47,9 @@ class TestDailyBriefAgent:
         import asyncio
         from agents.daily_brief_agent import DailyBriefAgent
 
-        with patch("runtime.ai.brief_diario.build_brief", return_value={"telegram_text": "brief"}) as mocked:
+        with patch(
+            "runtime.ai.brief_diario.build_brief", return_value={"telegram_text": "brief"}
+        ) as mocked:
             result = asyncio.run(DailyBriefAgent().run())
 
         mocked.assert_called_once_with(use_llm=False)
@@ -69,7 +69,6 @@ class TestDailyBriefAgent:
 class TestNotifyMarketCloseAgent:
     def test_name_and_description(self):
         from agents.notify_market_close_agent import NotifyMarketCloseAgent
-
         a = NotifyMarketCloseAgent()
         assert a.name == "notify_market_close"
         assert len(a.description) > 5
@@ -82,7 +81,6 @@ class TestNotifyMarketCloseAgent:
             with patch("runtime.shell.is_available", return_value=True):
                 with patch("runtime.shell.run") as mocked_run:
                     from runtime.shell import ShellResult
-
                     mocked_run.return_value = ShellResult(command=[], returncode=0, stdout="", stderr="")
                     result = asyncio.run(NotifyMarketCloseAgent().run())
 
@@ -109,7 +107,9 @@ class TestNotifyMarketCloseAgent:
         from agents.notify_market_close_agent import NotifyMarketCloseAgent
 
         date_key = datetime.now(UTC).strftime("%Y-%m-%d")
-        (tmp_path / f"{date_key}.json").write_text(json.dumps({"raw_lines": ["DÓLAR: +0,3%", "outra linha"]}))
+        (tmp_path / f"{date_key}.json").write_text(
+            json.dumps({"raw_lines": ["DÓLAR: +0,3%", "outra linha"]})
+        )
         with patch("agents.notify_market_close_agent._HISTORY_DIR", tmp_path):
             assert NotifyMarketCloseAgent()._latest_highlight() == "DÓLAR: +0,3%"
 

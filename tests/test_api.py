@@ -1,5 +1,4 @@
 """Tests for Sprint 11 API endpoints — status, memories, notify, daemon control."""
-
 from __future__ import annotations
 
 import sys
@@ -14,14 +13,13 @@ if str(ROOT) not in sys.path:
 
 # Skip all tests if FastAPI / httpx not installed
 fastapi = pytest.importorskip("fastapi")
-httpx = pytest.importorskip("httpx")
+httpx   = pytest.importorskip("httpx")
 
 from fastapi.testclient import TestClient
 
 
 def _client():
     from api.router import create_app
-
     app = create_app(version="test", platform_info={"os_name": "test"})
     return TestClient(app)
 
@@ -48,7 +46,8 @@ class TestStatusEndpoint:
     def test_status_has_required_keys(self):
         r = _client().get("/api/status")
         data = r.json()
-        for key in ("version", "uptime_seconds", "daemon", "capabilities", "doctor", "memory_count"):
+        for key in ("version", "uptime_seconds", "daemon", "capabilities",
+                    "doctor", "memory_count"):
             assert key in data, f"Missing key: {key}"
 
     def test_status_daemon_field_is_dict(self):
@@ -115,7 +114,9 @@ class TestDaemonEndpoints:
     def test_daemon_start_returns_message(self):
         c = _client()
         mock_daemon = MagicMock()
-        mock_daemon.return_value.start.return_value = {"started": True, "pid": 12345, "log": "/tmp/d.log"}
+        mock_daemon.return_value.start.return_value = {
+            "started": True, "pid": 12345, "log": "/tmp/d.log"
+        }
         with patch("runtime.daemon.FlowCoreDaemon", mock_daemon):
             r = c.post("/api/daemon/start")
         assert r.status_code == 200

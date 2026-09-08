@@ -1,5 +1,4 @@
 """FlowCore — Passport data schema."""
-
 from __future__ import annotations
 
 import hashlib
@@ -21,7 +20,6 @@ def _iso(ts: float) -> str:
 @dataclass
 class AgentIdentity:
     """Identity of the agent requesting execution."""
-
     name: str
     version: str = "0.1.0"
     description: str = ""
@@ -41,8 +39,7 @@ class AgentIdentity:
 @dataclass
 class RuntimeInfo:
     """Snapshot of the runtime at passport issuance."""
-
-    platform: str  # "android" | "termux" | "linux"
+    platform: str          # "android" | "termux" | "linux"
     is_android: bool
     is_termux: bool
     has_internet: bool
@@ -60,12 +57,11 @@ class RuntimeInfo:
 @dataclass
 class Passport:
     """Execution passport — issued to an agent before it runs."""
-
     agent: AgentIdentity
     runtime: RuntimeInfo
-    capabilities: list[str]  # subset the agent is allowed to use
-    permissions: list[str]  # fine-grained permission list
-    health_status: str  # "ok" | "degraded" | "unhealthy"
+    capabilities: list[str]          # subset the agent is allowed to use
+    permissions: list[str]           # fine-grained permission list
+    health_status: str               # "ok" | "degraded" | "unhealthy"
     issued_at: str = field(default_factory=_now_iso)
     expires_at: str = ""
     hash: str = ""
@@ -81,18 +77,14 @@ class Passport:
             self.hash = self._compute_hash()
 
     def _compute_hash(self) -> str:
-        payload = json.dumps(
-            {
-                "agent": self.agent.to_dict(),
-                "issued_at": self.issued_at,
-                "expires_at": self.expires_at,
-                "capabilities": sorted(self.capabilities),
-                "permissions": sorted(self.permissions),
-                "health_status": self.health_status,
-            },
-            sort_keys=True,
-            separators=(",", ":"),
-        )
+        payload = json.dumps({
+            "agent": self.agent.to_dict(),
+            "issued_at": self.issued_at,
+            "expires_at": self.expires_at,
+            "capabilities": sorted(self.capabilities),
+            "permissions": sorted(self.permissions),
+            "health_status": self.health_status,
+        }, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(payload.encode()).hexdigest()
 
     def is_expired(self) -> bool:
@@ -119,7 +111,7 @@ class Passport:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "Passport":
-        agent = AgentIdentity.from_dict(d["agent"])
+        agent   = AgentIdentity.from_dict(d["agent"])
         runtime = RuntimeInfo.from_dict(d["runtime"])
         p = cls(
             agent=agent,

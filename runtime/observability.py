@@ -9,12 +9,11 @@ Usage (in route handlers):
     ...
     record("market_fx", latency_ms=(time.perf_counter()-t0)*1000, error=False)
 """
-
 from __future__ import annotations
 
 import time
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 _start_time = time.time()
@@ -76,16 +75,14 @@ class MetricsStore:
         self._endpoints[endpoint].record(latency_ms, error=error, error_msg=error_msg)
 
     def record_ai(self, model_id: str, task: str, latency_ms: float, tokens: int = 0, success: bool = True) -> None:
-        self._ai_calls.append(
-            {
-                "model_id": model_id,
-                "task": task,
-                "latency_ms": round(latency_ms, 1),
-                "tokens": tokens,
-                "success": success,
-                "ts": time.time(),
-            }
-        )
+        self._ai_calls.append({
+            "model_id": model_id,
+            "task": task,
+            "latency_ms": round(latency_ms, 1),
+            "tokens": tokens,
+            "success": success,
+            "ts": time.time(),
+        })
         self._ai_calls = self._ai_calls[-100:]
         self._ai_tokens_total += tokens
 

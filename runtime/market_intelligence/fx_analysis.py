@@ -26,7 +26,8 @@ FX_SOURCES = [
 ]
 
 # Convention per pair: does a RISING price mean USD strengthening?
-USD_STRENGTH_ON_RISE = {"dxy": True, "eur_usd": False, "usd_cny": True, "usd_jpy": True, "dollar": True}
+USD_STRENGTH_ON_RISE = {"dxy": True, "eur_usd": False,
+                        "usd_cny": True, "usd_jpy": True, "dollar": True}
 
 
 @dataclass
@@ -38,13 +39,9 @@ class FxPair:
     usd_regime: str  # "strengthening" / "weakening" / "neutral" / "no_data"
 
     def to_dict(self) -> dict:
-        return {
-            "source": self.source,
-            "name": self.name,
-            "level": self.level,
-            "delta_pct_1d": self.delta_pct_1d,
-            "usd_regime": self.usd_regime,
-        }
+        return {"source": self.source, "name": self.name,
+                "level": self.level, "delta_pct_1d": self.delta_pct_1d,
+                "usd_regime": self.usd_regime}
 
 
 def analyze_fx() -> dict:
@@ -58,7 +55,8 @@ def analyze_fx() -> dict:
         except ObserverError:
             try:
                 payload = fetch_quote(_symbol_of(source))
-                payload = {"value": payload["price"], "previous_close": payload.get("previous_close")}
+                payload = {"value": payload["price"],
+                           "previous_close": payload.get("previous_close")}
             except ObserverError:
                 payload = {}
         value = payload.get("value")
@@ -67,14 +65,17 @@ def analyze_fx() -> dict:
         if value is not None and prev:
             delta = round((value - prev) / prev * 100, 2)
         regime = _pair_regime(source, delta)
-        pairs.append(FxPair(source=source, name=name, level=value, delta_pct_1d=delta, usd_regime=regime))
+        pairs.append(FxPair(source=source, name=name, level=value,
+                            delta_pct_1d=delta, usd_regime=regime))
         if source == "dxy":
             dxy_delta = delta
-    return {"pairs": [p.to_dict() for p in pairs], "dxy_delta_pct_1d": dxy_delta}
+    return {"pairs": [p.to_dict() for p in pairs],
+            "dxy_delta_pct_1d": dxy_delta}
 
 
 def _symbol_of(source: str) -> str:
-    symbols = {"dxy": "DX-Y.NYB", "eur_usd": "EURUSD=X", "usd_cny": "CNY=X", "usd_jpy": "JPY=X", "dollar": "USDBRL=X"}
+    symbols = {"dxy": "DX-Y.NYB", "eur_usd": "EURUSD=X", "usd_cny": "CNY=X",
+               "usd_jpy": "JPY=X", "dollar": "USDBRL=X"}
     return symbols.get(source, source)
 
 

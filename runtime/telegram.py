@@ -174,7 +174,9 @@ def send_briefing() -> dict[str, Any]:
         raise TelegramNotConfiguredError("TELEGRAM_BOT_TOKEN not set. Add the spcx-monitor bot's token to .env.")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
     if not chat_id:
-        raise TelegramNotConfiguredError("TELEGRAM_CHAT_ID not set. Add the spcx-monitor chat id to .env.")
+        raise TelegramNotConfiguredError(
+            "TELEGRAM_CHAT_ID not set. Add the spcx-monitor chat id to .env."
+        )
     text = build_briefing_message()
     return _call("sendMessage", token, {"chat_id": chat_id, "text": text, "parse_mode": "HTML"})
 
@@ -216,12 +218,18 @@ def build_b3_summary_message() -> str:
     lines = ["🇧🇷 <b>DARIO OS — RADAR B3</b>", ""]
 
     if ibov and ibov.get("value") is not None:
-        lines.append(f"📊 <b>IBOVESPA</b>: {_fmt_index_value(ibov['value'])} pts ({_fmt_delta_pct(ibov.get('delta'))})")
+        lines.append(
+            f"📊 <b>IBOVESPA</b>: {_fmt_index_value(ibov['value'])} pts "
+            f"({_fmt_delta_pct(ibov.get('delta'))})"
+        )
     else:
         lines.append("📊 <b>IBOVESPA</b>: sem dados no momento")
 
     if usdbrl and usdbrl.get("level") is not None:
-        lines.append(f"💵 <b>USD/BRL</b>: R$ {usdbrl['level']:.4f} ({_fmt_delta_pct(usdbrl.get('delta_pct_1d'))})")
+        lines.append(
+            f"💵 <b>USD/BRL</b>: R$ {usdbrl['level']:.4f} "
+            f"({_fmt_delta_pct(usdbrl.get('delta_pct_1d'))})"
+        )
     else:
         lines.append("💵 <b>USD/BRL</b>: sem dados no momento")
 
@@ -231,9 +239,13 @@ def build_b3_summary_message() -> str:
 def send_b3_summary() -> dict[str, Any]:
     token = os.getenv("TELEGRAM_BOT_TOKEN_B3")
     if not token:
-        raise TelegramNotConfiguredError("TELEGRAM_BOT_TOKEN_B3 not set. Add the B3/Ibovespa feed's bot token to .env.")
+        raise TelegramNotConfiguredError(
+            "TELEGRAM_BOT_TOKEN_B3 not set. Add the B3/Ibovespa feed's bot token to .env."
+        )
     chat_id = os.getenv("TELEGRAM_CHAT_ID_B3")
     if not chat_id:
-        raise TelegramNotConfiguredError("TELEGRAM_CHAT_ID_B3 not set. Add the B3/Ibovespa feed's chat id to .env.")
+        raise TelegramNotConfiguredError(
+            "TELEGRAM_CHAT_ID_B3 not set. Add the B3/Ibovespa feed's chat id to .env."
+        )
     text = build_b3_summary_message()
     return _call("sendMessage", token, {"chat_id": chat_id, "text": text, "parse_mode": "HTML"})

@@ -67,7 +67,6 @@ Endpoints (Dashboard v4 — AI, market, portfolio, integrations):
   GET  /api/outlook/{inbox,search}
   GET  /api/calendar/{today,week,next,search}
 """
-
 from __future__ import annotations
 
 import json
@@ -79,9 +78,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from loguru import logger
-from pydantic import BaseModel, create_model
-
-from runtime.portfolio.attributes import ASSET_ATTRIBUTE_FIELDS
+from pydantic import BaseModel
 
 _WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
@@ -89,7 +86,6 @@ _WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 # ---------------------------------------------------------------------------
 # Schemas
 # ---------------------------------------------------------------------------
-
 
 class FlowCreate(BaseModel):
     name: str
@@ -137,18 +133,11 @@ class NotifyRequest(BaseModel):
 
 class NoteCreate(BaseModel):
     text: str
-    kind: str = "note"  # "note" | "todo" | "agenda" | "radar"
+    kind: str = "note"   # "note" | "todo" | "agenda" | "radar"
 
 
 class ObsidianSyncRequest(BaseModel):
     content: str | None = None
-
-
-# Keep the API contract aligned with the dependency-free canonical schema.
-AssetTagRequest = create_model(
-    "AssetTagRequest",
-    **{field: (str | None, None) for field in ASSET_ATTRIBUTE_FIELDS},
-)
 
 
 # ---------------------------------------------------------------------------
@@ -162,7 +151,6 @@ _start_time = time.time()
 # ---------------------------------------------------------------------------
 # Router
 # ---------------------------------------------------------------------------
-
 
 def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> FastAPI:
     """Create the FastAPI application."""
@@ -203,7 +191,6 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         # Daemon state
         try:
             from runtime.daemon import FlowCoreDaemon
-
             d = FlowCoreDaemon()
             result["daemon"] = d.status()
         except Exception as e:
@@ -212,16 +199,17 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         # Capabilities
         try:
             from capability.registry import CapabilityRegistry
-
             reg = CapabilityRegistry()
-            result["capabilities"] = {cap: (adapter is not None) for cap, adapter in reg.list_capabilities().items()}
-        except Exception:
+            result["capabilities"] = {
+                cap: (adapter is not None)
+                for cap, adapter in reg.list_capabilities().items()
+            }
+        except Exception as e:
             result["capabilities"] = {}
 
         # Doctor (quick run)
         try:
             from doctor.service import DoctorService
-
             report = DoctorService().run(verbose=False)
             passed = sum(1 for c in report.checks if c.status.value == "ok")
             failed = sum(1 for c in report.checks if c.status.value == "fail")
@@ -241,7 +229,9 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             summary_line = f"{emoji} {status_text} • {passed} OK, {warned} aviso(s), {failed} problema(s)"
 
             result["doctor"] = [
-                {"name": c.name, "status": c.status.value, "message": c.message, "fix": c.fix} for c in report.checks
+                {"name": c.name, "status": c.status.value, "message": c.message,
+                 "fix": c.fix}
+                for c in report.checks
             ]
             result["doctor_summary"] = {
                 "emoji": emoji,
@@ -251,14 +241,13 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
                 "warnings": warned,
                 "failed": failed,
             }
-        except Exception:
+        except Exception as e:
             result["doctor"] = []
             result["doctor_summary"] = None
 
         # Memory count
         try:
             from storage import MemoryRepository
-
             result["memory_count"] = MemoryRepository().count()
         except Exception:
             pass
@@ -270,7 +259,6 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     async def list_memories(limit: int = Query(50, le=200)):
         try:
             from storage import MemoryRepository
-
             mems = MemoryRepository().list_all()
             return {"memories": mems[-limit:]}
         except Exception as e:
@@ -280,7 +268,6 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     async def create_memory(data: MemoryCreate):
         try:
             from storage import MemoryRepository
-
             mem = MemoryRepository().add(data.text)
             logger.info("Memory saved via API: {}", data.text[:40])
             return {"memory": mem}
@@ -292,12 +279,14 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     async def notify(data: NotifyRequest):
         try:
             from runtime.shell import is_available, run
-
             if not is_available("termux-notification"):
                 logger.warning("termux-notification not available")
                 return {"sent": False, "reason": "termux-notification not installed"}
             result = run(
-                ["termux-notification", "--id", str(data.id), "--title", data.title, "--content", data.body],
+                ["termux-notification",
+                 "--id", str(data.id),
+                 "--title", data.title,
+                 "--content", data.body],
                 timeout=8,
             )
             if result.success:
@@ -312,7 +301,6 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     async def daemon_start(interval: int = Query(60)):
         try:
             from runtime.daemon import FlowCoreDaemon
-
             result = FlowCoreDaemon().start(interval=interval)
             if result.get("started"):
                 msg = f"Daemon iniciado (pid={result['pid']})"
@@ -326,7 +314,6 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     async def daemon_stop():
         try:
             from runtime.daemon import FlowCoreDaemon
-
             result = FlowCoreDaemon().stop()
             msg = "Daemon parado" if result.get("stopped") else result.get("note", "Não estava ativo")
             return {"message": msg, **result}
@@ -337,7 +324,6 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     async def daemon_status():
         try:
             from runtime.daemon import FlowCoreDaemon
-
             return FlowCoreDaemon().status()
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
@@ -350,12 +336,10 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         # Battery via termux-battery-status
         try:
             from runtime.shell import is_available, run
-
             if is_available("termux-battery-status"):
                 r = run(["termux-battery-status"], timeout=5)
                 if r.success and r.stdout:
                     import json as _json
-
                     info["battery"] = _json.loads(r.stdout)
         except Exception:
             pass
@@ -363,7 +347,6 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         # Storage via df
         try:
             from runtime.shell import run as _run
-
             r = _run(["df", "-h", "/data"], timeout=5)
             if r.success and r.stdout:
                 lines = r.stdout.strip().splitlines()
@@ -371,8 +354,7 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
                     parts = lines[1].split()
                     if len(parts) >= 4:
                         info["storage"] = {
-                            "total": parts[1],
-                            "used": parts[2],
+                            "total": parts[1], "used": parts[2],
                             "avail": parts[3],
                         }
         except Exception:
@@ -381,7 +363,6 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         # Android version
         try:
             from runtime.shell import run as _run
-
             r = _run(["getprop", "ro.build.version.release"], timeout=3)
             if r.success and r.stdout.strip():
                 info["android_version"] = r.stdout.strip()
@@ -396,13 +377,11 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         results: dict = {"query": q, "memories": [], "documents": []}
         try:
             from storage import MemoryRepository
-
             results["memories"] = MemoryRepository().search(q)
         except Exception:
             pass
         try:
             from storage import DocumentRepository
-
             results["documents"] = DocumentRepository().search_sync(q)
         except Exception:
             pass
@@ -413,10 +392,13 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     async def list_notes(kind: str | None = Query(None)):
         try:
             from storage import DocumentRepository
-
             docs = DocumentRepository().list_all_sync()
             kinds = {"note", "todo", "agenda", "radar"}
-            filtered = [d for d in docs if d.get("source") in kinds and (kind is None or d.get("source") == kind)]
+            filtered = [
+                d for d in docs
+                if d.get("source") in kinds
+                and (kind is None or d.get("source") == kind)
+            ]
             return {"notes": filtered}
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
@@ -427,7 +409,6 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             raise HTTPException(status_code=422, detail="kind must be note, todo, agenda or radar")
         try:
             from storage import DocumentRepository
-
             label = {"note": "Nota", "todo": "TODO", "agenda": "Agenda", "radar": "Radar"}[data.kind]
             if data.kind == "radar":
                 first_line = next((ln.strip(" #") for ln in data.text.splitlines() if ln.strip()), label)
@@ -440,11 +421,11 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
 
     # ── Passport (Sprint 12) ─────────────────────────────────────────────
     @app.get("/api/passport")
-    async def get_passport(agent_name: str = Query("flowcore-ui"), ttl: int = Query(3600)):
+    async def get_passport(agent_name: str = Query("flowcore-ui"),
+                           ttl: int = Query(3600)):
         try:
             from passport.generator import PassportGenerator
             from passport.schema import AgentIdentity
-
             gen = PassportGenerator(ttl=ttl)
             agent = AgentIdentity(name=agent_name, version=version)
             p = gen.issue(agent)
@@ -457,7 +438,6 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     async def list_agents():
         try:
             from agents.runner import AgentRunner
-
             runner = AgentRunner(require_passport=False)
             return {"agents": runner.list_agents()}
         except Exception as e:
@@ -476,7 +456,6 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             raise HTTPException(status_code=429, detail="Muitas execuções em pouco tempo. Aguarde um momento.")
         try:
             from agents.runner import AgentRunner
-
             runner = AgentRunner()
             record = await runner.run(agent_name, context or {}, passport_agent_name="api-agent")
             return record.to_dict()
@@ -487,7 +466,6 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     async def list_agent_tasks(limit: int = Query(50, le=200), agent: str | None = Query(None)):
         try:
             from agents.task_store import AgentTaskStore
-
             store = AgentTaskStore()
             records = store.list_all(limit=limit, agent=agent)
             return {"tasks": [r.to_dict() for r in records]}
@@ -498,7 +476,6 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     async def get_agent_task(task_id: str):
         try:
             from agents.task_store import AgentTaskStore
-
             record = AgentTaskStore().get(task_id)
             if record is None:
                 raise HTTPException(status_code=404, detail="Task not found")
@@ -512,14 +489,12 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     @app.get("/api/flows")
     async def list_flows():
         from flows.store import FlowStore
-
         return [f.to_dict() for f in FlowStore().list_flows()]
 
     @app.post("/api/flows")
     async def create_flow(data: FlowCreate):
         from flows.schema import Flow
         from flows.store import FlowStore
-
         flow = Flow.new(data.name, steps=data.steps or [], description=data.description)
         FlowStore().save_flow(flow)
         logger.info("Flow created: {} ({})", flow.id, flow.name)
@@ -528,7 +503,6 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     @app.get("/api/flows/{flow_id}")
     async def get_flow(flow_id: str):
         from flows.store import FlowStore
-
         flow = FlowStore().get_flow(flow_id)
         if flow is None:
             raise HTTPException(status_code=404, detail="Flow not found")
@@ -537,7 +511,6 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     @app.delete("/api/flows/{flow_id}")
     async def delete_flow(flow_id: str):
         from flows.store import FlowStore
-
         if not FlowStore().delete_flow(flow_id):
             raise HTTPException(status_code=404, detail="Flow not found")
         logger.info("Flow deleted: {}", flow_id)
@@ -547,7 +520,6 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     async def run_flow(flow_id: str, context: dict | None = None):
         from flows.runner import FlowRunner
         from flows.store import FlowStore
-
         store = FlowStore()
         flow = store.get_flow(flow_id)
         if flow is None:
@@ -559,7 +531,6 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     @app.get("/api/flows/{flow_id}/runs")
     async def list_flow_runs(flow_id: str, limit: int = Query(20, le=100)):
         from flows.store import FlowStore
-
         runs = FlowStore().list_runs(flow_id=flow_id, limit=limit)
         return {"runs": [r.to_dict() for r in runs]}
 
@@ -568,9 +539,11 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     async def run_doctor_check(check_name: str):
         try:
             from doctor.service import DoctorService
-
             report = DoctorService().run(verbose=False)
-            matches = [c for c in report.checks if check_name.lower() in c.name.lower()]
+            matches = [
+                c for c in report.checks
+                if check_name.lower() in c.name.lower()
+            ]
             if not matches:
                 raise HTTPException(
                     status_code=404,
@@ -621,7 +594,6 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     async def list_scheduler_jobs():
         try:
             from runtime.job_scheduler import JobScheduler
-
             return {"jobs": JobScheduler().list_jobs()}
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
@@ -630,7 +602,6 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     async def scheduler_run_job(job_id: str):
         try:
             from runtime.job_scheduler import JobScheduler
-
             result = JobScheduler().run_now(job_id)
             return result
         except KeyError:
@@ -642,7 +613,6 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     async def scheduler_pause_job(job_id: str):
         try:
             from runtime.job_scheduler import JobScheduler
-
             sched = JobScheduler()
             if job_id not in sched._jobs:
                 raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
@@ -661,7 +631,6 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     async def observer_ingest(source: str = Query("manual")):
         try:
             from observer.ingestor import Ingestor  # type: ignore[import]
-
             result = Ingestor().ingest(source=source)
             return {"ingested": True, "source": source, **result}
         except ImportError:
@@ -694,7 +663,6 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     async def whatsapp_relink():
         try:
             from whatsapp.bridge import WhatsAppBridge  # type: ignore[import]
-
             qr = WhatsAppBridge().request_qr()
             return {"status": "qr_ready", "qr": qr}
         except ImportError:
@@ -712,7 +680,6 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     async def obsidian_status():
         try:
             from runtime.obsidian import ObsidianSync
-
             return ObsidianSync().status()
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
@@ -721,13 +688,11 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     async def obsidian_sync(data: ObsidianSyncRequest | None = None):
         try:
             from runtime.obsidian import ObsidianSync
-
             sync = ObsidianSync()
             if data and data.content:
                 path = sync.write_daily_note(data.content)
                 return {"written": True, "path": str(path)}
             from runtime.ai.brief_diario import get_last_brief
-
             brief = get_last_brief()
             if brief is None:
                 raise HTTPException(status_code=404, detail="No brief available — run /api/brief first")
@@ -749,7 +714,6 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     @app.post("/api/executions", response_model=ExecutionResponse)
     async def submit_execution(data: ExecutionSubmit):
         from flows.store import FlowStore
-
         if FlowStore().get_flow(data.flow_id) is None:
             raise HTTPException(status_code=404, detail="Flow not found")
         exec_id = uuid.uuid4().hex
@@ -777,21 +741,18 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
     async def watchdog_status():
         import asyncio
         from runtime.watchdog import WatchdogService
-
         return await asyncio.to_thread(WatchdogService().last_state)
 
     @app.post("/api/watchdog/run")
     async def watchdog_run(alert: bool = Query(True)):
         import asyncio
         from runtime.watchdog import WatchdogService
-
         svc = WatchdogService()
         report = await asyncio.to_thread(svc.run, alert=alert)
         return report.to_dict()
 
     # ── Dashboard v4 routes (AI, market, portfolio, integrations) ──────────
     from api.dashboard_routes import register_dashboard_routes
-
     register_dashboard_routes(app, version)
 
     # ── Autonomous Agent Runtime: background observation loop ──────────────
