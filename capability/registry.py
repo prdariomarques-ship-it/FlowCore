@@ -11,6 +11,7 @@ Usage::
     if adapter:
         result = adapter.get_battery()
 """
+
 from __future__ import annotations
 
 from typing import Callable
@@ -24,44 +25,44 @@ from capability.adapters.linux import LinuxAdapter
 
 _CAPABILITY_METHOD: dict[str, str] = {
     # Android-specific
-    "getBattery":          "get_battery",
-    "getClipboard":        "get_clipboard",
-    "setClipboard":        "set_clipboard",
-    "sendNotification":    "send_notification",
-    "getNetworkInfo":      "get_network_info",
-    "getWifiScan":         "get_wifi_scan",
-    "getBluetoothState":   "get_bluetooth_state",
-    "getLocation":         "get_location",
-    "takePhoto":           "take_photo",
-    "recordAudio":         "record_audio",
-    "vibrate":             "vibrate",
-    "torch":               "torch",
-    "openUrl":             "open_url",
-    "shareFile":           "share_file",
-    "checkPermission":     "check_permission",
-    "listPermissions":     "list_permissions",
-    "acquireWakeLock":     "acquire_wakelock",
-    "releaseWakeLock":     "release_wakelock",
-    "getAndroidInfo":      "get_android_info",
+    "getBattery": "get_battery",
+    "getClipboard": "get_clipboard",
+    "setClipboard": "set_clipboard",
+    "sendNotification": "send_notification",
+    "getNetworkInfo": "get_network_info",
+    "getWifiScan": "get_wifi_scan",
+    "getBluetoothState": "get_bluetooth_state",
+    "getLocation": "get_location",
+    "takePhoto": "take_photo",
+    "recordAudio": "record_audio",
+    "vibrate": "vibrate",
+    "torch": "torch",
+    "openUrl": "open_url",
+    "shareFile": "share_file",
+    "checkPermission": "check_permission",
+    "listPermissions": "list_permissions",
+    "acquireWakeLock": "acquire_wakelock",
+    "releaseWakeLock": "release_wakelock",
+    "getAndroidInfo": "get_android_info",
     # Runtime diagnostics
-    "getCpuUsage":         "get_cpu_usage",
-    "getMemoryUsage":      "get_memory_usage",
-    "getDiskUsage":        "get_disk_usage",
+    "getCpuUsage": "get_cpu_usage",
+    "getMemoryUsage": "get_memory_usage",
+    "getDiskUsage": "get_disk_usage",
     # Termux / Linux
-    "runPython":           "run_python",
-    "runGit":              "run_git",
-    "runSSH":              "run_ssh",
-    "runSQLite":           "run_sqlite",
-    "runShell":            "run_shell",
-    "installPackage":      "install_package",
-    "readFile":            "read_file",
-    "writeFile":           "write_file",
-    "listDirectory":       "list_directory",
-    "httpRequest":         "http_get",
-    "startService":        "start_service",
-    "stopService":         "stop_service",
-    "listServices":        "list_services",
-    "scheduleJob":         "schedule_job",
+    "runPython": "run_python",
+    "runGit": "run_git",
+    "runSSH": "run_ssh",
+    "runSQLite": "run_sqlite",
+    "runShell": "run_shell",
+    "installPackage": "install_package",
+    "readFile": "read_file",
+    "writeFile": "write_file",
+    "listDirectory": "list_directory",
+    "httpRequest": "http_get",
+    "startService": "start_service",
+    "stopService": "stop_service",
+    "listServices": "list_services",
+    "scheduleJob": "schedule_job",
 }
 
 
@@ -82,9 +83,7 @@ class CapabilityRegistry:
     def __init__(self, adapters: list[CapabilityAdapter] | None = None) -> None:
         if adapters is None:
             adapters = _default_adapters()
-        self._adapters: list[CapabilityAdapter] = sorted(
-            adapters, key=lambda a: a.priority, reverse=True
-        )
+        self._adapters: list[CapabilityAdapter] = sorted(adapters, key=lambda a: a.priority, reverse=True)
         self._available_cache: dict[str, bool] = {}
 
     def available_adapters(self) -> list[CapabilityAdapter]:
@@ -113,7 +112,8 @@ class CapabilityRegistry:
         adapter = self.get(capability)
         if adapter is None:
             return CapabilityResult.fail(
-                f"No adapter available for '{capability}'", "registry",
+                f"No adapter available for '{capability}'",
+                "registry",
                 reason=f"No installed adapter implements '{capability}'",
                 corrective_action="Install Termux:API (pkg install termux-api) or check capability name",
             )
@@ -122,8 +122,7 @@ class CapabilityRegistry:
 
     def list_capabilities(self) -> dict[str, str | None]:
         """Return {capability: adapter_name | None} for all known capabilities."""
-        return {cap: (a.name if (a := self.get(cap)) else None)
-                for cap in _CAPABILITY_METHOD}
+        return {cap: (a.name if (a := self.get(cap)) else None) for cap in _CAPABILITY_METHOD}
 
     def capability_names(self) -> list[str]:
         return list(_CAPABILITY_METHOD.keys())

@@ -5,6 +5,7 @@ needs to await a coroutine internally (e.g. an async repository method,
 RegimeEngine.classify_all()) — without forcing every caller up the stack
 to become async too.
 """
+
 from __future__ import annotations
 
 import asyncio

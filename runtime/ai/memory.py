@@ -8,6 +8,7 @@ Every memory entry records:
 - tags     : searchable labels
 - created_at / updated_at / confidence
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -20,21 +21,21 @@ from typing import Any
 _MEMORY_FILE = Path.home() / ".flowcore" / "memory.json"
 
 ORIGINS = ("user_input", "inference", "feedback", "external", "system")
-SCOPES  = ("session", "persistent")
+SCOPES = ("session", "persistent")
 
 
 @dataclass
 class MemoryEntry:
     id: str
     content: str
-    origin: str          # one of ORIGINS
-    source: str          # e.g. "chat", "market_brief", "user"
-    scope: str           # "session" | "persistent" | "until:YYYY-MM-DD"
-    tags: list[str]      = field(default_factory=list)
-    confidence: float    = 1.0
-    created_at: float    = field(default_factory=time.time)
-    updated_at: float    = field(default_factory=time.time)
-    invalidated: bool    = False
+    origin: str  # one of ORIGINS
+    source: str  # e.g. "chat", "market_brief", "user"
+    scope: str  # "session" | "persistent" | "until:YYYY-MM-DD"
+    tags: list[str] = field(default_factory=list)
+    confidence: float = 1.0
+    created_at: float = field(default_factory=time.time)
+    updated_at: float = field(default_factory=time.time)
+    invalidated: bool = False
     invalidated_reason: str = ""
 
     def to_dict(self) -> dict[str, Any]:
@@ -48,6 +49,7 @@ class MemoryEntry:
         if self.scope.startswith("until:"):
             try:
                 import datetime
+
                 cutoff = datetime.date.fromisoformat(self.scope[6:])
                 return datetime.date.today() > cutoff
             except ValueError:
@@ -78,10 +80,13 @@ class MemoryEngine:
 
     def _save(self) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._path.write_text(json.dumps(
-            {k: v.to_dict() for k, v in self._entries.items()},
-            indent=2, ensure_ascii=False,
-        ))
+        self._path.write_text(
+            json.dumps(
+                {k: v.to_dict() for k, v in self._entries.items()},
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
 
     # ── write ────────────────────────────────────────────────────────────────
 

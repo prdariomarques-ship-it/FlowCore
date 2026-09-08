@@ -21,6 +21,7 @@ def _clear_env(monkeypatch, tmp_path):
     monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
     monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
     import runtime.watchdog as _wd
+
     monkeypatch.setattr(_wd, "_STATE_FILE", tmp_path / "watchdog.state.json")
     monkeypatch.setattr(_wd, "_BOTS_DIR", tmp_path / "bots")
 
@@ -142,8 +143,10 @@ class TestBotChecks:
         bots_dir.mkdir()
         (bots_dir / "signal-engine.sh").write_text("#!/bin/bash\n")
 
-        with patch("runtime.watchdog._BOTS_DIR", bots_dir), \
-             patch("runtime.watchdog.WatchdogService._process_running", return_value=True):
+        with (
+            patch("runtime.watchdog._BOTS_DIR", bots_dir),
+            patch("runtime.watchdog.WatchdogService._process_running", return_value=True),
+        ):
             svc = WatchdogService()
             results = svc._check_bots()
 
@@ -158,9 +161,11 @@ class TestBotChecks:
         bots_dir.mkdir()
         (bots_dir / "signal-engine.sh").write_text("#!/bin/bash\n")
 
-        with patch("runtime.watchdog._BOTS_DIR", bots_dir), \
-             patch("runtime.watchdog.WatchdogService._process_running", return_value=False), \
-             patch("runtime.watchdog.WatchdogService._try_restart", return_value=True):
+        with (
+            patch("runtime.watchdog._BOTS_DIR", bots_dir),
+            patch("runtime.watchdog.WatchdogService._process_running", return_value=False),
+            patch("runtime.watchdog.WatchdogService._try_restart", return_value=True),
+        ):
             svc = WatchdogService()
             results = svc._check_bots()
 
@@ -250,8 +255,10 @@ class TestFullRun:
         from runtime.watchdog import WatchResult, WatchStatus, WatchdogService
 
         svc = WatchdogService()
-        with patch.object(svc, "_collect", return_value=[WatchResult("flowcore_api", WatchStatus.FAIL, "down")]), \
-             patch.object(svc, "_send_telegram") as mock_tg:
+        with (
+            patch.object(svc, "_collect", return_value=[WatchResult("flowcore_api", WatchStatus.FAIL, "down")]),
+            patch.object(svc, "_send_telegram") as mock_tg,
+        ):
             svc.run(alert=False)
 
         mock_tg.assert_not_called()

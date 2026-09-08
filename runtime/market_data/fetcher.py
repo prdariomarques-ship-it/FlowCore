@@ -1,4 +1,5 @@
 """Live market snapshot from public sources without synthetic fallbacks."""
+
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
@@ -14,7 +15,9 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def _result(value: float | None, source: str, observation_date: str | None = None, error: str | None = None) -> dict[str, Any]:
+def _result(
+    value: float | None, source: str, observation_date: str | None = None, error: str | None = None
+) -> dict[str, Any]:
     return {
         "value": value,
         "source": source,
@@ -30,6 +33,7 @@ def _public_json(url: str, timeout: int = 8) -> dict[str, Any] | list[Any]:
     request = Request(url, headers={"Accept": "application/json", "User-Agent": "FlowCore-Market/1.5"})
     with urlopen(request, timeout=timeout) as response:  # noqa: S310 - fixed public provider URLs
         import json
+
         return json.loads(response.read().decode("utf-8"))
 
 

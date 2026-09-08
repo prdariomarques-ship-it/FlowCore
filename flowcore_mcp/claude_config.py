@@ -1,4 +1,5 @@
 """Print the Claude Desktop / Claude Code configuration snippet for FlowCore MCP."""
+
 from __future__ import annotations
 
 import json

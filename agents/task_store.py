@@ -3,6 +3,7 @@
 Stores agent run results in ~/.flowcore/agent_history.json
 so results survive daemon restarts.
 """
+
 from __future__ import annotations
 
 import json
@@ -10,7 +11,6 @@ import time
 import uuid
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
-from typing import Any
 
 
 _STORE_PATH = Path.home() / ".flowcore" / "agent_history.json"
@@ -21,7 +21,7 @@ _MAX_ENTRIES = 500
 class AgentTaskRecord:
     id: str
     agent: str
-    status: str          # pending | running | completed | failed
+    status: str  # pending | running | completed | failed
     context: dict
     result: dict | None = None
     error: str | None = None

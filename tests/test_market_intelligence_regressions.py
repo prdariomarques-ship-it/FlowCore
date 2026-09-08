@@ -11,6 +11,7 @@ regime signal into the daily briefing:
    `except Exception: ...`, so the resulting TypeError was swallowed
    and the regime section was always silently empty/unavailable.
 """
+
 from __future__ import annotations
 
 import sys
@@ -71,8 +72,12 @@ class TestBriefingRegimeSection:
 
         fake_curve = YieldCurve(
             points=[CurvePoint("treasury", "10Y", 4.2, 4.1)],
-            slope_10y_2y=10, slope_30y_10y=5, previous_slope_10y_2y=8,
-            state="normal", shape="bull-steepening", interpretation="teste",
+            slope_10y_2y=10,
+            slope_30y_10y=5,
+            previous_slope_10y_2y=8,
+            state="normal",
+            shape="bull-steepening",
+            interpretation="teste",
         )
 
         with (
