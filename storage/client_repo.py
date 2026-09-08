@@ -107,6 +107,7 @@ class ClientRepository:
             """)
             await db.execute("CREATE INDEX IF NOT EXISTS idx_clients_office ON clients(office_id)")
             await self._ensure_contact_columns(db)
+            await self._ensure_investor_classification_columns(db)
             await db.commit()
 
     @staticmethod
@@ -124,6 +125,26 @@ class ClientRepository:
             await db.execute("ALTER TABLE clients ADD COLUMN email TEXT")
         if "phone" not in existing:
             await db.execute("ALTER TABLE clients ADD COLUMN phone TEXT")
+
+    @staticmethod
+    async def _ensure_investor_classification_columns(db: aiosqlite.Connection) -> None:
+        """CVM Resolução 30/2021 investor category (see config/
+        investor_classification.py), added after the initial `clients`
+        table shipped — same in-place migration as _ensure_contact_columns.
+        investor_category defaults to 'geral' (every existing client is
+        honestly unclassified until an advisor records a real declaration
+        via set_investor_classification); the other three columns stay
+        NULL until then — never inferred or backfilled."""
+        cursor = await db.execute("PRAGMA table_info(clients)")
+        existing = {row[1] for row in await cursor.fetchall()}
+        if "investor_category" not in existing:
+            await db.execute("ALTER TABLE clients ADD COLUMN investor_category TEXT NOT NULL DEFAULT 'geral'")
+        if "investor_declared_investments" not in existing:
+            await db.execute("ALTER TABLE clients ADD COLUMN investor_declared_investments REAL")
+        if "investor_certification" not in existing:
+            await db.execute("ALTER TABLE clients ADD COLUMN investor_certification TEXT")
+        if "investor_attestation_at" not in existing:
+            await db.execute("ALTER TABLE clients ADD COLUMN investor_attestation_at REAL")
 
     # ── Seeding (called once, at office creation) ───────────────────────────
 
@@ -202,7 +223,8 @@ class ClientRepository:
 
     _CLIENT_COLUMNS = (
         "id, office_id, name, profile, reference_value, current_allocation_json, is_demo, "
-        "created_at, updated_at, email, phone"
+        "created_at, updated_at, email, phone, investor_category, investor_declared_investments, "
+        "investor_certification, investor_attestation_at"
     )
 
     async def list_clients(self, office_id: str) -> list[dict[str, Any]]:
@@ -285,6 +307,39 @@ class ClientRepository:
             await db.commit()
         return await self.get_client(office_id, client_id)
 
+    async def set_investor_classification(
+        self, office_id: str, client_id: str,
+        declared_investments: float | None, certification: str | None,
+    ) -> dict[str, Any]:
+        """Records a client's investor category per CVM Resolução 30/2021
+        (config/investor_classification.py) — the category is always
+        *derived* from declared_investments/certification, never accepted
+        directly, so a caller can't simply assert "profissional" without
+        the numbers/certification behind it. Stamps investor_attestation_at
+        with the moment this was recorded whenever the result isn't
+        'geral', standing in for the written self-declaration (termo,
+        Anexos A/B) the resolution requires; passing both None resets a
+        client back to 'geral' (e.g. reverting an earlier declaration) and
+        clears the attestation timestamp. Raises KeyError if no such
+        client in this office (same tenant-scoping guarantee as
+        save_client_allocation)."""
+        from config.investor_classification import suggest_investor_category
+
+        existing = await self.get_client(office_id, client_id)
+        if existing is None:
+            raise KeyError(client_id)
+        category = suggest_investor_category(declared_investments, certification)
+        attested_at = time.time() if category != "geral" else None
+        async with aiosqlite.connect(self._db_path) as db:
+            await db.execute(
+                """UPDATE clients SET investor_category = ?, investor_declared_investments = ?,
+                   investor_certification = ?, investor_attestation_at = ?, updated_at = ?
+                   WHERE office_id = ? AND id = ?""",
+                (category, declared_investments, certification, attested_at, time.time(), office_id, client_id),
+            )
+            await db.commit()
+        return await self.get_client(office_id, client_id)
+
     async def reset_demo_clients(self, office_id: str) -> list[dict[str, Any]]:
         """Reverts every demo client in this office to its original seeded
         position. A no-op for clients with no known original state (never
@@ -306,4 +361,6 @@ class ClientRepository:
             "reference_value": row[4], "current_allocation": json.loads(row[5]),
             "is_demo": bool(row[6]), "created_at": row[7], "updated_at": row[8],
             "email": row[9], "phone": row[10],
+            "investor_category": row[11], "investor_declared_investments": row[12],
+            "investor_certification": row[13], "investor_attestation_at": row[14],
         }

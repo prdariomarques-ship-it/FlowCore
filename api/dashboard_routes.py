@@ -334,6 +334,17 @@ class ClientContactUpdate(BaseModel):
     phone: str | None = None
 
 
+class InvestorClassificationUpdate(BaseModel):
+    """Sets a client's investor category per CVM Resolução 30/2021 (see
+    config/investor_classification.py). The category itself is never
+    accepted directly from the caller -- it's always derived server-side
+    from `declared_investments` and/or `certification`, so a request
+    can't just assert "profissional" without the wealth/certification to
+    back it. Passing both fields as null resets the client to 'geral'."""
+    declared_investments: float | None = None
+    certification: str | None = None
+
+
 class ReviewRequestSend(BaseModel):
     channels: list[str] = ["email", "whatsapp"]
 
@@ -1351,6 +1362,43 @@ def register_dashboard_routes(app, version: str) -> None:
         user = await get_current_user(request)
         try:
             updated = await ClientRepository().save_client_contact(user["office_id"], client_id, data.email, data.phone)
+        except KeyError:
+            raise HTTPException(status_code=404, detail=f"unknown client: {client_id}")
+        return {"saved": True, "client": updated}
+
+    @app.get("/api/investor-classification/rules")
+    async def investor_classification_rules(request: Request):
+        """Single source of truth for the CVM Resolução 30/2021 thresholds
+        and accepted certifications (config/investor_classification.py) --
+        the frontend reads this instead of hardcoding R$1MM/R$10MM in JS,
+        same pattern as /api/portfolio/model-profiles."""
+        from config.investor_classification import (
+            ACCEPTED_CERTIFICATIONS, CATEGORY_LABELS, LEGAL_BASIS,
+            PROFESSIONAL_INVESTOR_THRESHOLD, QUALIFIED_INVESTOR_THRESHOLD,
+        )
+
+        await get_current_user(request)
+        return {
+            "legal_basis": LEGAL_BASIS,
+            "qualified_threshold": QUALIFIED_INVESTOR_THRESHOLD,
+            "professional_threshold": PROFESSIONAL_INVESTOR_THRESHOLD,
+            "accepted_certifications": list(ACCEPTED_CERTIFICATIONS),
+            "category_labels": CATEGORY_LABELS,
+        }
+
+    @app.put("/api/clients/{client_id}/investor-classification")
+    async def client_investor_classification_update(client_id: str, data: InvestorClassificationUpdate, request: Request):
+        """Records the client's declared investments and/or certification
+        and derives the resulting CVM category (config/
+        investor_classification.py) -- see set_investor_classification's
+        docstring for why the category itself is never accepted directly."""
+        from storage.client_repo import ClientRepository
+
+        user = await get_current_user(request)
+        try:
+            updated = await ClientRepository().set_investor_classification(
+                user["office_id"], client_id, data.declared_investments, data.certification,
+            )
         except KeyError:
             raise HTTPException(status_code=404, detail=f"unknown client: {client_id}")
         return {"saved": True, "client": updated}

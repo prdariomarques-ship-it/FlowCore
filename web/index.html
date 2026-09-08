@@ -1267,8 +1267,10 @@ function renderClientsList(clients){
     el.style.cursor='pointer';
     el.onclick=()=>openClient360(c.id, c.name);
     const demoTag=c.is_demo?' <span class="tag ty" style="font-size:9px">fictício</span>':'';
+    const catTag=c.investor_category==='profissional'?' <span class="tag tp" style="font-size:9px">PROFISSIONAL</span>'
+                :c.investor_category==='qualificado'?' <span class="tag ty" style="font-size:9px">QUALIFICADO</span>':'';
     const value=c.reference_value?`R$ ${Number(c.reference_value).toLocaleString('pt-BR')}`:'—';
-    el.innerHTML=`<span class="rl">${escapeHtml(c.name)}${demoTag}</span><span class="rv" style="color:var(--text2)">${escapeHtml(c.profile||'—')} · ${value}</span>`;
+    el.innerHTML=`<span class="rl">${escapeHtml(c.name)}${demoTag}${catTag}</span><span class="rv" style="color:var(--text2)">${escapeHtml(c.profile||'—')} · ${value}</span>`;
     box.appendChild(el);
   }
 }
@@ -2166,7 +2168,10 @@ const _HEALTH_LABEL={
   SEM_REGRAS_DEFINIDAS:['⚪ Sem regras definidas','var(--text2)'],
 };
 
+let _client360Id=null;
+
 async function openClient360(clientId, clientName){
+  _client360Id=clientId;
   const overlay=document.getElementById('client360-overlay');
   const body=document.getElementById('client360-body');
   document.getElementById('client360-title').textContent=clientName;
@@ -2176,6 +2181,8 @@ async function openClient360(clientId, clientName){
     const d=await api(`/api/clients/${clientId}/360`);
     const [healthLabel,healthColor]=_HEALTH_LABEL[d.health]||[d.health,'var(--text2)'];
     const c=d.client;
+    const catLabel={geral:'Geral',qualificado:'Qualificado',profissional:'Profissional'}[c.investor_category]||'Geral';
+    const catColor=c.investor_category==='profissional'?'var(--purple)':c.investor_category==='qualificado'?'var(--yellow)':'var(--text2)';
 
     let allocRows='<div class="empty">Nenhuma posição registrada.</div>';
     const allocEntries=Object.entries(c.current_allocation||{}).filter(([k])=>!k.startsWith('__sleeve__:'));
@@ -2203,6 +2210,11 @@ async function openClient360(clientId, clientName){
       <div class="row"><span class="rl">Email</span><span>${escapeHtml(c.email||'não cadastrado')}</span></div>
       <div class="row"><span class="rl">WhatsApp</span><span>${escapeHtml(c.phone||'não cadastrado')}</span></div>
       <div class="row"><span class="rl">Valor de referência</span><span>${c.reference_value?('R$ '+Number(c.reference_value).toLocaleString('pt-BR')):'—'}</span></div>
+      <div class="row"><span class="rl">Classificação (CVM Res. 30/2021)</span><span style="color:${catColor};font-weight:600">${catLabel}</span></div>
+      <div class="sr-title" style="margin-top:14px">Investidor qualificado / profissional</div>
+      <div class="ai-cfg-row"><input class="if" id="c360-investments" type="number" placeholder="Investimentos financeiros declarados (R$)" value="${c.investor_declared_investments||''}"></div>
+      <div class="ai-cfg-row"><input class="if" id="c360-certification" placeholder="Certificação (ex: CEA, CGA, CFP, CNPI...)" value="${escapeHtml(c.investor_certification||'')}"></div>
+      <div class="btns" style="margin-top:0"><button class="btn-sm" onclick="saveInvestorClassification()">✓ Confirmar declaração assinada (termo)</button></div>
       <div class="sr-title" style="margin-top:14px">Alocação atual</div>${allocRows}
       <div class="sr-title" style="margin-top:14px">Violações de compliance</div>${violRows}
       <div class="sr-title" style="margin-top:14px">Histórico de outreach</div>${historyRows}
@@ -2214,6 +2226,24 @@ async function openClient360(clientId, clientName){
 
 function closeClient360(){
   document.getElementById('client360-overlay').style.display='none';
+}
+
+async function saveInvestorClassification(){
+  if(!_client360Id) return;
+  const investmentsRaw=document.getElementById('c360-investments').value.trim();
+  const certification=document.getElementById('c360-certification').value.trim();
+  try{
+    await api(`/api/clients/${_client360Id}/investor-classification`,{method:'PUT',body:JSON.stringify({
+      declared_investments: investmentsRaw?Number(investmentsRaw):null,
+      certification: certification||null,
+    })});
+    toast('Classificação atualizada.');
+    const name=document.getElementById('client360-title').textContent;
+    openClient360(_client360Id, name);
+    loadClients();
+  }catch(e){
+    toast('Erro ao classificar: '+e.message);
+  }
 }
 
 let _dwMarketData=null;
