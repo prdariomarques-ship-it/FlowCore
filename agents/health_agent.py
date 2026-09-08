@@ -8,7 +8,6 @@ This is the only built-in agent.  It checks:
 
 Designed for Termux / Android environments.
 """
-
 from __future__ import annotations
 
 import os

@@ -1,5 +1,4 @@
 """Tests for flowcore_mcp — tools dispatch and server construction."""
-
 from __future__ import annotations
 
 import sys
@@ -7,6 +6,7 @@ import json
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
+import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -15,11 +15,9 @@ if str(ROOT) not in sys.path:
 
 # ── Tool dispatch tests ────────────────────────────────────────────────────────
 
-
 class TestDispatch:
     def _dispatch(self, name, args=None):
         from flowcore_mcp.tools import dispatch
-
         return dispatch(name, args or {})
 
     def test_unknown_tool_returns_error(self):
@@ -29,7 +27,9 @@ class TestDispatch:
 
     def test_capability_list_ok(self):
         mock_reg = MagicMock()
-        mock_reg.list_capabilities.return_value = {"runPython": MagicMock(), "runGit": None}
+        mock_reg.list_capabilities.return_value = {
+            "runPython": MagicMock(), "runGit": None
+        }
         with patch("capability.registry.CapabilityRegistry", return_value=mock_reg):
             result = self._dispatch("capability_list")
         assert result.is_error is False
@@ -71,20 +71,14 @@ class TestDispatch:
 
     def test_passport_issue_ok(self):
         from passport.schema import AgentIdentity, RuntimeInfo, Passport
-
         fake_agent = AgentIdentity(name="mcp-agent")
         fake_runtime = RuntimeInfo(
-            platform="linux",
-            is_android=False,
-            is_termux=False,
-            has_internet=True,
-            python_version="3.11",
+            platform="linux", is_android=False, is_termux=False,
+            has_internet=True, python_version="3.11",
         )
         fake_passport = Passport(
-            agent=fake_agent,
-            runtime=fake_runtime,
-            capabilities=["runPython"],
-            permissions=["runPython"],
+            agent=fake_agent, runtime=fake_runtime,
+            capabilities=["runPython"], permissions=["runPython"],
             health_status="ok",
         )
         mock_gen = MagicMock()
@@ -98,32 +92,23 @@ class TestDispatch:
 
     def test_passport_issue_with_caps(self):
         from passport.schema import AgentIdentity, RuntimeInfo, Passport
-
         fake_agent = AgentIdentity(name="ci")
         fake_runtime = RuntimeInfo(
-            platform="linux",
-            is_android=False,
-            is_termux=False,
-            has_internet=True,
-            python_version="3.11",
+            platform="linux", is_android=False, is_termux=False,
+            has_internet=True, python_version="3.11",
         )
         fake_passport = Passport(
-            agent=fake_agent,
-            runtime=fake_runtime,
-            capabilities=["runPython"],
-            permissions=[],
+            agent=fake_agent, runtime=fake_runtime,
+            capabilities=["runPython"], permissions=[],
             health_status="ok",
         )
         mock_gen = MagicMock()
         mock_gen.issue.return_value = fake_passport
         with patch("passport.generator.PassportGenerator", return_value=mock_gen):
-            result = self._dispatch(
-                "passport_issue",
-                {
-                    "agent_name": "ci",
-                    "requested_capabilities": ["runPython"],
-                },
-            )
+            result = self._dispatch("passport_issue", {
+                "agent_name": "ci",
+                "requested_capabilities": ["runPython"],
+            })
         assert result.is_error is False
 
     def test_memory_list_ok(self):
@@ -226,34 +211,24 @@ class TestDispatch:
 
 # ── Tool list tests ────────────────────────────────────────────────────────────
 
-
 class TestToolList:
     def test_all_tools_have_names(self):
         from flowcore_mcp.tools import FLOWCORE_TOOLS
-
         names = [t.name for t in FLOWCORE_TOOLS]
         assert len(names) >= 9
 
     def test_expected_tools_present(self):
         from flowcore_mcp.tools import FLOWCORE_TOOLS
-
         names = {t.name for t in FLOWCORE_TOOLS}
         for expected in (
-            "capability_list",
-            "doctor_run",
-            "passport_issue",
-            "memory_list",
-            "memory_save",
-            "note_list",
-            "note_create",
-            "search",
-            "daemon_status",
+            "capability_list", "doctor_run", "passport_issue",
+            "memory_list", "memory_save", "note_list", "note_create",
+            "search", "daemon_status",
         ):
             assert expected in names, f"Missing tool: {expected}"
 
     def test_tools_have_input_schema(self):
         from flowcore_mcp.tools import FLOWCORE_TOOLS
-
         for t in FLOWCORE_TOOLS:
             assert isinstance(t.input_schema, dict)
             assert t.input_schema.get("type") == "object"
@@ -261,25 +236,21 @@ class TestToolList:
 
 # ── Server construction tests ─────────────────────────────────────────────────
 
-
 class TestFlowCoreMCPServer:
     def test_instantiation(self):
         from flowcore_mcp.server import FlowCoreMCPServer
-
         srv = FlowCoreMCPServer(version="1.2.3")
         assert srv._version == "1.2.3"
         assert srv._server is not None
 
     def test_server_name(self):
         from flowcore_mcp.server import FlowCoreMCPServer
-
         srv = FlowCoreMCPServer()
         assert srv._server.name == "flowcore"
 
     def test_list_tools_async(self):
         import asyncio
         from flowcore_mcp.server import FlowCoreMCPServer
-
         srv = FlowCoreMCPServer()
         result = asyncio.run(srv._list_tools(None, None))
         assert len(result.tools) >= 9

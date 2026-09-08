@@ -1,5 +1,4 @@
 """FlowCore FlowStore — atomic JSON persistence for flows and flow runs."""
-
 from __future__ import annotations
 
 import json
@@ -89,7 +88,7 @@ class FlowStore:
         tmp = self._runs_file.with_suffix(".tmp")
         try:
             with open(tmp, "w", encoding="utf-8") as f:
-                json.dump(runs[-self._MAX_RUNS :], f, indent=2, default=str)
+                json.dump(runs[-self._MAX_RUNS:], f, indent=2, default=str)
             tmp.replace(self._runs_file)
         except Exception as exc:
             logger.error("FlowStore: error saving runs: {}", exc)

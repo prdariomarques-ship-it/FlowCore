@@ -13,31 +13,14 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from runtime.observers.providers.yfinance_provider import ObserverError, fetch_quote
 
 DEFAULT_WATCHLISTS: dict[str, list[str]] = {
-    "default": [
-        "^BVSP",
-        "USDBRL=X",
-        "^IRX",
-        "^TNX",
-        "^TYX",
-        "^FVX",
-        "^GSPC",
-        "^IXIC",
-        "^DJI",
-        "^RUT",
-        "^VIX",
-        "GC=F",
-        "CL=F",
-        "SI=F",
-        "HG=F",
-        "DX-Y.NYB",
-        "EURUSD=X",
-        "JPY=X",
-        "CNY=X",
-    ],
+    "default": ["^BVSP", "USDBRL=X", "^IRX", "^TNX", "^TYX", "^FVX",
+                "^GSPC", "^IXIC", "^DJI", "^RUT", "^VIX", "GC=F", "CL=F",
+                "SI=F", "HG=F", "DX-Y.NYB", "EURUSD=X", "JPY=X", "CNY=X"],
     "brasil": ["^BVSP", "USDBRL=X", "^IRX", "^TNX"],
     "global_rates": ["^IRX", "^FVX", "^TNX", "^TYX", "DE10Y.F"],
     "commodities": ["GC=F", "CL=F", "SI=F", "HG=F", "PL=F", "BZ=F"],
@@ -62,7 +45,8 @@ def list_watchlists() -> dict:
 def snapshot(watchlist: str) -> dict:
     symbols = DEFAULT_WATCHLISTS.get(watchlist)
     if symbols is None:
-        return {"error": f"unknown watchlist: {watchlist}", "available": list_watchlists()["watchlists"]}
+        return {"error": f"unknown watchlist: {watchlist}",
+                "available": list_watchlists()["watchlists"]}
     fetched: dict[str, WatchlistItem] = {}
 
     def fetch_item(symbol: str) -> WatchlistItem:
@@ -89,9 +73,7 @@ def snapshot(watchlist: str) -> dict:
                 fetched[symbol] = WatchlistItem(symbol=symbol, level=None, delta_pct_1d=None, status="error")
 
     items = [fetched[symbol] for symbol in symbols]
-    return {
-        "watchlist": watchlist,
-        "items": [
-            {"symbol": i.symbol, "level": i.level, "delta_pct_1d": i.delta_pct_1d, "status": i.status} for i in items
-        ],
-    }
+    return {"watchlist": watchlist,
+            "items": [{"symbol": i.symbol, "level": i.level,
+                       "delta_pct_1d": i.delta_pct_1d,
+                       "status": i.status} for i in items]}

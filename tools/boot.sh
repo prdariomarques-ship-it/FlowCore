@@ -23,6 +23,7 @@ while [ ! -d "$BASE" ]; do
 done
 
 cd "$BASE" || exit 1
+. "$BASE/deploy/proc_utils.sh"
 echo "$(date -Is) Boot script iniciado; FlowCore em ${FLOWCORE__API__HOST}:8080" >> "$LOGDIR/boot.log"
 
 # Start sshd if available
@@ -33,7 +34,7 @@ fi
 
 # Keep FlowCore running; restart on crash
 while :; do
-    if ! pgrep -f '[f]lowcore.py serve' >/dev/null 2>&1; then
+    if ! _proc_running 'flowcore.py serve'; then
         echo "$(date -Is) Iniciando FlowCore" >> "$LOGDIR/flowcore.log"
         python3 flowcore.py serve >> "$LOGDIR/flowcore.log" 2>&1
         echo "$(date -Is) FlowCore encerrou; reiniciando em 5s" >> "$LOGDIR/flowcore.log"

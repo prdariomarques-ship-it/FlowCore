@@ -13,15 +13,16 @@ FLOWCORE_PORT=8080
 CHECK_INTERVAL=60
 
 mkdir -p "$HOME/.flowcore"
+. "$(dirname "$0")/proc_utils.sh"
 
 _log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG"; }
 
 _flowcore_running() {
-    pgrep -f "flowcore.py serve" >/dev/null 2>&1
+    _proc_running "flowcore.py serve"
 }
 
 _cloudflared_running() {
-    pgrep -f "cloudflared tunnel run" >/dev/null 2>&1
+    _proc_running "cloudflared tunnel run"
 }
 
 _start_flowcore() {

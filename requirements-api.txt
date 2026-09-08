@@ -10,4 +10,16 @@ httpx>=0.25.0,<1.0.0
 sqlalchemy>=2.0.0,<3.0.0
 
 # Dados de mercado para observadores, dashboard e briefing Telegram
-yfinance>=0.2.40
+# Upper bound intencional: yfinance>=0.2.60 passou a exigir curl_cffi (extensão
+# compilada em Rust/C) como dependência obrigatória. curl_cffi não publica wheel
+# para Android/Termux (bionic libc, fora do padrão manylinux) e falha ao compilar
+# a partir do source nesse ambiente — quebrando Ibovespa e qualquer outro dado via
+# yfinance com "Sem dados" mesmo com a lib "instalada". <0.2.60 usa `requests` puro.
+yfinance>=0.2.40,<0.2.60
+
+# Renderização do card visual do fechamento de mercado (Pillow puro-Python,
+# sem headless browser — inviável no Termux/Android). No Termux, prefira
+# `pkg install python-pillow` (wheel pré-compilada com libjpeg/zlib/freetype
+# já resolvidos) antes de rodar pip install -r deste arquivo; sem isso, pip
+# tentaria compilar do source e pode falhar por falta dessas libs do sistema.
+Pillow>=10.0.0,<13.0.0

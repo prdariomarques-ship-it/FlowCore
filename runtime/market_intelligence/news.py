@@ -60,7 +60,6 @@ def _fetch_news(symbol: str) -> list[dict[str, Any]]:
     """Read only the fields supplied by yfinance for one watched symbol."""
     try:
         import yfinance as yf
-
         ticker = yf.Ticker(symbol)
         items = ticker.news or []
     except Exception:  # noqa: BLE001 - source failures become an empty source slice
@@ -84,15 +83,13 @@ def _fetch_news(symbol: str) -> list[dict[str, Any]]:
             published_at = content.get("pubDate") or item.get("providerPublishTime") or ""
             if isinstance(published_at, (int, float)):
                 published_at = _dt.datetime.fromtimestamp(published_at, tz=_dt.timezone.utc).isoformat()
-            out.append(
-                {
-                    "headline": headline,
-                    "publisher": publisher or item.get("publisher") or "",
-                    "link": link,
-                    "timestamp": str(published_at) if published_at else "",
-                    "related_symbol": symbol,
-                }
-            )
+            out.append({
+                "headline": headline,
+                "publisher": publisher or item.get("publisher") or "",
+                "link": link,
+                "timestamp": str(published_at) if published_at else "",
+                "related_symbol": symbol,
+            })
         except Exception:  # noqa: BLE001 - malformed provider items are ignored individually
             continue
     return out
@@ -164,10 +161,12 @@ def _normalize_item(item: dict[str, Any], collected_at: str) -> dict[str, Any]:
     published_at = item["timestamp"] or None
     canonical_url = item["link"] or None
     stable_key = "|".join((canonical_url or "", item["publisher"], item["headline"], published_at or ""))
+    translated_headline = _translate_to_portuguese(item["headline"])
     return {
         # Stable fields for the mobile and web feed.
         "id": hashlib.sha256(stable_key.encode("utf-8")).hexdigest()[:24],
-        "headline": item["headline"],
+        "headline": translated_headline,
+        "headline_en": item["headline"],  # Keep original for reference
         "section_tags": _sections_for(item),
         "category": item["category"],
         "related_region": item["related_region"],
@@ -183,6 +182,76 @@ def _normalize_item(item: dict[str, Any], collected_at: str) -> dict[str, Any]:
         "timestamp": item["timestamp"],
         "related_symbol": item["related_symbol"],
     }
+
+
+_HEADLINE_TRANSLATION_CACHE: dict[str, str] = {}
+
+
+def _translate_to_portuguese(headline: str) -> str:
+    """Translate headline to Portuguese via configured LLM, with cache and graceful degradation.
+
+    Returns the translated headline if available; original English text if translation fails.
+    Cache prevents retranslating the same headline multiple times.
+    """
+    if headline in _HEADLINE_TRANSLATION_CACHE:
+        return _HEADLINE_TRANSLATION_CACHE[headline]
+
+    try:
+        import json
+        from pathlib import Path
+
+        ai_config_path = Path.home() / ".flowcore" / "ai.json"
+        if not ai_config_path.exists():
+            return headline
+
+        ai_config = json.loads(ai_config_path.read_text())
+
+        # Try DeepSeek (preferred for cost/speed on translation tasks)
+        if ai_config.get("deepseek_url"):
+            from api.dashboard_routes import _http_json
+            try:
+                resp = _http_json("POST", f"{ai_config['deepseek_url']}/v1/chat/completions", {
+                    "model": ai_config.get("deepseek_model", "deepseek-chat"),
+                    "messages": [
+                        {"role": "system", "content": "Translate the following market news headline to Portuguese (Brazil). Return ONLY the translated headline, nothing else."},
+                        {"role": "user", "content": headline}
+                    ],
+                    "stream": False,
+                }, timeout=5)
+                translated = resp.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                if translated:
+                    _HEADLINE_TRANSLATION_CACHE[headline] = translated
+                    return translated
+            except Exception:
+                pass  # fall through to Ollama
+
+        # Fallback: Ollama (local, already wired up in /api/ask)
+        if ai_config.get("ollama_url"):
+            from api.dashboard_routes import _http_json, _tcp_reachable
+            base = ai_config.get("ollama_url", "http://localhost:11434").rstrip("/")
+            if _tcp_reachable(base, timeout=1.0):
+                try:
+                    resp = _http_json("POST", f"{base}/api/chat", {
+                        "model": ai_config.get("model", "llama3"),
+                        "messages": [
+                            {"role": "system", "content": "Traduz a seguinte manchete de notícias de mercado para português (Brasil). Retorne APENAS a manchete traduzida, nada mais."},
+                            {"role": "user", "content": headline}
+                        ],
+                        "stream": False,
+                    }, timeout=5)
+                    translated = resp.get("message", {}).get("content", "").strip()
+                    if translated:
+                        _HEADLINE_TRANSLATION_CACHE[headline] = translated
+                        return translated
+                except Exception:
+                    pass
+
+    except Exception:
+        pass
+
+    # No translation available; return original headline
+    _HEADLINE_TRANSLATION_CACHE[headline] = headline
+    return headline
 
 
 def fetch_news(
@@ -206,21 +275,13 @@ def fetch_news(
     if not expanded:
         collected_at = _dt.datetime.now(_dt.timezone.utc).isoformat()
         return {
-            "items": [],
-            "groups": [],
-            "section": section,
-            "supported_sections": list(SUPPORTED_NEWS_SECTIONS),
-            "next_cursor": None,
-            "fetched_at": collected_at,
-            "partial_errors": [],
-            "source": "yahoo_finance",
+            "items": [], "groups": [], "section": section, "supported_sections": list(SUPPORTED_NEWS_SECTIONS),
+            "next_cursor": None, "fetched_at": collected_at, "partial_errors": [], "source": "yahoo_finance",
         }
 
     raw_items: list[dict[str, Any]] = []
     seen: set[tuple[str, str, str]] = set()
-    with ThreadPoolExecutor(
-        max_workers=min(6, sum(len(symbols) for symbols in expanded.values())), thread_name_prefix="flowcore-news"
-    ) as executor:
+    with ThreadPoolExecutor(max_workers=min(6, sum(len(symbols) for symbols in expanded.values())), thread_name_prefix="flowcore-news") as executor:
         futures = {executor.submit(_fetch_news, symbol): symbol for symbols in expanded.values() for symbol in symbols}
         for future in as_completed(futures):
             for item in future.result():
@@ -237,7 +298,7 @@ def fetch_news(
     collected_at = _dt.datetime.now(_dt.timezone.utc).isoformat()
     normalized = [_normalize_item(item, collected_at) for item in filtered_items]
     page_size = max(1, limit if limit is not None else max_per_group * len(groups))
-    page = normalized[offset : offset + page_size]
+    page = normalized[offset:offset + page_size]
     next_offset = offset + len(page)
     return {
         "items": page,

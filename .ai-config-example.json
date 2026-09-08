@@ -1,0 +1,27 @@
+{
+  "comment": "Example ~/.flowcore/ai.json configuration for FlowCore AI providers",
+  "ollama_url": "http://localhost:11434",
+  "model": "llama3",
+  "fallback_model": "phi",
+  "ollama_fallback_url": "http://127.0.0.1:11434",
+  "openai_url": "http://localhost:8000/v1",
+  "openai_model": "gpt-4",
+  "deepseek_url": "https://api.deepseek.com/v1",
+  "deepseek_model": "deepseek-chat",
+  "_comment_providers": {
+    "ollama_url": "Primary Ollama endpoint (e.g., desktop PC over LAN)",
+    "ollama_fallback_url": "Fallback Ollama endpoint (e.g., phone running Ollama)",
+    "openai_url": "OpenAI-compatible endpoint URL (e.g., LM Studio, Jan, Hermes Agent)",
+    "deepseek_url": "DeepSeek API endpoint for news headline translation (cost-effective, fast)",
+    "deepseek_model": "DeepSeek model ID (deepseek-chat, deepseek-coder, etc.)"
+  },
+  "_notes": [
+    "One endpoint is enough; FlowCore tries them in priority order:",
+    "1. DeepSeek for headline translation (if configured)",
+    "2. OpenAI-compatible endpoint for chat/briefing generation",
+    "3. Primary Ollama for general LLM tasks",
+    "4. Fallback Ollama (e.g., phone) for when primary is down",
+    "Each missing provider is skipped — if none are configured, chat/briefing gracefully degrade.",
+    "Copy this file to ~/.flowcore/ai.json and edit with your actual endpoints & API keys."
+  ]
+}

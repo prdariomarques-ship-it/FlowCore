@@ -3,15 +3,14 @@
 Centralises every SQLite operation on the `documents` table.
 Previously these were duplicated inline across 8+ functions in flowcore.py.
 """
-
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 from typing import Any
 
 import aiosqlite
 
+from runtime.asyncio_utils import run_sync as _run_sync
 from storage.database import get_db_path
 
 
@@ -55,9 +54,14 @@ class DocumentRepository:
     async def list_all(self) -> list[dict[str, Any]]:
         await self.ensure_table()
         async with aiosqlite.connect(self._db_path) as db:
-            cursor = await db.execute("SELECT id, title, source, created_at FROM documents ORDER BY created_at DESC")
+            cursor = await db.execute(
+                "SELECT id, title, content, source, created_at FROM documents ORDER BY created_at DESC"
+            )
             rows = await cursor.fetchall()
-            return [{"id": r[0], "title": r[1], "source": r[2], "created_at": r[3]} for r in rows]
+            return [
+                {"id": r[0], "title": r[1], "content": r[2], "source": r[3], "created_at": r[4]}
+                for r in rows
+            ]
 
     async def get_by_id(self, doc_id: int) -> dict[str, Any] | None:
         await self.ensure_table()
@@ -112,22 +116,22 @@ class DocumentRepository:
     # ── Sync convenience ─────────────────────────────────────────────────────
 
     def insert_sync(self, title: str, content: str, source: str = "") -> int:
-        return asyncio.run(self.insert(title, content, source))
+        return _run_sync(self.insert(title, content, source))
 
     def list_all_sync(self) -> list[dict[str, Any]]:
-        return asyncio.run(self.list_all())
+        return _run_sync(self.list_all())
 
     def get_by_id_sync(self, doc_id: int) -> dict[str, Any] | None:
-        return asyncio.run(self.get_by_id(doc_id))
+        return _run_sync(self.get_by_id(doc_id))
 
     def search_sync(self, query: str) -> list[dict[str, Any]]:
-        return asyncio.run(self.search(query))
+        return _run_sync(self.search(query))
 
     def list_recent_sync(self, limit: int = 5) -> list[dict[str, Any]]:
-        return asyncio.run(self.list_recent(limit))
+        return _run_sync(self.list_recent(limit))
 
     def count_sync(self) -> int:
-        return asyncio.run(self.count())
+        return _run_sync(self.count())
 
     def count_by_source_sync(self, *sources: str) -> int:
-        return asyncio.run(self.count_by_source(*sources))
+        return _run_sync(self.count_by_source(*sources))

@@ -7,7 +7,6 @@ Priority 80 — second preference, after Android-specific adapters.
 
 The agent layer never sees: python3, git, ssh, sqlite3, pkg, ls, curl.
 """
-
 from __future__ import annotations
 
 import os
@@ -21,7 +20,6 @@ from runtime.shell import is_available, run, which
 
 # ── Python ────────────────────────────────────────────────────────────────────
 
-
 class TermuxPythonAdapter(CapabilityAdapter):
     name = "termux.python"
     priority = 80
@@ -32,25 +30,21 @@ class TermuxPythonAdapter(CapabilityAdapter):
     def run_python(self, script: str, args: list[str] | None = None) -> CapabilityResult:
         python = which("python3") or which("python")
         if not python:
-            return CapabilityResult.fail("python3 not found", self.name, corrective_action="pkg install python")
+            return CapabilityResult.fail("python3 not found", self.name,
+                corrective_action="pkg install python")
         script_path = Path(script)
         if not script_path.exists():
-            return CapabilityResult.fail(
-                f"Script not found: {script}", self.name, reason=f"File does not exist: {script}"
-            )
+            return CapabilityResult.fail(f"Script not found: {script}", self.name,
+                reason=f"File does not exist: {script}")
         result = run([python, str(script_path)] + (args or []), timeout=60)
         if result.success:
             return CapabilityResult.ok({"output": result.stdout, "stderr": result.stderr}, self.name)
-        return CapabilityResult.fail(
-            result.stderr or result.stdout,
-            self.name,
+        return CapabilityResult.fail(result.stderr or result.stdout, self.name,
             reason=f"Python script exited with code {result.returncode}",
-            diagnosis=(result.stderr or result.stdout)[:500],
-        )
+            diagnosis=(result.stderr or result.stdout)[:500])
 
 
 # ── Git ───────────────────────────────────────────────────────────────────────
-
 
 class TermuxGitAdapter(CapabilityAdapter):
     name = "termux.git"
@@ -63,17 +57,13 @@ class TermuxGitAdapter(CapabilityAdapter):
         result = run(["git"] + args, timeout=30)
         if result.success:
             return CapabilityResult.ok({"output": result.stdout}, self.name)
-        return CapabilityResult.fail(
-            result.stderr,
-            self.name,
+        return CapabilityResult.fail(result.stderr, self.name,
             reason=f"git {' '.join(args[:2])} failed",
             diagnosis=result.stderr[:500],
-            corrective_action="pkg install git",
-        )
+            corrective_action="pkg install git")
 
 
 # ── SSH ───────────────────────────────────────────────────────────────────────
-
 
 class TermuxSSHAdapter(CapabilityAdapter):
     name = "termux.ssh"
@@ -91,17 +81,13 @@ class TermuxSSHAdapter(CapabilityAdapter):
         result = run(cmd, timeout=30)
         if result.success:
             return CapabilityResult.ok({"output": result.stdout}, self.name)
-        return CapabilityResult.fail(
-            result.stderr,
-            self.name,
+        return CapabilityResult.fail(result.stderr, self.name,
             reason=f"SSH to {host} failed",
             diagnosis=result.stderr[:500],
-            corrective_action="pkg install openssh && check host/key configuration",
-        )
+            corrective_action="pkg install openssh && check host/key configuration")
 
 
 # ── SQLite ────────────────────────────────────────────────────────────────────
-
 
 class TermuxSQLiteAdapter(CapabilityAdapter):
     name = "termux.sqlite"
@@ -114,23 +100,18 @@ class TermuxSQLiteAdapter(CapabilityAdapter):
         result = run(["sqlite3", "-json", db_path, query], timeout=10)
         if result.success:
             import json as _json
-
             try:
                 rows = _json.loads(result.stdout) if result.stdout.strip() else []
                 return CapabilityResult.ok({"rows": rows, "count": len(rows)}, self.name)
             except _json.JSONDecodeError:
                 return CapabilityResult.ok({"output": result.stdout}, self.name)
-        return CapabilityResult.fail(
-            result.stderr,
-            self.name,
+        return CapabilityResult.fail(result.stderr, self.name,
             reason="SQLite query failed",
             diagnosis=result.stderr[:500],
-            corrective_action="pkg install sqlite",
-        )
+            corrective_action="pkg install sqlite")
 
 
 # ── Filesystem ────────────────────────────────────────────────────────────────
-
 
 class TermuxFilesystemAdapter(CapabilityAdapter):
     name = "termux.filesystem"
@@ -138,7 +119,6 @@ class TermuxFilesystemAdapter(CapabilityAdapter):
 
     def is_available(self) -> bool:
         import sys
-
         return sys.platform != "win32"
 
     def read_file(self, path: str) -> CapabilityResult:
@@ -146,14 +126,12 @@ class TermuxFilesystemAdapter(CapabilityAdapter):
             content = Path(path).read_text(encoding="utf-8")
             return CapabilityResult.ok({"content": content, "path": path}, self.name)
         except PermissionError as e:
-            return CapabilityResult.fail(
-                str(e),
-                self.name,
+            return CapabilityResult.fail(str(e), self.name,
                 reason=f"Permission denied reading {path}",
-                corrective_action="Check file permissions or run termux-setup-storage",
-            )
+                corrective_action="Check file permissions or run termux-setup-storage")
         except FileNotFoundError:
-            return CapabilityResult.fail(f"File not found: {path}", self.name, reason=f"Path does not exist: {path}")
+            return CapabilityResult.fail(f"File not found: {path}", self.name,
+                reason=f"Path does not exist: {path}")
         except Exception as e:
             return CapabilityResult.fail(str(e), self.name)
 
@@ -162,14 +140,12 @@ class TermuxFilesystemAdapter(CapabilityAdapter):
             p = Path(path)
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(content, encoding="utf-8")
-            return CapabilityResult.ok({"written": True, "path": path, "bytes": len(content.encode())}, self.name)
+            return CapabilityResult.ok({"written": True, "path": path,
+                                        "bytes": len(content.encode())}, self.name)
         except PermissionError as e:
-            return CapabilityResult.fail(
-                str(e),
-                self.name,
+            return CapabilityResult.fail(str(e), self.name,
                 reason=f"Permission denied writing {path}",
-                corrective_action="Check directory permissions",
-            )
+                corrective_action="Check directory permissions")
         except Exception as e:
             return CapabilityResult.fail(str(e), self.name)
 
@@ -187,21 +163,21 @@ class TermuxFilesystemAdapter(CapabilityAdapter):
 
 # ── Package management ────────────────────────────────────────────────────────
 
-
 class TermuxPackageAdapter(CapabilityAdapter):
     name = "termux.package"
     priority = 80
 
-    _SAFE_CHARS = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.")
+    _SAFE_CHARS = frozenset(
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_."
+    )
 
     def is_available(self) -> bool:
         return is_available("pkg") or is_available("pip3") or is_available("pip")
 
     def install_package(self, package: str) -> CapabilityResult:
         if not all(c in self._SAFE_CHARS for c in package):
-            return CapabilityResult.fail(
-                f"Invalid package name: {package}", self.name, reason="Package name contains unsafe characters"
-            )
+            return CapabilityResult.fail(f"Invalid package name: {package}", self.name,
+                reason="Package name contains unsafe characters")
         if is_available("pkg"):
             result = run(["pkg", "install", "-y", package], timeout=120)
             if result.success:
@@ -211,16 +187,12 @@ class TermuxPackageAdapter(CapabilityAdapter):
             result = run([python, "-m", "pip", "install", "--quiet", package], timeout=120)
             if result.success:
                 return CapabilityResult.ok({"installed": package, "via": "pip"}, self.name)
-        return CapabilityResult.fail(
-            f"Could not install {package}",
-            self.name,
+        return CapabilityResult.fail(f"Could not install {package}", self.name,
             reason="Neither pkg nor pip succeeded",
-            corrective_action="pkg install pkg && pkg update",
-        )
+            corrective_action="pkg install pkg && pkg update")
 
 
 # ── HTTP ──────────────────────────────────────────────────────────────────────
-
 
 class TermuxHTTPAdapter(CapabilityAdapter):
     name = "termux.http"
@@ -236,18 +208,16 @@ class TermuxHTTPAdapter(CapabilityAdapter):
                 return CapabilityResult.ok({"body": result.stdout, "via": "curl"}, self.name)
         try:
             import urllib.request
-
             with urllib.request.urlopen(url, timeout=timeout) as resp:
                 body = resp.read().decode("utf-8", errors="replace")
                 return CapabilityResult.ok({"body": body, "via": "urllib"}, self.name)
         except Exception as e:
-            return CapabilityResult.fail(
-                str(e), self.name, reason=f"HTTP GET failed for {url}", corrective_action="Check network connectivity"
-            )
+            return CapabilityResult.fail(str(e), self.name,
+                reason=f"HTTP GET failed for {url}",
+                corrective_action="Check network connectivity")
 
 
 # ── Shell (controlled) ────────────────────────────────────────────────────────
-
 
 class TermuxShellAdapter(CapabilityAdapter):
     """Execute pre-validated arg lists (no shell=True, no string eval)."""
@@ -257,7 +227,6 @@ class TermuxShellAdapter(CapabilityAdapter):
 
     def is_available(self) -> bool:
         import sys
-
         return sys.platform != "win32"
 
     def run_shell(self, args: list[str], *, timeout: int = 30) -> CapabilityResult:
@@ -265,17 +234,14 @@ class TermuxShellAdapter(CapabilityAdapter):
             return CapabilityResult.fail("No command provided", self.name)
         result = run(args, timeout=timeout)
         if result.success:
-            return CapabilityResult.ok({"output": result.stdout, "returncode": result.returncode}, self.name)
-        return CapabilityResult.fail(
-            result.stderr or result.stdout,
-            self.name,
+            return CapabilityResult.ok({"output": result.stdout,
+                                        "returncode": result.returncode}, self.name)
+        return CapabilityResult.fail(result.stderr or result.stdout, self.name,
             reason=f"'{args[0]}' exited with code {result.returncode}",
-            diagnosis=(result.stderr or result.stdout)[:500],
-        )
+            diagnosis=(result.stderr or result.stdout)[:500])
 
 
 # ── Services (background processes) ──────────────────────────────────────────
-
 
 class TermuxServiceAdapter(CapabilityAdapter):
     """Manage long-running background processes with PID tracking."""
@@ -287,7 +253,6 @@ class TermuxServiceAdapter(CapabilityAdapter):
 
     def is_available(self) -> bool:
         import sys
-
         return sys.platform != "win32"
 
     def start_service(self, name: str, script: str) -> CapabilityResult:
@@ -305,28 +270,29 @@ class TermuxServiceAdapter(CapabilityAdapter):
             return CapabilityResult.fail("python3 not found", self.name)
         try:
             with open(log_file, "a") as log:
-                proc = subprocess.Popen([python, str(script_path)], stdout=log, stderr=log, close_fds=True)
+                proc = subprocess.Popen([python, str(script_path)],
+                                        stdout=log, stderr=log, close_fds=True)
             pid_file.write_text(str(proc.pid))
-            return CapabilityResult.ok({"name": name, "pid": proc.pid, "log": str(log_file)}, self.name)
+            return CapabilityResult.ok({"name": name, "pid": proc.pid,
+                                        "log": str(log_file)}, self.name)
         except Exception as e:
             return CapabilityResult.fail(str(e), self.name)
 
     def stop_service(self, name: str) -> CapabilityResult:
         pid_file = self._PID_DIR / f"{name}.pid"
         if not pid_file.exists():
-            return CapabilityResult.fail(
-                f"Service not running: {name}", self.name, corrective_action="Start service first"
-            )
+            return CapabilityResult.fail(f"Service not running: {name}", self.name,
+                corrective_action=f"Start service first")
         try:
             pid = int(pid_file.read_text().strip())
             import signal
-
             os.kill(pid, signal.SIGTERM)
             pid_file.unlink(missing_ok=True)
             return CapabilityResult.ok({"name": name, "pid": pid, "stopped": True}, self.name)
         except ProcessLookupError:
             pid_file.unlink(missing_ok=True)
-            return CapabilityResult.ok({"name": name, "stopped": True, "note": "Process was already gone"}, self.name)
+            return CapabilityResult.ok({"name": name, "stopped": True,
+                                         "note": "Process was already gone"}, self.name)
         except Exception as e:
             return CapabilityResult.fail(str(e), self.name)
 
@@ -356,9 +322,8 @@ class TermuxServiceAdapter(CapabilityAdapter):
             existing = result.stdout if result.success else ""
             if cron_line not in existing:
                 new_crontab = existing.rstrip("\n") + f"\n{cron_line}\n"
-                proc = subprocess.Popen(
-                    ["crontab", "-"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-                )
+                proc = subprocess.Popen(["crontab", "-"], stdin=subprocess.PIPE,
+                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 _, stderr = proc.communicate(new_crontab.encode())
                 if proc.returncode == 0:
                     return CapabilityResult.ok({"scheduled": cron_line, "via": "crontab"}, self.name)
@@ -366,17 +331,17 @@ class TermuxServiceAdapter(CapabilityAdapter):
             return CapabilityResult.ok({"note": "already scheduled", "scheduled": cron_line}, self.name)
 
         if is_available("termux-job-scheduler"):
-            result = run(["termux-job-scheduler", "--script", script, "--period-ms", "3600000"], timeout=10)
+            result = run(["termux-job-scheduler", "--script", script,
+                          "--period-ms", "3600000"], timeout=10)
             if result.success:
-                return CapabilityResult.ok({"scheduled": script, "via": "termux-job-scheduler"}, self.name)
+                return CapabilityResult.ok({"scheduled": script,
+                                            "via": "termux-job-scheduler"}, self.name)
 
-        return CapabilityResult.fail(
-            "No scheduler available", self.name, corrective_action="pkg install cronie || pkg install termux-api"
-        )
+        return CapabilityResult.fail("No scheduler available", self.name,
+            corrective_action="pkg install cronie || pkg install termux-api")
 
 
 # ── Battery fallback (/sys) ───────────────────────────────────────────────────
-
 
 class TermuxBatteryAdapter(CapabilityAdapter):
     name = "termux.battery"
@@ -395,18 +360,15 @@ class TermuxBatteryAdapter(CapabilityAdapter):
                 level = int((bp / "capacity").read_text().strip())
                 sf = bp / "status"
                 status = sf.read_text().strip().lower() if sf.exists() else "unknown"
-                return CapabilityResult.ok({"level": level, "status": status, "source": "sys"}, self.name)
+                return CapabilityResult.ok({"level": level, "status": status,
+                                            "source": "sys"}, self.name)
             except Exception:
                 continue
-        return CapabilityResult.fail(
-            "No battery found in /sys/class/power_supply",
-            self.name,
-            corrective_action="pkg install termux-api for full battery data",
-        )
+        return CapabilityResult.fail("No battery found in /sys/class/power_supply", self.name,
+            corrective_action="pkg install termux-api for full battery data")
 
 
 # ── Termux:API generic ────────────────────────────────────────────────────────
-
 
 class TermuxAPIAdapter(CapabilityAdapter):
     name = "termux.api"
@@ -424,7 +386,6 @@ class TermuxAPIAdapter(CapabilityAdapter):
 
 # ── Rsync ─────────────────────────────────────────────────────────────────────
 
-
 class TermuxRsyncAdapter(CapabilityAdapter):
     """File sync / backup via rsync."""
 
@@ -434,32 +395,32 @@ class TermuxRsyncAdapter(CapabilityAdapter):
     def is_available(self) -> bool:
         return is_available("rsync")
 
-    def rsync(
-        self, src: str, dst: str, *, delete: bool = False, dry_run: bool = False, exclude: list[str] | None = None
-    ) -> CapabilityResult:
+    def rsync(self, src: str, dst: str, *,
+              delete: bool = False,
+              dry_run: bool = False,
+              exclude: list[str] | None = None) -> CapabilityResult:
         cmd = ["rsync", "-av", "--stats"]
         if delete:
             cmd.append("--delete")
         if dry_run:
             cmd.append("--dry-run")
-        for pat in exclude or []:
+        for pat in (exclude or []):
             cmd += ["--exclude", pat]
         cmd += [src, dst]
         result = run(cmd, timeout=300)
         if result.success:
             lines = result.stdout.strip().splitlines()
             transferred = sum(
-                1
-                for line in lines
-                if line and not line.startswith(("sending", "sent", "total", "Number", "File", "Delta"))
+                1 for l in lines
+                if l and not l.startswith(("sending", "sent", "total", "Number", "File", "Delta"))
             )
             return CapabilityResult.ok(
-                {"src": src, "dst": dst, "dry_run": dry_run, "files_transferred": transferred, "output": result.stdout},
+                {"src": src, "dst": dst, "dry_run": dry_run,
+                 "files_transferred": transferred, "output": result.stdout},
                 self.name,
             )
         return CapabilityResult.fail(
-            result.stderr,
-            self.name,
+            result.stderr, self.name,
             reason=f"rsync {src} → {dst} failed",
             diagnosis=result.stderr[:500],
             corrective_action="pkg install rsync",

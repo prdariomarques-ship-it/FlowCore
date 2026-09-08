@@ -72,6 +72,8 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .ir{display:flex;gap:8px;margin-bottom:12px}
 .if{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 12px;font-size:13px;outline:none;transition:border-color .2s}
 .if:focus{border-color:var(--accent)}
+textarea.if{font-family:inherit;resize:vertical;min-height:38px}
+textarea.if.grow{min-height:140px}
 .if::placeholder{color:var(--text2)}
 .bs2{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:8px;color:#fff;font-size:15px;width:40px;cursor:pointer;flex-shrink:0}
 .bs2:hover{opacity:.85}
@@ -96,8 +98,22 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .mi{background:var(--bg3);border-radius:8px;padding:10px 12px;border-left:2px solid var(--accent2)}
 .mi.todo{border-left-color:var(--yellow)}
 .mi.agenda{border-left-color:var(--green)}
+.mi.radar{border-left-color:var(--accent)}
 .mi-text{color:var(--text);margin-bottom:3px;font-size:13px}
 .mi-meta{color:var(--text2);font-size:11px;display:flex;align-items:center;gap:6px}
+details.mi>summary{cursor:pointer;list-style:none}
+details.mi>summary::-webkit-details-marker{display:none}
+details.mi>summary::marker{display:none}
+.mi-body{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:13px;line-height:1.6;color:var(--text)}
+.mi-body h1,.mi-body h2,.mi-body h3{color:var(--accent);margin:14px 0 6px;font-size:14px}
+.mi-body h1:first-child,.mi-body h2:first-child,.mi-body h3:first-child{margin-top:0}
+.mi-body strong{color:#fff}
+.mi-body a{color:var(--accent)}
+.mi-body hr{border:none;border-top:1px solid var(--border);margin:12px 0}
+.mi-body p{margin:6px 0}
+.mi-body table{border-collapse:collapse;width:100%;margin:8px 0;font-size:12px}
+.mi-body th,.mi-body td{border:1px solid var(--border);padding:5px 8px;text-align:left}
+.mi-body th{color:var(--text2);background:var(--bg2)}
 .topics{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
 .tb{background:rgba(124,58,237,.2);color:#a78bfa;border-radius:20px;padding:1px 7px;font-size:10px;border:1px solid rgba(124,58,237,.3)}
 
@@ -135,11 +151,25 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
 /* Bottom nav */
-.nav{position:fixed;bottom:0;left:0;right:0;background:rgba(17,24,39,.96);border-top:1px solid var(--border);display:flex;backdrop-filter:blur(10px);z-index:100}
-.ni{flex:1;display:flex;flex-direction:column;align-items:center;padding:9px 0 13px;gap:3px;cursor:pointer;color:var(--text2);font-size:9px;font-weight:500;border:none;background:none;transition:color .2s}
+.nav{position:fixed;bottom:0;left:0;right:0;background:rgba(17,24,39,.96);border-top:1px solid var(--border);display:flex;backdrop-filter:blur(10px);z-index:100;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.ni{flex:1 0 auto;min-width:52px;display:flex;flex-direction:column;align-items:center;padding:9px 4px 13px;gap:3px;cursor:pointer;color:var(--text2);font-size:9px;font-weight:500;border:none;background:none;transition:color .2s;white-space:nowrap}
 .ni.active{color:var(--accent)}
 .ni:hover{color:var(--text)}
 .ni-icon{font-size:19px}
+
+/* Chat */
+.chat-wrap{display:flex;flex-direction:column;height:calc(100vh - 180px);min-height:320px}
+.chat-log{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-bottom:10px}
+.msg{max-width:82%;padding:9px 12px;border-radius:14px;font-size:13px;line-height:1.45;word-wrap:break-word;white-space:pre-wrap}
+.msg.user{align-self:flex-end;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border-bottom-right-radius:4px}
+.msg.bot{align-self:flex-start;background:var(--bg3);border:1px solid var(--border);border-bottom-left-radius:4px}
+.msg.bot.err{border-color:rgba(239,68,68,.4);color:var(--red)}
+.msg.typing{align-self:flex-start;background:var(--bg3);border:1px solid var(--border);border-bottom-left-radius:4px;color:var(--text2);font-style:italic}
+.chat-meta{font-size:10px;color:var(--text2);margin-top:4px;opacity:.7}
+.chat-input-row{display:flex;gap:8px;padding-top:10px;border-top:1px solid var(--border)}
+.chat-provider{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);margin-bottom:2px}
+.ai-cfg-row{display:flex;gap:8px;margin-bottom:8px}
+.ai-cfg-row .if{flex:1}
 
 /* Pages */
 .page{display:none}
@@ -167,6 +197,22 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .btn-run{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:8px;color:#fff;font-size:12px;font-weight:700;padding:7px 14px;cursor:pointer;white-space:nowrap;transition:opacity .2s}
 .btn-run:hover{opacity:.85}
 .btn-run:disabled{opacity:.4;cursor:not-allowed}
+/* Flows */
+.flow-subtitle{font-size:10px;text-transform:none;letter-spacing:0;color:var(--text2);margin-top:2px;font-weight:400}
+.flow-empty{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:left}
+.flow-empty-title{font-weight:700;color:var(--text);font-size:14px;margin-bottom:4px}
+.flow-empty-body{font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:12px}
+.flow-example{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:12px;line-height:1.7}
+.flow-example b{color:var(--accent)}
+.flow-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:13px}
+.flow-card-head{display:flex;align-items:center;gap:7px;margin-bottom:6px}
+.flow-card-title{font-weight:700;font-size:13px;color:var(--accent);letter-spacing:.4px}
+.flow-card-steps{font-size:12px;color:var(--text);line-height:1.5;margin-bottom:8px}
+.flow-card-meta{font-size:11px;color:var(--text2);margin-bottom:10px}
+.flow-card-actions{display:flex;gap:8px}
+.flow-step-row{display:flex;gap:6px;align-items:center}
+.flow-step-row select.if{flex:1;padding:8px 10px;font-size:12px}
+.flow-step-num{color:var(--text2);font-size:11px;width:14px;flex:none}
 .task-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg3);border-radius:8px;font-size:12px;margin-bottom:5px}
 .task-agent{font-weight:600;color:var(--text);flex:0 0 70px}
 .task-status{flex:0 0 80px}
@@ -174,6 +220,18 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .task-id{color:var(--text2);font-size:10px;font-family:monospace;flex:1;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .spin{display:inline-block;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* FAB - Floating Action Button */
+.fab{position:fixed;bottom:100px;right:16px;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;font-size:28px;font-weight:bold;cursor:pointer;box-shadow:0 4px 12px rgba(0,212,255,.4);z-index:150;transition:all .3s;display:none;align-items:center;justify-content:center}
+.fab:hover{transform:scale(1.1);box-shadow:0 6px 20px rgba(0,212,255,.6)}
+@media(max-width:768px){.fab{display:flex}}
+
+/* More Menu */
+.more-menu{position:fixed;bottom:84px;right:10px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;z-index:140;min-width:160px;box-shadow:0 8px 32px rgba(0,0,0,.5);overflow:hidden}
+.more-menu button{width:100%;display:flex;align-items:center;gap:12px;padding:12px 14px;background:none;border:none;color:var(--text);font-size:13px;cursor:pointer;transition:all .2s;border-bottom:1px solid var(--border);text-align:left}
+.more-menu button:last-child{border-bottom:none}
+.more-menu button:hover{background:var(--bg3);color:var(--accent)}
+.more-menu button .ni-icon{font-size:18px}
 </style>
 </head>
 <body>
@@ -267,24 +325,48 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
       </div>
       <div class="card">
         <div class="ch"><span class="ct">Doctor</span><span class="ci">🩺</span></div>
+        <div id="chk-summary" style="padding:12px;border-bottom:1px solid #2a4f7f"></div>
         <div class="cl" id="chk-list"><div class="sk"></div><div class="sk"></div></div>
       </div>
     </div>
   </div>
 
-  <!-- ══ MEMÓRIAS ══ -->
-  <div class="page" id="page-mem">
+  <!-- ══ NOTÍCIAS ══ -->
+  <div class="page" id="page-news">
     <div class="gap">
       <div class="card">
-        <div class="ch"><span class="ct">Nova Memória</span><span class="ci">🧠</span></div>
-        <div class="ir">
-          <input class="if" id="m-inp" placeholder="Guarda algo... usa #tag">
-          <button class="bs2" onclick="addMem()">✓</button>
+        <div class="ch"><span class="ct">Notícias de mercado</span><span class="ci">📰</span></div>
+        <div class="ml" id="news-list"><div class="sk"></div><div class="sk"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ CHAT (IA) ══ -->
+  <div class="page" id="page-chat">
+    <div class="gap">
+      <div class="card">
+        <div class="ch"><span class="ct">Assistente</span><button class="btn-sm" onclick="toggleAiCfg()">⚙ Config</button></div>
+        <div class="chat-provider" id="chat-provider-info">Verificando provider…</div>
+        <div id="ai-cfg-box" style="display:none;margin-top:8px">
+          <div class="sr-title" style="margin-bottom:6px">Principal (PC)</div>
+          <div class="ai-cfg-row"><input class="if" id="ai-ollama-url" placeholder="URL do Ollama no PC (ex: http://192.168.1.50:11434)"></div>
+          <div class="ai-cfg-row"><input class="if" id="ai-model" placeholder="Modelo no PC (ex: qwen2.5:3b)"></div>
+          <div class="sr-title" style="margin:10px 0 6px">Backup (celular, usado se o PC não responder)</div>
+          <div class="ai-cfg-row"><input class="if" id="ai-fallback-url" placeholder="URL do Ollama no celular (ex: http://127.0.0.1:11434)"></div>
+          <div class="ai-cfg-row"><input class="if" id="ai-fallback-model" placeholder="Modelo no celular (ex: qwen2.5:1.5b)"></div>
+          <div class="sr-title" style="margin:10px 0 6px">Avançado</div>
+          <div class="ai-cfg-row"><input class="if" id="ai-openai-url" placeholder="URL OpenAI-compat (opcional)"></div>
+          <div class="btns" style="margin-top:0"><button class="btn bg" onclick="saveAiConfig()">✓ Salvar</button><button class="btn-sm" onclick="loadAiConfig()">↻ Recarregar</button></div>
         </div>
       </div>
-      <div class="card">
-        <div class="ch"><span class="ct">Memórias recentes</span></div>
-        <div class="ml" id="mem-list"><div class="sk"></div><div class="sk"></div></div>
+      <div class="card chat-wrap">
+        <div class="chat-log" id="chat-log">
+          <div class="msg bot">Oi! Sou o assistente do FlowCore. Pergunta algo sobre o portfólio, o mercado ou qualquer coisa.</div>
+        </div>
+        <div class="chat-input-row">
+          <input class="if" id="chat-inp" placeholder="Escreve uma pergunta..." onkeydown="if(event.key==='Enter')sendChat()">
+          <button class="bs2" onclick="sendChat()">➤</button>
+        </div>
       </div>
     </div>
   </div>
@@ -309,9 +391,10 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
           <div class="ks active" data-kind="note" onclick="selKind(this)">📝 Nota</div>
           <div class="ks" data-kind="todo"   onclick="selKind(this)">☑️ Todo</div>
           <div class="ks" data-kind="agenda" onclick="selKind(this)">📅 Agenda</div>
+          <div class="ks" data-kind="radar"  onclick="selKind(this)">📊 Radar</div>
         </div>
         <div class="ir">
-          <input class="if" id="note-inp" placeholder="Escreve aqui...">
+          <textarea class="if" id="note-inp" rows="1" placeholder="Escreve aqui..."></textarea>
           <button class="bs2" onclick="addNote()">✓</button>
         </div>
       </div>
@@ -352,14 +435,26 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
         <div id="task-history"><div class="sk"></div><div class="sk"></div></div>
       </div>
 
-      <!-- Flows list -->
+      <!-- Flows -->
       <div class="card">
         <div class="ch">
-          <span class="ct">Flows</span>
-          <button class="btn-sm" onclick="loadFlows()">↻</button>
+          <div><span class="ct">Flows</span><div class="flow-subtitle">Automatize tarefas combinando agentes</div></div>
+          <button class="btn-sm" onclick="openFlowBuilder()">＋ Criar Flow</button>
         </div>
         <div id="flow-cards" style="display:flex;flex-direction:column;gap:8px">
           <div class="sk" style="height:42px"></div>
+        </div>
+      </div>
+
+      <!-- Flow builder -->
+      <div class="card" id="flow-builder-card" style="display:none">
+        <div class="ch"><span class="ct">Novo Flow</span><span class="ci">🔗</span></div>
+        <div class="ir"><input class="if" id="flow-name-inp" placeholder="Nome do flow (ex: Fechamento de Mercado)"></div>
+        <div id="flow-steps-list" style="display:flex;flex-direction:column;gap:8px;margin-top:10px"></div>
+        <button class="btn-sm" style="margin-top:8px" onclick="addFlowStepRow()">＋ Adicionar etapa</button>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="bs2" style="flex:1" onclick="saveFlowBuilder()">Salvar</button>
+          <button class="btn-sm" onclick="closeFlowBuilder()">Cancelar</button>
         </div>
       </div>
 
@@ -374,14 +469,24 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 
 </div>
 
-  <!-- Bottom nav -->
+  <!-- Bottom nav - New Navigation -->
 <div class="nav">
-  <button class="ni active" onclick="pg('home',this)"><span class="ni-icon">⌂</span><span>Visão</span></button>
-  <button class="ni" onclick="pg('portfolio',this)"><span class="ni-icon">◒</span><span>Carteira</span></button>
-  <button class="ni" onclick="pg('ai',this)"><span class="ni-icon">✦</span><span>IA</span></button>
-  <button class="ni" onclick="pg('mem',this)"><span class="ni-icon">🧠</span><span>Memórias</span></button>
-  <button class="ni" onclick="pg('agents',this)"><span class="ni-icon">⚙</span><span>Agentes</span></button>
-  <button class="ni" onclick="pg('admin',this)"><span class="ni-icon">▣</span><span>Admin</span></button>
+  <button class="ni active" onclick="pg('home',this)"><span class="ni-icon">🏠</span><span>Início</span></button>
+  <button class="ni" onclick="pg('portfolio',this)"><span class="ni-icon">💹</span><span>Finanças</span></button>
+  <button class="ni" onclick="pg('ai',this)"><span class="ni-icon">🧠</span><span>Inteligência</span></button>
+  <button class="ni" onclick="pg('agents',this)"><span class="ni-icon">⚡</span><span>Ações</span></button>
+  <button class="ni" onclick="toggleMoreMenu()"><span class="ni-icon">⋯</span><span>Mais</span></button>
+</div>
+
+<!-- FAB (Floating Action Button) - Mobile -->
+<button class="fab" id="fab-btn" onclick="openQuickActions()">+</button>
+
+<!-- More Menu (Hidden by default) -->
+<div class="more-menu" id="more-menu" style="display:none">
+  <button onclick="pg('news',this);closeMoreMenu()"><span class="ni-icon">📰</span><span>Notícias</span></button>
+  <button onclick="pg('notes',this);closeMoreMenu()"><span class="ni-icon">📝</span><span>Notas</span></button>
+  <button onclick="pg('chat',this);closeMoreMenu()"><span class="ni-icon">💬</span><span>Chat</span></button>
+  <button onclick="pg('admin',this);closeMoreMenu()"><span class="ni-icon">⚙️</span><span>Sistema</span></button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -395,11 +500,35 @@ function pg(name,btn){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.ni').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
-  btn.classList.add('active');
+  if(btn) btn.classList.add('active');
   if(name==='admin') loadSys();
   if(name==='portfolio') loadPortfolio();
   if(name==='notes') loadNotes();
+  if(name==='news') loadNews();
+  if(name==='chat') loadAiConfig();
   if(name==='agents'){loadAgents();loadFlows();}
+  closeMoreMenu();
+}
+
+/* ── More Menu ── */
+function toggleMoreMenu(){
+  const m=document.getElementById('more-menu');
+  m.style.display=m.style.display==='none'?'block':'none';
+}
+function closeMoreMenu(){
+  document.getElementById('more-menu').style.display='none';
+}
+document.addEventListener('click',e=>{
+  const m=document.getElementById('more-menu');
+  const btn=document.querySelector('.ni:last-child');
+  if(m.style.display!=='none' && !m.contains(e.target) && !btn.contains(e.target)){
+    closeMoreMenu();
+  }
+});
+
+/* ── FAB (Quick Actions) ── */
+function openQuickActions(){
+  toggleMoreMenu();
 }
 
 /* ── Toast ── */
@@ -422,18 +551,14 @@ async function refresh(){
   const dot=document.getElementById('dot');
   loadMarketSnapshot();
   try{
-    const [s,mems,notes]=await Promise.all([
+    const [s,notes]=await Promise.all([
       api('/api/status'),
-      api('/api/memories'),
       api('/api/notes')
     ]);
     dot.classList.remove('off');
     document.getElementById('last-upd').textContent='Atualizado '+new Date().toLocaleTimeString('pt-PT');
     renderStatus(s);
-    renderMems(mems.memories||[]);
     renderNotesList(notes.notes||[]);
-    document.getElementById('s-notes').textContent=(notes.notes||[]).length;
-    document.getElementById('s-mem').textContent=s.memory_count??'─';
   }catch(e){
     dot.classList.add('off');
     document.getElementById('last-upd').textContent='Sem ligação';
@@ -466,13 +591,7 @@ async function loadMarketSnapshot(){
 /* ── Status ── */
 function renderStatus(s){
   const caps=s.capabilities||{};
-  const avail=Object.values(caps).filter(v=>v).length;
-  const total=Object.keys(caps).length;
-  document.getElementById('s-caps').textContent=avail+'/'+total;
-
   const chks=s.doctor||[];
-  const ok=chks.filter(c=>c.status==='ok').length;
-  document.getElementById('s-doc').textContent=ok+'/'+chks.length;
 
   // Daemon (renderizado apenas na tela Admin)
   const d=s.daemon||{};
@@ -502,6 +621,17 @@ function renderStatus(s){
   // Doctor
   const icons={ok:'✅',warn:'⚠️',fail:'❌',skip:'─'};
   const cl=document.getElementById('chk-list');
+  const summ=document.getElementById('chk-summary');
+
+  // Renderiza summary no topo (status geral claro)
+  if(s.doctor_summary){
+    const su=s.doctor_summary;
+    summ.innerHTML=`<div style="font-size:16px;font-weight:bold;color:#d7e5f4;margin-bottom:8px">${su.summary_line||su.status_text}</div><div style="font-size:12px;color:#9cb0c9;gap:8px;display:flex;flex-wrap:wrap"><span style="background:#1a3a52;padding:4px 8px;border-radius:4px">${su.passed} OK</span><span style="background:#4a3a1a;padding:4px 8px;border-radius:4px">${su.warnings} Avisos</span><span style="background:#4a1a1a;padding:4px 8px;border-radius:4px">${su.failed} Problemas</span></div>`;
+  }else{
+    summ.innerHTML='';
+  }
+
+  // Renderiza checks detalhados (expandível)
   cl.innerHTML='';
   for(const c of chks){
     const el=document.createElement('div');
@@ -509,7 +639,7 @@ function renderStatus(s){
     el.innerHTML=`<span>${icons[c.status]||'?'}</span><span class="ck-name">${c.name}</span><span class="ck-msg">${c.message||''}</span>`;
     cl.appendChild(el);
   }
-  if(!chks.length) cl.innerHTML='<div class="empty">Doctor não disponível</div>';
+  if(!chks.length && !s.doctor_summary) cl.innerHTML='<div class="empty">Doctor não disponível</div>';
 }
 
 /* ── Portfolio ── */
@@ -521,6 +651,76 @@ async function loadPortfolio(){
     document.getElementById('portfolio-exposure').innerHTML=(exposure.by_asset_class||[]).map(p=>`<div class="row"><span class="rl">${p.label}</span><span class="rv">${p.weight}%</span></div>`).join('');
     document.getElementById('portfolio-review').innerHTML=`<div class="row"><span class="rl">Status</span><span class="tag ty">${review.status}</span></div><div class="row"><span class="rl">Dados ao vivo</span><span class="rv">${review.live_data?'Sim':'Não'}</span></div><div class="row"><span class="rl">Ordens executadas</span><span class="rv">Não</span></div><div class="empty">${(review.alerts||[]).join('<br>')}<br><br>${review.next_action}</div>`;
   }catch(e){document.getElementById('portfolio-summary').innerHTML='<div class="empty">Carteira indisponível: '+e.message+'</div>';}
+}
+
+/* ── Chat (IA) ── */
+let _chatHistory=[];
+function toggleAiCfg(){
+  const box=document.getElementById('ai-cfg-box');
+  box.style.display=box.style.display==='none'?'block':'none';
+}
+async function loadAiConfig(){
+  try{
+    const cfg=await api('/api/ai-runtime/config');
+    document.getElementById('ai-ollama-url').value=cfg.ollama_url||'';
+    document.getElementById('ai-model').value=cfg.model||'';
+    document.getElementById('ai-fallback-url').value=cfg.ollama_fallback_url||'';
+    document.getElementById('ai-fallback-model').value=cfg.fallback_model||'';
+    document.getElementById('ai-openai-url').value=cfg.openai_url||'';
+    let label=cfg.active_provider==='openai-compat'?('OpenAI-compat · '+(cfg.openai_model||'?')):('PC: '+(cfg.model||'?')+' @ '+cfg.ollama_url);
+    if(cfg.ollama_fallback_url) label+=' · Backup: '+(cfg.fallback_model||cfg.model||'?')+' @ '+cfg.ollama_fallback_url;
+    document.getElementById('chat-provider-info').textContent=label;
+  }catch(e){
+    document.getElementById('chat-provider-info').textContent='Não foi possível ler a config de IA.';
+  }
+}
+async function saveAiConfig(){
+  try{
+    await api('/api/ai-runtime/config',{method:'PATCH',body:JSON.stringify({
+      ollama_url:document.getElementById('ai-ollama-url').value.trim()||null,
+      model:document.getElementById('ai-model').value.trim()||null,
+      ollama_fallback_url:document.getElementById('ai-fallback-url').value.trim(),
+      fallback_model:document.getElementById('ai-fallback-model').value.trim(),
+      openai_url:document.getElementById('ai-openai-url').value.trim(),
+    })});
+    toast('Config de IA salva');
+    loadAiConfig();
+    toggleAiCfg();
+  }catch(e){toast('Erro ao salvar: '+e.message);}
+}
+function appendChatMsg(text,who,meta){
+  const log=document.getElementById('chat-log');
+  const el=document.createElement('div');
+  el.className='msg '+who;
+  el.textContent=text;
+  if(meta){const m=document.createElement('div');m.className='chat-meta';m.textContent=meta;el.appendChild(m);}
+  log.appendChild(el);
+  log.scrollTop=log.scrollHeight;
+  return el;
+}
+async function sendChat(){
+  const inp=document.getElementById('chat-inp');
+  const question=inp.value.trim();
+  if(!question) return;
+  inp.value='';
+  appendChatMsg(question,'user');
+  const typing=appendChatMsg('a pensar…','typing');
+  try{
+    const data=await api('/api/ask',{method:'POST',body:JSON.stringify({question,history:_chatHistory})});
+    typing.remove();
+    if(data.provider==='unavailable'){
+      appendChatMsg(data.answer||'Nenhum provider de IA disponível.','bot err','Configure o Ollama ou um endpoint OpenAI-compatible em ⚙ Config acima.');
+    }else{
+      const providerLabel={'ollama-pc':'via PC','ollama-celular':'via celular (backup)','openai-compat':'OpenAI-compat','flowcore-agent':'agente FlowCore'}[data.provider]||data.provider;
+      appendChatMsg(data.answer||'(sem resposta)','bot',providerLabel+(data.model?' · '+data.model:''));
+      _chatHistory.push({role:'user',content:question});
+      _chatHistory.push({role:'assistant',content:data.answer||''});
+      if(_chatHistory.length>20) _chatHistory=_chatHistory.slice(-20);
+    }
+  }catch(e){
+    typing.remove();
+    appendChatMsg('Erro ao falar com a IA: '+e.message,'bot err');
+  }
 }
 
 /* ── System page ── */
@@ -564,37 +764,39 @@ function renderPassport(pp){
     <div class="passport-field"><div class="pf-label">Hash SHA-256</div><div class="hash-val">${pp.hash||''}</div></div>`;
 }
 
-/* ── Memories ── */
-function renderMems(mems){
-  const l=document.getElementById('mem-list');
-  if(!mems.length){l.innerHTML='<div class="empty">Sem memórias.<br>Adiciona a primeira acima ↑</div>';return;}
+/* ── Notícias de mercado ── */
+async function loadNews(){
+  const l=document.getElementById('news-list');
+  try{
+    const r=await api('/api/market/news?limit=20');
+    renderNewsList(r.items||[]);
+  }catch(e){
+    l.innerHTML='<div class="empty">Não foi possível carregar notícias.</div>';
+  }
+}
+function renderNewsList(items){
+  const l=document.getElementById('news-list');
+  if(!items.length){l.innerHTML='<div class="empty">Sem notícias no momento.</div>';return;}
   l.innerHTML='';
-  for(const m of mems.slice(-30).reverse()){
-    const el=document.createElement('div');
+  for(const n of items){
+    const canOpen=(n.canonical_url||'').startsWith('http');
+    const el=document.createElement(canOpen?'a':'div');
     el.className='mi';
-    const topics=(m.topics||[]).map(t=>`<span class="tb">#${t}</span>`).join('');
-    el.innerHTML=`<div class="mi-text">${m.text||''}</div>
-      ${topics?`<div class="topics">${topics}</div>`:''}
-      <div class="mi-meta">${(m.timestamp||'').slice(0,10)}</div>`;
+    if(canOpen){el.href=n.canonical_url;el.target='_blank';el.rel='noopener';el.style.display='block';el.style.textDecoration='none';}
+    const date=n.published_at?new Date(n.published_at).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+    const source=n.publisher||(n.provider&&n.provider.name)||'';
+    el.innerHTML=`<div class="mi-text">${escapeHtml(n.headline||'')}</div>
+      <div class="mi-meta">${escapeHtml(source)}${date?' · '+date:''}</div>`;
     l.appendChild(el);
   }
 }
-
-async function addMem(){
-  const inp=document.getElementById('m-inp');
-  const t=inp.value.trim(); if(!t)return;
-  try{
-    await api('/api/memories',{method:'POST',body:JSON.stringify({text:t})});
-    inp.value=''; toast('✓ Memória guardada'); refresh();
-  }catch(e){toast('Erro: '+e.message);}
-}
-document.getElementById('m-inp').addEventListener('keydown',e=>{if(e.key==='Enter')addMem();});
 
 /* ── Notes ── */
 function selKind(el){
   document.querySelectorAll('.ks').forEach(k=>k.classList.remove('active'));
   el.classList.add('active');
   _noteKind=el.dataset.kind;
+  document.getElementById('note-inp').classList.toggle('grow',_noteKind==='radar');
 }
 
 async function loadNotes(){
@@ -604,16 +806,62 @@ async function loadNotes(){
   }catch(e){}
 }
 
+function escapeHtml(s){
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* Minimal markdown-lite renderer: headers, **bold**, [links](url), tables, hr, paragraphs. */
+function mdLite(text){
+  const isSep=r=>/^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$/.test(r);
+  const inline=s=>s.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+                    .replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  const lines=escapeHtml(text).split('\n');
+  let html='',para=[],table=[];
+  const flushPara=()=>{if(para.length){html+='<p>'+para.join('<br>')+'</p>';para=[];}};
+  const flushTable=()=>{
+    if(!table.length)return;
+    const rows=table.filter(r=>!isSep(r));
+    html+='<table>'+rows.map((r,i)=>{
+      const cells=r.replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+      const tag=i===0?'th':'td';
+      return '<tr>'+cells.map(c=>`<${tag}>${inline(c)}</${tag}>`).join('')+'</tr>';
+    }).join('')+'</table>';
+    table=[];
+  };
+  for(const raw of lines){
+    const line=raw.trim();
+    if(line.startsWith('|')){flushPara();table.push(line);continue;}
+    flushTable();
+    if(!line){flushPara();continue;}
+    const h=line.match(/^(#{1,6})\s+(.*)$/);
+    if(h){flushPara();const lvl=Math.min(h[1].length,3);html+=`<h${lvl}>${inline(h[2])}</h${lvl}>`;continue;}
+    if(/^-{3,}$/.test(line)){flushPara();html+='<hr>';continue;}
+    para.push(inline(line));
+  }
+  flushTable();flushPara();
+  return html;
+}
+
 function renderNotesList(notes){
   const l=document.getElementById('notes-list');
   if(!notes.length){l.innerHTML='<div class="empty">Sem notas ainda.</div>';return;}
   l.innerHTML='';
-  const icons={note:'📝',todo:'☑️',agenda:'📅'};
+  const icons={note:'📝',todo:'☑️',agenda:'📅',radar:'📊'};
   for(const n of notes.slice(-30).reverse()){
+    const date=(n.created_at||'').slice(0,10);
+    if(n.source==='radar'){
+      const el=document.createElement('details');
+      el.className='mi radar';
+      el.innerHTML=`<summary class="mi-text">${icons.radar} <strong>${escapeHtml(n.title||'Radar')}</strong>
+        <div class="mi-meta">${date}</div></summary>
+        <div class="mi-body">${mdLite(n.content||'')}</div>`;
+      l.appendChild(el);
+      continue;
+    }
     const el=document.createElement('div');
     el.className='mi '+(n.source||'note');
-    el.innerHTML=`<div class="mi-text">${icons[n.source]||'📝'} ${n.content||n.title||''}</div>
-      <div class="mi-meta">${(n.created_at||'').slice(0,10)}</div>`;
+    el.innerHTML=`<div class="mi-text">${icons[n.source]||'📝'} ${escapeHtml(n.content||n.title||'')}</div>
+      <div class="mi-meta">${date}</div>`;
     l.appendChild(el);
   }
 }
@@ -626,7 +874,9 @@ async function addNote(){
     inp.value=''; toast('✓ Guardado'); loadNotes(); refresh();
   }catch(e){toast('Erro: '+e.message);}
 }
-document.getElementById('note-inp').addEventListener('keydown',e=>{if(e.key==='Enter')addNote();});
+document.getElementById('note-inp').addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey&&_noteKind!=='radar'){e.preventDefault();addNote();}
+});
 
 /* ── Search ── */
 async function doSearch(){
@@ -644,13 +894,13 @@ async function doSearch(){
     if(mems.length){
       html+=`<div class="sr-section"><div class="sr-title">Memórias (${mems.length})</div>`;
       for(const m of mems.slice(0,5))
-        html+=`<div class="sr-item"><div class="sr-text">${m.text||''}</div><div class="sr-sub">${(m.timestamp||'').slice(0,10)}</div></div>`;
+        html+=`<div class="sr-item"><div class="sr-text">${escapeHtml(m.text)}</div><div class="sr-sub">${(m.timestamp||'').slice(0,10)}</div></div>`;
       html+='</div>';
     }
     if(docs.length){
       html+=`<div class="sr-section"><div class="sr-title">Documentos (${docs.length})</div>`;
       for(const d of docs.slice(0,5))
-        html+=`<div class="sr-item"><div class="sr-text">${d.title||''}</div><div class="sr-sub">${(d.content||'').slice(0,60)}...</div></div>`;
+        html+=`<div class="sr-item"><div class="sr-text">${escapeHtml(d.title)}</div><div class="sr-sub">${escapeHtml((d.content||'').slice(0,60))}...</div></div>`;
       html+='</div>';
     }
     sr.innerHTML=html;
@@ -691,7 +941,7 @@ function fup(s){
 }
 
 /* ── Agents ── */
-const _agentIcons={health:'❤️',doctor:'🩺'};
+const _agentIcons={health:'❤️',doctor:'🩺',market_close:'📊',daily_brief:'🗞️',notify_market_close:'🔔'};
 
 async function loadAgents(){
   try{
@@ -718,10 +968,10 @@ function renderAgentCards(agents){
     el.id='agent-card-'+a.name;
     el.innerHTML=`
       <div class="agent-info">
-        <div class="agent-name">${icon} ${a.name}</div>
+        <div class="agent-name">${icon} ${escapeHtml(agentLabel(a.name))}</div>
         <div class="agent-desc">${a.description||''}</div>
       </div>
-      <button class="btn-run" id="btn-run-${a.name}" onclick="runAgent('${a.name}')">▶ Run</button>`;
+      <button class="btn-run" id="btn-run-${a.name}" onclick="runAgent('${a.name}')">▶ Executar</button>`;
     c.appendChild(el);
   }
 }
@@ -751,7 +1001,7 @@ async function runAgent(name){
     rp.textContent=String(e);
     toast('Erro: '+e.message);
   }finally{
-    if(btn){btn.disabled=false;btn.innerHTML='▶ Run';}
+    if(btn){btn.disabled=false;btn.innerHTML='▶ Executar';}
   }
 }
 
@@ -761,24 +1011,42 @@ function renderTaskHistory(tasks){
   const stIcons={completed:'✅',failed:'❌',running:'⏳',pending:'⌛'};
   const stClass={completed:'tg',failed:'tr',running:'ty',pending:'ty'};
   h.innerHTML='';
+  const stLabels={completed:'Concluído',failed:'Falhou',running:'Em andamento',pending:'Pendente'};
   for(const t of [...tasks].reverse().slice(0,15)){
     const dur=t.duration_seconds!=null?t.duration_seconds+'s':'─';
+    const when=t.created_at?new Date(t.created_at*1000).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'─';
     const el=document.createElement('div');
     el.className='task-row';
     el.innerHTML=`
-      <span class="task-agent">${_agentIcons[t.agent]||'🤖'} ${t.agent}</span>
-      <span class="task-status"><span class="tag ${stClass[t.status]||'ty'}">${stIcons[t.status]||'?'} ${t.status}</span></span>
+      <span class="task-agent">${_agentIcons[t.agent]||'🤖'} ${escapeHtml(agentLabel(t.agent))}</span>
+      <span class="task-status"><span class="tag ${stClass[t.status]||'ty'}">${stIcons[t.status]||'?'} ${stLabels[t.status]||t.status}</span></span>
       <span class="task-dur">${dur}</span>
-      <span class="task-id">${t.id}</span>`;
+      <span class="task-id">${when}</span>`;
     h.appendChild(el);
   }
 }
 
 /* ── Flows ── */
+const _agentLabels={
+  health:'Saúde do sistema', doctor:'Diagnóstico completo',
+  market_close:'Fechamento de mercado', daily_brief:'Briefing diário',
+  notify_market_close:'Notificar fechamento pronto',
+};
+function agentLabel(name){ return _agentLabels[name]||name; }
+
+let _flowAgents=[];
+let _flowBuilderSteps=[];
+
 async function loadFlows(){
   try{
     const res=await api('/api/flows');
-    renderFlowCards(Array.isArray(res)?res:[]);
+    const flows=Array.isArray(res)?res:[];
+    renderFlowCards(flows);
+    for(const f of flows){
+      api('/api/flows/'+encodeURIComponent(f.id)+'/runs?limit=1')
+        .then(r=>{ const last=(r.runs||[])[0]; if(last) updateFlowLastRun(f.id,last); })
+        .catch(()=>{});
+    }
   }catch(e){
     document.getElementById('flow-cards').innerHTML='<div class="empty">─</div>';
   }
@@ -786,19 +1054,44 @@ async function loadFlows(){
 
 function renderFlowCards(flows){
   const c=document.getElementById('flow-cards');
-  if(!flows.length){c.innerHTML='<div class="empty">Nenhum flow criado ainda.<br><small>flowcore flow create --name "Nome" --steps health,doctor</small></div>';return;}
+  if(!flows.length){
+    c.innerHTML=`<div class="flow-empty">
+      <div class="flow-empty-title">Crie seu primeiro Flow</div>
+      <div class="flow-empty-body">Combine diferentes agentes para executar uma tarefa completa automaticamente.</div>
+      <div class="flow-example"><b>Exemplo: Fechamento de Mercado</b><br>Fechamento de mercado → Notificar fechamento pronto</div>
+    </div>`;
+    return;
+  }
   c.innerHTML='';
   for(const f of flows){
+    const steps=(f.steps||[]).map(s=>escapeHtml(agentLabel(s.agent))).join(' → ');
     const el=document.createElement('div');
-    el.className='agent-card';
+    el.className='flow-card';
     el.innerHTML=`
-      <div class="agent-info">
-        <div class="agent-name">▶ ${f.name}</div>
-        <div class="agent-desc">${f.steps.length} passo(s)${f.description?' — '+f.description:''}</div>
-      </div>
-      <button class="btn-run" id="btn-flow-${f.id}" onclick="runFlow('${f.id}','${f.name}')">▶ Run</button>`;
+      <div class="flow-card-head"><span>🔗</span><span class="flow-card-title">${escapeHtml(f.name).toUpperCase()}</span></div>
+      <div class="flow-card-steps">${steps}</div>
+      <div class="flow-card-meta" id="flow-meta-${f.id}">Nunca executado</div>
+      <div class="flow-card-actions">
+        <button class="btn-run" id="btn-flow-${f.id}" onclick="runFlow('${f.id}','${escapeHtml(f.name)}')">▶ Executar</button>
+        <button class="btn-sm" onclick="deleteFlow('${f.id}')">⋮</button>
+      </div>`;
     c.appendChild(el);
   }
+}
+
+function updateFlowLastRun(id,run){
+  const el=document.getElementById('flow-meta-'+id);
+  if(!el)return;
+  const when=run.finished_at?new Date(run.finished_at*1000).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+  const icon=run.status==='completed'?'🟢':(run.status==='failed'?'🔴':'🟡');
+  const label=run.status==='completed'?'Concluído':(run.status==='failed'?'Falhou':'Em andamento');
+  el.textContent=`Última execução: ${when} · ${icon} ${label}`;
+}
+
+async function deleteFlow(id){
+  if(!confirm('Remover este flow?'))return;
+  try{ await api('/api/flows/'+encodeURIComponent(id),{method:'DELETE'}); toast('Flow removido'); loadFlows(); }
+  catch(e){ toast('Erro: '+e.message); }
 }
 
 async function runFlow(id,name){
@@ -818,12 +1111,61 @@ async function runFlow(id,name){
     ri.textContent=ok?'✅':'❌';
     rp.textContent=JSON.stringify(r,null,2);
     toast(ok?'✅ Flow concluído':'❌ Flow falhou');
+    loadFlows();
   }catch(e){
     rt.textContent='Erro';ri.textContent='❌';rp.textContent=String(e);
     toast('Erro: '+e.message);
   }finally{
-    if(btn){btn.disabled=false;btn.innerHTML='▶ Run';}
+    if(btn){btn.disabled=false;btn.innerHTML='▶ Executar';}
   }
+}
+
+/* ── Flow builder (no terminal needed) ── */
+async function openFlowBuilder(){
+  document.getElementById('flow-builder-card').style.display='block';
+  document.getElementById('flow-name-inp').value='';
+  if(!_flowAgents.length){
+    try{ const r=await api('/api/agent/agents'); _flowAgents=r.agents||[]; }catch(e){ _flowAgents=[]; }
+  }
+  _flowBuilderSteps=_flowAgents.length?[_flowAgents[0].name]:[];
+  renderFlowStepsList();
+}
+function closeFlowBuilder(){
+  document.getElementById('flow-builder-card').style.display='none';
+}
+function addFlowStepRow(){
+  if(!_flowAgents.length)return;
+  _flowBuilderSteps.push(_flowAgents[0].name);
+  renderFlowStepsList();
+}
+function removeFlowStepRow(i){
+  _flowBuilderSteps.splice(i,1);
+  renderFlowStepsList();
+}
+function setFlowStep(i,name){
+  _flowBuilderSteps[i]=name;
+}
+function renderFlowStepsList(){
+  const l=document.getElementById('flow-steps-list');
+  if(!_flowAgents.length){l.innerHTML='<div class="empty">Nenhum agente disponível.</div>';return;}
+  l.innerHTML=_flowBuilderSteps.map((val,i)=>{
+    const opts=_flowAgents.map(a=>`<option value="${a.name}" ${a.name===val?'selected':''}>${escapeHtml(agentLabel(a.name))}</option>`).join('');
+    const removeBtn=_flowBuilderSteps.length>1?`<button class="btn-sm" onclick="removeFlowStepRow(${i})">✕</button>`:'';
+    return `<div class="flow-step-row"><span class="flow-step-num">${i+1}.</span><select class="if" onchange="setFlowStep(${i},this.value)">${opts}</select>${removeBtn}</div>`;
+  }).join('');
+}
+async function saveFlowBuilder(){
+  const name=document.getElementById('flow-name-inp').value.trim();
+  if(!name){toast('Dá um nome ao flow');return;}
+  if(!_flowBuilderSteps.length){toast('Adiciona pelo menos uma etapa');return;}
+  try{
+    await api('/api/flows',{method:'POST',body:JSON.stringify({
+      name, steps:_flowBuilderSteps.map(a=>({agent:a})), description:'',
+    })});
+    toast('✓ Flow criado');
+    closeFlowBuilder();
+    loadFlows();
+  }catch(e){toast('Erro: '+e.message);}
 }
 
 /* ── Init ── */
