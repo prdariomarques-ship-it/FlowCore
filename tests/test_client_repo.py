@@ -236,3 +236,108 @@ class TestCreateClient:
 
         client = asyncio.run(scenario())
         assert client["current_allocation"] == {"gold": 10.0}  # unchanged by the reset
+
+    def test_new_client_defaults_to_geral_with_no_declaration(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            await repo.seed_office("office-a", with_demo_clients=False)
+            return await repo.create_client("office-a", "Cliente Novo")
+
+        client = asyncio.run(scenario())
+        assert client["investor_category"] == "geral"
+        assert client["investor_declared_investments"] is None
+        assert client["investor_certification"] is None
+        assert client["investor_attestation_at"] is None
+
+
+class TestInvestorClassification:
+    """CVM Resolução 30/2021 investor category (config/
+    investor_classification.py), persisted via
+    ClientRepository.set_investor_classification."""
+
+    def test_raises_for_unknown_client(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            await repo.seed_office("office-a", with_demo_clients=False)
+            try:
+                await repo.set_investor_classification("office-a", "nope", 5_000_000.0, None)
+                return "no_error"
+            except KeyError:
+                return "key_error"
+
+        assert asyncio.run(scenario()) == "key_error"
+
+    def test_cannot_classify_another_offices_client(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            await repo.seed_office("office-a", with_demo_clients=False)
+            await repo.seed_office("office-b", with_demo_clients=False)
+            created = await repo.create_client("office-a", "Cliente A")
+            try:
+                await repo.set_investor_classification("office-b", created["id"], 20_000_000.0, None)
+                return "no_error"
+            except KeyError:
+                return "key_error"
+
+        assert asyncio.run(scenario()) == "key_error"
+
+    def test_declared_investments_above_qualified_threshold_sets_category_and_attestation(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            await repo.seed_office("office-a", with_demo_clients=False)
+            created = await repo.create_client("office-a", "Cliente Rico")
+            return await repo.set_investor_classification("office-a", created["id"], 2_000_000.0, None)
+
+        client = asyncio.run(scenario())
+        assert client["investor_category"] == "qualificado"
+        assert client["investor_declared_investments"] == 2_000_000.0
+        assert client["investor_attestation_at"] is not None
+
+    def test_declared_investments_above_professional_threshold_sets_profissional(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            await repo.seed_office("office-a", with_demo_clients=False)
+            created = await repo.create_client("office-a", "Cliente Muito Rico")
+            return await repo.set_investor_classification("office-a", created["id"], 15_000_000.0, None)
+
+        client = asyncio.run(scenario())
+        assert client["investor_category"] == "profissional"
+
+    def test_certification_alone_sets_qualificado(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            await repo.seed_office("office-a", with_demo_clients=False)
+            created = await repo.create_client("office-a", "Cliente Certificado")
+            return await repo.set_investor_classification("office-a", created["id"], None, "CEA")
+
+        client = asyncio.run(scenario())
+        assert client["investor_category"] == "qualificado"
+        assert client["investor_certification"] == "CEA"
+        assert client["investor_attestation_at"] is not None
+
+    def test_resetting_to_geral_clears_the_attestation_timestamp(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            await repo.seed_office("office-a", with_demo_clients=False)
+            created = await repo.create_client("office-a", "Cliente Revertido")
+            await repo.set_investor_classification("office-a", created["id"], 5_000_000.0, None)
+            return await repo.set_investor_classification("office-a", created["id"], None, None)
+
+        client = asyncio.run(scenario())
+        assert client["investor_category"] == "geral"
+        assert client["investor_declared_investments"] is None
+        assert client["investor_attestation_at"] is None
+
+    def test_classification_persists_through_get_client_and_list_clients(self, tmp_path):
+        async def scenario():
+            repo = _repo(tmp_path)
+            await repo.seed_office("office-a", with_demo_clients=False)
+            created = await repo.create_client("office-a", "Cliente Persistente")
+            await repo.set_investor_classification("office-a", created["id"], 12_000_000.0, None)
+            fetched = await repo.get_client("office-a", created["id"])
+            listed = await repo.list_clients("office-a")
+            return fetched, listed
+
+        fetched, listed = asyncio.run(scenario())
+        assert fetched["investor_category"] == "profissional"
+        assert listed[0]["investor_category"] == "profissional"
