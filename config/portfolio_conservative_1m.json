@@ -4,16 +4,16 @@
   "currency": "BRL",
   "reference_value": 1000000,
   "profile": "conservador",
-  "purpose": "Carteira modelo de referência por perfil (comparação, não uma carteira de cliente real); monitoramento e alertas, sem execução automática de ordens.",
+  "purpose": "Carteira modelo de referência por perfil (comparação, não uma carteira de cliente real); monitoramento e alertas, sem execução automática de ordens. Pesos por ativo redesenhados a partir de práticas de mercado de private banking (não uma escala proporcional da carteira moderada) — ver o racional em cada item.",
   "target_allocation": [
     {
       "id": "br_fixed_liquidity",
       "label": "Brasil — reserva de liquidez pós-fixada",
       "class": "renda_fixa_brasil",
       "benchmark": "CDI/Selic",
-      "role": "liquidez imediata",
-      "weight": 12.22,
-      "amount": 122200
+      "role": "liquidez imediata; maior reserva do que nos perfis de mais risco, pois a necessidade de liquidez não desaparece com a tolerância a risco",
+      "weight": 15.0,
+      "amount": 150000
     },
     {
       "id": "br_fixed_opportunity",
@@ -21,26 +21,26 @@
       "class": "renda_fixa_brasil",
       "benchmark": "CDI/Selic",
       "role": "dry powder com regra de acionamento",
-      "weight": 6.11,
-      "amount": 61100
+      "weight": 6.0,
+      "amount": 60000
     },
     {
       "id": "br_fixed_post",
       "label": "Brasil — pós-fixado estrutural",
       "class": "renda_fixa_brasil",
       "benchmark": "CDI/Selic",
-      "role": "estabilidade e carrego",
-      "weight": 14.67,
-      "amount": 146700
+      "role": "estabilidade e carrego; maior bloco único do perfil, pós-fixado domina a renda fixa conservadora",
+      "weight": 20.0,
+      "amount": 200000
     },
     {
       "id": "br_fixed_pre",
       "label": "Brasil — prefixado",
       "class": "renda_fixa_brasil",
       "benchmark": "Prefixado",
-      "role": "diversificação de indexador; risco de marcação a mercado",
-      "weight": 7.33,
-      "amount": 73300
+      "role": "diversificação de indexador; risco de marcação a mercado mantido moderado",
+      "weight": 6.0,
+      "amount": 60000
     },
     {
       "id": "br_inflation_ima_b5",
@@ -48,26 +48,26 @@
       "class": "renda_fixa_brasil",
       "benchmark": "IMA-B 5",
       "role": "proteção real com duration menor",
-      "weight": 7.33,
-      "amount": 73300
+      "weight": 5.0,
+      "amount": 50000
     },
     {
       "id": "br_inflation_ima_b5_plus",
       "label": "Brasil — inflação longa IMA-B 5+",
       "class": "renda_fixa_brasil",
       "benchmark": "IMA-B 5+",
-      "role": "proteção real e duration longa; maior sensibilidade a juros",
-      "weight": 7.33,
-      "amount": 73300
+      "role": "proteção real e duration longa; posição reduzida no perfil conservador para limitar sensibilidade a juros",
+      "weight": 3.0,
+      "amount": 30000
     },
     {
       "id": "us_treasury",
       "label": "Internacional — US Treasuries",
       "class": "renda_fixa_internacional",
       "benchmark": "Treasury",
-      "role": "crédito soberano e diversificação cambial",
-      "weight": 7.0,
-      "amount": 70000
+      "role": "âncora defensiva da renda fixa internacional; maior peso relativo no perfil conservador",
+      "weight": 8.0,
+      "amount": 80000
     },
     {
       "id": "global_bonds",
@@ -75,17 +75,17 @@
       "class": "renda_fixa_internacional",
       "benchmark": "Global Aggregate Bonds",
       "role": "renda fixa global diversificada",
-      "weight": 5.0,
-      "amount": 50000
+      "weight": 4.0,
+      "amount": 40000
     },
     {
       "id": "corporate_bonds",
       "label": "Internacional — Corporate Bonds investment grade",
       "class": "renda_fixa_internacional",
       "benchmark": "Global IG Corporate Bonds",
-      "role": "prêmio de crédito com limite de qualidade",
-      "weight": 3.0,
-      "amount": 30000
+      "role": "prêmio de crédito com limite de qualidade; posição reduzida para minimizar risco de spread",
+      "weight": 2.0,
+      "amount": 20000
     },
     {
       "id": "multi_market",
@@ -93,44 +93,44 @@
       "class": "multimercado",
       "benchmark": "CDI + risco controlado",
       "role": "diversificação de estratégias e fatores",
-      "weight": 15.01,
-      "amount": 150100
+      "weight": 15.0,
+      "amount": 150000
     },
     {
       "id": "br_equity_funds",
       "label": "Fundos de ações Brasil",
       "class": "renda_variavel_brasil",
       "benchmark": "Ibovespa / índice amplo",
-      "role": "crescimento local diversificado",
-      "weight": 3.0,
-      "amount": 30000
+      "role": "toda a exposição de bolsa doméstica do perfil, via fundo diversificado, sem posição satélite concentrada",
+      "weight": 5.0,
+      "amount": 50000
     },
     {
       "id": "global_equity",
       "label": "Ações globais diversificadas",
       "class": "renda_variavel_global",
       "benchmark": "MSCI ACWI / índice amplo",
-      "role": "crescimento global fora do tema IA",
-      "weight": 2.0,
-      "amount": 20000
+      "role": "exposição internacional modesta, mantendo a bolsa como um todo baixa no perfil conservador",
+      "weight": 3.0,
+      "amount": 30000
     },
     {
       "id": "ai_theme",
       "label": "Tema inteligência artificial",
       "class": "renda_variavel_tematica",
       "benchmark": "Índice/ETF amplo de IA e infraestrutura",
-      "role": "satélite de crescimento; chips, nuvem e software",
-      "weight": 2.0,
-      "amount": 20000
+      "role": "satélite temático concentrado excluído do perfil conservador (prática padrão de core-satellite: satélite de tema único não entra em carteira conservadora)",
+      "weight": 0.0,
+      "amount": 0
     },
     {
       "id": "real_estate",
       "label": "Alternativos — fundos imobiliários",
       "class": "alternativos",
       "benchmark": "IFIX / renda imobiliária",
-      "role": "renda real e diversificação",
-      "weight": 4.0,
-      "amount": 40000
+      "role": "renda real e diversificação; maior parte dos alternativos do perfil, por ser gerador de renda e menos volátil",
+      "weight": 5.0,
+      "amount": 50000
     },
     {
       "id": "gold",
@@ -138,46 +138,46 @@
       "class": "alternativos",
       "benchmark": "Ouro",
       "role": "proteção de cauda e diversificação",
-      "weight": 2.4,
-      "amount": 24000
+      "weight": 2.5,
+      "amount": 25000
     },
     {
       "id": "crypto",
       "label": "Alternativos — criptoativos",
       "class": "alternativos",
       "benchmark": "Cesta cripto limitada",
-      "role": "opcional e altamente volátil",
-      "weight": 0.8,
-      "amount": 8000
+      "role": "excluído do perfil conservador (nenhuma referência de mercado consultada recomenda cripto para esse perfil)",
+      "weight": 0.0,
+      "amount": 0
     },
     {
       "id": "stablecoin",
       "label": "Alternativos — stablecoin",
       "class": "alternativos",
       "benchmark": "USD tokenizado",
-      "role": "liquidez digital; risco de emissor e plataforma",
-      "weight": 0.4,
-      "amount": 4000
+      "role": "excluído do perfil conservador junto com cripto — mesmo risco de emissor e plataforma",
+      "weight": 0.0,
+      "amount": 0
     },
     {
       "id": "industrial_metals",
       "label": "Alternativos — prata, paládio e cobre",
       "class": "alternativos",
       "benchmark": "Cesta de commodities metálicas",
-      "role": "diversificação cíclica",
-      "weight": 0.4,
-      "amount": 4000
+      "role": "diversificação cíclica; posição mínima no perfil conservador",
+      "weight": 0.5,
+      "amount": 5000
     }
   ],
   "sleeve_limits": {
-    "renda_fixa_total_min": 65.0,
-    "renda_fixa_total_max": 80.0,
+    "renda_fixa_total_min": 62.0,
+    "renda_fixa_total_max": 75.0,
     "ai_theme_min": 0.0,
-    "ai_theme_max": 4.0,
+    "ai_theme_max": 2.0,
     "alternativos_max": 10.0,
     "single_issuer_max": 2.0,
-    "liquidity_floor": 20.0,
-    "opportunity_reserve_target": 8.0
+    "liquidity_floor": 12.0,
+    "opportunity_reserve_target": 6.0
   },
   "review_policy": {
     "frequency": "daily",
