@@ -2304,13 +2304,24 @@ function setDwMarketGroup(group){
   renderDwMarketTable(_dwMarketData);
 }
 
+// Home-market flag/symbol per asset label (config/market_thresholds.py's
+// own `label` strings) -- real identity of the instrument, not decoration:
+// an unmapped future asset just falls back to a generic glyph below.
+const MARKET_ICONS={
+  'Ibovespa':'🇧🇷','S&P 500':'🇺🇸','Nasdaq':'🇺🇸','Dow Jones':'🇺🇸','FTSE 100':'🇬🇧','DAX':'🇩🇪','CAC 40':'🇫🇷','KOSPI':'🇰🇷',
+  'Dólar':'🇺🇸','Euro':'🇪🇺','Iene':'🇯🇵','Renminbi':'🇨🇳',
+  'US Treasury 3M':'🇺🇸','US Treasury 5Y':'🇺🇸','US Treasury 10Y':'🇺🇸','US Treasury 30Y':'🇺🇸','DI Jan (futuro)':'🇧🇷',
+  'Ouro':'🥇','Petróleo (WTI)':'🛢️','Cobre':'🟠','Prata':'⚪',
+};
+
 function marketGroupTableHtml(market, group){
   if(!market||!market.movements||!market.movements.length){
     return '<div class="dw-empty">Mercado indisponível.</div>';
   }
   const rows=market.movements.filter(m=>m.group===group);
-  let html='<table class="dw-table"><tr><th>Ativo</th><th>Valor</th><th>Variação</th><th>Hoje</th></tr>';
+  let html='<table class="dw-table"><tr><th>Ativo</th><th style="text-align:right">Valor</th><th>Variação</th><th>Hoje</th></tr>';
   let any=false;
+  let anyLive=false;
   const errors=[];
   for(const m of rows){
     if(m.current_value==null){
@@ -2318,12 +2329,19 @@ function marketGroupTableHtml(market, group){
       continue;
     }
     any=true;
+    if(m.source==='live') anyLive=true;
     const up=(m.change||0)>=0;
     const unit=m.unit==='percentage_points'?'p.p.':'%';
     const mockTag=m.source==='MOCK'?' <span class="tag ty" style="font-size:9px">MOCK</span>':'';
-    html+=`<tr><td>${escapeHtml(m.asset)}${mockTag}</td><td>${m.current_value.toFixed(2)}</td><td style="color:${up?'var(--green)':'var(--red)'}">${up?'▲':'▼'} ${Math.abs(m.change).toFixed(2)}${unit}</td><td>${sparklineSvg(m.history,up)}</td></tr>`;
+    const icon=MARKET_ICONS[m.asset]||'📈';
+    html+=`<tr><td><span style="margin-right:6px">${icon}</span>${escapeHtml(m.asset)}${mockTag}</td><td style="text-align:right;font-variant-numeric:tabular-nums">${m.current_value.toFixed(2)}</td><td><span class="tag ${up?'tg':'tr'}">${up?'▲':'▼'} ${Math.abs(m.change).toFixed(2)}${unit}</span></td><td>${sparklineSvg(m.history,up)}</td></tr>`;
   }
-  if(any) return html+'</table>';
+  if(any){
+    const live=anyLive&&market.timestamp
+      ?`<div style="font-size:10.5px;color:var(--text2);margin-bottom:6px"><span style="color:var(--green)">●</span> Ao vivo · atualizado às ${new Date(market.timestamp).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>`
+      :'';
+    return live+html+'</table>';
+  }
   // Real fetch failures, not "nothing to show" -- surface the actual
   // error per asset instead of a generic "fonte indisponível" that gave
   // no way to tell a timeout from an auth error from Yahoo blocking
