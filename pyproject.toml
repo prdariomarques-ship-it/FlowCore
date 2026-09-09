@@ -10,5 +10,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"flowcore.py" = ["E402"]        # sys.path.insert() must run before local imports
-"tests/test_api.py" = ["E402"]  # pytest.importorskip() must run before TestClient import
+"flowcore.py" = ["E402", "F401", "F841"]   # sys.path.insert() + optional deps + unused sentinels
+"tests/test_api.py" = ["E402"]             # pytest.importorskip() must run before TestClient import
+"tests/test_alerts_api.py" = ["E402"]      # pytest.importorskip() must run before TestClient import
+"tests/test_ask_compliance.py" = ["E402"]  # pytest.importorskip() must run before TestClient import

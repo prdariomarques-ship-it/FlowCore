@@ -38,7 +38,7 @@ class DoctorAgent(BaseAgent):
             elif failed == 0:
                 emoji = "🟡"
                 status_text = "Funcionando, com avisos"
-                overall = "degraded"
+                overall = "warning"
             else:
                 emoji = "🔴"
                 status_text = "Alguns problemas"

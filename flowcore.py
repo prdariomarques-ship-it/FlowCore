@@ -52,6 +52,7 @@ if str(ROOT) not in sys.path:
 
 from config.loader import get_config
 from runtime.core import FlowCoreRuntime, detect_platform
+from runtime.portfolio.attributes import ASSET_ATTRIBUTE_FIELDS
 from storage import DocumentRepository, MemoryRepository
 from loguru import logger
 
@@ -189,7 +190,7 @@ def cmd_selftest() -> None:
 
     def _api_test():
         try:
-            import fastapi  # noqa: F401
+            import fastapi
             from api.router import create_app
             from config.loader import get_config
 
@@ -200,7 +201,7 @@ def cmd_selftest() -> None:
             raise ImportError("FastAPI not installed. Run: bash install_api.sh")
 
     try:
-        import fastapi  # noqa: F401
+        import fastapi
 
         result = selftest_check("API", _api_test, "FastAPI available")
         results.append(result)
@@ -215,7 +216,7 @@ def cmd_selftest() -> None:
 
     def _scheduler_test():
         try:
-            from apscheduler.schedulers.asyncio import AsyncIOScheduler  # noqa: F401
+            from apscheduler.schedulers.asyncio import AsyncIOScheduler
             from scheduler.service import SchedulerService
 
             scheduler = SchedulerService(timezone="UTC")
@@ -224,7 +225,7 @@ def cmd_selftest() -> None:
             raise ImportError("apscheduler not installed. Run: bash install_api.sh")
 
     try:
-        import apscheduler  # noqa: F401
+        import apscheduler
 
         result = selftest_check("SCHEDULER", _scheduler_test, "apscheduler available")
         results.append(result)
@@ -421,7 +422,7 @@ def cmd_selftest() -> None:
     elif result == "FAIL":
         failed += 1
 
-    passed + failed + skipped
+    total = passed + failed + skipped
     print("")
     if failed == 0:
         print(f"{GREEN}{BOLD}══════════════════════════════════════════════════{NC}")
@@ -498,14 +499,14 @@ def cmd_health(cfg: dict) -> None:
     print(f"  {GREEN}✓{NC} Storage")
 
     try:
-        import fastapi  # noqa: F401
+        import fastapi
 
         print(f"  {GREEN}✓{NC} API")
     except ImportError:
         print(f"  {YELLOW}○{NC} API (not installed)")
 
     try:
-        import apscheduler  # noqa: F401
+        import apscheduler
 
         print(f"  {GREEN}✓{NC} Scheduler")
     except ImportError:
@@ -812,7 +813,7 @@ def cmd_doctor() -> None:
         checks["database"] = "FAIL"
 
     try:
-        json.dumps({"test": "data"})
+        test_json = json.dumps({"test": "data"})
         print(f"{GREEN}✓{NC} JSON")
         checks["json"] = "PASS"
     except Exception as e:
@@ -836,7 +837,7 @@ def cmd_doctor() -> None:
         checks["ollama"] = "WARN"
 
     try:
-        import fastapi  # noqa: F401
+        import fastapi
 
         print(f"{GREEN}✓{NC} FastAPI (optional)")
         checks["api"] = "PASS"
@@ -845,7 +846,7 @@ def cmd_doctor() -> None:
         checks["api"] = "WARN"
 
     try:
-        import apscheduler  # noqa: F401
+        import apscheduler
 
         print(f"{GREEN}✓{NC} APScheduler (optional)")
         checks["scheduler"] = "PASS"

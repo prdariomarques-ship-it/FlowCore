@@ -261,3 +261,33 @@ class PortfolioRepository:
                 "attributes": json.loads(row[7]),
                 "updated_at": row[8],
             }
+
+    def list_portfolios_sync(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "id": "port_001",
+                "client_id": "client_001",
+                "client_name": "João Silva",
+                "profile": "Moderado",
+                "holdings": [
+                    {"asset": "PETR4", "class": "Renda Variável", "value": 250000.0},
+                    {"asset": "CDB Itaú", "class": "Renda Fixa", "value": 650000.0},
+                    {"asset": "Caixa", "class": "Caixa", "value": 100000.0},
+                ],
+            },
+            {
+                "id": "port_002",
+                "client_id": "maria_oliveira",
+                "client_name": "Maria Oliveira",
+                "profile": "Moderado",
+                "holdings": [
+                    {"asset": "PETR4", "class": "Renda Variável", "value": 380000.0},
+                    {"asset": "CDB Itaú", "class": "Renda Fixa", "value": 420000.0},
+                    {"asset": "IVVB11", "class": "Internacional", "value": 100000.0},
+                    {"asset": "Caixa", "class": "Caixa", "value": 100000.0},
+                ],
+            },
+        ]
+
+
+portfolio_repo = PortfolioRepository()

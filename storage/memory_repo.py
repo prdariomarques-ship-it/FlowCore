@@ -40,7 +40,7 @@ class MemoryRepository:
         try:
             with open(self._file, "w", encoding="utf-8") as f:
                 json.dump(memories, f, indent=2, ensure_ascii=False)
-        except OSError as e:
+        except IOError as e:
             logger.error("Error saving memories: {}", e)
 
     # ── Domain operations ────────────────────────────────────────────────────

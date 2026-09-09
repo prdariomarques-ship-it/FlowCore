@@ -196,7 +196,6 @@ def _tcp_reachable(url: str, timeout: float = 3.0) -> bool:
     burning the full request timeout (90s/180s) — without this, the chat UI
     looked hung for minutes whenever the configured PC/phone Ollama wasn't
     actually up, instead of failing over (or reporting unavailable) fast."""
-    import ipaddress
     import socket
     from urllib.parse import urlparse
 
@@ -204,19 +203,6 @@ def _tcp_reachable(url: str, timeout: float = 3.0) -> bool:
     host = parsed.hostname
     if not host:
         return False
-    try:
-        address = ipaddress.ip_address(host)
-        documentation_ranges = (
-            ipaddress.ip_network("192.0.2.0/24"),
-            ipaddress.ip_network("198.51.100.0/24"),
-            ipaddress.ip_network("203.0.113.0/24"),
-        )
-        if any(address in network for network in documentation_ranges):
-            return False
-        if address.is_reserved and not (address.is_loopback or address.is_private):
-            return False
-    except ValueError:
-        pass
     port = parsed.port or (443 if parsed.scheme == "https" else 80)
     try:
         with socket.create_connection((host, port), timeout=timeout):
@@ -303,6 +289,30 @@ def register_dashboard_routes(app, version: str) -> None:
     async def ask(data: AskRequest):
         if not data.question.strip():
             raise HTTPException(status_code=422, detail="question is required")
+
+        # Check compliance / desenquadramento queries
+        q_lower = data.question.lower()
+        if any(term in q_lower for term in ("desenquadrad", "compliance", "violação", "violacao")):
+            try:
+                from agents.compliance_agent import ComplianceAgent
+
+                agent = ComplianceAgent()
+                result = await agent.run()
+                if result["total"] == 0:
+                    answer = "Nenhuma carteira desenquadrada. Tudo dentro dos limites."
+                else:
+                    lines = [
+                        f"Encontrei {result['total']} carteira(s) com alertas de desenquadramento"
+                        f" ({result['critical']} crítica(s) 🔴 e {result['warnings']} em atenção 🟡):\n"
+                    ]
+                    for item in result["items"]:
+                        lines.append(
+                            f"• {item['client_name']}: {item['message']} — Sugestão: {item['suggested_action']}"
+                        )
+                    answer = "\n".join(lines)
+                return {"answer": answer, "provider": "compliance-agent", "model": "rule-engine"}
+            except Exception:
+                pass
 
         # Try FlowCore AgentRunner (ask agent) first
         try:
@@ -961,7 +971,11 @@ def register_dashboard_routes(app, version: str) -> None:
         portfolio = await get_portfolio(portfolio_id)
         return {
             "portfolio_id": portfolio_id,
-            "narrative": "Carteira-modelo moderada de R$ 1 milhão com 45% em renda fixa brasileira, 15% em renda fixa internacional, 10% em multimercados, 25% em renda variável e 4,5% em alternativos. A parcela de IA é satélite, limitada a 7% do patrimônio.",  # noqa: E501
+            "narrative": (
+                "Carteira-modelo moderada de R$ 1 milhão com 45% em renda fixa brasileira,"
+                " 15% em renda fixa internacional, 10% em multimercados, 25% em renda variável"
+                " e 4,5% em alternativos. A parcela de IA é satélite, limitada a 7% do patrimônio."
+            ),
             "review_policy": portfolio.get("review_policy", {}),
             "stub": False,
         }

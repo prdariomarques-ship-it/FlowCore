@@ -1,0 +1,35 @@
+{
+  "pol_rv_moderado": {
+    "policy_id": "pol_rv_moderado",
+    "office_id": "office_default",
+    "profile": "Moderado",
+    "asset_class": "Renda Variável",
+    "max_percentage": 30.0,
+    "warning_threshold": 0.0,
+    "critical_threshold": 5.0,
+    "effective_from": "2026-09-07T04:20:36.313085+00:00",
+    "effective_until": null
+  },
+  "pol_rf_moderado": {
+    "policy_id": "pol_rf_moderado",
+    "office_id": "office_default",
+    "profile": "Moderado",
+    "asset_class": "Renda Fixa",
+    "max_percentage": 80.0,
+    "warning_threshold": 0.0,
+    "critical_threshold": 5.0,
+    "effective_from": "2026-09-07T04:20:36.313120+00:00",
+    "effective_until": null
+  },
+  "pol_intl_moderado": {
+    "policy_id": "pol_intl_moderado",
+    "office_id": "office_default",
+    "profile": "Moderado",
+    "asset_class": "Internacional",
+    "max_percentage": 20.0,
+    "warning_threshold": 0.0,
+    "critical_threshold": 5.0,
+    "effective_from": "2026-09-07T04:20:36.313125+00:00",
+    "effective_until": null
+  }
+}
