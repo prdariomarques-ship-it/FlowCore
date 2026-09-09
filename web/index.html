@@ -9,229 +9,248 @@
 <title>FlowCore</title>
 <style>
 :root{
-  --bg:#0a0f1e;--bg2:#111827;--bg3:#1a2235;--border:#1e3a5f;
-  --accent:#00d4ff;--accent2:#7c3aed;
-  --green:#10b981;--yellow:#f59e0b;--red:#ef4444;--purple:#a78bfa;
-  --text:#e2e8f0;--text2:#94a3b8;--radius:12px;
-  --shadow:0 4px 24px rgba(0,0,0,.4);
+  --bg:#05080f;--bg2:#0d121f;--bg3:#151b2e;--border:#1e2942;
+  --accent:#06b6d4;--accent2:#7c3aed;--accent3:#0ea5e9;
+  --green:#10b981;--yellow:#f59e0b;--red:#ef4444;--purple:#a78bfa;--gold:#fbbf24;
+  --text:#f1f5f9;--text2:#94a3b8;--text3:#64748b;
+  --radius:14px;--shadow:0 8px 32px rgba(0,0,0,.5);
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;min-height:100vh;padding-bottom:84px}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;font-size:14px;min-height:100vh;padding-bottom:90px;-webkit-font-smoothing:antialiased}
 
 /* Header */
-.header{background:linear-gradient(135deg,#0a0f1e,#111827);border-bottom:1px solid var(--border);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}
-.hb{display:flex;align-items:center;gap:10px}
-.logo{width:34px;height:34px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:900;color:#fff}
-.bn{font-size:17px;font-weight:700;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.bs{font-size:10px;color:var(--text2);margin-top:1px}
-.hr{display:flex;align-items:center;gap:8px}
-.sdot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite}
-.sdot.off{background:var(--red);box-shadow:0 0 6px var(--red);animation:none}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-.btn-sm{background:var(--bg3);border:1px solid var(--border);color:var(--accent);padding:5px 11px;border-radius:8px;font-size:12px;cursor:pointer}
-.btn-sm:hover{background:var(--border)}
+.header{background:linear-gradient(180deg,rgba(13,18,31,.98),rgba(13,18,31,.92));border-bottom:1px solid var(--border);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;backdrop-filter:blur(12px)}
+.hb{display:flex;align-items:center;gap:12px}
+.logo{width:38px;height:38px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:900;color:#fff;box-shadow:0 4px 16px rgba(6,182,212,.3)}
+.brand{display:flex;flex-direction:column}
+.bn{font-size:18px;font-weight:700;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.bs{font-size:11px;color:var(--text2);margin-top:1px}
+.hr{display:flex;align-items:center;gap:10px}
+.sdot{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite}
+.sdot.off{background:var(--red);box-shadow:0 0 8px var(--red);animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.btn-icon{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:10px;font-size:13px;cursor:pointer;transition:all .2s}
+.btn-icon:hover{background:var(--border);border-color:var(--accent)}
 
 /* Layout */
-.wrap{max-width:600px;margin:0 auto;padding:14px}
-.gap{display:flex;flex-direction:column;gap:12px}
+.wrap{max-width:680px;margin:0 auto;padding:18px 16px}
+.gap{display:flex;flex-direction:column;gap:14px}
 
 /* Cards */
-.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:15px;box-shadow:var(--shadow)}
-.ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}
-.ct{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text2)}
-.ci{font-size:15px}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);transition:border-color .2s}
+.card:hover{border-color:var(--border)}
+.ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.ct{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)}
+.ci{font-size:16px}
 
-/* Stats */
-.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-.st{background:var(--bg3);border-radius:10px;padding:10px 6px;text-align:center}
-.sv{font-size:20px;font-weight:700;color:var(--accent)}
-.sl{font-size:9px;color:var(--text2);margin-top:2px;text-transform:uppercase;letter-spacing:.4px}
+/* Executive Dashboard */
+.exec-greeting{font-size:22px;font-weight:700;margin-bottom:16px;color:var(--text)}
+.exec-section{margin-bottom:18px}
+.exec-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.exec-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.exec-card{background:var(--bg3);border-radius:12px;padding:14px;border:1px solid var(--border)}
+.exec-val{font-size:24px;font-weight:700;color:var(--accent);margin-top:4px}
+.exec-label{font-size:11px;color:var(--text2);margin-top:2px}
+.exec-tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-top:6px}
 
-/* Rows */
-.row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border)}
-.row:last-child{border-bottom:none}
-.rl{color:var(--text2);font-size:12px}
-.rv{font-weight:600;font-size:13px}
+/* Alert cards */
+.alert-card{background:var(--bg3);border-left:3px solid var(--yellow);border-radius:12px;padding:14px;margin-bottom:8px}
+.alert-card.red{border-left-color:var(--red)}
+.alert-card.green{border-left-color:var(--green)}
+.alert-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px}
+.alert-desc{font-size:12px;color:var(--text2);line-height:1.4}
+.alert-action{margin-top:10px;display:flex;gap:8px}
+.btn-alert{padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .2s}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
+.btn-primary:hover{opacity:.9}
+.btn-secondary{background:var(--bg2);border:1px solid var(--border);color:var(--text)}
+.btn-secondary:hover{border-color:var(--accent)}
 
-/* Tags */
-.tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
-.tg{background:rgba(16,185,129,.15);color:var(--green);border:1px solid rgba(16,185,129,.3)}
-.tr{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
-.ty{background:rgba(245,158,11,.15);color:var(--yellow);border:1px solid rgba(245,158,11,.3)}
-.tp{background:rgba(167,139,250,.15);color:var(--purple);border:1px solid rgba(167,139,250,.3)}
+/* Market mini */
+.market-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+.market-row:last-child{border-bottom:none}
+.market-name{font-size:12px;color:var(--text2)}
+.market-value{font-size:13px;font-weight:600}
+.market-up{color:var(--green)}
+.market-down{color:var(--red)}
 
-/* Buttons */
-.btns{display:flex;gap:8px;margin-top:13px}
-.btn{flex:1;padding:9px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
-.bg{background:rgba(16,185,129,.2);color:var(--green);border:1px solid rgba(16,185,129,.4)}
-.bg:hover{background:rgba(16,185,129,.35)}
-.br{background:rgba(239,68,68,.2);color:var(--red);border:1px solid rgba(239,68,68,.4)}
-.br:hover{background:rgba(239,68,68,.35)}
+/* Insight card */
+.insight-card{background:linear-gradient(135deg,rgba(124,58,237,.08),rgba(6,182,212,.05));border:1px solid rgba(124,58,237,.2);border-radius:12px;padding:14px}
+.insight-badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;background:rgba(124,58,237,.2);color:var(--purple);margin-bottom:8px}
+.insight-text{font-size:13px;line-height:1.5;color:var(--text)}
+.insight-link{margin-top:10px;font-size:12px;color:var(--accent);cursor:pointer;font-weight:600}
 
-/* Input row */
-.ir{display:flex;gap:8px;margin-bottom:12px}
-.if{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 12px;font-size:13px;outline:none;transition:border-color .2s}
-.if:focus{border-color:var(--accent)}
-textarea.if{font-family:inherit;resize:vertical;min-height:38px}
-textarea.if.grow{min-height:140px}
-.if::placeholder{color:var(--text2)}
-.bs2{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:8px;color:#fff;font-size:15px;width:40px;cursor:pointer;flex-shrink:0}
-.bs2:hover{opacity:.85}
+/* Stats grid */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.stat-item{background:var(--bg3);border-radius:11px;padding:12px 8px;text-align:center}
+.stat-val{font-size:19px;font-weight:700;color:var(--accent)}
+.stat-label{font-size:9px;color:var(--text2);margin-top:3px;text-transform:uppercase;letter-spacing:.5px}
 
-/* Caps grid */
-.cg{display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:7px}
-.ci2{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:7px 9px;display:flex;align-items:center;gap:6px;font-size:12px}
-.ci2.ok{border-color:rgba(16,185,129,.3)}
-.ci2.miss{opacity:.4}
-.cd{width:6px;height:6px;border-radius:50%;flex-shrink:0}
-.cd.ok{background:var(--green)}
-.cd.miss{background:var(--text2)}
+/* Portfolio blocks */
+.portfolio-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.portfolio-block{background:var(--bg3);border-radius:12px;padding:14px}
+.portfolio-title{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px}
+.portfolio-value{font-size:22px;font-weight:700;color:var(--text)}
+.portfolio-change{font-size:11px;margin-top:4px}
+.portfolio-change.up{color:var(--green)}
+.portfolio-change.down{color:var(--red)}
 
-/* Check list */
-.cl{display:flex;flex-direction:column;gap:5px}
-.ck{display:flex;align-items:center;gap:9px;padding:7px 9px;background:var(--bg3);border-radius:8px;font-size:12px}
-.ck-name{flex:1;font-weight:500}
-.ck-msg{color:var(--text2);font-size:11px;text-align:right;max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Allocation bar */
+.alloc-item{margin-bottom:12px}
+.alloc-header{display:flex;justify-content:space-between;margin-bottom:5px}
+.alloc-name{font-size:12px;color:var(--text2)}
+.alloc-pct{font-size:12px;font-weight:600;color:var(--text)}
+.alloc-bar-bg{height:6px;background:var(--border);border-radius:6px;overflow:hidden}
+.alloc-bar-fill{height:100%;border-radius:6px;transition:width .5s ease}
 
-/* Memories / notes */
-.ml{display:flex;flex-direction:column;gap:6px}
-.mi{background:var(--bg3);border-radius:8px;padding:10px 12px;border-left:2px solid var(--accent2)}
-.mi.todo{border-left-color:var(--yellow)}
-.mi.agenda{border-left-color:var(--green)}
-.mi.radar{border-left-color:var(--accent)}
-.mi-text{color:var(--text);margin-bottom:3px;font-size:13px}
-.mi-meta{color:var(--text2);font-size:11px;display:flex;align-items:center;gap:6px}
-details.mi>summary{cursor:pointer;list-style:none}
-details.mi>summary::-webkit-details-marker{display:none}
-details.mi>summary::marker{display:none}
-.mi-body{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:13px;line-height:1.6;color:var(--text)}
-.mi-body h1,.mi-body h2,.mi-body h3{color:var(--accent);margin:14px 0 6px;font-size:14px}
-.mi-body h1:first-child,.mi-body h2:first-child,.mi-body h3:first-child{margin-top:0}
-.mi-body strong{color:#fff}
-.mi-body a{color:var(--accent)}
-.mi-body hr{border:none;border-top:1px solid var(--border);margin:12px 0}
-.mi-body p{margin:6px 0}
-.mi-body table{border-collapse:collapse;width:100%;margin:8px 0;font-size:12px}
-.mi-body th,.mi-body td{border:1px solid var(--border);padding:5px 8px;text-align:left}
-.mi-body th{color:var(--text2);background:var(--bg2)}
-.topics{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
-.tb{background:rgba(124,58,237,.2);color:#a78bfa;border-radius:20px;padding:1px 7px;font-size:10px;border:1px solid rgba(124,58,237,.3)}
+/* Priority tags */
+.tag{display:inline-block;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.tag-red{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.tag-yellow{background:rgba(245,158,11,.15);color:var(--yellow);border:1px solid rgba(245,158,11,.3)}
+.tag-green{background:rgba(16,185,129,.15);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.tag-purple{background:rgba(167,139,250,.15);color:var(--purple);border:1px solid rgba(167,139,250,.3)}
+.tag-blue{background:rgba(14,165,233,.15);color:var(--accent3);border:1px solid rgba(14,165,233,.3)}
+.tag-gold{background:rgba(251,191,36,.15);color:var(--gold);border:1px solid rgba(251,191,36,.3)}
 
-/* System info */
-.sys-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.sys-card{background:var(--bg3);border-radius:10px;padding:12px;text-align:center}
-.sys-val{font-size:26px;font-weight:700;color:var(--accent)}
-.sys-lbl{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+/* Action items */
+.action-list{display:flex;flex-direction:column;gap:8px}
+.action-item{display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg3);border-radius:11px;border:1px solid var(--border)}
+.action-priority{width:4px;height:40px;border-radius:4px;flex-shrink:0}
+.action-priority.urgent{background:var(--red)}
+.action-priority.normal{background:var(--accent3)}
+.action-content{flex:1}
+.action-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px}
+.action-meta{font-size:11px;color:var(--text2)}
+.action-btn{padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:none;white-space:nowrap}
+.action-btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
+.action-btn.secondary{background:var(--bg2);border:1px solid var(--border);color:var(--text)}
 
-/* Search results */
-.sr-section{margin-bottom:14px}
-.sr-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--text2);margin-bottom:8px}
-.sr-item{background:var(--bg3);border-radius:8px;padding:9px 11px;margin-bottom:5px;font-size:13px}
-.sr-item .sr-text{color:var(--text);margin-bottom:2px}
-.sr-item .sr-sub{color:var(--text2);font-size:11px}
-.no-results{text-align:center;color:var(--text2);padding:24px;font-size:13px}
+/* Intelligence items */
+.intel-item{padding:12px;background:var(--bg3);border-radius:11px;margin-bottom:8px;border-left:3px solid var(--border)}
+.intel-item.red{border-left-color:var(--red)}
+.intel-item.yellow{border-left-color:var(--yellow)}
+.intel-item.green{border-left-color:var(--green)}
+.intel-item.blue{border-left-color:var(--accent3)}
+.intel-header{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.intel-icon{font-size:14px}
+.intel-title{font-size:13px;font-weight:600;color:var(--text)}
+.intel-desc{font-size:12px;color:var(--text2);line-height:1.4}
 
-/* Passport card */
-.passport-field{background:var(--bg3);border-radius:8px;padding:10px 12px;margin-bottom:6px}
-.pf-label{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--text2);margin-bottom:4px}
-.pf-value{font-size:13px;word-break:break-all}
-.hash-val{font-family:monospace;font-size:10px;color:var(--text2);word-break:break-all}
-
-/* Skeleton */
-.sk{background:linear-gradient(90deg,var(--bg3) 25%,var(--border) 50%,var(--bg3) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;height:13px;margin-bottom:7px}
-@keyframes shimmer{0%{background-position:200%}100%{background-position:-200%}}
-.empty{text-align:center;color:var(--text2);padding:22px;font-size:13px}
-
-/* Notify */
-.notify-btn{width:100%;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:var(--yellow);padding:10px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
-.notify-btn:hover{background:rgba(245,158,11,.2)}
-
-/* Toast */
-.toast{position:fixed;bottom:92px;left:50%;transform:translateX(-50%) translateY(14px);background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:9px 18px;border-radius:8px;font-size:13px;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;z-index:200}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-
-/* Bottom nav */
-.nav{position:fixed;bottom:0;left:0;right:0;background:rgba(17,24,39,.96);border-top:1px solid var(--border);display:flex;backdrop-filter:blur(10px);z-index:100;overflow-x:auto;-webkit-overflow-scrolling:touch}
-.ni{flex:1 0 auto;min-width:52px;display:flex;flex-direction:column;align-items:center;padding:9px 4px 13px;gap:3px;cursor:pointer;color:var(--text2);font-size:9px;font-weight:500;border:none;background:none;transition:color .2s;white-space:nowrap}
-.ni.active{color:var(--accent)}
-.ni:hover{color:var(--text)}
-.ni-icon{font-size:19px}
-
-/* Chat */
-.chat-wrap{display:flex;flex-direction:column;height:calc(100vh - 180px);min-height:320px}
-.chat-log{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-bottom:10px}
-.msg{max-width:82%;padding:9px 12px;border-radius:14px;font-size:13px;line-height:1.45;word-wrap:break-word;white-space:pre-wrap}
-.msg.user{align-self:flex-end;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border-bottom-right-radius:4px}
-.msg.bot{align-self:flex-start;background:var(--bg3);border:1px solid var(--border);border-bottom-left-radius:4px}
-.msg.bot.err{border-color:rgba(239,68,68,.4);color:var(--red)}
-.msg.typing{align-self:flex-start;background:var(--bg3);border:1px solid var(--border);border-bottom-left-radius:4px;color:var(--text2);font-style:italic}
-.chat-meta{font-size:10px;color:var(--text2);margin-top:4px;opacity:.7}
-.chat-input-row{display:flex;gap:8px;padding-top:10px;border-top:1px solid var(--border)}
-.chat-provider{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);margin-bottom:2px}
-.ai-cfg-row{display:flex;gap:8px;margin-bottom:8px}
-.ai-cfg-row .if{flex:1}
-
-/* Pages */
-.page{display:none}
-.page.active{display:block}
-
-/* Kind selector */
-.kind-sel{display:flex;gap:6px;margin-bottom:12px}
-.ks{flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:7px;border-radius:8px;font-size:12px;text-align:center;cursor:pointer;transition:all .2s}
-.ks.active{color:var(--accent);border-color:var(--accent);background:rgba(0,212,255,.08)}
-
-/* Finance */
-.metric-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
-.metric{background:var(--bg3);border-radius:10px;padding:12px}
-.metric strong{display:block;font-size:22px;color:var(--accent);margin-top:4px}
-.metric small{color:var(--text2);font-size:10px}
-.alloc-row{display:grid;grid-template-columns:1fr 42px;gap:8px;align-items:center;margin:9px 0;font-size:12px}
-.alloc-label{color:var(--text2)}
-.alloc-bar{grid-column:1/3;height:6px;background:var(--border);border-radius:6px;overflow:hidden;margin-top:-5px}
-.alloc-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:6px}
-/* Agents */
-.agent-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:13px;display:flex;align-items:center;justify-content:space-between;gap:10px}
-.agent-info{flex:1;min-width:0}
-.agent-name{font-weight:700;font-size:14px;color:var(--accent)}
-.agent-desc{font-size:11px;color:var(--text2);margin-top:2px}
-.btn-run{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:8px;color:#fff;font-size:12px;font-weight:700;padding:7px 14px;cursor:pointer;white-space:nowrap;transition:opacity .2s}
+/* Agent cards */
+.agent-card{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;align-items:center;gap:12px}
+.agent-icon{width:42px;height:42px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.agent-info{flex:1}
+.agent-name{font-size:14px;font-weight:700;color:var(--accent);margin-bottom:2px}
+.agent-desc{font-size:11px;color:var(--text2)}
+.btn-run{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:9px;color:#fff;font-size:12px;font-weight:700;padding:8px 14px;cursor:pointer;white-space:nowrap;transition:opacity .2s}
 .btn-run:hover{opacity:.85}
 .btn-run:disabled{opacity:.4;cursor:not-allowed}
-/* Flows */
-.flow-subtitle{font-size:10px;text-transform:none;letter-spacing:0;color:var(--text2);margin-top:2px;font-weight:400}
-.flow-empty{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:left}
-.flow-empty-title{font-weight:700;color:var(--text);font-size:14px;margin-bottom:4px}
-.flow-empty-body{font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:12px}
-.flow-example{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:12px;line-height:1.7}
-.flow-example b{color:var(--accent)}
-.flow-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:13px}
-.flow-card-head{display:flex;align-items:center;gap:7px;margin-bottom:6px}
-.flow-card-title{font-weight:700;font-size:13px;color:var(--accent);letter-spacing:.4px}
-.flow-card-steps{font-size:12px;color:var(--text);line-height:1.5;margin-bottom:8px}
-.flow-card-meta{font-size:11px;color:var(--text2);margin-bottom:10px}
-.flow-card-actions{display:flex;gap:8px}
-.flow-step-row{display:flex;gap:6px;align-items:center}
-.flow-step-row select.if{flex:1;padding:8px 10px;font-size:12px}
-.flow-step-num{color:var(--text2);font-size:11px;width:14px;flex:none}
-.task-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg3);border-radius:8px;font-size:12px;margin-bottom:5px}
-.task-agent{font-weight:600;color:var(--text);flex:0 0 70px}
-.task-status{flex:0 0 80px}
-.task-dur{color:var(--text2);flex:0 0 42px;text-align:right}
-.task-id{color:var(--text2);font-size:10px;font-family:monospace;flex:1;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.spin{display:inline-block;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
 
-/* FAB - Floating Action Button */
-.fab{position:fixed;bottom:100px;right:16px;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;font-size:28px;font-weight:bold;cursor:pointer;box-shadow:0 4px 12px rgba(0,212,255,.4);z-index:150;transition:all .3s;display:none;align-items:center;justify-content:center}
-.fab:hover{transform:scale(1.1);box-shadow:0 6px 20px rgba(0,212,255,.6)}
-@media(max-width:768px){.fab{display:flex}}
+/* Flow builder */
+.flow-builder{background:var(--bg3);border-radius:12px;padding:16px}
+.flow-step{display:flex;align-items:center;gap:10px;padding:12px;background:var(--bg2);border-radius:10px;margin-bottom:8px;border:1px solid var(--border)}
+.flow-step-num{width:26px;height:26px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0}
+.flow-step-content{flex:1}
+.flow-step-title{font-size:13px;font-weight:600;color:var(--text)}
+.flow-step-agent{font-size:11px;color:var(--text2)}
+.flow-arrow{text-align:center;padding:8px;color:var(--text3)}
+.btn-add-step{width:100%;padding:10px;background:var(--bg2);border:2px dashed var(--border);border-radius:10px;color:var(--text2);font-size:13px;cursor:pointer;margin-top:8px}
+.btn-add-step:hover{border-color:var(--accent);color:var(--accent)}
 
-/* More Menu */
-.more-menu{position:fixed;bottom:84px;right:10px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;z-index:140;min-width:160px;box-shadow:0 8px 32px rgba(0,0,0,.5);overflow:hidden}
-.more-menu button{width:100%;display:flex;align-items:center;gap:12px;padding:12px 14px;background:none;border:none;color:var(--text);font-size:13px;cursor:pointer;transition:all .2s;border-bottom:1px solid var(--border);text-align:left}
-.more-menu button:last-child{border-bottom:none}
-.more-menu button:hover{background:var(--bg3);color:var(--accent)}
-.more-menu button .ni-icon{font-size:18px}
+/* History items */
+.history-item{padding:14px;background:var(--bg3);border-radius:11px;margin-bottom:8px}
+.history-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.history-title{font-size:13px;font-weight:600;color:var(--text)}
+.history-time{font-size:11px;color:var(--text2)}
+.history-status{display:flex;align-items:center;gap:6px;font-size:12px}
+.history-status.success{color:var(--green)}
+.history-status.warning{color:var(--yellow)}
+.history-details{font-size:12px;color:var(--text2)}
+
+/* Input styles */
+.input-group{margin-bottom:14px}
+.input-label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;display:block}
+.input-field{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:11px 13px;font-size:13px;outline:none;transition:border-color .2s}
+.input-field:focus{border-color:var(--accent)}
+.input-field::placeholder{color:var(--text3)}
+.textarea-field{min-height:80px;resize:vertical;font-family:inherit}
+
+/* Select dropdown */
+.select-field{appearance:none;background:var(--bg3) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E") no-repeat right 12px center;border:1px solid var(--border);border-radius:10px;color:var(--text);padding:11px 13px;font-size:13px;outline:none;cursor:pointer}
+.select-field:focus{border-color:var(--accent)}
+
+/* Buttons */
+.btns{display:flex;gap:10px;margin-top:14px}
+.btn{flex:1;padding:11px;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
+.btn-primary:hover{opacity:.9;transform:translateY(-1px)}
+.btn-secondary{background:var(--bg3);border:1px solid var(--border);color:var(--text)}
+.btn-secondary:hover{background:var(--border)}
+.btn-success{background:rgba(16,185,129,.2);color:var(--green);border:1px solid rgba(16,185,129,.4)}
+.btn-success:hover{background:rgba(16,185,129,.35)}
+
+/* FAB */
+.fab{position:fixed;bottom:95px;right:20px;width:56px;height:56px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;color:#fff;box-shadow:0 4px 20px rgba(6,182,212,.4);cursor:pointer;z-index:90;transition:transform .2s}
+.fab:hover{transform:scale(1.05)}
+
+/* Bottom nav */
+.nav{position:fixed;bottom:0;left:0;right:0;background:rgba(13,18,31,.96);border-top:1px solid var(--border);display:flex;backdrop-filter:blur(12px);z-index:100;padding-bottom:env(safe-area-inset-bottom)}
+.ni{flex:1;display:flex;flex-direction:column;align-items:center;padding:10px 0 14px;gap:4px;cursor:pointer;color:var(--text3);font-size:10px;font-weight:600;border:none;background:none;transition:all .2s}
+.ni.active{color:var(--accent)}
+.ni:hover{color:var(--text)}
+.ni-icon{font-size:20px}
+
+/* Pages */
+.page{display:none;animation:fadeIn .2s ease}
+.page.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* Skeleton */
+.sk{background:linear-gradient(90deg,var(--bg3) 25%,var(--border) 50%,var(--bg3) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;height:14px;margin-bottom:8px}
+@keyframes shimmer{0%{background-position:200%}100%{background-position:-200%}}
+.empty{text-align:center;color:var(--text3);padding:28px;font-size:13px}
+
+/* Toast */
+.toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(14px);background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px 18px;border-radius:10px;font-size:13px;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;z-index:200;box-shadow:var(--shadow)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* Modal */
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:200;opacity:0;visibility:hidden;transition:all .2s}
+.modal-overlay.active{opacity:1;visibility:visible}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;width:90%;max-width:420px;max-height:80vh;overflow-y:auto}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:16px}
+
+/* System status */
+.system-ok{display:flex;align-items:center;gap:8px;padding:12px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);border-radius:10px;color:var(--green);font-size:13px;font-weight:600}
+.system-error{display:flex;align-items:center;gap:8px;padding:12px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:10px;color:var(--red);font-size:13px;font-weight:600}
+
+/* Memory categories */
+.memory-cat{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:4px}
+.cat-chip{padding:6px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;font-size:11px;font-weight:600;color:var(--text2);white-space:nowrap;cursor:pointer}
+.cat-chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* Search */
+.search-box{display:flex;gap:8px;margin-bottom:14px}
+.search-input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:10px 13px;font-size:13px;outline:none}
+.search-input:focus{border-color:var(--accent)}
+.search-btn{background:var(--accent);border:none;border-radius:10px;color:#fff;padding:10px 14px;font-size:13px;cursor:pointer}
+
+/* Responsive */
+@media(min-width:768px){
+  .wrap{max-width:900px;padding:24px}
+  .exec-grid{grid-template-columns:repeat(4,1fr)}
+  .portfolio-grid{grid-template-columns:repeat(3,1fr)}
+  .nav{display:none}
+  .sidebar{position:fixed;left:0;top:0;bottom:0;width:240px;background:var(--bg2);border-right:1px solid var(--border);padding:20px 0;z-index:100}
+  .main-content{margin-left:240px}
+  .si{display:flex;align-items:center;gap:12px;padding:12px 20px;color:var(--text2);cursor:pointer;font-size:13px;font-weight:600;transition:all .2s}
+  .si:hover{background:var(--bg3);color:var(--text)}
+  .si.active{background:rgba(6,182,212,.1);color:var(--accent);border-right:2px solid var(--accent)}
+  .si-icon{font-size:18px;width:22px}
+}
+@media(max-width:767px){
+  .sidebar{display:none}
+}
 </style>
 </head>
 <body>
@@ -253,37 +272,83 @@ details.mi>summary::marker{display:none}
 <div class="wrap">
 
   <!-- ══ VISÃO FINANCEIRA ══ -->
-  <div class="page active" id="page-home">
-    <div class="gap">
-      <div class="card">
-        <div class="ch"><span class="ct">Visão financeira</span><span class="tag ty">Referência</span></div>
-        <div class="metric-grid">
-          <div class="metric"><small>Carteira-modelo</small><strong>R$ 1,0 mi</strong><span class="tag tp">Moderada</span></div>
-          <div class="metric"><small>Exposição IA</small><strong>7%</strong><span class="tag tg">Satélite</span></div>
-          <div class="metric"><small>Renda fixa total</small><strong>60%</strong><span class="tag tg">Âncora</span></div>
-          <div class="metric"><small>Revisão</small><strong id="review-status">Diária</strong><span class="tag ty">Sem ordens</span></div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="ch"><span class="ct">Mercado</span><span class="ci">📈</span></div>
-        <div class="row"><span class="rl">USD/BRL PTAX</span><span class="rv" id="market-usd">A carregar…</span></div>
-        <div class="row"><span class="rl">Ibovespa</span><span class="rv" id="market-ibov">A carregar…</span></div>
-        <div class="row"><span class="rl">Atualização</span><span class="rv" id="market-updated" style="color:var(--text2)">A carregar…</span></div>
-      </div>
-      <div class="card">
-        <div class="ch"><span class="ct">Macro</span><span class="ci">🌐</span></div>
-        <div class="row"><span class="rl">Selic</span><span class="rv" id="macro-selic">A carregar…</span></div>
-        <div class="row"><span class="rl">IPCA acumulado 12m</span><span class="rv" id="macro-ipca">A carregar…</span></div>
-        <div class="row"><span class="rl">Fontes</span><span class="rv" id="macro-source" style="color:var(--text2)">BCB / Yahoo</span></div>
-      </div>
-      <div class="card">
-        <div class="ch"><span class="ct">IA no portfólio</span><span class="ci">🧠</span></div>
-        <div class="row"><span class="rl">Papel</span><span class="rv">Crescimento satélite</span></div>
-        <div class="row"><span class="rl">Limite operacional</span><span class="rv">4%–10%</span></div>
-        <div class="row"><span class="rl">Concentração por emissor</span><span class="rv">Máx. 2%</span></div>
+  <!-- ══ INÍCIO - DASHBOARD EXECUTIVO ══ -->
+<div class="page active" id="page-home">
+  <div class="gap">
+    
+    <!-- Saudação e status -->
+    <div class="exec-greeting" id="exec-greeting">Bom dia</div>
+    
+    <!-- Status do FlowCore -->
+    <div class="card" id="home-status-card">
+      <div class="ch"><span class="ct">Status do Sistema</span><span class="ci" id="home-status-icon">🟢</span></div>
+      <div id="home-status-content"><div class="sk"></div></div>
+    </div>
+    
+    <!-- Alertas importantes -->
+    <div class="card" id="home-alerts-card">
+      <div class="ch"><span class="ct">Atenção Necessária</span><span class="ci">⚠</span></div>
+      <div id="home-alerts-content">
+        <div class="empty">Nenhum alerta no momento.</div>
       </div>
     </div>
+    
+    <!-- Ações pendentes -->
+    <div class="card" id="home-actions-card">
+      <div class="ch"><span class="ct">Ações para Hoje</span><span class="ci">✓</span></div>
+      <div id="home-actions-content">
+        <div class="empty">Nenhuma ação pendente.</div>
+      </div>
+    </div>
+    
+    <!-- Mercado -->
+    <div class="card" id="home-market-card">
+      <div class="ch"><span class="ct">Mercado</span><span class="ci">📊</span></div>
+      <div class="exec-grid">
+        <div class="exec-card">
+          <div class="exec-label">Ibovespa</div>
+          <div class="exec-val" id="home-ibov">--</div>
+        </div>
+        <div class="exec-card">
+          <div class="exec-label">Dólar</div>
+          <div class="exec-val" id="home-usd">--</div>
+        </div>
+        <div class="exec-card">
+          <div class="exec-label">Selic</div>
+          <div class="exec-val" id="home-selic">--</div>
+        </div>
+        <div class="exec-card">
+          <div class="exec-label">IPCA 12m</div>
+          <div class="exec-val" id="home-ipca">--</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Insight da IA -->
+    <div class="card" id="home-insight-card">
+      <div class="ch"><span class="ct">Insight do FlowCore</span><span class="ci">🧠</span></div>
+      <div id="home-insight-content">
+        <div class="insight-card">
+          <span class="insight-badge">ANÁLISE</span>
+          <div class="insight-text" id="home-insight-text">Carregando insights...</div>
+          <div class="insight-link" onclick="pg('ai',document.querySelectorAll('.ni')[2])">VER ANÁLISE COMPLETA</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Flows recentes -->
+    <div class="card" id="home-flows-card">
+      <div class="ch">
+        <span class="ct">Flows Recentes</span>
+        <button class="btn-sm" onclick="openNewFlowModal()">+ Novo</button>
+      </div>
+      <div id="home-flows-content">
+        <div class="empty">Nenhum flow executado recentemente.</div>
+      </div>
+    </div>
+    
   </div>
+</div>
 
   <!-- ══ PORTFOLIO ══ -->
   <div class="page" id="page-portfolio"><div class="gap">
@@ -325,48 +390,24 @@ details.mi>summary::marker{display:none}
       </div>
       <div class="card">
         <div class="ch"><span class="ct">Doctor</span><span class="ci">🩺</span></div>
-        <div id="chk-summary" style="padding:12px;border-bottom:1px solid #2a4f7f"></div>
         <div class="cl" id="chk-list"><div class="sk"></div><div class="sk"></div></div>
       </div>
     </div>
   </div>
 
-  <!-- ══ NOTÍCIAS ══ -->
-  <div class="page" id="page-news">
+  <!-- ══ MEMÓRIAS ══ -->
+  <div class="page" id="page-mem">
     <div class="gap">
       <div class="card">
-        <div class="ch"><span class="ct">Notícias de mercado</span><span class="ci">📰</span></div>
-        <div class="ml" id="news-list"><div class="sk"></div><div class="sk"></div></div>
+        <div class="ch"><span class="ct">Nova Memória</span><span class="ci">🧠</span></div>
+        <div class="ir">
+          <input class="if" id="m-inp" placeholder="Guarda algo... usa #tag">
+          <button class="bs2" onclick="addMem()">✓</button>
+        </div>
       </div>
-    </div>
-  </div>
-
-  <!-- ══ CHAT (IA) ══ -->
-  <div class="page" id="page-chat">
-    <div class="gap">
       <div class="card">
-        <div class="ch"><span class="ct">Assistente</span><button class="btn-sm" onclick="toggleAiCfg()">⚙ Config</button></div>
-        <div class="chat-provider" id="chat-provider-info">Verificando provider…</div>
-        <div id="ai-cfg-box" style="display:none;margin-top:8px">
-          <div class="sr-title" style="margin-bottom:6px">Principal (PC)</div>
-          <div class="ai-cfg-row"><input class="if" id="ai-ollama-url" placeholder="URL do Ollama no PC (ex: http://192.168.1.50:11434)"></div>
-          <div class="ai-cfg-row"><input class="if" id="ai-model" placeholder="Modelo no PC (ex: qwen2.5:3b)"></div>
-          <div class="sr-title" style="margin:10px 0 6px">Backup (celular, usado se o PC não responder)</div>
-          <div class="ai-cfg-row"><input class="if" id="ai-fallback-url" placeholder="URL do Ollama no celular (ex: http://127.0.0.1:11434)"></div>
-          <div class="ai-cfg-row"><input class="if" id="ai-fallback-model" placeholder="Modelo no celular (ex: qwen2.5:1.5b)"></div>
-          <div class="sr-title" style="margin:10px 0 6px">Avançado</div>
-          <div class="ai-cfg-row"><input class="if" id="ai-openai-url" placeholder="URL OpenAI-compat (opcional)"></div>
-          <div class="btns" style="margin-top:0"><button class="btn bg" onclick="saveAiConfig()">✓ Salvar</button><button class="btn-sm" onclick="loadAiConfig()">↻ Recarregar</button></div>
-        </div>
-      </div>
-      <div class="card chat-wrap">
-        <div class="chat-log" id="chat-log">
-          <div class="msg bot">Oi! Sou o assistente do FlowCore. Pergunta algo sobre o portfólio, o mercado ou qualquer coisa.</div>
-        </div>
-        <div class="chat-input-row">
-          <input class="if" id="chat-inp" placeholder="Escreve uma pergunta..." onkeydown="if(event.key==='Enter')sendChat()">
-          <button class="bs2" onclick="sendChat()">➤</button>
-        </div>
+        <div class="ch"><span class="ct">Memórias recentes</span></div>
+        <div class="ml" id="mem-list"><div class="sk"></div><div class="sk"></div></div>
       </div>
     </div>
   </div>
@@ -391,10 +432,9 @@ details.mi>summary::marker{display:none}
           <div class="ks active" data-kind="note" onclick="selKind(this)">📝 Nota</div>
           <div class="ks" data-kind="todo"   onclick="selKind(this)">☑️ Todo</div>
           <div class="ks" data-kind="agenda" onclick="selKind(this)">📅 Agenda</div>
-          <div class="ks" data-kind="radar"  onclick="selKind(this)">📊 Radar</div>
         </div>
         <div class="ir">
-          <textarea class="if" id="note-inp" rows="1" placeholder="Escreve aqui..."></textarea>
+          <input class="if" id="note-inp" placeholder="Escreve aqui...">
           <button class="bs2" onclick="addNote()">✓</button>
         </div>
       </div>
@@ -435,26 +475,15 @@ details.mi>summary::marker{display:none}
         <div id="task-history"><div class="sk"></div><div class="sk"></div></div>
       </div>
 
-      <!-- Flows -->
+      <!-- Flows list -->
       <div class="card">
         <div class="ch">
-          <div><span class="ct">Flows</span><div class="flow-subtitle">Automatize tarefas combinando agentes</div></div>
-          <button class="btn-sm" onclick="openFlowBuilder()">＋ Criar Flow</button>
+          <span class="ct">Flows</span>
+          <button class="btn-sm" onclick="loadFlows()">↻</button>
+          <button class="btn-sm" onclick="openNewFlowModal()">+ Novo</button>
         </div>
         <div id="flow-cards" style="display:flex;flex-direction:column;gap:8px">
           <div class="sk" style="height:42px"></div>
-        </div>
-      </div>
-
-      <!-- Flow builder -->
-      <div class="card" id="flow-builder-card" style="display:none">
-        <div class="ch"><span class="ct">Novo Flow</span><span class="ci">🔗</span></div>
-        <div class="ir"><input class="if" id="flow-name-inp" placeholder="Nome do flow (ex: Fechamento de Mercado)"></div>
-        <div id="flow-steps-list" style="display:flex;flex-direction:column;gap:8px;margin-top:10px"></div>
-        <button class="btn-sm" style="margin-top:8px" onclick="addFlowStepRow()">＋ Adicionar etapa</button>
-        <div style="display:flex;gap:8px;margin-top:12px">
-          <button class="bs2" style="flex:1" onclick="saveFlowBuilder()">Salvar</button>
-          <button class="btn-sm" onclick="closeFlowBuilder()">Cancelar</button>
         </div>
       </div>
 
@@ -469,24 +498,77 @@ details.mi>summary::marker{display:none}
 
 </div>
 
-  <!-- Bottom nav - New Navigation -->
-<div class="nav">
-  <button class="ni active" onclick="pg('home',this)"><span class="ni-icon">🏠</span><span>Início</span></button>
-  <button class="ni" onclick="pg('portfolio',this)"><span class="ni-icon">💹</span><span>Finanças</span></button>
-  <button class="ni" onclick="pg('ai',this)"><span class="ni-icon">🧠</span><span>Inteligência</span></button>
-  <button class="ni" onclick="pg('agents',this)"><span class="ni-icon">⚡</span><span>Ações</span></button>
-  <button class="ni" onclick="toggleMoreMenu()"><span class="ni-icon">⋯</span><span>Mais</span></button>
+<!-- Modal Novo Flow -->
+<div class="modal-overlay" id="modal-new-flow">
+  <div class="modal">
+    <div class="modal-title">Novo Flow</div>
+    <div style="margin-bottom:12px">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">Nome do Flow</label>
+      <input type="text" id="flow-name" placeholder="Ex: Fechamento de Mercado" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:13px;outline:none;box-sizing:border-box">
+    </div>
+    <div style="margin-bottom:16px">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">Descrição (opcional)</label>
+      <input type="text" id="flow-desc" placeholder="Ex: Análise diária do mercado e carteira" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:13px;outline:none;box-sizing:border-box">
+    </div>
+    <div style="margin-bottom:8px">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">Etapas</label>
+      <div id="flow-steps-container"></div>
+      <button class="btn-sm" onclick="addFlowStep()" style="margin-top:8px;width:100%">+ Adicionar Etapa</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:20px">
+      <button class="btn-sm" onclick="closeNewFlowModal()" style="flex:1;background:var(--bg3)">Cancelar</button>
+      <button class="btn-sm" onclick="createFlow()" style="flex:1;background:var(--accent);color:#fff;border:none">Criar Flow</button>
+    </div>
+  </div>
 </div>
 
-<!-- FAB (Floating Action Button) - Mobile -->
-<button class="fab" id="fab-btn" onclick="openQuickActions()">+</button>
+<!-- ══ AÇÕES ══ -->
+<div class="page" id="page-actions">
+  <div class="gap">
+    <div class="card">
+      <div class="ch"><span class="ct">Ações Pendentes</span><span class="ci">✓</span></div>
+      <div id="actions-list" style="display:flex;flex-direction:column;gap:10px">
+        <div class="empty">Nenhuma ação pendente no momento.</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ch"><span class="ct">Ações Recentes</span><span class="ci">🕐</span></div>
+      <div id="actions-history" style="display:flex;flex-direction:column;gap:8px">
+        <div class="empty">Nenhuma ação recente.</div>
+      </div>
+    </div>
+  </div>
+</div>
 
-<!-- More Menu (Hidden by default) -->
-<div class="more-menu" id="more-menu" style="display:none">
-  <button onclick="pg('news',this);closeMoreMenu()"><span class="ni-icon">📰</span><span>Notícias</span></button>
-  <button onclick="pg('notes',this);closeMoreMenu()"><span class="ni-icon">📝</span><span>Notas</span></button>
-  <button onclick="pg('chat',this);closeMoreMenu()"><span class="ni-icon">💬</span><span>Chat</span></button>
-  <button onclick="pg('admin',this);closeMoreMenu()"><span class="ni-icon">⚙️</span><span>Sistema</span></button>
+<!-- ══ MAIS ══ -->
+<div class="page" id="page-more">
+  <div class="gap">
+    <div class="card">
+      <div class="ch"><span class="ct">Ferramentas</span><span class="ci">⚙</span></div>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <button class="btn-sm" onclick="pg('agents',document.querySelectorAll('.ni')[4])" style="text-align:left;background:var(--bg3);justify-content:flex-start">🤖 Agentes</button>
+        <button class="btn-sm" onclick="pg('agents',document.querySelectorAll('.ni')[4]);openNewFlowModal()" style="text-align:left;background:var(--bg3);justify-content:flex-start">➕ Novo Flow</button>
+        <button class="btn-sm" onclick="pg('mem',document.querySelectorAll('.ni')[4])" style="text-align:left;background:var(--bg3);justify-content:flex-start">🧠 Memórias</button>
+        <button class="btn-sm" onclick="pg('notes',document.querySelectorAll('.ni')[4])" style="text-align:left;background:var(--bg3);justify-content:flex-start">📝 Notas</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ch"><span class="ct">Sistema</span><span class="ci">▣</span></div>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <button class="btn-sm" onclick="pg('admin',document.querySelectorAll('.ni')[4])" style="text-align:left;background:var(--bg3);justify-content:flex-start">⚙ Configurações</button>
+        <button class="btn-sm" onclick="pg('caps',document.querySelectorAll('.ni')[4])" style="text-align:left;background:var(--bg3);justify-content:flex-start">🩺 Diagnóstico</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <!-- Bottom nav -->
+<div class="nav">
+  <button class="ni active" onclick="pg('home',this)"><span class="ni-icon">⌂</span><span>Início</span></button>
+  <button class="ni" onclick="pg('portfolio',this)"><span class="ni-icon">◒</span><span>Finanças</span></button>
+  <button class="ni" onclick="pg('ai',this)"><span class="ni-icon">✦</span><span>IA</span></button>
+  <button class="ni" onclick="pg('actions',this)"><span class="ni-icon">✓</span><span>Ações</span></button>
+  <button class="ni" onclick="pg('more',this)"><span class="ni-icon">⋯</span><span>Mais</span></button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -500,35 +582,15 @@ function pg(name,btn){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.ni').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
-  if(btn) btn.classList.add('active');
+  btn.classList.add('active');
+  if(name==='home') loadHomeDashboard();
   if(name==='admin') loadSys();
   if(name==='portfolio') loadPortfolio();
   if(name==='notes') loadNotes();
-  if(name==='news') loadNews();
-  if(name==='chat') loadAiConfig();
+  if(name==='mem'){api('/api/memories').then(r=>renderMems(r.memories||[]));}
   if(name==='agents'){loadAgents();loadFlows();}
-  closeMoreMenu();
-}
-
-/* ── More Menu ── */
-function toggleMoreMenu(){
-  const m=document.getElementById('more-menu');
-  m.style.display=m.style.display==='none'?'block':'none';
-}
-function closeMoreMenu(){
-  document.getElementById('more-menu').style.display='none';
-}
-document.addEventListener('click',e=>{
-  const m=document.getElementById('more-menu');
-  const btn=document.querySelector('.ni:last-child');
-  if(m.style.display!=='none' && !m.contains(e.target) && !btn.contains(e.target)){
-    closeMoreMenu();
-  }
-});
-
-/* ── FAB (Quick Actions) ── */
-function openQuickActions(){
-  toggleMoreMenu();
+  if(name==='actions') loadActions();
+  if(name==='more') loadMorePage();
 }
 
 /* ── Toast ── */
@@ -550,18 +612,102 @@ async function api(path,opts={}){
 async function refresh(){
   const dot=document.getElementById('dot');
   loadMarketSnapshot();
+  loadHomeDashboard();
   try{
-    const [s,notes]=await Promise.all([
+    const [s,mems,notes]=await Promise.all([
       api('/api/status'),
+      api('/api/memories'),
       api('/api/notes')
     ]);
     dot.classList.remove('off');
     document.getElementById('last-upd').textContent='Atualizado '+new Date().toLocaleTimeString('pt-PT');
     renderStatus(s);
+    renderMems(mems.memories||[]);
     renderNotesList(notes.notes||[]);
+    document.getElementById('s-notes').textContent=(notes.notes||[]).length;
+    document.getElementById('s-mem').textContent=s.memory_count??'─';
   }catch(e){
     dot.classList.add('off');
     document.getElementById('last-upd').textContent='Sem ligação';
+  }
+}
+
+/* ── Dashboard Executivo (HOME) ── */
+async function loadHomeDashboard(){
+  // Saudação baseada no horário
+  const hour=new Date().getHours();
+  let greeting='Bom dia';
+  if(hour>=12&&hour<18)greeting='Boa tarde';
+  else if(hour>=18)greeting='Boa noite';
+  const greetEl=document.getElementById('exec-greeting');
+  if(greetEl)greetEl.textContent=greeting+', Dario';
+  
+  // Status do sistema
+  try{
+    const status=await api('/api/status');
+    const statusIcon=document.getElementById('home-status-icon');
+    const statusContent=document.getElementById('home-status-content');
+    if(statusIcon&&statusContent){
+      const isOk=status.doctor_summary?.passed>0&&(status.doctor_summary?.failed||0)===0;
+      statusIcon.textContent=isOk?'🟢':'🟡';
+      const passed=status.doctor_summary?.passed||0;
+      const warnings=status.doctor_summary?.warnings||0;
+      const failed=status.doctor_summary?.failed||0;
+      statusContent.innerHTML=`<div style="font-size:13px;color:var(--text2)">Doctor: <strong>${passed}</strong> OK, <strong>${warnings}</strong> alertas, <strong>${failed}</strong> falhas</div>`;
+    }
+  }catch(e){
+    const statusIcon=document.getElementById('home-status-icon');
+    const statusContent=document.getElementById('home-status-content');
+    if(statusIcon)statusIcon.textContent='🔴';
+    if(statusContent)statusContent.innerHTML='<div style="color:var(--red)">Erro ao carregar status</div>';
+  }
+  
+  // Ações pendentes (placeholder - API futura)
+  // Quando existir GET /api/actions, substituir este bloco
+  const actionsContent=document.getElementById('home-actions-content');
+  if(actionsContent){
+    actionsContent.innerHTML='<div class="empty">Nenhuma ação pendente no momento.</div>';
+  }
+  
+  // Alertas (baseado em doctor warnings/failures)
+  try{
+    const status=await api('/api/status');
+    const alertsContent=document.getElementById('home-alerts-content');
+    if(alertsContent){
+      const warnings=status.doctor_summary?.warnings||0;
+      const failed=status.doctor_summary?.failed||0;
+      if(warnings>0||failed>0){
+        let html='';
+        if(failed>0){
+          html+=`<div class="alert-card red"><div class="alert-title">🔴 ${failed} ponto(s) crítico(s)</div><div class="alert-desc">O FlowCore detectou falhas que precisam de atenção imediata.</div><div class="alert-action"><button class="btn-alert btn-primary" onclick="pg('caps',document.querySelectorAll('.ni')[4])">VER DIAGNÓSTICO</button></div></div>`;
+        }
+        if(warnings>0){
+          html+=`<div class="alert-card"><div class="alert-title">🟡 ${warnings} alerta(s)</div><div class="alert-desc">Atenção recomendada para itens abaixo do ideal.</div></div>`;
+        }
+        alertsContent.innerHTML=html;
+      }else{
+        alertsContent.innerHTML='<div class="empty">Nenhum alerta no momento.</div>';
+      }
+    }
+  }catch(e){
+    // Silencioso para alertas
+  }
+  
+  // Flows recentes
+  try{
+    const flows=await api('/api/flows');
+    const flowsContent=document.getElementById('home-flows-content');
+    if(flowsContent&&flows.flows&&flows.flows.length>0){
+      const recent=flows.flows.slice(0,3);
+      let html='';
+      recent.forEach(f=>{
+        const stepsCount=f.steps?f.steps.length:0;
+        html+=`<div class="history-item"><div class="history-header"><span class="history-title">${f.name||'Flow sem nome'}</span><span class="history-time">${new Date((f.created_at||0)*1000).toLocaleString('pt-BR')}</span></div><div class="history-details">${stepsCount} etapa(s)</div></div>`;
+      });
+      flowsContent.innerHTML=html;
+    }
+  }catch(e){
+    // Silencioso para flows
   }
 }
 
@@ -573,6 +719,7 @@ async function loadMarketSnapshot(){
   const set=(id,value)=>{const e=document.getElementById(id);if(e)e.textContent=value;};
   try{
     const data=await api('/api/market/snapshot');
+    // Atualiza tela antiga (Visão Financeira)
     set('market-usd',marketValue(data.brl_usd,' R$'));
     const ibov=data.ibov_last===null||data.ibov_last===undefined?'Sem dados':marketValue(data.ibov_last)+(data.ibov_change_pct===null||data.ibov_change_pct===undefined?'':' ('+(data.ibov_change_pct>=0?'+':'')+marketValue(data.ibov_change_pct,'%')+')');
     set('market-ibov',ibov);
@@ -581,17 +728,38 @@ async function loadMarketSnapshot(){
     const sources=Object.values(data.observations||{}).filter(o=>o&&o.available).map(o=>o.source).filter(Boolean);
     set('macro-source',sources.length?[...new Set(sources)].join(' / '):'Sem dados de fonte');
     set('market-updated',data.timestamp?'Atualizado '+new Date(data.timestamp).toLocaleTimeString('pt-BR'):'Sem timestamp');
+    
+    // Atualiza dashboard executivo (HOME)
+    const homeIbov=document.getElementById('home-ibov');
+    const homeUsd=document.getElementById('home-usd');
+    const homeSelic=document.getElementById('home-selic');
+    const homeIpca=document.getElementById('home-ipca');
+    if(homeIbov)homeIbov.textContent=data.ibov_last!==null&&data.ibov_last!==undefined?marketValue(data.ibov_last):'--';
+    if(homeUsd)homeUsd.textContent=data.brl_usd!==null&&data.brl_usd!==undefined?marketValue(data.brl_usd,' R$'):'--';
+    if(homeSelic)homeSelic.textContent=data.selic_rate!==null&&data.selic_rate!==undefined?marketValue(data.selic_rate,'%'):'--';
+    if(homeIpca)homeIpca.textContent=data.ipca_12m!==null&&data.ipca_12m!==undefined?marketValue(data.ipca_12m,'%'):'--';
   }catch(e){
     ['market-usd','market-ibov','macro-selic','macro-ipca'].forEach(id=>set(id,'Sem dados'));
     set('market-updated','Fonte indisponível');
     set('macro-source','Sem dados de fonte');
+    // Dashboard executivo
+    ['home-ibov','home-usd','home-selic','home-ipca'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el)el.textContent='--';
+    });
   }
 }
 
 /* ── Status ── */
 function renderStatus(s){
   const caps=s.capabilities||{};
+  const avail=Object.values(caps).filter(v=>v).length;
+  const total=Object.keys(caps).length;
+  document.getElementById('s-caps').textContent=avail+'/'+total;
+
   const chks=s.doctor||[];
+  const ok=chks.filter(c=>c.status==='ok').length;
+  document.getElementById('s-doc').textContent=ok+'/'+chks.length;
 
   // Daemon (renderizado apenas na tela Admin)
   const d=s.daemon||{};
@@ -621,17 +789,6 @@ function renderStatus(s){
   // Doctor
   const icons={ok:'✅',warn:'⚠️',fail:'❌',skip:'─'};
   const cl=document.getElementById('chk-list');
-  const summ=document.getElementById('chk-summary');
-
-  // Renderiza summary no topo (status geral claro)
-  if(s.doctor_summary){
-    const su=s.doctor_summary;
-    summ.innerHTML=`<div style="font-size:16px;font-weight:bold;color:#d7e5f4;margin-bottom:8px">${su.summary_line||su.status_text}</div><div style="font-size:12px;color:#9cb0c9;gap:8px;display:flex;flex-wrap:wrap"><span style="background:#1a3a52;padding:4px 8px;border-radius:4px">${su.passed} OK</span><span style="background:#4a3a1a;padding:4px 8px;border-radius:4px">${su.warnings} Avisos</span><span style="background:#4a1a1a;padding:4px 8px;border-radius:4px">${su.failed} Problemas</span></div>`;
-  }else{
-    summ.innerHTML='';
-  }
-
-  // Renderiza checks detalhados (expandível)
   cl.innerHTML='';
   for(const c of chks){
     const el=document.createElement('div');
@@ -639,7 +796,7 @@ function renderStatus(s){
     el.innerHTML=`<span>${icons[c.status]||'?'}</span><span class="ck-name">${c.name}</span><span class="ck-msg">${c.message||''}</span>`;
     cl.appendChild(el);
   }
-  if(!chks.length && !s.doctor_summary) cl.innerHTML='<div class="empty">Doctor não disponível</div>';
+  if(!chks.length) cl.innerHTML='<div class="empty">Doctor não disponível</div>';
 }
 
 /* ── Portfolio ── */
@@ -651,76 +808,6 @@ async function loadPortfolio(){
     document.getElementById('portfolio-exposure').innerHTML=(exposure.by_asset_class||[]).map(p=>`<div class="row"><span class="rl">${p.label}</span><span class="rv">${p.weight}%</span></div>`).join('');
     document.getElementById('portfolio-review').innerHTML=`<div class="row"><span class="rl">Status</span><span class="tag ty">${review.status}</span></div><div class="row"><span class="rl">Dados ao vivo</span><span class="rv">${review.live_data?'Sim':'Não'}</span></div><div class="row"><span class="rl">Ordens executadas</span><span class="rv">Não</span></div><div class="empty">${(review.alerts||[]).join('<br>')}<br><br>${review.next_action}</div>`;
   }catch(e){document.getElementById('portfolio-summary').innerHTML='<div class="empty">Carteira indisponível: '+e.message+'</div>';}
-}
-
-/* ── Chat (IA) ── */
-let _chatHistory=[];
-function toggleAiCfg(){
-  const box=document.getElementById('ai-cfg-box');
-  box.style.display=box.style.display==='none'?'block':'none';
-}
-async function loadAiConfig(){
-  try{
-    const cfg=await api('/api/ai-runtime/config');
-    document.getElementById('ai-ollama-url').value=cfg.ollama_url||'';
-    document.getElementById('ai-model').value=cfg.model||'';
-    document.getElementById('ai-fallback-url').value=cfg.ollama_fallback_url||'';
-    document.getElementById('ai-fallback-model').value=cfg.fallback_model||'';
-    document.getElementById('ai-openai-url').value=cfg.openai_url||'';
-    let label=cfg.active_provider==='openai-compat'?('OpenAI-compat · '+(cfg.openai_model||'?')):('PC: '+(cfg.model||'?')+' @ '+cfg.ollama_url);
-    if(cfg.ollama_fallback_url) label+=' · Backup: '+(cfg.fallback_model||cfg.model||'?')+' @ '+cfg.ollama_fallback_url;
-    document.getElementById('chat-provider-info').textContent=label;
-  }catch(e){
-    document.getElementById('chat-provider-info').textContent='Não foi possível ler a config de IA.';
-  }
-}
-async function saveAiConfig(){
-  try{
-    await api('/api/ai-runtime/config',{method:'PATCH',body:JSON.stringify({
-      ollama_url:document.getElementById('ai-ollama-url').value.trim()||null,
-      model:document.getElementById('ai-model').value.trim()||null,
-      ollama_fallback_url:document.getElementById('ai-fallback-url').value.trim(),
-      fallback_model:document.getElementById('ai-fallback-model').value.trim(),
-      openai_url:document.getElementById('ai-openai-url').value.trim(),
-    })});
-    toast('Config de IA salva');
-    loadAiConfig();
-    toggleAiCfg();
-  }catch(e){toast('Erro ao salvar: '+e.message);}
-}
-function appendChatMsg(text,who,meta){
-  const log=document.getElementById('chat-log');
-  const el=document.createElement('div');
-  el.className='msg '+who;
-  el.textContent=text;
-  if(meta){const m=document.createElement('div');m.className='chat-meta';m.textContent=meta;el.appendChild(m);}
-  log.appendChild(el);
-  log.scrollTop=log.scrollHeight;
-  return el;
-}
-async function sendChat(){
-  const inp=document.getElementById('chat-inp');
-  const question=inp.value.trim();
-  if(!question) return;
-  inp.value='';
-  appendChatMsg(question,'user');
-  const typing=appendChatMsg('a pensar…','typing');
-  try{
-    const data=await api('/api/ask',{method:'POST',body:JSON.stringify({question,history:_chatHistory})});
-    typing.remove();
-    if(data.provider==='unavailable'){
-      appendChatMsg(data.answer||'Nenhum provider de IA disponível.','bot err','Configure o Ollama ou um endpoint OpenAI-compatible em ⚙ Config acima.');
-    }else{
-      const providerLabel={'ollama-pc':'via PC','ollama-celular':'via celular (backup)','openai-compat':'OpenAI-compat','flowcore-agent':'agente FlowCore'}[data.provider]||data.provider;
-      appendChatMsg(data.answer||'(sem resposta)','bot',providerLabel+(data.model?' · '+data.model:''));
-      _chatHistory.push({role:'user',content:question});
-      _chatHistory.push({role:'assistant',content:data.answer||''});
-      if(_chatHistory.length>20) _chatHistory=_chatHistory.slice(-20);
-    }
-  }catch(e){
-    typing.remove();
-    appendChatMsg('Erro ao falar com a IA: '+e.message,'bot err');
-  }
 }
 
 /* ── System page ── */
@@ -764,39 +851,37 @@ function renderPassport(pp){
     <div class="passport-field"><div class="pf-label">Hash SHA-256</div><div class="hash-val">${pp.hash||''}</div></div>`;
 }
 
-/* ── Notícias de mercado ── */
-async function loadNews(){
-  const l=document.getElementById('news-list');
-  try{
-    const r=await api('/api/market/news?limit=20');
-    renderNewsList(r.items||[]);
-  }catch(e){
-    l.innerHTML='<div class="empty">Não foi possível carregar notícias.</div>';
-  }
-}
-function renderNewsList(items){
-  const l=document.getElementById('news-list');
-  if(!items.length){l.innerHTML='<div class="empty">Sem notícias no momento.</div>';return;}
+/* ── Memories ── */
+function renderMems(mems){
+  const l=document.getElementById('mem-list');
+  if(!mems.length){l.innerHTML='<div class="empty">Sem memórias.<br>Adiciona a primeira acima ↑</div>';return;}
   l.innerHTML='';
-  for(const n of items){
-    const canOpen=(n.canonical_url||'').startsWith('http');
-    const el=document.createElement(canOpen?'a':'div');
+  for(const m of mems.slice(-30).reverse()){
+    const el=document.createElement('div');
     el.className='mi';
-    if(canOpen){el.href=n.canonical_url;el.target='_blank';el.rel='noopener';el.style.display='block';el.style.textDecoration='none';}
-    const date=n.published_at?new Date(n.published_at).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'';
-    const source=n.publisher||(n.provider&&n.provider.name)||'';
-    el.innerHTML=`<div class="mi-text">${escapeHtml(n.headline||'')}</div>
-      <div class="mi-meta">${escapeHtml(source)}${date?' · '+date:''}</div>`;
+    const topics=(m.topics||[]).map(t=>`<span class="tb">#${t}</span>`).join('');
+    el.innerHTML=`<div class="mi-text">${m.text||''}</div>
+      ${topics?`<div class="topics">${topics}</div>`:''}
+      <div class="mi-meta">${(m.timestamp||'').slice(0,10)}</div>`;
     l.appendChild(el);
   }
 }
+
+async function addMem(){
+  const inp=document.getElementById('m-inp');
+  const t=inp.value.trim(); if(!t)return;
+  try{
+    await api('/api/memories',{method:'POST',body:JSON.stringify({text:t})});
+    inp.value=''; toast('✓ Memória guardada'); refresh();
+  }catch(e){toast('Erro: '+e.message);}
+}
+document.getElementById('m-inp').addEventListener('keydown',e=>{if(e.key==='Enter')addMem();});
 
 /* ── Notes ── */
 function selKind(el){
   document.querySelectorAll('.ks').forEach(k=>k.classList.remove('active'));
   el.classList.add('active');
   _noteKind=el.dataset.kind;
-  document.getElementById('note-inp').classList.toggle('grow',_noteKind==='radar');
 }
 
 async function loadNotes(){
@@ -806,62 +891,16 @@ async function loadNotes(){
   }catch(e){}
 }
 
-function escapeHtml(s){
-  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-/* Minimal markdown-lite renderer: headers, **bold**, [links](url), tables, hr, paragraphs. */
-function mdLite(text){
-  const isSep=r=>/^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$/.test(r);
-  const inline=s=>s.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-                    .replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
-  const lines=escapeHtml(text).split('\n');
-  let html='',para=[],table=[];
-  const flushPara=()=>{if(para.length){html+='<p>'+para.join('<br>')+'</p>';para=[];}};
-  const flushTable=()=>{
-    if(!table.length)return;
-    const rows=table.filter(r=>!isSep(r));
-    html+='<table>'+rows.map((r,i)=>{
-      const cells=r.replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
-      const tag=i===0?'th':'td';
-      return '<tr>'+cells.map(c=>`<${tag}>${inline(c)}</${tag}>`).join('')+'</tr>';
-    }).join('')+'</table>';
-    table=[];
-  };
-  for(const raw of lines){
-    const line=raw.trim();
-    if(line.startsWith('|')){flushPara();table.push(line);continue;}
-    flushTable();
-    if(!line){flushPara();continue;}
-    const h=line.match(/^(#{1,6})\s+(.*)$/);
-    if(h){flushPara();const lvl=Math.min(h[1].length,3);html+=`<h${lvl}>${inline(h[2])}</h${lvl}>`;continue;}
-    if(/^-{3,}$/.test(line)){flushPara();html+='<hr>';continue;}
-    para.push(inline(line));
-  }
-  flushTable();flushPara();
-  return html;
-}
-
 function renderNotesList(notes){
   const l=document.getElementById('notes-list');
   if(!notes.length){l.innerHTML='<div class="empty">Sem notas ainda.</div>';return;}
   l.innerHTML='';
-  const icons={note:'📝',todo:'☑️',agenda:'📅',radar:'📊'};
+  const icons={note:'📝',todo:'☑️',agenda:'📅'};
   for(const n of notes.slice(-30).reverse()){
-    const date=(n.created_at||'').slice(0,10);
-    if(n.source==='radar'){
-      const el=document.createElement('details');
-      el.className='mi radar';
-      el.innerHTML=`<summary class="mi-text">${icons.radar} <strong>${escapeHtml(n.title||'Radar')}</strong>
-        <div class="mi-meta">${date}</div></summary>
-        <div class="mi-body">${mdLite(n.content||'')}</div>`;
-      l.appendChild(el);
-      continue;
-    }
     const el=document.createElement('div');
     el.className='mi '+(n.source||'note');
-    el.innerHTML=`<div class="mi-text">${icons[n.source]||'📝'} ${escapeHtml(n.content||n.title||'')}</div>
-      <div class="mi-meta">${date}</div>`;
+    el.innerHTML=`<div class="mi-text">${icons[n.source]||'📝'} ${n.content||n.title||''}</div>
+      <div class="mi-meta">${(n.created_at||'').slice(0,10)}</div>`;
     l.appendChild(el);
   }
 }
@@ -874,9 +913,7 @@ async function addNote(){
     inp.value=''; toast('✓ Guardado'); loadNotes(); refresh();
   }catch(e){toast('Erro: '+e.message);}
 }
-document.getElementById('note-inp').addEventListener('keydown',e=>{
-  if(e.key==='Enter'&&!e.shiftKey&&_noteKind!=='radar'){e.preventDefault();addNote();}
-});
+document.getElementById('note-inp').addEventListener('keydown',e=>{if(e.key==='Enter')addNote();});
 
 /* ── Search ── */
 async function doSearch(){
@@ -894,13 +931,13 @@ async function doSearch(){
     if(mems.length){
       html+=`<div class="sr-section"><div class="sr-title">Memórias (${mems.length})</div>`;
       for(const m of mems.slice(0,5))
-        html+=`<div class="sr-item"><div class="sr-text">${escapeHtml(m.text)}</div><div class="sr-sub">${(m.timestamp||'').slice(0,10)}</div></div>`;
+        html+=`<div class="sr-item"><div class="sr-text">${m.text||''}</div><div class="sr-sub">${(m.timestamp||'').slice(0,10)}</div></div>`;
       html+='</div>';
     }
     if(docs.length){
       html+=`<div class="sr-section"><div class="sr-title">Documentos (${docs.length})</div>`;
       for(const d of docs.slice(0,5))
-        html+=`<div class="sr-item"><div class="sr-text">${escapeHtml(d.title)}</div><div class="sr-sub">${escapeHtml((d.content||'').slice(0,60))}...</div></div>`;
+        html+=`<div class="sr-item"><div class="sr-text">${d.title||''}</div><div class="sr-sub">${(d.content||'').slice(0,60)}...</div></div>`;
       html+='</div>';
     }
     sr.innerHTML=html;
@@ -941,7 +978,7 @@ function fup(s){
 }
 
 /* ── Agents ── */
-const _agentIcons={health:'❤️',doctor:'🩺',market_close:'📊',daily_brief:'🗞️',notify_market_close:'🔔'};
+const _agentIcons={health:'❤️',doctor:'🩺'};
 
 async function loadAgents(){
   try{
@@ -968,10 +1005,10 @@ function renderAgentCards(agents){
     el.id='agent-card-'+a.name;
     el.innerHTML=`
       <div class="agent-info">
-        <div class="agent-name">${icon} ${escapeHtml(agentLabel(a.name))}</div>
+        <div class="agent-name">${icon} ${a.name}</div>
         <div class="agent-desc">${a.description||''}</div>
       </div>
-      <button class="btn-run" id="btn-run-${a.name}" onclick="runAgent('${a.name}')">▶ Executar</button>`;
+      <button class="btn-run" id="btn-run-${a.name}" onclick="runAgent('${a.name}')">▶ Run</button>`;
     c.appendChild(el);
   }
 }
@@ -1001,7 +1038,7 @@ async function runAgent(name){
     rp.textContent=String(e);
     toast('Erro: '+e.message);
   }finally{
-    if(btn){btn.disabled=false;btn.innerHTML='▶ Executar';}
+    if(btn){btn.disabled=false;btn.innerHTML='▶ Run';}
   }
 }
 
@@ -1011,42 +1048,24 @@ function renderTaskHistory(tasks){
   const stIcons={completed:'✅',failed:'❌',running:'⏳',pending:'⌛'};
   const stClass={completed:'tg',failed:'tr',running:'ty',pending:'ty'};
   h.innerHTML='';
-  const stLabels={completed:'Concluído',failed:'Falhou',running:'Em andamento',pending:'Pendente'};
   for(const t of [...tasks].reverse().slice(0,15)){
     const dur=t.duration_seconds!=null?t.duration_seconds+'s':'─';
-    const when=t.created_at?new Date(t.created_at*1000).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'─';
     const el=document.createElement('div');
     el.className='task-row';
     el.innerHTML=`
-      <span class="task-agent">${_agentIcons[t.agent]||'🤖'} ${escapeHtml(agentLabel(t.agent))}</span>
-      <span class="task-status"><span class="tag ${stClass[t.status]||'ty'}">${stIcons[t.status]||'?'} ${stLabels[t.status]||t.status}</span></span>
+      <span class="task-agent">${_agentIcons[t.agent]||'🤖'} ${t.agent}</span>
+      <span class="task-status"><span class="tag ${stClass[t.status]||'ty'}">${stIcons[t.status]||'?'} ${t.status}</span></span>
       <span class="task-dur">${dur}</span>
-      <span class="task-id">${when}</span>`;
+      <span class="task-id">${t.id}</span>`;
     h.appendChild(el);
   }
 }
 
 /* ── Flows ── */
-const _agentLabels={
-  health:'Saúde do sistema', doctor:'Diagnóstico completo',
-  market_close:'Fechamento de mercado', daily_brief:'Briefing diário',
-  notify_market_close:'Notificar fechamento pronto',
-};
-function agentLabel(name){ return _agentLabels[name]||name; }
-
-let _flowAgents=[];
-let _flowBuilderSteps=[];
-
 async function loadFlows(){
   try{
     const res=await api('/api/flows');
-    const flows=Array.isArray(res)?res:[];
-    renderFlowCards(flows);
-    for(const f of flows){
-      api('/api/flows/'+encodeURIComponent(f.id)+'/runs?limit=1')
-        .then(r=>{ const last=(r.runs||[])[0]; if(last) updateFlowLastRun(f.id,last); })
-        .catch(()=>{});
-    }
+    renderFlowCards(Array.isArray(res)?res:[]);
   }catch(e){
     document.getElementById('flow-cards').innerHTML='<div class="empty">─</div>';
   }
@@ -1054,44 +1073,19 @@ async function loadFlows(){
 
 function renderFlowCards(flows){
   const c=document.getElementById('flow-cards');
-  if(!flows.length){
-    c.innerHTML=`<div class="flow-empty">
-      <div class="flow-empty-title">Crie seu primeiro Flow</div>
-      <div class="flow-empty-body">Combine diferentes agentes para executar uma tarefa completa automaticamente.</div>
-      <div class="flow-example"><b>Exemplo: Fechamento de Mercado</b><br>Fechamento de mercado → Notificar fechamento pronto</div>
-    </div>`;
-    return;
-  }
+  if(!flows.length){c.innerHTML='<div class="empty">Nenhum flow criado ainda.<br><small>flowcore flow create --name "Nome" --steps health,doctor</small></div>';return;}
   c.innerHTML='';
   for(const f of flows){
-    const steps=(f.steps||[]).map(s=>escapeHtml(agentLabel(s.agent))).join(' → ');
     const el=document.createElement('div');
-    el.className='flow-card';
+    el.className='agent-card';
     el.innerHTML=`
-      <div class="flow-card-head"><span>🔗</span><span class="flow-card-title">${escapeHtml(f.name).toUpperCase()}</span></div>
-      <div class="flow-card-steps">${steps}</div>
-      <div class="flow-card-meta" id="flow-meta-${f.id}">Nunca executado</div>
-      <div class="flow-card-actions">
-        <button class="btn-run" id="btn-flow-${f.id}" onclick="runFlow('${f.id}','${escapeHtml(f.name)}')">▶ Executar</button>
-        <button class="btn-sm" onclick="deleteFlow('${f.id}')">⋮</button>
-      </div>`;
+      <div class="agent-info">
+        <div class="agent-name">▶ ${f.name}</div>
+        <div class="agent-desc">${f.steps.length} passo(s)${f.description?' — '+f.description:''}</div>
+      </div>
+      <button class="btn-run" id="btn-flow-${f.id}" onclick="runFlow('${f.id}','${f.name}')">▶ Run</button>`;
     c.appendChild(el);
   }
-}
-
-function updateFlowLastRun(id,run){
-  const el=document.getElementById('flow-meta-'+id);
-  if(!el)return;
-  const when=run.finished_at?new Date(run.finished_at*1000).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
-  const icon=run.status==='completed'?'🟢':(run.status==='failed'?'🔴':'🟡');
-  const label=run.status==='completed'?'Concluído':(run.status==='failed'?'Falhou':'Em andamento');
-  el.textContent=`Última execução: ${when} · ${icon} ${label}`;
-}
-
-async function deleteFlow(id){
-  if(!confirm('Remover este flow?'))return;
-  try{ await api('/api/flows/'+encodeURIComponent(id),{method:'DELETE'}); toast('Flow removido'); loadFlows(); }
-  catch(e){ toast('Erro: '+e.message); }
 }
 
 async function runFlow(id,name){
@@ -1111,66 +1105,134 @@ async function runFlow(id,name){
     ri.textContent=ok?'✅':'❌';
     rp.textContent=JSON.stringify(r,null,2);
     toast(ok?'✅ Flow concluído':'❌ Flow falhou');
-    loadFlows();
   }catch(e){
     rt.textContent='Erro';ri.textContent='❌';rp.textContent=String(e);
     toast('Erro: '+e.message);
   }finally{
-    if(btn){btn.disabled=false;btn.innerHTML='▶ Executar';}
+    if(btn){btn.disabled=false;btn.innerHTML='▶ Run';}
   }
 }
 
-/* ── Flow builder (no terminal needed) ── */
-async function openFlowBuilder(){
-  document.getElementById('flow-builder-card').style.display='block';
-  document.getElementById('flow-name-inp').value='';
-  if(!_flowAgents.length){
-    try{ const r=await api('/api/agent/agents'); _flowAgents=r.agents||[]; }catch(e){ _flowAgents=[]; }
-  }
-  _flowBuilderSteps=_flowAgents.length?[_flowAgents[0].name]:[];
-  renderFlowStepsList();
-}
-function closeFlowBuilder(){
-  document.getElementById('flow-builder-card').style.display='none';
-}
-function addFlowStepRow(){
-  if(!_flowAgents.length)return;
-  _flowBuilderSteps.push(_flowAgents[0].name);
-  renderFlowStepsList();
-}
-function removeFlowStepRow(i){
-  _flowBuilderSteps.splice(i,1);
-  renderFlowStepsList();
-}
-function setFlowStep(i,name){
-  _flowBuilderSteps[i]=name;
-}
-function renderFlowStepsList(){
-  const l=document.getElementById('flow-steps-list');
-  if(!_flowAgents.length){l.innerHTML='<div class="empty">Nenhum agente disponível.</div>';return;}
-  l.innerHTML=_flowBuilderSteps.map((val,i)=>{
-    const opts=_flowAgents.map(a=>`<option value="${a.name}" ${a.name===val?'selected':''}>${escapeHtml(agentLabel(a.name))}</option>`).join('');
-    const removeBtn=_flowBuilderSteps.length>1?`<button class="btn-sm" onclick="removeFlowStepRow(${i})">✕</button>`:'';
-    return `<div class="flow-step-row"><span class="flow-step-num">${i+1}.</span><select class="if" onchange="setFlowStep(${i},this.value)">${opts}</select>${removeBtn}</div>`;
-  }).join('');
-}
-async function saveFlowBuilder(){
-  const name=document.getElementById('flow-name-inp').value.trim();
-  if(!name){toast('Dá um nome ao flow');return;}
-  if(!_flowBuilderSteps.length){toast('Adiciona pelo menos uma etapa');return;}
+/* ── Novo Flow Modal ── */
+let _flowStepCounter=0;
+let _availableAgents=[];
+
+async function loadAvailableAgents(){
   try{
-    await api('/api/flows',{method:'POST',body:JSON.stringify({
-      name, steps:_flowBuilderSteps.map(a=>({agent:a})), description:'',
-    })});
-    toast('✓ Flow criado');
-    closeFlowBuilder();
+    const res=await api('/api/agent/agents');
+    _availableAgents=res.agents||[];
+  }catch(e){
+    _availableAgents=[{name:'health',description:'Health check'},{name:'doctor',description:'Doctor agent'}];
+  }
+}
+
+function openNewFlowModal(){
+  document.getElementById('modal-new-flow').classList.add('active');
+  document.getElementById('flow-name').value='';
+  document.getElementById('flow-desc').value='';
+  _flowStepCounter=0;
+  document.getElementById('flow-steps-container').innerHTML='';
+  addFlowStep();
+  loadAvailableAgents();
+}
+
+function closeNewFlowModal(){
+  document.getElementById('modal-new-flow').classList.remove('active');
+}
+
+function addFlowStep(){
+  _flowStepCounter++;
+  const container=document.getElementById('flow-steps-container');
+  const stepDiv=document.createElement('div');
+  stepDiv.className='flow-step';
+  stepDiv.id='flow-step-'+_flowStepCounter;
+  
+  let agentOptions=_availableAgents.map(a=>`<option value="${a.name}">${a.name}${a.description?' — '+a.description:''}</option>`).join('');
+  
+  stepDiv.innerHTML=`
+    <div class="flow-step-num">${_flowStepCounter}</div>
+    <div class="flow-step-content">
+      <select id="step-agent-${_flowStepCounter}" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);font-size:13px;outline:none">
+        ${agentOptions}
+      </select>
+    </div>
+    <button class="btn-sm" onclick="removeFlowStep(${_flowStepCounter})" style="background:var(--red);color:#fff;border:none">×</button>
+  `;
+  container.appendChild(stepDiv);
+}
+
+function removeFlowStep(num){
+  const step=document.getElementById('flow-step-'+num);
+  if(step)step.remove();
+  renumberFlowSteps();
+}
+
+function renumberFlowSteps(){
+  const steps=document.querySelectorAll('#flow-steps-container .flow-step');
+  steps.forEach((step,idx)=>{
+    step.querySelector('.flow-step-num').textContent=idx+1;
+  });
+}
+
+async function createFlow(){
+  const name=document.getElementById('flow-name').value.trim();
+  const desc=document.getElementById('flow-desc').value.trim();
+  const stepsDivs=document.querySelectorAll('#flow-steps-container .flow-step');
+  
+  if(!name){
+    toast('❌ Nome do flow é obrigatório');
+    return;
+  }
+  if(stepsDivs.length===0){
+    toast('❌ Adicione pelo menos uma etapa');
+    return;
+  }
+  
+  const steps=[];
+  stepsDivs.forEach(div=>{
+    const select=div.querySelector('select[id^="step-agent-"]');
+    if(select&&select.value){
+      steps.push({agent:select.value});
+    }
+  });
+  
+  if(steps.length===0){
+    toast('❌ Nenhuma etapa válida');
+    return;
+  }
+  
+  const btn=document.querySelector('#modal-new-flow button[onclick="createFlow()"]');
+  if(btn){btn.disabled=true;btn.innerHTML='Criando...';}
+  
+  try{
+    const payload={name:name,description:desc,steps:steps};
+    const result=await api('/api/flows',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    toast('✅ Flow criado: '+result.name);
+    closeNewFlowModal();
     loadFlows();
-  }catch(e){toast('Erro: '+e.message);}
+  }catch(e){
+    toast('❌ Erro ao criar flow: '+e.message);
+  }finally{
+    if(btn){btn.disabled=false;btn.innerHTML='Criar Flow';}
+  }
 }
 
 /* ── Init ── */
 refresh();
 setInterval(refresh,30000);
+
+/* ── Ações ── */
+function loadActions(){
+  const list=document.getElementById('actions-list');
+  const hist=document.getElementById('actions-history');
+  if(list)list.innerHTML='<div class="empty">Nenhuma ação pendente no momento.</div>';
+  if(hist)hist.innerHTML='<div class="empty">Nenhuma ação recente.</div>';
+}
+
+/* ── Mais ── */
+function loadMorePage(){
+  // Página estática, nada a carregar
+}
 </script>
 </body>
 </html>
