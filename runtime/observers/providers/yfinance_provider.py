@@ -24,13 +24,19 @@ _DEFAULT_TIMEOUT_SECONDS = 10.0
 _DEFAULT_RETRIES = 2
 _RETRY_BACKOFF_SECONDS = 0.5
 
-# evaluate_alerts() now fans out to all ~10 distinct ALERT_DEFAULTS sources
-# concurrently (see runtime/market_intelligence/alerts.py). With only 4 workers
-# here, those 10 callers queued for this shared executor 4 at a time — the
-# alerts.py parallelism bought nothing, since every fetch_quote() call still
-# serialized behind the same 4 slots. Sized with headroom above the current
-# source count so a full alert sweep doesn't itself become the bottleneck.
-_executor = ThreadPoolExecutor(max_workers=16, thread_name_prefix="observer-yfinance")
+# evaluate_alerts() fans out to all ~10 distinct ALERT_DEFAULTS sources
+# concurrently (see runtime/market_intelligence/alerts.py), each landing
+# here. This was widened to 16 workers on the theory that more headroom
+# above the source count would keep a full alert sweep from becoming the
+# bottleneck -- but real-device testing (Termux/Android on a mobile
+# uplink, see runtime/market_intelligence/watchlist.py's own history)
+# found the opposite: 16 simultaneous yfinance connections oversubscribe
+# a constrained mobile link and time out more, not less, than fewer
+# workers would. watchlist.py's snapshot() was tuned down from 16 to 6
+# for exactly this reason; mirrored here after the same symptom showed up
+# in /api/market/overview on the FlowCore Mobile APK (Cloudflare AND
+# Tailscale routes both timing out).
+_executor = ThreadPoolExecutor(max_workers=6, thread_name_prefix="observer-yfinance")
 
 
 def _to_float(value: Any) -> float | None:

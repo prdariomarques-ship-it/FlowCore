@@ -368,12 +368,16 @@ class AgentApprovalEdit(BaseModel):
 
 class AdvisorProfileUpdate(BaseModel):
     """Partial update for the dashboard's advisor card — same
-    partial-merge convention as AIConfig/ai_config_patch. Deliberately no
-    photo field: see the /api/advisor handlers for why the avatar is
-    initials-only rather than an uploaded/generated image."""
+    partial-merge convention as AIConfig/ai_config_patch. `photo` is a
+    data URI (data:image/...;base64,...) of a REAL uploaded photo, run
+    through runtime.advisor_photo.normalize_advisor_photo() before
+    storage — see that module's docstring for why this is upload-only,
+    never generated. Omit `photo` to leave it untouched; pass an empty
+    string to clear it back to the initials avatar."""
     name: str | None = None
     title: str | None = None
     quote: str | None = None
+    photo: str | None = None
 
 
 class TTSRequest(BaseModel):
@@ -765,14 +769,11 @@ def register_dashboard_routes(app, version: str) -> None:
         }
 
     # ── Advisor profile (dashboard's Advisor card) ───────────────────────────
-    # Name/title/quote only — deliberately no photo field. The desktop
-    # mockup this card follows shows a photographic headshot, but
-    # generating a realistic "photo" of the app's actual named user would
-    # fabricate a likeness of a real person, which is a different and
-    # more serious problem than the demo clients' fictitious names. The
-    # card instead renders an initials avatar (same pattern as the demo
-    # client avatars) from whatever name is configured here; a real photo
-    # can be added as a future upload feature if the team wants one.
+    # Name/title/quote, plus an optional real uploaded photo (never
+    # generated — see runtime/advisor_photo.py's docstring for why that
+    # line matters). No photo configured means the card renders an
+    # initials avatar (same pattern as the demo client avatars) from
+    # whatever name is configured here — never a fabricated placeholder.
 
     _ADVISOR_DEFAULT = {
         "name": "Dário Marques", "title": "Especialista em Investimentos",
@@ -790,10 +791,22 @@ def register_dashboard_routes(app, version: str) -> None:
 
     @app.put("/api/advisor")
     async def advisor_put(data: AdvisorProfileUpdate, request: Request):
+        from runtime.advisor_photo import normalize_advisor_photo
+
         user = await get_current_user(request)
         default = {**_ADVISOR_DEFAULT, "name": user["name"]}
         cfg = {**default, **_read_json(f"advisor_{user['office_id']}.json", {})}
-        cfg.update({k: v for k, v in data.model_dump(exclude_unset=True).items() if v is not None})
+        updates = data.model_dump(exclude_unset=True)
+        if "photo" in updates:
+            photo = updates.pop("photo")
+            if photo:
+                try:
+                    cfg["photo"] = normalize_advisor_photo(photo)
+                except ValueError as exc:
+                    raise HTTPException(status_code=422, detail=str(exc))
+            else:
+                cfg.pop("photo", None)
+        cfg.update({k: v for k, v in updates.items() if v is not None})
         config_path = _DATA_DIR / f"advisor_{user['office_id']}.json"
         config_path.parent.mkdir(parents=True, exist_ok=True)
         config_path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
