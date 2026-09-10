@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-import json
-import sys
-from pathlib import Path
-
 import pytest
+
+pytest.importorskip("fastapi", reason="fastapi not in core requirements")
+
+import json  # noqa: E402
+import sys  # noqa: E402
+from pathlib import Path  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:

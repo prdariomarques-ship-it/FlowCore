@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from pathlib import Path
-from unittest.mock import patch
-
 import pytest
 
-from runtime.core import FlowCoreRuntime
+pytest.importorskip("sqlalchemy", reason="sqlalchemy not in core requirements")
+
+from pathlib import Path  # noqa: E402
+from unittest.mock import patch  # noqa: E402
+
+from runtime.core import FlowCoreRuntime  # noqa: E402
 
 
 @pytest.mark.asyncio

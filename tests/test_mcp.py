@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-import sys
+import pytest
+
+pytest.importorskip("anyio", reason="anyio not in core requirements")
+
+import sys  # noqa: E402
 import json
 from pathlib import Path
 from unittest.mock import patch, MagicMock

@@ -282,7 +282,8 @@ class TestDoctorAgent:
 
 class TestMCPAgentTools:
     def _dispatch(self, name, args=None):
-        from flowcore_mcp.tools import dispatch
+        pytest.importorskip("anyio", reason="anyio not in core requirements")
+        from flowcore_mcp.tools import dispatch  # noqa: E402
 
         return dispatch(name, args or {})
 

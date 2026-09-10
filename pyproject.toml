@@ -11,6 +11,13 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "flowcore.py" = ["E402", "F401", "F841"]   # sys.path.insert() + optional deps + unused sentinels
-"tests/test_api.py" = ["E402"]             # pytest.importorskip() must run before TestClient import
-"tests/test_alerts_api.py" = ["E402"]      # pytest.importorskip() must run before TestClient import
-"tests/test_ask_compliance.py" = ["E402"]  # pytest.importorskip() must run before TestClient import
+"tests/test_api.py" = ["E402"]             # pytest.importorskip() must run before imports
+"tests/test_alerts_api.py" = ["E402"]      # pytest.importorskip() must run before imports
+"tests/test_ask_compliance.py" = ["E402"]  # pytest.importorskip() must run before imports
+"tests/test_mcp.py" = ["E402"]             # pytest.importorskip(anyio) must run before imports
+"tests/test_flows.py" = ["E402"]           # pytest.importorskip(anyio) must run before imports
+"tests/test_dashboard_routes.py" = ["E402"]  # pytest.importorskip(fastapi) must run before imports
+"tests/test_fase3_api.py" = ["E402"]         # pytest.importorskip(fastapi) must run before imports
+"tests/test_market_close.py" = ["E402"]      # pytest.importorskip(pandas) must run before imports
+"tests/test_market_intelligence_regressions.py" = ["E402"]  # pytest.importorskip(pandas) must run before imports
+"tests/test_observer_ingestion_registration.py" = ["E402"]  # pytest.importorskip(sqlalchemy) must run before imports
