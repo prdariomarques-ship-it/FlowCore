@@ -207,5 +207,14 @@ class CapabilityAdapter(ABC):
     def schedule_job(self, script: str, schedule: str) -> CapabilityResult:
         return CapabilityResult.fail("scheduleJob not supported", self.name)
 
+    def get_cpu_usage(self) -> CapabilityResult:
+        return CapabilityResult.fail("getCpuUsage not supported", self.name)
+
+    def get_memory_usage(self) -> CapabilityResult:
+        return CapabilityResult.fail("getMemoryUsage not supported", self.name)
+
+    def get_disk_usage(self, path: str = "/") -> CapabilityResult:
+        return CapabilityResult.fail("getDiskUsage not supported", self.name)
+
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} name={self.name} available={self.is_available()}>"

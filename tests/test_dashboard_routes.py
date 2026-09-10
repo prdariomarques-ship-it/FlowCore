@@ -122,7 +122,8 @@ class TestAskAgentTierIsTriedFirst:
         })()
 
         with patch("agents.runner.AgentRunner.run", return_value=fake_record), \
-             patch("api.dashboard_routes._tcp_reachable", return_value=False):
+             patch("api.dashboard_routes._tcp_reachable", return_value=False), \
+             patch("service._llm_router.generate", side_effect=RuntimeError("no llm")):
             r = c.post("/api/ask", json={"question": "oi"}, headers=headers)
 
         assert r.status_code == 200
@@ -181,9 +182,11 @@ class TestAskSkipsUnreachableEndpoints:
         c = _client()
         headers = signup_office(c)["headers"]
 
-        with patch("api.dashboard_routes._tcp_reachable", return_value=False) as mocked_reachable:
-            with patch("api.dashboard_routes._http_json") as mocked_http:
-                r = c.post("/api/ask", json={"question": "oi"}, headers=headers)
+        with patch("agents.runner.AgentRunner.list_agents", return_value=[]), \
+             patch("api.dashboard_routes._tcp_reachable", return_value=False) as mocked_reachable, \
+             patch("service._llm_router.generate", side_effect=RuntimeError("no llm")), \
+             patch("api.dashboard_routes._http_json") as mocked_http:
+            r = c.post("/api/ask", json={"question": "oi"}, headers=headers)
 
         assert r.status_code == 200
         assert r.json()["provider"] == "unavailable"

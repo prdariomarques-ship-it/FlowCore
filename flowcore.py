@@ -45,6 +45,8 @@ import os
 import sys
 from pathlib import Path
 
+from runtime.portfolio.attributes import ASSET_ATTRIBUTE_FIELDS
+
 ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -390,7 +392,7 @@ async def cmd_serve(cfg: dict, platform: dict) -> None:
         sys.exit(1)
 
     host = cfg["api"]["host"]
-    port = cfg["api"]["port"]
+    port = int(cfg["api"]["port"])
 
     logger.info("Starting FlowCore API on {}:{}", host, port)
     app = create_app(version=cfg["app"]["version"], platform_info=platform)
@@ -418,7 +420,7 @@ async def cmd_run(cfg: dict, platform: dict) -> None:
     await rt.start()
     app = create_app(version=cfg["app"]["version"], platform_info=platform)
     host = cfg["api"]["host"]
-    port = cfg["api"]["port"]
+    port = int(cfg["api"]["port"])
     config = uvicorn.Config(app, host=host, port=port, log_level="info")
     server = uvicorn.Server(config)
     try:
@@ -1662,6 +1664,13 @@ def main() -> None:
     watchdog_loop = watchdog_sub.add_parser("loop", help="Run continuously (blocks)")
     watchdog_loop.add_argument("--interval", type=int, default=300, help="Seconds between checks (default: 300)")
 
+    asset_parser = subparsers.add_parser("asset", help="Manage portfolio assets and tags")
+    asset_sub = asset_parser.add_subparsers(dest="asset_action")
+    asset_tag_p = asset_sub.add_parser("tag", help="Tag an asset with portfolio attributes")
+    asset_tag_p.add_argument("symbol", help="Asset ticker symbol")
+    for field in ASSET_ATTRIBUTE_FIELDS:
+        asset_tag_p.add_argument(f"--{field.replace('_', '-')}", dest=field, default=None)
+
     args = parser.parse_args()
     cfg = get_config()
     platform = detect_platform()
@@ -1780,6 +1789,16 @@ def main() -> None:
         action = getattr(args, "watchdog_action", None) or "run"
         interval = getattr(args, "interval", 300)
         cmd_watchdog(action, interval=interval)
+    elif args.command == "asset":
+        action = getattr(args, "asset_action", None)
+        if action == "tag":
+            import service
+            attrs = {f: getattr(args, f) for f in ASSET_ATTRIBUTE_FIELDS if getattr(args, f, None) is not None}
+            res = asyncio.run(service.tag_asset(args.symbol, **attrs))
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+        else:
+            asset_parser.print_help()
+            sys.exit(1)
     else:
         parser.print_help()
         sys.exit(1)

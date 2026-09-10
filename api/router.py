@@ -140,6 +140,21 @@ class ObsidianSyncRequest(BaseModel):
     content: str | None = None
 
 
+class AssetTagRequest(BaseModel):
+    theme: str | None = None
+    duration: str | None = None
+    credit_quality: str | None = None
+    liquidity: str | None = None
+    income_generation: str | None = None
+    inflation_protection: str | None = None
+    currency_protection: str | None = None
+    risk_attributes: str | None = None
+    region: str | None = None
+    interest_rate_sensitivity: str | None = None
+    growth_profile: str | None = None
+    correlation_group: str | None = None
+
+
 # ---------------------------------------------------------------------------
 # Stores
 # ---------------------------------------------------------------------------
@@ -801,5 +816,14 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
             @app.on_event("shutdown")
             async def _stop_agent_scheduler() -> None:
                 await app.state.agent_scheduler.stop()
+
+    @app.put("/api/portfolio/assets/{symbol}/tag")
+    async def tag_asset_endpoint(symbol: str, req: AssetTagRequest) -> dict:
+        import service
+        try:
+            attrs = {k: v for k, v in req.model_dump().items() if v is not None}
+            return await service.tag_asset(symbol, **attrs)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
     return app

@@ -79,6 +79,8 @@ class TestBriefingRegimeSection:
             patch.object(briefing, "build_yield_curve", lambda: fake_curve),
             patch.object(briefing, "analyze_fx", lambda: {"dxy_delta_pct_1d": 0.3, "pairs": []}),
             patch.object(briefing, "analyze_asset_classes", lambda: {"classes": {}}),
+            patch("runtime.market_intelligence.news.fetch_news", return_value={"items": []}),
+            patch("runtime.market_intelligence.alerts.list_alerts", return_value=[]),
         ):
             result = briefing.build_briefing()  # must not raise
 

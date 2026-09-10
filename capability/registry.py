@@ -58,6 +58,9 @@ _CAPABILITY_METHOD: dict[str, str] = {
     "stopService":         "stop_service",
     "listServices":        "list_services",
     "scheduleJob":         "schedule_job",
+    "getCpuUsage":         "get_cpu_usage",
+    "getMemoryUsage":      "get_memory_usage",
+    "getDiskUsage":        "get_disk_usage",
 }
 
 

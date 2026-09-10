@@ -522,7 +522,14 @@ class DoctorService:
                 models = [l.split()[0] for l in result.stdout.strip().splitlines()[1:] if l.strip()]
                 return CheckResult("ollama", CheckStatus.OK, f"ollama available, models: {models or ['none']}")
             return CheckResult("ollama", CheckStatus.WARN, "ollama installed but 'ollama list' failed")
-        # Try HTTP endpoint
+        # Try dynamic discovery via runtime.ollama
+        try:
+            from runtime.ollama import discover_ollama_endpoint
+            endpoint, model = discover_ollama_endpoint()
+            return CheckResult("ollama", CheckStatus.OK, f"ollama API reachable at {endpoint} (model: {model})")
+        except Exception:
+            pass
+        # Fallback to local HTTP endpoint
         try:
             with socket.create_connection(("127.0.0.1", 11434), timeout=2):
                 return CheckResult("ollama", CheckStatus.OK, "ollama API reachable at :11434")

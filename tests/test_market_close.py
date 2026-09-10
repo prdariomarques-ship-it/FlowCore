@@ -48,6 +48,8 @@ def mocked_briefing():
         patch.object(briefing, "build_yield_curve", _fake_curve),
         patch.object(briefing, "analyze_fx", _fake_fx),
         patch.object(briefing, "analyze_asset_classes", _fake_classes),
+        patch("runtime.market_intelligence.news.fetch_news", return_value={"items": []}),
+        patch("runtime.market_intelligence.alerts.list_alerts", return_value=[]),
     ):
         yield
 

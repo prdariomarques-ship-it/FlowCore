@@ -177,3 +177,60 @@ class LinuxAdapter(CapabilityAdapter):
                 return CapabilityResult.ok({"output": result.stdout, "via": "ifconfig"}, self.name)
 
         return CapabilityResult.fail("Neither ip nor ifconfig found", self.name)
+
+    # ── System Resources ──────────────────────────────────────────────────────
+
+    def get_cpu_usage(self) -> CapabilityResult:
+        """Get CPU load averages (load1, load5, load15) via os.getloadavg."""
+        try:
+            import os
+            load1, load5, load15 = os.getloadavg()
+            return CapabilityResult.ok(
+                {"load_1m": load1, "load_5m": load5, "load_15m": load15},
+                self.name,
+            )
+        except Exception as e:
+            return CapabilityResult.fail(str(e), self.name)
+
+    def get_memory_usage(self) -> CapabilityResult:
+        """Get memory statistics via /proc/meminfo or system fallback."""
+        try:
+            meminfo: dict[str, int] = {}
+            p = Path("/proc/meminfo")
+            if p.exists():
+                for line in p.read_text().splitlines():
+                    parts = line.split(":")
+                    if len(parts) == 2:
+                        key = parts[0].strip()
+                        val = parts[1].strip().split()[0]
+                        if val.isdigit():
+                            meminfo[key] = int(val)
+                total = meminfo.get("MemTotal", 0)
+                available = meminfo.get("MemAvailable", 0)
+                used = total - available
+                pct = round((used / total) * 100, 1) if total else 0.0
+                return CapabilityResult.ok(
+                    {"total_kb": total, "available_kb": available, "used_pct": pct},
+                    self.name,
+                )
+            return CapabilityResult.ok({"status": "available"}, self.name)
+        except Exception as e:
+            return CapabilityResult.fail(str(e), self.name)
+
+    def get_disk_usage(self, path: str = "/") -> CapabilityResult:
+        """Get filesystem disk usage via shutil.disk_usage."""
+        import shutil
+        try:
+            target = path if Path(path).exists() else "/"
+            usage = shutil.disk_usage(target)
+            return CapabilityResult.ok(
+                {
+                    "total": usage.total,
+                    "used": usage.used,
+                    "free": usage.free,
+                    "percent": round((usage.used / usage.total) * 100, 1) if usage.total else 0.0,
+                },
+                self.name,
+            )
+        except Exception as e:
+            return CapabilityResult.fail(str(e), self.name)
