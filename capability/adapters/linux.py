@@ -15,6 +15,7 @@ that has python3 — including macOS, WSL, CI runners, and cloud VMs.
 
 from __future__ import annotations
 
+import os
 import shlex
 from pathlib import Path
 
@@ -163,6 +164,48 @@ class LinuxAdapter(CapabilityAdapter):
             return CapabilityResult.fail(str(e), self.name)
 
     # ── Network ───────────────────────────────────────────────────────────────
+
+    def get_cpu_usage(self) -> CapabilityResult:
+        try:
+            load_1m, load_5m, load_15m = os.getloadavg()
+            cpu_count = os.cpu_count() or 1
+            pct = round(load_1m / cpu_count * 100, 1)
+            return CapabilityResult.ok(
+                {"percent": pct, "load_avg_1m": load_1m, "cpu_count": cpu_count}, self.name
+            )
+        except Exception as e:
+            return CapabilityResult.fail(str(e), self.name)
+
+    def get_memory_usage(self) -> CapabilityResult:
+        try:
+            with open("/proc/meminfo", encoding="ascii") as f:
+                lines = f.readlines()
+            info: dict[str, int] = {}
+            for line in lines:
+                k, v = line.split(":")
+                info[k.strip()] = int(v.strip().split()[0])
+            total = info.get("MemTotal", 0)
+            available = info.get("MemAvailable", 0)
+            used = total - available
+            pct = round(used / total * 100, 1) if total else 0.0
+            return CapabilityResult.ok(
+                {"percent": pct, "used_kb": used, "total_kb": total, "available_kb": available}, self.name
+            )
+        except Exception as e:
+            return CapabilityResult.fail(str(e), self.name)
+
+    def get_disk_usage(self, path: str = "/") -> CapabilityResult:
+        try:
+            import shutil
+
+            usage = shutil.disk_usage(path)
+            pct = round(usage.used / usage.total * 100, 1) if usage.total else 0.0
+            return CapabilityResult.ok(
+                {"percent": pct, "used": usage.used, "total": usage.total, "free": usage.free, "path": path},
+                self.name,
+            )
+        except Exception as e:
+            return CapabilityResult.fail(str(e), self.name)
 
     def get_network_info(self) -> CapabilityResult:
         """Return basic IP info via `ip addr` or `ifconfig`."""

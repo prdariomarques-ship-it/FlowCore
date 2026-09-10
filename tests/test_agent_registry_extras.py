@@ -9,6 +9,8 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -24,6 +26,7 @@ class TestMarketCloseAgent:
         assert len(a.description) > 5
 
     def test_run_delegates_to_build_market_close(self):
+        pytest.importorskip("pandas", reason="pandas not in core requirements")
         import asyncio
         from agents.market_close_agent import MarketCloseAgent
 

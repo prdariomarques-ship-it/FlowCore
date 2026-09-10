@@ -42,6 +42,7 @@ class MemoryRepository:
                 json.dump(memories, f, indent=2, ensure_ascii=False)
         except IOError as e:
             logger.error("Error saving memories: {}", e)
+            raise
 
     # ── Domain operations ────────────────────────────────────────────────────
 
