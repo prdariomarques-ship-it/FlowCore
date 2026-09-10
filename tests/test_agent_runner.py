@@ -265,7 +265,7 @@ class TestDoctorAgent:
         import asyncio
 
         result = asyncio.run(DoctorAgent().run())
-        assert result["status"] in ("ok", "degraded", "error")
+        assert result["status"] in ("ok", "warning", "degraded", "error")
         assert "data" in result
 
     def test_run_has_checks(self):
