@@ -76,7 +76,7 @@ import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from loguru import logger
 from pydantic import BaseModel
 
@@ -179,6 +179,16 @@ def create_app(version: str = "0.1.0", platform_info: dict | None = None) -> Fas
         if not index.exists():
             return HTMLResponse("<h2>FlowCore UI not found — run from project root</h2>", 404)
         return HTMLResponse(index.read_text(encoding="utf-8"))
+
+    @app.get("/favicon.ico", include_in_schema=False)
+    async def serve_favicon():
+        # Browsers request this path directly regardless of the inline SVG
+        # <link rel="icon"> in index.html -- serve the real file so that
+        # implicit request doesn't 404.
+        favicon = _WEB_DIR / "favicon.ico"
+        if not favicon.exists():
+            raise HTTPException(status_code=404, detail="favicon not found")
+        return FileResponse(favicon, media_type="image/x-icon")
 
     # ── Health ──────────────────────────────────────────────────────────
     @app.get("/api/health", response_model=HealthResponse)
