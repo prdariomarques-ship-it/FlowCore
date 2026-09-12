@@ -399,6 +399,10 @@ details.mi>summary::marker{display:none}
 </head>
 <body>
 
+<div id="app-loader">
+  <div class="loader-spinner"></div>
+</div>
+
 <div id="auth-screen">
   <div class="card auth-box">
     <div style="text-align:center;margin-bottom:18px">
@@ -422,10 +426,14 @@ details.mi>summary::marker{display:none}
       <button class="auth-tab" id="auth-tab-signup" onclick="setAuthMode('signup')">Criar escritório</button>
     </div>
     <div class="auth-error" id="auth-error"></div>
-    <input class="if auth-field" id="auth-office-name" placeholder="Nome do escritório" style="display:none">
+        <input class="if auth-field" id="auth-office-name" placeholder="Nome do escritório" style="display:none">
+    <div class="auth-error-inline" id="err-office-name" style="display:none;color:var(--red);font-size:11px;margin-top:-8px;margin-bottom:10px;text-align:left"></div>
     <input class="if auth-field" id="auth-name" placeholder="Seu nome" style="display:none">
+    <div class="auth-error-inline" id="err-name" style="display:none;color:var(--red);font-size:11px;margin-top:-8px;margin-bottom:10px;text-align:left"></div>
     <input class="if auth-field" id="auth-email" placeholder="Email" type="email">
+    <div class="auth-error-inline" id="err-email" style="display:none;color:var(--red);font-size:11px;margin-top:-8px;margin-bottom:10px;text-align:left"></div>
     <input class="if auth-field" id="auth-password" placeholder="Senha (mín. 8 caracteres)" type="password" minlength="8" onkeydown="if(event.key==='Enter')submitAuth()">
+    <div class="auth-error-inline" id="err-password" style="display:none;color:var(--red);font-size:11px;margin-top:-8px;margin-bottom:10px;text-align:left"></div>
     <button class="bs2" style="width:100%;height:38px;border-radius:8px" id="auth-submit-btn" onclick="submitAuth()">Entrar</button>
   </div>
 </div>
@@ -447,13 +455,13 @@ details.mi>summary::marker{display:none}
     </div>
     <div><div class="sb-brand">FlowCore</div><div class="sb-tagline">Wealth Copilot</div></div>
   </div>
-  <button class="sb-item active" id="sb-home" onclick="pg('home',this,true)"><span class="sb-icon">🏠</span>Visão Geral</button>
-  <button class="sb-item" id="sb-portfolio" onclick="pg('portfolio',this,true)"><span class="sb-icon">💼</span>Carteiras</button>
-  <button class="sb-item" id="sb-news" onclick="pg('news',this,true)"><span class="sb-icon">📈</span>Mercado</button>
-  <button class="sb-item" id="sb-ai" onclick="pg('ai',this,true)"><span class="sb-icon">💡</span>Insights</button>
-  <button class="sb-item" id="sb-chat" onclick="pg('chat',this,true)"><span class="sb-icon">💬</span>Chat IA</button>
-  <button class="sb-item" id="sb-agents" onclick="pg('agents',this,true)"><span class="sb-icon">🛠</span>Operacional</button>
-  <button class="sb-item" id="sb-admin" onclick="pg('admin',this,true)"><span class="sb-icon">⚙</span>Configurações</button>
+  <button class="sb-item active" id="sb-home" onclick="pg('home',this,true)"><span class="sb-icon" style="display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg></span>Visão Geral</button>
+  <button class="sb-item" id="sb-portfolio" onclick="pg('portfolio',this,true)"><span class="sb-icon" style="display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg></span>Carteiras</button>
+  <button class="sb-item" id="sb-news" onclick="pg('news',this,true)"><span class="sb-icon" style="display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg></span>Mercado</button>
+  <button class="sb-item" id="sb-ai" onclick="pg('ai',this,true)"><span class="sb-icon" style="display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></span>Insights</button>
+  <button class="sb-item" id="sb-chat" onclick="pg('chat',this,true)"><span class="sb-icon" style="display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></span>Chat IA</button>
+  <button class="sb-item" id="sb-agents" onclick="pg('agents',this,true)"><span class="sb-icon" style="display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg></span>Operacional</button>
+  <button class="sb-item" id="sb-admin" onclick="pg('admin',this,true)"><span class="sb-icon" style="display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></span>Configurações</button>
 </div>
 
 <div class="dw-main">
@@ -461,8 +469,8 @@ details.mi>summary::marker{display:none}
     <input class="dw-search" placeholder="Buscar carteira, ativo ou fazer uma pergunta..." onkeydown="if(event.key==='Enter'){pg('chat',document.getElementById('sb-chat'),true);document.getElementById('chat-inp').value=this.value;sendChat();}">
     <div class="dw-topright">
       <span id="dw-datetime">—</span>
-      <button class="dw-theme-toggle" id="dw-theme-toggle" onclick="toggleDesktopTheme()" title="Alternar tema claro/escuro">🌙</button>
-      <span class="dw-bell" onclick="toggleNotifPanel()">🔔<span class="dot" id="dw-alert-dot" style="display:none"></span>
+      <button class="dw-theme-toggle" id="dw-theme-toggle" onclick="toggleDesktopTheme()" title="Alternar tema claro/escuro" aria-label="Alternar tema claro/escuro">🌙</button>
+      <span class="dw-bell" onclick="toggleNotifPanel()" aria-label="Notificações" role="button" tabindex="0">🔔<span class="dot" id="dw-alert-dot" style="display:none"></span>
         <div id="notif-panel" class="dw-dropdown" style="display:none" onclick="event.stopPropagation()">
           <div class="dw-dropdown-title">Alertas críticos</div>
           <div id="notif-panel-body"><div class="empty" style="font-size:12px">Nenhum alerta crítico agora.</div></div>
@@ -501,7 +509,7 @@ details.mi>summary::marker{display:none}
   </div>
   <div class="hr">
     <div class="sdot off" id="dot"></div>
-    <button class="btn-sm" onclick="refresh()">↻</button>
+    <button class="btn-sm" onclick="refresh()" aria-label="Atualizar">↻</button>
   </div>
 </div>
 
@@ -545,6 +553,21 @@ details.mi>summary::marker{display:none}
             <div id="dw-alerts-table"><div class="sk"></div><div class="sk"></div></div>
           </div>
           <div class="card">
+            <div class="ch"><span class="ct">Assistente IA</span></div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Pergunte sobre a carteira, mercado, alertas ou peça uma análise.</div>
+            <div id="dw-chat-chips">
+              <button class="dw-chat-chip" onclick="dwAsk('Quais clientes estão desenquadrados hoje?')">💬 Quais clientes estão desenquadrados hoje?</button>
+              <button class="dw-chat-chip" onclick="dwAsk('O que devo priorizar hoje?')">💬 O que devo priorizar hoje?</button>
+              <button class="dw-chat-chip" onclick="dwAsk('Quais carteiras merecem atenção?')">💬 Quais carteiras merecem atenção?</button>
+              <button class="dw-chat-chip" onclick="dwAsk('Explique o último override.')">💬 Explique o último override.</button>
+              <button class="dw-chat-chip" onclick="dwAsk('O que mudou no mercado hoje?')">💬 O que mudou no mercado hoje?</button>
+            </div>
+            <div class="ir" style="margin-top:8px;margin-bottom:0">
+              <input class="if" id="dw-chat-inp" placeholder="Digite sua pergunta..." onkeydown="if(event.key==='Enter')dwAsk(this.value)">
+              <button class="bs2" onclick="dwAsk(document.getElementById('dw-chat-inp').value)" aria-label="Enviar">➤</button>
+            </div>
+          </div>
+          <div class="card">
             <div class="ch"><span class="ct">Inteligência de Mercado</span><span class="dw-link" onclick="pg('news',document.getElementById('sb-news'),true)">Ver mais →</span></div>
             <div class="dw-tabs" id="dw-market-tabs">
               <button class="dw-tab active" data-group="indices" onclick="setDwMarketGroup('indices')">Índices</button>
@@ -553,21 +576,6 @@ details.mi>summary::marker{display:none}
               <button class="dw-tab" data-group="juros" onclick="setDwMarketGroup('juros')">Juros</button>
             </div>
             <div id="dw-market-table"><div class="sk"></div><div class="sk"></div></div>
-          </div>
-          <div class="card">
-            <div class="ch"><span class="ct">Assistente IA</span></div>
-            <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Pergunte sobre a carteira, mercado, alertas ou peça uma análise.</div>
-            <div id="dw-chat-chips">
-              <button class="dw-chat-chip" onclick="dwAsk('O que mudou no mercado hoje?')">💬 O que mudou no mercado hoje?</button>
-              <button class="dw-chat-chip" onclick="dwAsk('Quais clientes estão desenquadrados hoje?')">💬 Quais clientes estão desenquadrados hoje?</button>
-              <button class="dw-chat-chip" onclick="dwAsk('Explique o último override.')">💬 Explique o último override.</button>
-              <button class="dw-chat-chip" onclick="dwAsk('O que devo priorizar hoje?')">💬 O que devo priorizar hoje?</button>
-              <button class="dw-chat-chip" onclick="dwAsk('Quais carteiras merecem atenção?')">💬 Quais carteiras merecem atenção?</button>
-            </div>
-            <div class="ir" style="margin-top:8px;margin-bottom:0">
-              <input class="if" id="dw-chat-inp" placeholder="Digite sua pergunta..." onkeydown="if(event.key==='Enter')dwAsk(this.value)">
-              <button class="bs2" onclick="dwAsk(document.getElementById('dw-chat-inp').value)">➤</button>
-            </div>
           </div>
         </div>
 
@@ -716,11 +724,11 @@ details.mi>summary::marker{display:none}
   <div class="page" id="page-admin">
     <div class="gap">
       <div class="card"><div class="ch"><span class="ct">Daemon FlowCore</span><span class="ci">⚙</span></div><div class="row"><span class="rl">Estado</span><span class="rv" id="d-state"><span class="tag ty">─</span></span></div><div class="row"><span class="rl">PID / uptime / ciclo</span><span class="rv" id="d-pid">─</span></div><div class="row"><span class="rl">Detalhe</span><span class="rv" id="d-up" style="color:var(--text2)">─</span></div><div class="row"><span class="rl">Heartbeat</span><span class="rv" id="d-cyc" style="color:var(--text2)">─</span></div><div class="btns"><button class="btn bg" onclick="da('start')">▶ Iniciar</button><button class="btn br" onclick="da('stop')">■ Parar</button></div></div>
-      <div class="card"><div class="ch"><span class="ct">Notificação Android</span><span class="ci">🔔</span></div><div class="ir"><label class="sr-only" for="n-text">Mensagem para o Android</label><input class="if" id="n-text" placeholder="Mensagem para o Android..."><button class="bs2" onclick="sendNotify()">🔔</button></div><div class="row" style="padding-top:0;border:none"><span class="rl">via Termux API</span><span class="tag ty" id="n-status">nativo Android</span></div></div>
+      <div class="card"><div class="ch"><span class="ct">Notificação Android</span><span class="ci">🔔</span></div><div class="ir"><label class="sr-only" for="n-text">Mensagem para o Android</label><input class="if" id="n-text" placeholder="Mensagem para o Android..."><button class="bs2" onclick="sendNotify()" aria-label="Enviar notificação">🔔</button></div><div class="row" style="padding-top:0;border:none"><span class="rl">via Termux API</span><span class="tag ty" id="n-status">nativo Android</span></div></div>
       <div class="card" id="office-notify-card">
         <div class="ch"><span class="ct">Notificações do Telegram</span><span class="ci">📨</span></div>
         <div style="font-size:12px;color:var(--text2);padding:0 2px 8px">Os agentes autônomos avisam por aqui quando encontram algo (carteira desenquadrada, cliente pendente de contato). Precisa do <b>chat_id</b> da conversa com o bot do escritório.</div>
-        <div class="ir"><input class="if" id="office-telegram-chat-id" placeholder="Telegram chat_id (ex: 123456789)"><button class="bs2" onclick="saveOfficeNotifications()">✓</button></div>
+        <div class="ir"><input class="if" id="office-telegram-chat-id" placeholder="Telegram chat_id (ex: 123456789)"><button class="bs2" onclick="saveOfficeNotifications()" aria-label="Salvar configuração">✓</button></div>
         <div class="row" style="padding-top:0;border:none"><span class="rl">Status atual</span><span class="rv" id="office-notify-status">─</span></div>
         <button class="btn-sm" style="margin-top:8px" onclick="discoverTelegramChatId()">🔍 Descobrir automaticamente</button>
         <button class="btn-sm" style="margin-top:8px" onclick="testOfficeNotification()">🔔 Enviar teste</button>
@@ -778,7 +786,7 @@ details.mi>summary::marker{display:none}
       <div class="card" id="market-sources-card">
         <div class="ch" style="cursor:pointer" onclick="toggleCollapsible('market-sources-body','market-sources-chevron','block')">
           <span class="ct"><span id="market-sources-chevron">▸</span> Diagnóstico de fontes oficiais</span>
-          <button class="btn-sm" onclick="event.stopPropagation();loadMarketSources()">↻</button>
+          <button class="btn-sm" onclick="event.stopPropagation();loadMarketSources()" aria-label="Atualizar fontes de mercado">↻</button>
         </div>
         <div id="market-sources-body" style="display:none">
           <div style="font-size:12px;color:var(--text2);padding:0 2px 8px">De onde vêm os dados de taxa de juros exibidos no FlowCore — cada fonte com data da observação e disponibilidade em tempo real, nunca um valor sintetizado.</div>
@@ -816,7 +824,7 @@ details.mi>summary::marker{display:none}
         </div>
         <div class="chat-input-row">
           <input class="if" id="chat-inp" placeholder="Escreve uma pergunta..." onkeydown="if(event.key==='Enter')sendChat()">
-          <button class="bs2" onclick="sendChat()">➤</button>
+          <button class="bs2" onclick="sendChat()" aria-label="Enviar mensagem">➤</button>
         </div>
       </div>
     </div>
@@ -831,7 +839,7 @@ details.mi>summary::marker{display:none}
         <div class="ir">
           <label class="sr-only" for="s-inp">Pesquisar em tudo</label>
           <input class="if" id="s-inp" placeholder="Pesquisar em tudo...">
-          <button class="bs2" onclick="doSearch()">🔍</button>
+          <button class="bs2" onclick="doSearch()" aria-label="Pesquisar">🔍</button>
         </div>
         <div id="search-results" style="display:none"></div>
       </div>
@@ -848,7 +856,7 @@ details.mi>summary::marker{display:none}
         <div class="ir">
           <label class="sr-only" for="note-inp">Nova nota</label>
           <textarea class="if" id="note-inp" rows="1" placeholder="Escreve aqui..."></textarea>
-          <button class="bs2" onclick="addNote()">✓</button>
+          <button class="bs2" onclick="addNote()" aria-label="Adicionar nota">✓</button>
         </div>
       </div>
 
@@ -907,7 +915,7 @@ details.mi>summary::marker{display:none}
       <div class="card">
         <div class="ch" style="cursor:pointer" onclick="toggleCollapsible('task-history','task-history-chevron','block')">
           <span class="ct"><span id="task-history-chevron">▸</span> Histórico de tarefas</span>
-          <button class="btn-sm" onclick="event.stopPropagation();loadAgents()">↻</button>
+          <button class="btn-sm" onclick="event.stopPropagation();loadAgents()" aria-label="Atualizar histórico">↻</button>
         </div>
         <div id="task-history" style="display:none"><div class="sk"></div><div class="sk"></div></div>
       </div>
@@ -950,22 +958,22 @@ details.mi>summary::marker{display:none}
 
   <!-- Bottom nav - New Navigation -->
 <div class="nav">
-  <button class="ni active" onclick="pg('home',this)"><span class="ni-icon">🏠</span><span>Início</span></button>
-  <button class="ni" onclick="pg('portfolio',this)"><span class="ni-icon">💹</span><span>Finanças</span></button>
-  <button class="ni" onclick="pg('ai',this)"><span class="ni-icon">🧠</span><span>Inteligência</span></button>
-  <button class="ni" onclick="pg('agents',this)"><span class="ni-icon">🛠</span><span>Operacional</span></button>
-  <button class="ni" onclick="toggleMoreMenu()"><span class="ni-icon">⋯</span><span>Mais</span></button>
+  <button class="ni active" onclick="pg('home',this)"><span class="ni-icon" style="display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg></span><span>Início</span></button>
+  <button class="ni" onclick="pg('portfolio',this)"><span class="ni-icon" style="display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg></span><span>Finanças</span></button>
+  <button class="ni" onclick="pg('ai',this)"><span class="ni-icon" style="display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></span><span>Inteligência</span></button>
+  <button class="ni" onclick="pg('agents',this)"><span class="ni-icon" style="display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg></span><span>Operacional</span></button>
+  <button class="ni" onclick="toggleMoreMenu()"><span class="ni-icon" style="display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg></span><span>Mais</span></button>
 </div>
 
 <!-- FAB (Floating Action Button) - Mobile -->
-<button class="fab" id="fab-btn" onclick="openQuickActions()">+</button>
+<button class="fab" id="fab-btn" onclick="openQuickActions()" aria-label="Ações rápidas">+</button>
 
 <!-- More Menu (Hidden by default) -->
 <div class="more-menu" id="more-menu" style="display:none">
-  <button onclick="pg('news',this);closeMoreMenu()"><span class="ni-icon">📰</span><span>Notícias</span></button>
-  <button onclick="pg('notes',this);closeMoreMenu()"><span class="ni-icon">📝</span><span>Notas</span></button>
-  <button onclick="pg('chat',this);closeMoreMenu()"><span class="ni-icon">💬</span><span>Chat</span></button>
-  <button onclick="pg('admin',this);closeMoreMenu()"><span class="ni-icon">⚙️</span><span>Sistema</span></button>
+  <button onclick="pg('news',this);closeMoreMenu()"><span class="ni-icon" style="display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"></path><path d="M18 14h-8"></path><path d="M15 18h-5"></path><path d="M10 6h8v4h-8V6Z"></path></svg></span><span>Notícias</span></button>
+  <button onclick="pg('notes',this);closeMoreMenu()"><span class="ni-icon" style="display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></span><span>Notas</span></button>
+  <button onclick="pg('chat',this);closeMoreMenu()"><span class="ni-icon" style="display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></span><span>Chat</span></button>
+  <button onclick="pg('admin',this);closeMoreMenu()"><span class="ni-icon" style="display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></span><span>Sistema</span></button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -1082,30 +1090,71 @@ function setAuthMode(mode){
 }
 
 async function submitAuth(){
-  const email=document.getElementById('auth-email').value.trim();
-  const password=document.getElementById('auth-password').value;
+  const office_name_el=document.getElementById('auth-office-name');
+  const name_el=document.getElementById('auth-name');
+  const email_el=document.getElementById('auth-email');
+  const password_el=document.getElementById('auth-password');
+
+  const office_name=office_name_el.value.trim();
+  const name=name_el.value.trim();
+  const email=email_el.value.trim();
+  const password=password_el.value;
+
   const errBox=document.getElementById('auth-error');
   errBox.style.display='none';
+  document.querySelectorAll('.auth-error-inline').forEach(el=>el.style.display='none');
+  office_name_el.style.borderColor='';
+  name_el.style.borderColor='';
+  email_el.style.borderColor='';
+  password_el.style.borderColor='';
+
+  let hasError = false;
+  const showError = (id, msg) => {
+    const errEl = document.getElementById('err-' + id);
+    const inpEl = document.getElementById('auth-' + id);
+    if(errEl && inpEl) {
+      errEl.textContent = msg;
+      errEl.style.display = 'block';
+      inpEl.style.borderColor = 'var(--red)';
+    }
+    hasError = true;
+  };
+
   try{
     let resp;
     if(_authMode==='signup'){
-      const office_name=document.getElementById('auth-office-name').value.trim();
-      const name=document.getElementById('auth-name').value.trim();
-      if(!office_name||!name||!email||!password) throw new Error('Preencha todos os campos.');
+      if(!office_name) showError('office-name', 'Preencha o nome do escritório.');
+      if(!name) showError('name', 'Preencha seu nome.');
+      if(!email) showError('email', 'Preencha o email.');
+      if(!password) showError('password', 'Preencha a senha.');
+      if(hasError) return;
+
       resp=await fetch(API+'/api/auth/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({office_name,name,email,password})});
     }else{
-      if(!email||!password) throw new Error('Preencha email e senha.');
+      if(!email) showError('email', 'Preencha o email.');
+      if(!password) showError('password', 'Preencha a senha.');
+      if(hasError) return;
+
       resp=await fetch(API+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
     }
     if(!resp.ok){
       const body=await resp.json().catch(()=>({}));
-      // FastAPI's own request-validation errors (missing/malformed field)
-      // shape `detail` as an array of {msg, loc, type} objects, not a
-      // plain string like our own HTTPException calls (409/401/429) —
-      // without this, a 422 rendered "[object Object]" instead of the
-      // actual message (e.g. "a senha precisa ter pelo menos 8 caracteres").
       let message=body.detail;
-      if(Array.isArray(message)) message=message.map(e=>e.msg).join(' ');
+      if(Array.isArray(message)) {
+          // Attempt to map specific Fastapi validation errors to fields
+          for(const err of message) {
+              const field = err.loc[err.loc.length - 1];
+              if(field === 'password') showError('password', err.msg);
+              else if(field === 'email') showError('email', err.msg);
+              else if(field === 'name') showError('name', err.msg);
+              else if(field === 'office_name') showError('office-name', err.msg);
+              else {
+                  errBox.textContent = err.msg;
+                  errBox.style.display = 'block';
+              }
+          }
+          return;
+      }
       throw new Error(message||(resp.status===401?'Email ou senha inválidos.':'Falha ao autenticar.'));
     }
     const data=await resp.json();
@@ -1118,7 +1167,7 @@ async function submitAuth(){
   }
 }
 
-function showAuthScreen(){ document.getElementById('auth-screen').style.display='flex'; }
+function showAuthScreen(){ hideAppLoader(); document.getElementById('auth-screen').style.display='flex'; }
 function hideAuthScreen(){ document.getElementById('auth-screen').style.display='none'; }
 
 async function logoutFlowCore(){
@@ -1136,6 +1185,7 @@ async function checkAuthAndStart(){
     startApp();
   }catch(e){
     showAuthScreen();
+    hideAppLoader();
   }
 }
 
@@ -2684,7 +2734,7 @@ function renderFlowCards(flows){
       <div class="flow-card-meta" id="flow-meta-${f.id}">Nunca executado</div>
       <div class="flow-card-actions">
         <button class="btn-run" id="btn-flow-${f.id}" onclick="runFlow('${f.id}','${escapeHtml(f.name)}')">▶ Executar</button>
-        <button class="btn-sm" onclick="deleteFlow('${f.id}')">⋮</button>
+        <button class="btn-sm" onclick="deleteFlow('${f.id}')" aria-label="Opções do Flow">⋮</button>
       </div>`;
     c.appendChild(el);
   }
@@ -2761,7 +2811,7 @@ function renderFlowStepsList(){
   if(!_flowAgents.length){l.innerHTML='<div class="empty">Nenhum agente disponível.</div>';return;}
   l.innerHTML=_flowBuilderSteps.map((val,i)=>{
     const opts=_flowAgents.map(a=>`<option value="${a.name}" ${a.name===val?'selected':''}>${escapeHtml(agentLabel(a.name))}</option>`).join('');
-    const removeBtn=_flowBuilderSteps.length>1?`<button class="btn-sm" onclick="removeFlowStepRow(${i})">✕</button>`:'';
+    const removeBtn=_flowBuilderSteps.length>1?`<button class="btn-sm" onclick="removeFlowStepRow(${i})" aria-label="Remover etapa">✕</button>`:'';
     return `<div class="flow-step-row"><span class="flow-step-num">${i+1}.</span><select class="if" onchange="setFlowStep(${i},this.value)">${opts}</select>${removeBtn}</div>`;
   }).join('');
 }
@@ -2833,6 +2883,7 @@ function loadAdvisor(){
    (either an already-valid stored token, or a fresh login/signup).
    updateHomeGreeting() is pure UI (no network) and can run immediately. */
 function startApp(){
+  hideAppLoader();
   refresh();
   loadDashboardOverview();
   loadAdvisor();
