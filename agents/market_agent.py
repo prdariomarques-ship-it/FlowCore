@@ -17,6 +17,7 @@ This agent only OBSERVES and classifies relevance (HIGH/MEDIUM/LOW)
 against config/market_thresholds.py. It does not interpret what a move
 means for any portfolio — that is IntelligenceEngine's job (MVP2 phase 2).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -65,9 +66,7 @@ class MarketAgent(BaseAgent):
         movements = await loop.run_in_executor(None, self._build_movements)
         relevant = [m for m in movements if m.relevance in ("HIGH", "MEDIUM")]
         market_status = (
-            "ALERT" if any(m.relevance == "HIGH" for m in movements)
-            else "ATTENTION" if relevant
-            else "NORMAL"
+            "ALERT" if any(m.relevance == "HIGH" for m in movements) else "ATTENTION" if relevant else "NORMAL"
         )
         relevant_changes = [
             f"{m.asset} {'subiu' if (m.change or 0) >= 0 else 'caiu'} "
@@ -132,8 +131,13 @@ class MarketAgent(BaseAgent):
         change = round(_DI_MOCK_CURRENT - _DI_MOCK_PREVIOUS, 2)
         relevance = _relevance(abs(change), cfg["high"], cfg["medium"])
         return MarketMovement(
-            asset=cfg["label"], previous_value=_DI_MOCK_PREVIOUS, current_value=_DI_MOCK_CURRENT,
-            change=change, unit=cfg["unit"], relevance=relevance, source="MOCK",
+            asset=cfg["label"],
+            previous_value=_DI_MOCK_PREVIOUS,
+            current_value=_DI_MOCK_CURRENT,
+            change=change,
+            unit=cfg["unit"],
+            relevance=relevance,
+            source="MOCK",
             group=cfg.get("group", ""),
         )
 
@@ -141,9 +145,15 @@ class MarketAgent(BaseAgent):
     def _movement_from_watchlist_item(cfg: dict, item: dict | None, history: list[float]) -> MarketMovement:
         if item is None or item.get("status") != "ok" or item.get("level") is None:
             return MarketMovement(
-                asset=cfg["label"], previous_value=None, current_value=None,
-                change=None, unit=cfg["unit"], relevance="LOW", source="live",
-                group=cfg.get("group", ""), error=item.get("error") if item else None,
+                asset=cfg["label"],
+                previous_value=None,
+                current_value=None,
+                change=None,
+                unit=cfg["unit"],
+                relevance="LOW",
+                source="live",
+                group=cfg.get("group", ""),
+                error=item.get("error") if item else None,
             )
         current = item["level"]
         delta_pct = item.get("delta_pct_1d")
@@ -164,7 +174,13 @@ class MarketAgent(BaseAgent):
                 change = round(current - previous, 4) if previous is not None else None
         relevance = _relevance(abs(change), cfg["high"], cfg["medium"]) if change is not None else "LOW"
         return MarketMovement(
-            asset=cfg["label"], previous_value=previous, current_value=current,
-            change=change, unit=cfg["unit"], relevance=relevance, source="live",
-            group=cfg.get("group", ""), history=history,
+            asset=cfg["label"],
+            previous_value=previous,
+            current_value=current,
+            change=change,
+            unit=cfg["unit"],
+            relevance=relevance,
+            source="live",
+            group=cfg.get("group", ""),
+            history=history,
         )

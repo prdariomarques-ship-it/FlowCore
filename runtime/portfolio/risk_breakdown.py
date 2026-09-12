@@ -23,6 +23,7 @@ Uses current_allocation when the portfolio has one; otherwise falls back
 to the target_allocation weights themselves, and says so explicitly via
 `source` — never presents a target policy as if it were a live position.
 """
+
 from __future__ import annotations
 
 from typing import Any

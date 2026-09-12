@@ -8,6 +8,8 @@ from typing import _ProtocolMeta
 
 import pytest
 
+pytest.importorskip("pydantic")
+
 import darius.interfaces as interfaces
 
 INTERFACES_DIR = Path(__file__).resolve().parent.parent.parent / "darius" / "interfaces"
@@ -56,8 +58,7 @@ class TestHexagonalBoundaries:
             imports = _extract_imported_modules(py_file)
             for imp in imports:
                 assert imp not in forbidden_modules, (
-                    f"Violation in {py_file.name}: Notifications illegally imports "
-                    f"Core Runtime module '{imp}'."
+                    f"Violation in {py_file.name}: Notifications illegally imports Core Runtime module '{imp}'."
                 )
 
     def test_jobs_have_no_core_runtime_dependencies(self):
@@ -68,8 +69,7 @@ class TestHexagonalBoundaries:
             imports = _extract_imported_modules(py_file)
             for imp in imports:
                 assert imp not in forbidden_modules, (
-                    f"Violation in {py_file.name}: Jobs illegally imports "
-                    f"Core Runtime module '{imp}'."
+                    f"Violation in {py_file.name}: Jobs illegally imports Core Runtime module '{imp}'."
                 )
 
 

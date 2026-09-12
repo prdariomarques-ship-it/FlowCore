@@ -91,13 +91,21 @@ class LLMCallRepository:
             db.execute("ALTER TABLE llm_calls ADD COLUMN office_id TEXT")
 
     def record_call(
-        self, provider: str, model: str, latency_ms: float, success: bool, error: str | None,
-        purpose: str | None = None, tokens: int | None = None, office_id: str | None = None,
+        self,
+        provider: str,
+        model: str,
+        latency_ms: float,
+        success: bool,
+        error: str | None,
+        purpose: str | None = None,
+        tokens: int | None = None,
+        office_id: str | None = None,
     ) -> None:
         self.ensure_tables()
         with sqlite3.connect(self._db_path, timeout=5) as db:
             db.execute(
-                "INSERT INTO llm_calls (provider, model, purpose, latency_ms, success, error, created_at, tokens, office_id) "
+                "INSERT INTO llm_calls "
+                "(provider, model, purpose, latency_ms, success, error, created_at, tokens, office_id) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (provider, model, purpose, latency_ms, int(success), error, time.time(), tokens, office_id),
             )
@@ -122,7 +130,8 @@ class LLMCallRepository:
                 params,
             ).fetchone()
             by_provider = db.execute(
-                "SELECT provider, COUNT(*) AS n, SUM(success) AS ok, AVG(latency_ms) AS avg_latency, SUM(tokens) AS total_tokens "
+                "SELECT provider, COUNT(*) AS n, SUM(success) AS ok, "
+                "AVG(latency_ms) AS avg_latency, SUM(tokens) AS total_tokens "
                 f"FROM llm_calls WHERE created_at >= ?{office_clause} GROUP BY provider",
                 params,
             ).fetchall()
@@ -141,8 +150,11 @@ class LLMCallRepository:
             "total_tokens": total_row["total_tokens"] or 0,
             "by_provider": [
                 {
-                    "provider": r["provider"], "calls": r["n"], "successes": r["ok"],
-                    "avg_latency_ms": r["avg_latency"], "total_tokens": r["total_tokens"] or 0,
+                    "provider": r["provider"],
+                    "calls": r["n"],
+                    "successes": r["ok"],
+                    "avg_latency_ms": r["avg_latency"],
+                    "total_tokens": r["total_tokens"] or 0,
                 }
                 for r in by_provider
             ],

@@ -7,6 +7,7 @@ asyncio.run(). Runs against the real, shared data/flowcore.db (same
 convention as tests/test_orchestrator.py) -- isolation comes from
 TenantRepository's random-hex office_id, not a per-test database.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -41,8 +42,7 @@ async def _office_with_out_of_band_client(telegram_chat_id: str | None = "-10099
     await client_repo.seed_office(office["id"], with_demo_clients=True)
     result = await ComplianceAgent().run({"office_id": office["id"]})
     violation = next(
-        v for v in result["data"]["violations"]
-        if v["client_id"] == "demo-client-27" and v["severity"] == "CRITICAL"
+        v for v in result["data"]["violations"] if v["client_id"] == "demo-client-27" and v["severity"] == "CRITICAL"
     )  # Pimentel Capital, +7p.p. over renda_fixa_total (>5pp critical_margin) per config/demo_clients.json
     return office, violation
 
@@ -96,9 +96,11 @@ class TestFollowupOverdue:
         async def scenario():
             office, violation = await _office_with_out_of_band_client()
             original_event = AgentEvent(
-                type="PORTFOLIO_OUT_OF_PROFILE", source="compliance_agent",
+                type="PORTFOLIO_OUT_OF_PROFILE",
+                source="compliance_agent",
                 entity={"kind": "client", "id": violation["client_id"]},
-                payload={"message": violation["message"], "violation": violation}, priority="CRITICAL",
+                payload={"message": violation["message"], "violation": violation},
+                priority="CRITICAL",
             )
             with patch("time.time", return_value=time.time() - 4 * 86400):
                 await AgentEventRepository().publish(office["id"], original_event)
@@ -134,9 +136,11 @@ class TestFollowupOverdue:
         async def scenario():
             office, violation = await _office_with_out_of_band_client()
             original_event = AgentEvent(
-                type="PORTFOLIO_OUT_OF_PROFILE", source="compliance_agent",
+                type="PORTFOLIO_OUT_OF_PROFILE",
+                source="compliance_agent",
                 entity={"kind": "client", "id": violation["client_id"]},
-                payload={"message": violation["message"], "violation": violation}, priority="CRITICAL",
+                payload={"message": violation["message"], "violation": violation},
+                priority="CRITICAL",
             )
             with patch("time.time", return_value=time.time() - 4 * 86400):
                 await AgentEventRepository().publish(office["id"], original_event)
@@ -147,8 +151,10 @@ class TestFollowupOverdue:
 
             draft = draft_review_request(client["name"], [violation], "Advisor", office["name"])
             client_with_contact = await ClientRepository().get_client(office["id"], client["id"])
-            with patch("runtime.email_sender.is_configured", return_value=True), \
-                 patch("runtime.email_sender.send_email", return_value={"to": "cliente@example.com"}):
+            with (
+                patch("runtime.email_sender.is_configured", return_value=True),
+                patch("runtime.email_sender.send_email", return_value={"to": "cliente@example.com"}),
+            ):
                 send_review_request(office["id"], client_with_contact, draft, ["email"], "user-1")
 
             with patch("runtime.telegram.send_message", return_value={"ok": True}):
@@ -167,14 +173,18 @@ class TestRecovery:
                 await observe_and_dispatch()  # first cycle: publishes + processes the violation
 
             open_events = await AgentEventRepository().list_events(
-                office["id"], status="processed", type="PORTFOLIO_OUT_OF_PROFILE",
+                office["id"],
+                status="processed",
+                type="PORTFOLIO_OUT_OF_PROFILE",
             )
             original_event_id = next(e["id"] for e in open_events if e["entity"]["id"] == violation["client_id"])
 
             # Fix the allocation for real -- renda_fixa_total back within
             # the 55-65% band (config/portfolio_moderate_1m.json).
             await ClientRepository().save_client_allocation(
-                office["id"], violation["client_id"], {"__sleeve__:renda_fixa_total": 60.0},
+                office["id"],
+                violation["client_id"],
+                {"__sleeve__:renda_fixa_total": 60.0},
             )
 
             with patch("runtime.telegram.send_message", return_value={"ok": True}):

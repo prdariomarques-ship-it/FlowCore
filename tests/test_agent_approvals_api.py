@@ -2,6 +2,7 @@
 GET /api/agent-approvals, PUT /api/agent-approvals/{id},
 POST /api/agent-approvals/{id}/approve, POST /api/agent-approvals/{id}/reject.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -44,18 +45,29 @@ def _office_with_pending_approval(contact_info: bool = True):
 
     async def setup():
         if contact_info:
-            await ClientRepository().save_client_contact(session["office_id"], target["id"], "cliente@example.com", None)
+            await ClientRepository().save_client_contact(
+                session["office_id"], target["id"], "cliente@example.com", None
+            )
         from agents.events import AgentEvent
 
         event = await AgentEventRepository().publish(
             session["office_id"],
-            AgentEvent(type="CLIENT_FOLLOWUP_OVERDUE", source="observer_loop", entity={"kind": "client", "id": target["id"]}),
+            AgentEvent(
+                type="CLIENT_FOLLOWUP_OVERDUE", source="observer_loop", entity={"kind": "client", "id": target["id"]}
+            ),
         )
         return await AgentApprovalRepository().create(
-            session["office_id"], event["id"], "followup_agent", "contact_client",
+            session["office_id"],
+            event["id"],
+            "followup_agent",
+            "contact_client",
             {"kind": "client", "id": target["id"]},
-            {"client_id": target["id"], "client_name": target["name"], "channels": ["email"],
-             "draft": {"subject": "Revisão de carteira", "body": "Olá!", "whatsapp_text": "Oi"}},
+            {
+                "client_id": target["id"],
+                "client_name": target["name"],
+                "channels": ["email"],
+                "draft": {"subject": "Revisão de carteira", "body": "Olá!", "whatsapp_text": "Oi"},
+            },
         )
 
     approval = asyncio.run(setup())
@@ -95,7 +107,9 @@ class TestEditApproval:
     def test_edit_while_pending(self):
         client, session, approval, _ = _office_with_pending_approval()
         new_payload = {**approval["payload"], "draft": {**approval["payload"]["draft"], "subject": "Editado"}}
-        resp = client.put(f"/api/agent-approvals/{approval['id']}", json={"payload": new_payload}, headers=session["headers"])
+        resp = client.put(
+            f"/api/agent-approvals/{approval['id']}", json={"payload": new_payload}, headers=session["headers"]
+        )
         assert resp.status_code == 200
         assert resp.json()["approval"]["payload"]["draft"]["subject"] == "Editado"
 
@@ -107,13 +121,19 @@ class TestEditApproval:
     def test_cannot_edit_after_decided(self):
         client, session, approval, _ = _office_with_pending_approval()
         client.post(f"/api/agent-approvals/{approval['id']}/reject", headers=session["headers"])
-        resp = client.put(f"/api/agent-approvals/{approval['id']}", json={"payload": approval["payload"]}, headers=session["headers"])
+        resp = client.put(
+            f"/api/agent-approvals/{approval['id']}", json={"payload": approval["payload"]}, headers=session["headers"]
+        )
         assert resp.status_code == 409
 
     def test_cannot_edit_another_offices_approval(self):
         client, session_a, approval, _ = _office_with_pending_approval()
         session_b = signup_office(client, "Outro Escritório")
-        resp = client.put(f"/api/agent-approvals/{approval['id']}", json={"payload": approval["payload"]}, headers=session_b["headers"])
+        resp = client.put(
+            f"/api/agent-approvals/{approval['id']}",
+            json={"payload": approval["payload"]},
+            headers=session_b["headers"],
+        )
         assert resp.status_code == 404
 
 
@@ -128,8 +148,10 @@ class TestApprove:
 
     def test_approve_sends_via_the_real_outreach_pipeline(self):
         client, session, approval, target = _office_with_pending_approval(contact_info=True)
-        with patch("runtime.email_sender.is_configured", return_value=True), \
-             patch("runtime.email_sender.send_email", return_value={"to": "cliente@example.com"}):
+        with (
+            patch("runtime.email_sender.is_configured", return_value=True),
+            patch("runtime.email_sender.send_email", return_value={"to": "cliente@example.com"}),
+        ):
             resp = client.post(f"/api/agent-approvals/{approval['id']}/approve", headers=session["headers"])
         assert resp.status_code == 200
         data = resp.json()["approval"]
@@ -144,8 +166,10 @@ class TestApprove:
 
     def test_cannot_approve_twice(self):
         client, session, approval, _ = _office_with_pending_approval()
-        with patch("runtime.email_sender.is_configured", return_value=True), \
-             patch("runtime.email_sender.send_email", return_value={"to": "x"}):
+        with (
+            patch("runtime.email_sender.is_configured", return_value=True),
+            patch("runtime.email_sender.send_email", return_value={"to": "x"}),
+        ):
             client.post(f"/api/agent-approvals/{approval['id']}/approve", headers=session["headers"])
             resp = client.post(f"/api/agent-approvals/{approval['id']}/approve", headers=session["headers"])
         assert resp.status_code == 409
@@ -164,10 +188,14 @@ class TestApprove:
 
         client, session, approval, target = _office_with_pending_approval(contact_info=False)
         # Contact info added only now, after the approval was created.
-        asyncio.run(ClientRepository().save_client_contact(session["office_id"], target["id"], "novo@example.com", None))
+        asyncio.run(
+            ClientRepository().save_client_contact(session["office_id"], target["id"], "novo@example.com", None)
+        )
 
-        with patch("runtime.email_sender.is_configured", return_value=True), \
-             patch("runtime.email_sender.send_email", return_value={"to": "novo@example.com"}) as mock_send:
+        with (
+            patch("runtime.email_sender.is_configured", return_value=True),
+            patch("runtime.email_sender.send_email", return_value={"to": "novo@example.com"}) as mock_send,
+        ):
             resp = client.post(f"/api/agent-approvals/{approval['id']}/approve", headers=session["headers"])
 
         assert resp.json()["approval"]["result"]["channels"]["email"]["status"] == "sent"

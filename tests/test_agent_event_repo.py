@@ -5,6 +5,7 @@ storage/event_repo.py's market-data-only EventRepository).
 No pytest-asyncio dependency in this project -- each test wraps its
 async body in asyncio.run(), same convention as tests/test_client_repo.py.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -27,9 +28,11 @@ def _repo(tmp_path: Path):
 
 def _event(**overrides) -> AgentEvent:
     defaults = dict(
-        type="PORTFOLIO_OUT_OF_PROFILE", source="compliance_agent",
+        type="PORTFOLIO_OUT_OF_PROFILE",
+        source="compliance_agent",
         entity={"kind": "client", "id": "demo-client-21"},
-        payload={"message": "Renda Fixa 2.0 p.p. acima do limite"}, priority="HIGH",
+        payload={"message": "Renda Fixa 2.0 p.p. acima do limite"},
+        priority="HIGH",
     )
     defaults.update(overrides)
     return AgentEvent(**defaults)
@@ -149,7 +152,9 @@ class TestRecordDecision:
             repo = _repo(tmp_path)
             published = await repo.publish("office-1", _event())
             return await repo.record_decision(
-                "office-1", published["id"], "processed",
+                "office-1",
+                published["id"],
+                "processed",
                 {"agent": "client_intelligence", "action": "notify_advisor", "reasoning_source": "template_fallback"},
             )
 
@@ -240,7 +245,7 @@ class TestCountAggregates:
     def test_count_by_status(self, tmp_path):
         async def scenario():
             repo = _repo(tmp_path)
-            pending = await repo.publish("office-1", _event(entity={"kind": "client", "id": "c1"}))
+            await repo.publish("office-1", _event(entity={"kind": "client", "id": "c1"}))
             processed = await repo.publish("office-1", _event(entity={"kind": "client", "id": "c2"}))
             await repo.record_decision("office-1", processed["id"], "processed", {"action": "notify_advisor"})
             return await repo.count_by_status("office-1")
@@ -251,9 +256,15 @@ class TestCountAggregates:
     def test_count_by_type(self, tmp_path):
         async def scenario():
             repo = _repo(tmp_path)
-            await repo.publish("office-1", _event(type="PORTFOLIO_OUT_OF_PROFILE", entity={"kind": "client", "id": "c1"}))
-            await repo.publish("office-1", _event(type="CLIENT_FOLLOWUP_OVERDUE", entity={"kind": "client", "id": "c1"}))
-            await repo.publish("office-1", _event(type="PORTFOLIO_OUT_OF_PROFILE", entity={"kind": "client", "id": "c2"}))
+            await repo.publish(
+                "office-1", _event(type="PORTFOLIO_OUT_OF_PROFILE", entity={"kind": "client", "id": "c1"})
+            )
+            await repo.publish(
+                "office-1", _event(type="CLIENT_FOLLOWUP_OVERDUE", entity={"kind": "client", "id": "c1"})
+            )
+            await repo.publish(
+                "office-1", _event(type="PORTFOLIO_OUT_OF_PROFILE", entity={"kind": "client", "id": "c2"})
+            )
             return await repo.count_by_type("office-1")
 
         counts = asyncio.run(scenario())

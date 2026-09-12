@@ -2,6 +2,7 @@
 "Risco da Carteira Agregada" donut (Wealth Copilot fase 7b, office-scoped
 as of fase 0).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -19,7 +20,9 @@ from runtime.portfolio.risk_breakdown import compute_model_risk_breakdown, compu
 from tests._auth_helper import signup_office  # noqa: E402
 
 _PORTFOLIO = {
-    "id": "test-1", "name": "Teste", "profile": "moderado",
+    "id": "test-1",
+    "name": "Teste",
+    "profile": "moderado",
     "target_allocation": [
         {"id": "rf1", "class": "renda_fixa_brasil", "weight": 40.0},
         {"id": "rf2", "class": "renda_fixa_internacional", "weight": 20.0},
@@ -49,9 +52,17 @@ class TestFallsBackToTargetWhenNoCurrentPosition:
 
 class TestUsesCurrentAllocationWhenPresent:
     def test_sums_current_allocation_by_category(self):
-        portfolio = {**_PORTFOLIO, "current_allocation": {
-            "rf1": 30.0, "rf2": 20.0, "rv1": 20.0, "rv2": 15.0, "mm1": 10.0, "alt1": 5.0,
-        }}
+        portfolio = {
+            **_PORTFOLIO,
+            "current_allocation": {
+                "rf1": 30.0,
+                "rf2": 20.0,
+                "rv1": 20.0,
+                "rv2": 15.0,
+                "mm1": 10.0,
+                "alt1": 5.0,
+            },
+        }
         with patch("runtime.portfolio.risk_breakdown.load_reference_portfolio", return_value=portfolio):
             result = asyncio.run(compute_risk_breakdown("office-x"))
         assert result["source"] == "current_allocation"

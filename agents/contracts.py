@@ -14,6 +14,7 @@ JSON honest about what was actually computed, the same principle
 ComplianceAgent already applies (SEM_POSICAO_ATUAL / SEM_REGRAS_DEFINIDAS
 instead of a guessed value).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -27,6 +28,7 @@ PriorityLevel = Literal["CRITICAL", "HIGH", "MEDIUM", "LOW", "NEUTRAL"]
 
 # ── MarketAgent ──────────────────────────────────────────────────────────────
 
+
 @dataclass
 class MarketMovement:
     """One asset's observed move against its previous close.
@@ -36,6 +38,7 @@ class MarketMovement:
     live source is unavailable — never silently blended, so a caller can
     always tell real data from a placeholder.
     """
+
     asset: str
     previous_value: float | None
     current_value: float | None
@@ -57,10 +60,16 @@ class MarketMovement:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "asset": self.asset, "previous_value": self.previous_value,
-            "current_value": self.current_value, "change": self.change,
-            "unit": self.unit, "relevance": self.relevance, "source": self.source,
-            "group": self.group, "history": self.history, "error": self.error,
+            "asset": self.asset,
+            "previous_value": self.previous_value,
+            "current_value": self.current_value,
+            "change": self.change,
+            "unit": self.unit,
+            "relevance": self.relevance,
+            "source": self.source,
+            "group": self.group,
+            "history": self.history,
+            "error": self.error,
         }
 
 
@@ -79,7 +88,8 @@ class MarketSnapshot:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "timestamp": self.timestamp, "market_status": self.market_status,
+            "timestamp": self.timestamp,
+            "market_status": self.market_status,
             "movements": [m.to_dict() for m in self.movements],
             "relevant_changes": self.relevant_changes,
             "potential_impacts": self.potential_impacts,
@@ -88,6 +98,7 @@ class MarketSnapshot:
 
 
 # ── IntelligenceEngine ───────────────────────────────────────────────────────
+
 
 @dataclass
 class IntelligenceEvent:
@@ -102,6 +113,7 @@ class IntelligenceEvent:
     Never fabricate a value for a field that doesn't apply to the status —
     leave it None and let to_dict() drop it.
     """
+
     status: IntelligenceStatus
     reason: str
     suggested_action: str | None = None
@@ -126,14 +138,16 @@ class IntelligenceEvent:
             if self.affected_portfolios:
                 out["affected_portfolios"] = self.affected_portfolios
         elif self.status == "OVERRIDE":
-            out.update({
-                "previous_thesis": self.previous_thesis,
-                "new_information": self.new_information,
-                "impact": self.impact,
-                "affected_assets": self.affected_assets,
-                "affected_portfolios": self.affected_portfolios,
-                "suggested_action": self.suggested_action,
-            })
+            out.update(
+                {
+                    "previous_thesis": self.previous_thesis,
+                    "new_information": self.new_information,
+                    "impact": self.impact,
+                    "affected_assets": self.affected_assets,
+                    "affected_portfolios": self.affected_portfolios,
+                    "suggested_action": self.suggested_action,
+                }
+            )
         return out
 
 
@@ -143,6 +157,7 @@ class AuditRecord:
 
     Append-only by design — this is a decision log, not mutable state.
     """
+
     timestamp: str
     source: str
     input: dict[str, Any]
@@ -153,18 +168,24 @@ class AuditRecord:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "timestamp": self.timestamp, "source": self.source, "input": self.input,
-            "rule": self.rule, "classification": self.classification,
-            "reason": self.reason, "suggested_action": self.suggested_action,
+            "timestamp": self.timestamp,
+            "source": self.source,
+            "input": self.input,
+            "rule": self.rule,
+            "classification": self.classification,
+            "reason": self.reason,
+            "suggested_action": self.suggested_action,
         }
 
 
 # ── PriorityEngine ───────────────────────────────────────────────────────────
 
+
 @dataclass
 class PriorityItem:
     """One prioritized occurrence — a ComplianceAgent violation or an
     IntelligenceEvent, ranked for the specialist's attention."""
+
     source: Literal["compliance", "intelligence"]
     level: PriorityLevel
     title: str
@@ -175,8 +196,11 @@ class PriorityItem:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "source": self.source, "level": self.level, "title": self.title,
-            "reason": self.reason, "suggested_action": self.suggested_action,
+            "source": self.source,
+            "level": self.level,
+            "title": self.title,
+            "reason": self.reason,
+            "suggested_action": self.suggested_action,
             "affected_portfolios": self.affected_portfolios,
             "affected_clients_count": self.affected_clients_count,
         }

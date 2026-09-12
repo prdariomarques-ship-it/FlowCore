@@ -1,4 +1,5 @@
 """Tests for api/tenant_auth.py — get_current_user/require_role."""
+
 from __future__ import annotations
 
 import asyncio
@@ -11,6 +12,8 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+pytest.importorskip("fastapi")
 
 from fastapi import HTTPException  # noqa: E402
 

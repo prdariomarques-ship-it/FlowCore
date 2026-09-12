@@ -10,6 +10,7 @@ or alters a face -- it only re-encodes whatever real image bytes were
 uploaded into one predictable shape (a square JPEG capped at a sane
 size), the same way an avatar-upload flow works on any real product.
 """
+
 from __future__ import annotations
 
 import base64
@@ -56,9 +57,7 @@ def normalize_advisor_photo(data_uri: str) -> str:
     side = min(image.size)
     left = (image.width - side) // 2
     top = (image.height - side) // 2
-    image = image.crop((left, top, left + side, top + side)).resize(
-        (_TARGET_SIZE, _TARGET_SIZE), Image.LANCZOS
-    )
+    image = image.crop((left, top, left + side, top + side)).resize((_TARGET_SIZE, _TARGET_SIZE), Image.LANCZOS)
 
     buffer = io.BytesIO()
     image.save(buffer, format="JPEG", quality=85)

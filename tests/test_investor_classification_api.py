@@ -1,6 +1,7 @@
 """Tests for the investor classification HTTP endpoints:
 GET /api/investor-classification/rules, PUT /api/clients/{id}/investor-classification.
 """
+
 from __future__ import annotations
 
 import sys
@@ -60,7 +61,9 @@ class TestInvestorClassificationUpdate:
         c = _client()
         session = signup_office(c)
         created = c.post(
-            "/api/clients", json={"name": "Cliente Rico"}, headers=session["headers"],
+            "/api/clients",
+            json={"name": "Cliente Rico"},
+            headers=session["headers"],
         ).json()["client"]
 
         resp = c.put(
@@ -77,7 +80,9 @@ class TestInvestorClassificationUpdate:
         c = _client()
         session = signup_office(c)
         created = c.post(
-            "/api/clients", json={"name": "Cliente Certificado"}, headers=session["headers"],
+            "/api/clients",
+            json={"name": "Cliente Certificado"},
+            headers=session["headers"],
         ).json()["client"]
 
         resp = c.put(
@@ -92,7 +97,9 @@ class TestInvestorClassificationUpdate:
         c = _client()
         session = signup_office(c)
         created = c.post(
-            "/api/clients", json={"name": "Cliente Padrão"}, headers=session["headers"],
+            "/api/clients",
+            json={"name": "Cliente Padrão"},
+            headers=session["headers"],
         ).json()["client"]
         assert created["investor_category"] == "geral"
 
@@ -101,7 +108,9 @@ class TestInvestorClassificationUpdate:
         session_a = signup_office(c)
         session_b = signup_office(c)
         created = c.post(
-            "/api/clients", json={"name": "Cliente A"}, headers=session_a["headers"],
+            "/api/clients",
+            json={"name": "Cliente A"},
+            headers=session_a["headers"],
         ).json()["client"]
 
         resp = c.put(

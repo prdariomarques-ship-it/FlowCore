@@ -2,6 +2,7 @@
 into a predictable square JPEG. Never generates or alters a face; see
 the module's own docstring for why that distinction is the whole point.
 """
+
 from __future__ import annotations
 
 import base64
@@ -64,7 +65,6 @@ class TestNormalizeAdvisorPhoto:
         encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
         result = normalize_advisor_photo(f"data:image/png;base64,{encoded}")
         image = _decode(result).convert("RGB")
-        center_pixel = image.getpixel((160, 160))
         # center crop of a 400x200 image keeps x in [100, 300) -- pure red
         # and pure blue both appear in that band, so the exact center
         # column sits right at the seam. Sample near, not at, the edges.

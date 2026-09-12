@@ -6,9 +6,11 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
+
+pytest.importorskip("pydantic")
 from pydantic import ValidationError
 
-from darius.interfaces.llm import LLMAdapter, LLMMessage, LLMResponse, LLMUsage
+from darius.interfaces.llm import LLMAdapter, LLMMessage, LLMResponse
 from darius.interfaces.mcp import (
     MCPAdapter,
     MCPPrompt,

@@ -12,7 +12,6 @@ import time
 from typing import Any
 
 from darius.interfaces.notifications import (
-    NotificationChannelAdapter,
     NotificationDeliveryResult,
     NotificationMessage,
 )

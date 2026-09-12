@@ -154,9 +154,7 @@ class TestGenerate:
             return _FakeHTTPResponse({"choices": [{"message": {"content": "ok"}}], "model": "deepseek-chat"})
 
         with patch("urllib.request.urlopen", side_effect=fake_urlopen):
-            DeepSeekProvider(api_key="sk-test", base_url="https://proxy.internal/v1").generate(
-                LLMRequest(prompt="hi")
-            )
+            DeepSeekProvider(api_key="sk-test", base_url="https://proxy.internal/v1").generate(LLMRequest(prompt="hi"))
 
         assert captured["url"] == "https://proxy.internal/v1/chat/completions"
 

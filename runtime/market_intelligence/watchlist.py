@@ -13,16 +13,36 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 from runtime.observers.providers.ptax_provider import fetch_usdbrl_ptax
 from runtime.observers.providers.yfinance_provider import ObserverError, fetch_quote
 
 DEFAULT_WATCHLISTS: dict[str, list[str]] = {
-    "default": ["^BVSP", "USDBRL=X", "^IRX", "^TNX", "^TYX", "^FVX",
-                "^GSPC", "^IXIC", "^DJI", "^RUT", "^VIX", "GC=F", "CL=F",
-                "SI=F", "HG=F", "DX-Y.NYB", "EURUSD=X", "JPY=X", "CNY=X",
-                "^FTSE", "^GDAXI", "^FCHI", "^KS11"],
+    "default": [
+        "^BVSP",
+        "USDBRL=X",
+        "^IRX",
+        "^TNX",
+        "^TYX",
+        "^FVX",
+        "^GSPC",
+        "^IXIC",
+        "^DJI",
+        "^RUT",
+        "^VIX",
+        "GC=F",
+        "CL=F",
+        "SI=F",
+        "HG=F",
+        "DX-Y.NYB",
+        "EURUSD=X",
+        "JPY=X",
+        "CNY=X",
+        "^FTSE",
+        "^GDAXI",
+        "^FCHI",
+        "^KS11",
+    ],
     "brasil": ["^BVSP", "USDBRL=X", "^IRX", "^TNX"],
     "global_rates": ["^IRX", "^FVX", "^TNX", "^TYX", "DE10Y.F"],
     "commodities": ["GC=F", "CL=F", "SI=F", "HG=F", "PL=F", "BZ=F"],
@@ -70,8 +90,7 @@ def _try_fallback(symbol: str) -> dict | None:
 def snapshot(watchlist: str) -> dict:
     symbols = DEFAULT_WATCHLISTS.get(watchlist)
     if symbols is None:
-        return {"error": f"unknown watchlist: {watchlist}",
-                "available": list_watchlists()["watchlists"]}
+        return {"error": f"unknown watchlist: {watchlist}", "available": list_watchlists()["watchlists"]}
     fetched: dict[str, WatchlistItem] = {}
 
     def fetch_item(symbol: str) -> WatchlistItem:
@@ -115,10 +134,15 @@ def snapshot(watchlist: str) -> dict:
             try:
                 fetched[symbol] = future.result()
             except Exception as exc:
-                fetched[symbol] = WatchlistItem(symbol=symbol, level=None, delta_pct_1d=None, status="error", error=str(exc))
+                fetched[symbol] = WatchlistItem(
+                    symbol=symbol, level=None, delta_pct_1d=None, status="error", error=str(exc)
+                )
 
     items = [fetched[symbol] for symbol in symbols]
-    return {"watchlist": watchlist,
-            "items": [{"symbol": i.symbol, "level": i.level,
-                       "delta_pct_1d": i.delta_pct_1d,
-                       "status": i.status, "error": i.error} for i in items]}
+    return {
+        "watchlist": watchlist,
+        "items": [
+            {"symbol": i.symbol, "level": i.level, "delta_pct_1d": i.delta_pct_1d, "status": i.status, "error": i.error}
+            for i in items
+        ],
+    }

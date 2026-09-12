@@ -33,6 +33,7 @@ Ollama (local or remote via Tailscale):
 
 All values are read at request time — no restart needed after editing.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -46,9 +47,6 @@ from typing import Any
 from fastapi import HTTPException, Query, Request
 from pydantic import BaseModel, field_validator
 
-_OLLAMA_DEFAULT = "http://localhost:11434"
-_DATA_DIR = Path.home() / ".flowcore"
-
 # Single source of truth for the office's investment policy (fase 0:
 # office-scoped, backed by storage/client_repo.py) lives in
 # runtime/portfolio/reference.py — shared with agents/compliance_agent.py
@@ -59,8 +57,13 @@ _DATA_DIR = Path.home() / ".flowcore"
 from runtime.portfolio.reference import load_reference_portfolio as _load_reference_portfolio
 from api.tenant_auth import get_current_user
 
+_OLLAMA_DEFAULT = "http://localhost:11434"
+_DATA_DIR = Path.home() / ".flowcore"
 
-def _review_reference_portfolio(portfolio: dict[str, Any], events: list[str] | None = None, current: dict[str, float] | None = None) -> dict[str, Any]:
+
+def _review_reference_portfolio(
+    portfolio: dict[str, Any], events: list[str] | None = None, current: dict[str, float] | None = None
+) -> dict[str, Any]:
     now = datetime.now(timezone.utc).isoformat()
     allocation = portfolio.get("target_allocation", [])
     events = events or []
@@ -73,25 +76,50 @@ def _review_reference_portfolio(portfolio: dict[str, Any], events: list[str] | N
         target = float(item.get("weight", 0))
         actual = float(current.get(item.get("id", ""), target if not current else 0))
         points = round(actual - target, 2)
-        drift.append({"id": item.get("id"), "target_weight": target, "current_weight": actual, "drift_points": points, "outside_band": abs(points) >= threshold})
+        drift.append(
+            {
+                "id": item.get("id"),
+                "target_weight": target,
+                "current_weight": actual,
+                "drift_points": points,
+                "outside_band": abs(points) >= threshold,
+            }
+        )
         if current and abs(points) >= threshold:
             alerts.append(f"Desvio de {points:+.2f} p.p. em {item.get('label', item.get('id'))}")
     if not current:
-        alerts.extend(["Carteira de referência sem posições reais informadas", "Revisão de mercado ao vivo depende de uma fonte de dados configurada"])
+        alerts.extend(
+            [
+                "Carteira de referência sem posições reais informadas",
+                "Revisão de mercado ao vivo depende de uma fonte de dados configurada",
+            ]
+        )
     if events:
         alerts.extend([f"Evento recebido: {event}" for event in events])
     return {
-        "portfolio_id": portfolio.get("id", "moderate-ia-1m"), "reviewed_at": now,
-        "mode": "review_and_alert_only", "live_data": bool(events), "orders_executed": False,
+        "portfolio_id": portfolio.get("id", "moderate-ia-1m"),
+        "reviewed_at": now,
+        "mode": "review_and_alert_only",
+        "live_data": bool(events),
+        "orders_executed": False,
         "status": "alert" if alerts and (events or current) else "reference_only",
-        "alerts": alerts, "events_received": events, "drift": drift,
-        "next_action": "Avaliar proposta e exigir aprovação humana antes de qualquer ordem" if alerts and (events or current) else "Configurar posições e fonte de dados antes de qualquer rebalanceamento",
+        "alerts": alerts,
+        "events_received": events,
+        "drift": drift,
+        "next_action": "Avaliar proposta e exigir aprovação humana antes de qualquer ordem"
+        if alerts and (events or current)
+        else "Configurar posições e fonte de dados antes de qualquer rebalanceamento",
     }
 
 
 _COMPLIANCE_KEYWORDS = (
-    "desenquadr", "fora do limite", "acima do limite", "abaixo do limite",
-    "compliance", "fora da politica", "fora da política",
+    "desenquadr",
+    "fora do limite",
+    "acima do limite",
+    "abaixo do limite",
+    "compliance",
+    "fora da politica",
+    "fora da política",
 )
 
 
@@ -127,18 +155,46 @@ async def _answer_compliance_question(office_id: str) -> str:
 
 
 _MARKET_KEYWORDS = (
-    "mercado", "ibovespa", "s&p", "s&p500", "nasdaq", "dólar", "dolar", "usd/brl",
-    "treasury", "juros americano", "di jan", "petróleo", "petroleo", "ouro", "cobre",
-    "movimento de mercado", "indicador",
+    "mercado",
+    "ibovespa",
+    "s&p",
+    "s&p500",
+    "nasdaq",
+    "dólar",
+    "dolar",
+    "usd/brl",
+    "treasury",
+    "juros americano",
+    "di jan",
+    "petróleo",
+    "petroleo",
+    "ouro",
+    "cobre",
+    "movimento de mercado",
+    "indicador",
 )
 _INTELLIGENCE_KEYWORDS = (
-    "override", "recalibr", "inteligência", "inteligencia",
-    "o que mudou na carteira", "o que mudou nas prioridades", "o que mudou hoje",
-    "por que essa carteira", "por que a carteira", "por que está em alerta",
-    "por que esta em alerta", "tese", "muda a tese",
+    "override",
+    "recalibr",
+    "inteligência",
+    "inteligencia",
+    "o que mudou na carteira",
+    "o que mudou nas prioridades",
+    "o que mudou hoje",
+    "por que essa carteira",
+    "por que a carteira",
+    "por que está em alerta",
+    "por que esta em alerta",
+    "tese",
+    "muda a tese",
 )
 _PRIORITY_KEYWORDS = (
-    "prioridade", "priorizar", "o que fazer primeiro", "mais urgente", "por onde começar", "por onde comecar",
+    "prioridade",
+    "priorizar",
+    "o que fazer primeiro",
+    "mais urgente",
+    "por onde começar",
+    "por onde comecar",
 )
 
 
@@ -239,6 +295,7 @@ async def _answer_priority_question(office_id: str) -> str:
 
 # ── Request schemas (module-level so FastAPI resolves them correctly) ──────────
 
+
 class SignupRequest(BaseModel):
     office_name: str
     name: str
@@ -299,6 +356,7 @@ class PortfolioReviewInput(BaseModel):
 class ReferencePortfolioUpdate(BaseModel):
     """Partial update for the editable reference portfolio — only fields
     provided are changed, same convention as AIConfig/ai_config_patch."""
+
     name: str | None = None
     reference_value: float | None = None
     target_allocation: list[dict[str, Any]] | None = None
@@ -311,6 +369,7 @@ class ClientCreate(BaseModel):
     """A real client, entered by the advisor -- never fabricated. Only
     `name` is required; everything else can be filled in later via the
     existing per-client update endpoints (allocation, contact)."""
+
     name: str
     profile: str = ""
     reference_value: float | None = None
@@ -322,6 +381,7 @@ class ClientCreate(BaseModel):
 class DemoClientUpdate(BaseModel):
     """Partial update for one demo client's position — same partial-merge
     convention as ReferencePortfolioUpdate."""
+
     current_allocation: dict[str, float]
 
 
@@ -330,6 +390,7 @@ class ClientContactUpdate(BaseModel):
     inferred or defaulted. Empty string clears the field; omitted field
     leaves it untouched (same partial-update convention used everywhere
     else in this module)."""
+
     email: str | None = None
     phone: str | None = None
 
@@ -341,6 +402,7 @@ class InvestorClassificationUpdate(BaseModel):
     from `declared_investments` and/or `certification`, so a request
     can't just assert "profissional" without the wealth/certification to
     back it. Passing both fields as null resets the client to 'geral'."""
+
     declared_investments: float | None = None
     certification: str | None = None
 
@@ -354,6 +416,7 @@ class OfficeNotificationsUpdate(BaseModel):
     notifications (agents/orchestrator.py). None/empty clears it -- an
     office with none configured simply gets no autonomous Telegram
     alert, never a fabricated delivery."""
+
     telegram_chat_id: str | None = None
 
 
@@ -363,6 +426,7 @@ class AgentApprovalEdit(BaseModel):
     subject/body) before a human approves it. Deliberately a free-form
     dict, not a rigid schema: action_type already varies what payload
     means (today only "contact_client", see agents/orchestrator.py)."""
+
     payload: dict[str, Any]
 
 
@@ -374,6 +438,7 @@ class AdvisorProfileUpdate(BaseModel):
     storage — see that module's docstring for why this is upload-only,
     never generated. Omit `photo` to leave it untouched; pass an empty
     string to clear it back to the initials avatar."""
+
     name: str | None = None
     title: str | None = None
     quote: str | None = None
@@ -422,6 +487,7 @@ class BriefRequest(BaseModel):
 
 # ── Shared helpers ─────────────────────────────────────────────────────────────
 
+
 def _tcp_reachable(url: str, timeout: float = 3.0) -> bool:
     """Quick TCP probe so an unreachable AI endpoint fails in ~3s instead of
     burning the full request timeout (90s/180s) — without this, the chat UI
@@ -449,7 +515,9 @@ def _http_json(method: str, url: str, body: dict | None = None, timeout: int = 3
 
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(
-        url, data=data, method=method,
+        url,
+        data=data,
+        method=method,
         headers={"Content-Type": "application/json"},
     )
     try:
@@ -471,11 +539,16 @@ def _openai_chat(messages: list[dict], model: str, timeout: int = 90) -> str:
         raise RuntimeError("openai_url not configured")
     resolved_model = model or cfg.get("openai_model", "")
     url = f"{base}/v1/chat/completions"
-    resp = _http_json("POST", url, {
-        "model": resolved_model,
-        "messages": messages,
-        "stream": False,
-    }, timeout=timeout)
+    resp = _http_json(
+        "POST",
+        url,
+        {
+            "model": resolved_model,
+            "messages": messages,
+            "stream": False,
+        },
+        timeout=timeout,
+    )
     return resp["choices"][0]["message"]["content"]
 
 
@@ -502,6 +575,7 @@ def _read_json(filename: str, default: Any = None) -> Any:
 
 
 # ── Registration ───────────────────────────────────────────────────────────────
+
 
 def register_dashboard_routes(app, version: str) -> None:
     """Register all Dashboard v4 API routes onto *app*."""
@@ -531,7 +605,8 @@ def register_dashboard_routes(app, version: str) -> None:
             raise HTTPException(status_code=409, detail="Este email já está cadastrado.")
         await ClientRepository().seed_office(office["id"], with_demo_clients=is_first_office)
         session = await tenant_repo.create_session(
-            user["id"], user_agent=request.headers.get("User-Agent"),
+            user["id"],
+            user_agent=request.headers.get("User-Agent"),
             ip_address=request.client.host if request.client else None,
         )
         return {"token": session["token"], "user": user, "office": office}
@@ -557,7 +632,8 @@ def register_dashboard_routes(app, version: str) -> None:
         if not user:
             raise HTTPException(status_code=401, detail="Email ou senha inválidos.")
         session = await tenant_repo.create_session(
-            user["id"], user_agent=request.headers.get("User-Agent"),
+            user["id"],
+            user_agent=request.headers.get("User-Agent"),
             ip_address=request.client.host if request.client else None,
         )
         return {"token": session["token"], "user": user}
@@ -569,7 +645,7 @@ def register_dashboard_routes(app, version: str) -> None:
         token = None
         header = request.headers.get("Authorization")
         if header and header.startswith("Bearer "):
-            token = header[len("Bearer "):].strip()
+            token = header[len("Bearer ") :].strip()
         if token:
             await TenantRepository().delete_session(token)
         return {"logged_out": True}
@@ -588,7 +664,7 @@ def register_dashboard_routes(app, version: str) -> None:
 
         user = await get_current_user(request)
         header = request.headers.get("Authorization")
-        token = header[len("Bearer "):].strip() if header and header.startswith("Bearer ") else None
+        token = header[len("Bearer ") :].strip() if header and header.startswith("Bearer ") else None
         tenant_repo = TenantRepository()
         current_id = await tenant_repo.get_session_id(token) if token else None
         sessions = await tenant_repo.list_sessions(user["id"])
@@ -629,6 +705,7 @@ def register_dashboard_routes(app, version: str) -> None:
         # hammering it could peg the phone's CPU. 20 questions/minute per
         # office is generous for a human typing, not for a loop.
         from runtime.rate_limit import check_rate_limit
+
         if not check_rate_limit(f"ask:{user['office_id']}", max_requests=20, window_seconds=60):
             raise HTTPException(status_code=429, detail="Muitas perguntas em pouco tempo. Aguarde um momento.")
 
@@ -651,7 +728,10 @@ def register_dashboard_routes(app, version: str) -> None:
                 try:
                     answer = await answer_fn(user["office_id"])
                 except Exception as exc:  # noqa: BLE001 - degrade, never 500
-                    answer = f"Não foi possível consultar os dados agora ({type(exc).__name__}). Tente novamente em instantes."
+                    answer = (
+                        f"Não foi possível consultar os dados agora ({type(exc).__name__}). "
+                        "Tente novamente em instantes."
+                    )
                 return {"answer": answer, "provider": provider, "model": ""}
 
         # Try the "ask" agent first -- AgentEngine's tool-calling (see
@@ -662,6 +742,7 @@ def register_dashboard_routes(app, version: str) -> None:
         # by design (a tool-selection call, not a chat model).
         try:
             from agents.runner import AgentRunner
+
             runner = AgentRunner(require_passport=False)
             agents = {a["name"] for a in runner.list_agents()}
             if "ask" in agents:
@@ -711,11 +792,16 @@ def register_dashboard_routes(app, version: str) -> None:
                 last_error = RuntimeError(f"{label} endpoint unreachable: {base}")
                 continue
             try:
-                resp = _http_json("POST", f"{base}/api/chat", {
-                    "model": model,
-                    "messages": messages,
-                    "stream": False,
-                }, timeout=timeout)
+                resp = _http_json(
+                    "POST",
+                    f"{base}/api/chat",
+                    {
+                        "model": model,
+                        "messages": messages,
+                        "stream": False,
+                    },
+                    timeout=timeout,
+                )
                 answer = resp.get("message", {}).get("content", "")
                 return {"answer": answer, "provider": f"ollama-{label}", "model": model}
             except Exception as exc:  # noqa: BLE001 - try next candidate
@@ -776,7 +862,8 @@ def register_dashboard_routes(app, version: str) -> None:
     # whatever name is configured here — never a fabricated placeholder.
 
     _ADVISOR_DEFAULT = {
-        "name": "Dário Marques", "title": "Especialista em Investimentos",
+        "name": "Dário Marques",
+        "title": "Especialista em Investimentos",
         "quote": "Estratégia transforma informação em liberdade.",
     }
 
@@ -868,28 +955,58 @@ def register_dashboard_routes(app, version: str) -> None:
             if not url:
                 return {"configured": False}
             if not _tcp_reachable(url):
-                return {"configured": True, "url": url, "model": model, "reachable": False,
-                        "error": "Endpoint não respondeu (timeout ou recusado)."}
+                return {
+                    "configured": True,
+                    "url": url,
+                    "model": model,
+                    "reachable": False,
+                    "error": "Endpoint não respondeu (timeout ou recusado).",
+                }
             try:
                 tags = _http_json("GET", f"{url.rstrip('/')}/api/tags", timeout=5)
                 names = [m.get("name", "") for m in tags.get("models", [])]
             except Exception as exc:  # noqa: BLE001 - reachable but broken is still real info
-                return {"configured": True, "url": url, "model": model, "reachable": True,
-                        "model_available": None, "error": f"Não foi possível listar modelos: {exc}"}
+                return {
+                    "configured": True,
+                    "url": url,
+                    "model": model,
+                    "reachable": True,
+                    "model_available": None,
+                    "error": f"Não foi possível listar modelos: {exc}",
+                }
             available = any(n == model or n.startswith(f"{model}:") for n in names) if model else None
-            error = None if available or not model else f"Modelo '{model}' não encontrado neste Ollama. Rode: ollama pull {model}"
-            return {"configured": True, "url": url, "model": model, "reachable": True,
-                    "model_available": available, "models_found": names, "error": error}
+            error = (
+                None
+                if available or not model
+                else f"Modelo '{model}' não encontrado neste Ollama. Rode: ollama pull {model}"
+            )
+            return {
+                "configured": True,
+                "url": url,
+                "model": model,
+                "reachable": True,
+                "model_available": available,
+                "models_found": names,
+                "error": error,
+            }
 
         def _check_openai(url: str) -> dict:
             if not url:
                 return {"configured": False}
             reachable = _tcp_reachable(url)
-            return {"configured": True, "url": url, "reachable": reachable,
-                    "error": None if reachable else "Endpoint não respondeu (timeout ou recusado)."}
+            return {
+                "configured": True,
+                "url": url,
+                "reachable": reachable,
+                "error": None if reachable else "Endpoint não respondeu (timeout ou recusado).",
+            }
 
-        pc = await asyncio.to_thread(_check_ollama, cfg.get("ollama_url", _OLLAMA_DEFAULT), cfg.get("model", "phi4-mini"))
-        celular = await asyncio.to_thread(_check_ollama, cfg.get("ollama_fallback_url", ""), cfg.get("fallback_model", ""))
+        pc = await asyncio.to_thread(
+            _check_ollama, cfg.get("ollama_url", _OLLAMA_DEFAULT), cfg.get("model", "phi4-mini")
+        )
+        celular = await asyncio.to_thread(
+            _check_ollama, cfg.get("ollama_fallback_url", ""), cfg.get("fallback_model", "")
+        )
         openai_compat = await asyncio.to_thread(_check_openai, cfg.get("openai_url", ""))
         return {"pc": pc, "celular": celular, "openai_compat": openai_compat}
 
@@ -934,12 +1051,17 @@ def register_dashboard_routes(app, version: str) -> None:
     @app.post("/api/ai-runtime/load")
     async def ai_load(data: ModelAction):
         try:
-            _ollama("POST", "/api/generate", {
-                "model": data.model,
-                "prompt": "",
-                "keep_alive": data.keep_alive,
-                "stream": False,
-            }, timeout=120)
+            _ollama(
+                "POST",
+                "/api/generate",
+                {
+                    "model": data.model,
+                    "prompt": "",
+                    "keep_alive": data.keep_alive,
+                    "stream": False,
+                },
+                timeout=120,
+            )
             return {"loaded": True, "model": data.model}
         except RuntimeError as exc:
             return {"loaded": False, "model": data.model, "error": str(exc)}
@@ -947,12 +1069,17 @@ def register_dashboard_routes(app, version: str) -> None:
     @app.post("/api/ai-runtime/unload")
     async def ai_unload(data: ModelAction):
         try:
-            _ollama("POST", "/api/generate", {
-                "model": data.model,
-                "prompt": "",
-                "keep_alive": 0,
-                "stream": False,
-            }, timeout=30)
+            _ollama(
+                "POST",
+                "/api/generate",
+                {
+                    "model": data.model,
+                    "prompt": "",
+                    "keep_alive": 0,
+                    "stream": False,
+                },
+                timeout=30,
+            )
             return {"unloaded": True, "model": data.model}
         except RuntimeError as exc:
             return {"unloaded": False, "model": data.model, "error": str(exc)}
@@ -963,6 +1090,7 @@ def register_dashboard_routes(app, version: str) -> None:
     async def ai_registry_list():
         """List all models in the Model Registry."""
         from runtime.ai.model_registry import get_registry
+
         reg = get_registry()
         cfg = _read_json("ai.json", {})
         ollama_url = cfg.get("ollama_url", _OLLAMA_DEFAULT)
@@ -977,6 +1105,7 @@ def register_dashboard_routes(app, version: str) -> None:
     async def ai_routing_table():
         """Return the full routing table (task → model)."""
         from runtime.ai.router import get_router
+
         router = get_router()
         return {"routing": router.routing_table(), "rules": router.get_rules()}
 
@@ -984,6 +1113,7 @@ def register_dashboard_routes(app, version: str) -> None:
     async def ai_routing_pin(data: RoutingPinRequest):
         """Pin a model for a specific task type."""
         from runtime.ai.router import get_router, TASK_TYPES
+
         if data.task not in TASK_TYPES:
             raise HTTPException(status_code=422, detail=f"task must be one of {list(TASK_TYPES)}")
         get_router().pin(data.task, data.model_id)
@@ -993,6 +1123,7 @@ def register_dashboard_routes(app, version: str) -> None:
     async def ai_routing_unpin(task: str):
         """Remove a pinned model for a task type."""
         from runtime.ai.router import get_router
+
         get_router().unpin(task)
         return {"unpinned": True, "task": task}
 
@@ -1001,11 +1132,13 @@ def register_dashboard_routes(app, version: str) -> None:
         """Run benchmark tasks against a model. Runs in background — returns immediately."""
         import asyncio
         from runtime.ai.benchmark import get_benchmark
+
         cfg = _read_json("ai.json", {})
         ollama_url = cfg.get("ollama_url", _OLLAMA_DEFAULT)
 
         async def _run():
             import concurrent.futures
+
             loop = asyncio.get_event_loop()
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                 await loop.run_in_executor(
@@ -1020,12 +1153,14 @@ def register_dashboard_routes(app, version: str) -> None:
     async def ai_benchmark_history(model_id: str | None = Query(None), limit: int = Query(10)):
         """Return benchmark run history."""
         from runtime.ai.benchmark import get_benchmark
+
         return {"runs": get_benchmark().history(model_id=model_id, limit=limit)}
 
     @app.get("/api/ai/benchmark/compare")
     async def ai_benchmark_compare(model_a: str = Query(...), model_b: str = Query(...)):
         """Compare two models using their latest benchmark results."""
         from runtime.ai.benchmark import get_benchmark
+
         return get_benchmark().compare(model_a, model_b)
 
     # ── AI Memory Engine ──────────────────────────────────────────────────────
@@ -1038,6 +1173,7 @@ def register_dashboard_routes(app, version: str) -> None:
         limit: int = Query(20),
     ):
         from runtime.ai.memory import get_memory
+
         tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else None
         mem = get_memory()
         results = mem.search(q, tags=tag_list, origin=origin, limit=limit)
@@ -1046,6 +1182,7 @@ def register_dashboard_routes(app, version: str) -> None:
     @app.post("/api/ai/memory")
     async def memory_remember(data: MemoryRequest):
         from runtime.ai.memory import get_memory, ORIGINS
+
         if data.origin not in ORIGINS:
             raise HTTPException(status_code=422, detail=f"origin must be one of {list(ORIGINS)}")
         entry = get_memory().remember(
@@ -1061,12 +1198,14 @@ def register_dashboard_routes(app, version: str) -> None:
     @app.delete("/api/ai/memory/{entry_id}")
     async def memory_delete(entry_id: str):
         from runtime.ai.memory import get_memory
+
         deleted = get_memory().delete(entry_id)
         return {"deleted": deleted, "id": entry_id}
 
     @app.post("/api/ai/memory/{entry_id}/invalidate")
     async def memory_invalidate(entry_id: str, data: MemoryInvalidateRequest):
         from runtime.ai.memory import get_memory
+
         ok = get_memory().invalidate(entry_id, reason=data.reason)
         return {"invalidated": ok, "id": entry_id}
 
@@ -1084,22 +1223,38 @@ def register_dashboard_routes(app, version: str) -> None:
     async def market_fx():
         try:
             from runtime.market_intelligence.fx_analysis import analyze_fx
+
             return {**analyze_fx(), "available": True, "updated_at": time.time(), "stub": False}
         except Exception as exc:
-            return {"pairs": [], "usd_regime": "unknown", "dxy_delta_pct_1d": None, "stub": False, **_market_unavailable("fx", exc)}
+            return {
+                "pairs": [],
+                "usd_regime": "unknown",
+                "dxy_delta_pct_1d": None,
+                "stub": False,
+                **_market_unavailable("fx", exc),
+            }
 
     @app.get("/api/market/yield-curve")
     async def market_yield_curve():
         try:
             from runtime.market_intelligence.yield_curve import build_yield_curve
+
             return {**build_yield_curve().to_dict(), "available": True, "updated_at": time.time(), "stub": False}
         except Exception as exc:
-            return {"points": [], "slope_10y_2y_bps": None, "shape": None, "interpretation": None, "stub": False, **_market_unavailable("yield_curve", exc)}
+            return {
+                "points": [],
+                "slope_10y_2y_bps": None,
+                "shape": None,
+                "interpretation": None,
+                "stub": False,
+                **_market_unavailable("yield_curve", exc),
+            }
 
     @app.get("/api/market/watchlists")
     async def market_watchlists():
         try:
             from runtime.market_intelligence.watchlist import list_watchlists
+
             return {**list_watchlists(), "available": True, "updated_at": time.time(), "stub": False}
         except Exception as exc:
             return {"watchlists": [], "stub": False, **_market_unavailable("watchlists", exc)}
@@ -1108,6 +1263,7 @@ def register_dashboard_routes(app, version: str) -> None:
     async def market_watchlist_snapshot(watchlist: str):
         try:
             from runtime.market_intelligence.watchlist import snapshot
+
             return {**snapshot(watchlist), "available": True, "updated_at": time.time(), "stub": False}
         except Exception as exc:
             return {"watchlist": watchlist, "items": [], "stub": False, **_market_unavailable("watchlist", exc)}
@@ -1116,6 +1272,7 @@ def register_dashboard_routes(app, version: str) -> None:
     async def market_asset_classes():
         try:
             from runtime.market_intelligence.asset_classes import analyze_asset_classes
+
             return {**analyze_asset_classes(), "available": True, "updated_at": time.time(), "stub": False}
         except Exception as exc:
             return {"classes": {}, "stub": False, **_market_unavailable("asset_classes", exc)}
@@ -1124,6 +1281,7 @@ def register_dashboard_routes(app, version: str) -> None:
     async def market_briefing():
         try:
             from runtime.market_intelligence.briefing import build_briefing
+
             return {**build_briefing(), "available": True, "stub": False}
         except Exception as exc:
             return {"lines": [], "stub": False, **_market_unavailable("briefing", exc)}
@@ -1135,11 +1293,15 @@ def register_dashboard_routes(app, version: str) -> None:
         ~/.flowcore/market_close/<data>.json."""
         try:
             from runtime.market_intelligence.market_close import build_market_close
+
             return {**build_market_close(), "available": True, "stub": False}
         except Exception as exc:
             return {
-                "raw_lines": [], "client_version": "", "instagram_version": "",
-                "stub": False, **_market_unavailable("close", exc),
+                "raw_lines": [],
+                "client_version": "",
+                "instagram_version": "",
+                "stub": False,
+                **_market_unavailable("close", exc),
             }
 
     @app.get("/api/market/overview")
@@ -1148,6 +1310,7 @@ def register_dashboard_routes(app, version: str) -> None:
         try:
             from runtime.market_intelligence.alerts import evaluate_alerts, list_alerts
             from runtime.market_intelligence.source_catalog import source_snapshot
+
             evaluate_alerts()  # nothing else runs this on a schedule — without it the
             # alerts table never gets populated and this card always reads empty.
             sources = source_snapshot()
@@ -1156,25 +1319,29 @@ def register_dashboard_routes(app, version: str) -> None:
                 if not observation.get("available"):
                     continue
                 if observation.get("instrument"):
-                    items.append({
-                        "symbol": observation["instrument"],
-                        "label": observation.get("label", observation["instrument"]),
-                        "level": observation.get("value"),
-                        "delta_pct_1d": None,
-                        "status": "ok",
-                        "source": observation.get("source"),
-                        "observation_date": observation.get("observation_date"),
-                    })
+                    items.append(
+                        {
+                            "symbol": observation["instrument"],
+                            "label": observation.get("label", observation["instrument"]),
+                            "level": observation.get("value"),
+                            "delta_pct_1d": None,
+                            "status": "ok",
+                            "source": observation.get("source"),
+                            "observation_date": observation.get("observation_date"),
+                        }
+                    )
                 for point in observation.get("points", []):
-                    items.append({
-                        "symbol": point["instrument"],
-                        "label": point.get("label", point["instrument"]),
-                        "level": point.get("value"),
-                        "delta_pct_1d": None,
-                        "status": "ok",
-                        "source": point.get("source"),
-                        "observation_date": point.get("observation_date"),
-                    })
+                    items.append(
+                        {
+                            "symbol": point["instrument"],
+                            "label": point.get("label", point["instrument"]),
+                            "level": point.get("value"),
+                            "delta_pct_1d": None,
+                            "status": "ok",
+                            "source": point.get("source"),
+                            "observation_date": point.get("observation_date"),
+                        }
+                    )
             return {
                 "items": items,
                 "alerts": list_alerts(limit=8),
@@ -1185,19 +1352,31 @@ def register_dashboard_routes(app, version: str) -> None:
                 "stub": False,
             }
         except Exception as exc:
-            return {"items": [], "alerts": [], "source": "market_intelligence", "stub": False, **_market_unavailable("overview", exc)}
+            return {
+                "items": [],
+                "alerts": [],
+                "source": "market_intelligence",
+                "stub": False,
+                **_market_unavailable("overview", exc),
+            }
 
     @app.get("/api/market/snapshot")
     async def market_snapshot():
         """Public-source macro and market snapshot with field-level provenance."""
         try:
             from runtime.market_data.fetcher import fetch_snapshot
+
             return fetch_snapshot()
         except Exception as exc:
             return {
-                "brl_usd": None, "selic_rate": None, "ipca_12m": None,
-                "ibov_last": None, "ibov_change_pct": None, "observations": {},
-                "timestamp": datetime.now(timezone.utc).isoformat(), "stub": False,
+                "brl_usd": None,
+                "selic_rate": None,
+                "ipca_12m": None,
+                "ibov_last": None,
+                "ibov_change_pct": None,
+                "observations": {},
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "stub": False,
                 **_market_unavailable("snapshot", exc),
             }
 
@@ -1206,6 +1385,7 @@ def register_dashboard_routes(app, version: str) -> None:
         """Source catalog and official observations with provenance metadata."""
         try:
             from runtime.market_intelligence.source_catalog import source_snapshot
+
             return {**source_snapshot(), "available": True, "stub": False}
         except Exception as exc:
             return {"catalog": [], "official_observations": [], "stub": False, **_market_unavailable("sources", exc)}
@@ -1218,7 +1398,14 @@ def register_dashboard_routes(app, version: str) -> None:
     async def market_alerts():
         try:
             from runtime.market_intelligence.alerts import evaluate_alerts, list_alerts
-            return {"fired_now": evaluate_alerts(), "alerts": list_alerts(), "available": True, "updated_at": time.time(), "stub": False}
+
+            return {
+                "fired_now": evaluate_alerts(),
+                "alerts": list_alerts(),
+                "available": True,
+                "updated_at": time.time(),
+                "stub": False,
+            }
         except Exception as exc:
             return {"fired_now": [], "alerts": [], "stub": False, **_market_unavailable("alerts", exc)}
 
@@ -1226,6 +1413,7 @@ def register_dashboard_routes(app, version: str) -> None:
     async def market_economic_calendar():
         try:
             from runtime.market_intelligence.calendar import today_events
+
             return {"events": today_events(), "available": True, "updated_at": time.time(), "stub": False}
         except Exception as exc:
             return {"events": [], "stub": False, **_market_unavailable("calendar", exc)}
@@ -1239,6 +1427,7 @@ def register_dashboard_routes(app, version: str) -> None:
         """Source-attributed financial headlines for web, mobile and briefing consumers."""
         try:
             from runtime.market_intelligence.news import SUPPORTED_NEWS_SECTIONS, fetch_news
+
             if section not in SUPPORTED_NEWS_SECTIONS:
                 raise HTTPException(status_code=422, detail=f"unsupported news section: {section}")
             return {
@@ -1253,8 +1442,13 @@ def register_dashboard_routes(app, version: str) -> None:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         except Exception as exc:
             return {
-                "items": [], "groups": [], "section": section, "supported_sections": [],
-                "next_cursor": None, "partial_errors": [], "stub": False,
+                "items": [],
+                "groups": [],
+                "section": section,
+                "supported_sections": [],
+                "next_cursor": None,
+                "partial_errors": [],
+                "stub": False,
                 **_market_unavailable("news", exc),
             }
 
@@ -1300,6 +1494,7 @@ def register_dashboard_routes(app, version: str) -> None:
     @app.get("/api/portfolio/reference")
     async def portfolio_reference_get(request: Request):
         from runtime.portfolio.reference import is_customized
+
         user = await get_current_user(request)
         policy = await _load_reference_portfolio(user["office_id"])
         return {**policy, "is_customized": await is_customized(user["office_id"])}
@@ -1307,6 +1502,7 @@ def register_dashboard_routes(app, version: str) -> None:
     @app.put("/api/portfolio/reference")
     async def portfolio_reference_put(data: ReferencePortfolioUpdate, request: Request):
         from runtime.portfolio.reference import save_reference_portfolio
+
         user = await get_current_user(request)
         updated = await save_reference_portfolio(user["office_id"], data.model_dump(exclude_unset=True))
         return {"saved": True, **updated, "is_customized": True}
@@ -1314,6 +1510,7 @@ def register_dashboard_routes(app, version: str) -> None:
     @app.post("/api/portfolio/reference/reset")
     async def portfolio_reference_reset(request: Request):
         from runtime.portfolio.reference import reset_reference_portfolio
+
         user = await get_current_user(request)
         reset = await reset_reference_portfolio(user["office_id"])
         return {"reset": True, **reset, "is_customized": False}
@@ -1335,8 +1532,13 @@ def register_dashboard_routes(app, version: str) -> None:
             raise HTTPException(status_code=422, detail="name is required")
         user = await get_current_user(request)
         client = await ClientRepository().create_client(
-            user["office_id"], data.name.strip(), data.profile,
-            data.reference_value, data.current_allocation, data.email, data.phone,
+            user["office_id"],
+            data.name.strip(),
+            data.profile,
+            data.reference_value,
+            data.current_allocation,
+            data.email,
+            data.phone,
         )
         return {"created": True, "client": client}
 
@@ -1386,8 +1588,11 @@ def register_dashboard_routes(app, version: str) -> None:
         the frontend reads this instead of hardcoding R$1MM/R$10MM in JS,
         same pattern as /api/portfolio/model-profiles."""
         from config.investor_classification import (
-            ACCEPTED_CERTIFICATIONS, CATEGORY_LABELS, LEGAL_BASIS,
-            PROFESSIONAL_INVESTOR_THRESHOLD, QUALIFIED_INVESTOR_THRESHOLD,
+            ACCEPTED_CERTIFICATIONS,
+            CATEGORY_LABELS,
+            LEGAL_BASIS,
+            PROFESSIONAL_INVESTOR_THRESHOLD,
+            QUALIFIED_INVESTOR_THRESHOLD,
         )
 
         await get_current_user(request)
@@ -1400,7 +1605,9 @@ def register_dashboard_routes(app, version: str) -> None:
         }
 
     @app.put("/api/clients/{client_id}/investor-classification")
-    async def client_investor_classification_update(client_id: str, data: InvestorClassificationUpdate, request: Request):
+    async def client_investor_classification_update(
+        client_id: str, data: InvestorClassificationUpdate, request: Request
+    ):
         """Records the client's declared investments and/or certification
         and derives the resulting CVM category (config/
         investor_classification.py) -- see set_investor_classification's
@@ -1410,7 +1617,10 @@ def register_dashboard_routes(app, version: str) -> None:
         user = await get_current_user(request)
         try:
             updated = await ClientRepository().set_investor_classification(
-                user["office_id"], client_id, data.declared_investments, data.certification,
+                user["office_id"],
+                client_id,
+                data.declared_investments,
+                data.certification,
             )
         except KeyError:
             raise HTTPException(status_code=404, detail=f"unknown client: {client_id}")
@@ -1456,14 +1666,20 @@ def register_dashboard_routes(app, version: str) -> None:
                 if client is None:
                     continue  # not a real, contactable client (e.g. the office's own policy)
                 draft = draft_review_request(client["name"], violations, advisor_name, office_name)
-                items.append({
-                    "client_id": client_id, "client_name": client["name"],
-                    "severity": "CRITICAL" if any(v["severity"] == "CRITICAL" for v in violations) else "WARNING",
-                    "violations": violations, "is_demo": client["is_demo"],
-                    "email": client["email"], "phone": client["phone"],
-                    "can_send_email": bool(client["email"]), "can_send_whatsapp": bool(client["phone"]),
-                    "draft": draft,
-                })
+                items.append(
+                    {
+                        "client_id": client_id,
+                        "client_name": client["name"],
+                        "severity": "CRITICAL" if any(v["severity"] == "CRITICAL" for v in violations) else "WARNING",
+                        "violations": violations,
+                        "is_demo": client["is_demo"],
+                        "email": client["email"],
+                        "phone": client["phone"],
+                        "can_send_email": bool(client["email"]),
+                        "can_send_whatsapp": bool(client["phone"]),
+                        "draft": draft,
+                    }
+                )
             return {"total": len(items), "items": items, "available": True}
         except Exception as exc:
             return {"total": 0, "items": [], "stub": False, **_market_unavailable("review-requests", exc)}
@@ -1501,8 +1717,11 @@ def register_dashboard_routes(app, version: str) -> None:
     # invented here.
 
     _COMPLIANCE_TO_HEALTH = {
-        "NORMAL": "SAUDAVEL", "ATENCAO": "ATENCAO", "DESENQUADRADO": "DESENQUADRADO",
-        "SEM_POSICAO_ATUAL": "SEM_POSICAO_ATUAL", "SEM_REGRAS_DEFINIDAS": "SEM_REGRAS_DEFINIDAS",
+        "NORMAL": "SAUDAVEL",
+        "ATENCAO": "ATENCAO",
+        "DESENQUADRADO": "DESENQUADRADO",
+        "SEM_POSICAO_ATUAL": "SEM_POSICAO_ATUAL",
+        "SEM_REGRAS_DEFINIDAS": "SEM_REGRAS_DEFINIDAS",
     }
 
     @app.get("/api/clients/{client_id}/360")
@@ -1536,7 +1755,9 @@ def register_dashboard_routes(app, version: str) -> None:
     # themselves are only ever created by agents/observer_loop.py.
 
     @app.get("/api/agent-events")
-    async def agent_events_list(request: Request, status: str | None = Query(default=None), limit: int = Query(default=50, le=200)):
+    async def agent_events_list(
+        request: Request, status: str | None = Query(default=None), limit: int = Query(default=50, le=200)
+    ):
         from storage.agent_event_repo import AgentEventRepository
 
         user = await get_current_user(request)
@@ -1596,8 +1817,11 @@ def register_dashboard_routes(app, version: str) -> None:
         office = await TenantRepository().get_office(user["office_id"])
         chat_id = office.get("telegram_chat_id") if office else None
         if not chat_id:
-            return {"sent": False, "reason": "no_chat_id",
-                    "detail": "Nenhum chat_id configurado para este escritório. Configure em Ajustes."}
+            return {
+                "sent": False,
+                "reason": "no_chat_id",
+                "detail": "Nenhum chat_id configurado para este escritório. Configure em Ajustes.",
+            }
 
         try:
             await asyncio.to_thread(
@@ -1606,8 +1830,11 @@ def register_dashboard_routes(app, version: str) -> None:
                 chat_id,
             )
         except TelegramNotConfiguredError:
-            return {"sent": False, "reason": "bot_not_configured",
-                    "detail": "TELEGRAM_BOT_TOKEN não está definido neste servidor (.env)."}
+            return {
+                "sent": False,
+                "reason": "bot_not_configured",
+                "detail": "TELEGRAM_BOT_TOKEN não está definido neste servidor (.env).",
+            }
         except TelegramError as e:
             return {"sent": False, "reason": "telegram_error", "detail": str(e)}
         return {"sent": True, "chat_id": chat_id}
@@ -1620,7 +1847,9 @@ def register_dashboard_routes(app, version: str) -> None:
     # doesn't lose it.
 
     @app.get("/api/agent-approvals")
-    async def agent_approvals_list(request: Request, status: str | None = Query(default=None), limit: int = Query(default=50, le=200)):
+    async def agent_approvals_list(
+        request: Request, status: str | None = Query(default=None), limit: int = Query(default=50, le=200)
+    ):
         from storage.agent_approval_repo import AgentApprovalRepository
 
         user = await get_current_user(request)
@@ -1668,7 +1897,9 @@ def register_dashboard_routes(app, version: str) -> None:
         results = send_review_request(office_id, client, draft, channels, user["id"])
 
         try:
-            updated = await approval_repo.decide(office_id, approval_id, "approved", user["id"], result={"channels": results})
+            updated = await approval_repo.decide(
+                office_id, approval_id, "approved", user["id"], result={"channels": results}
+            )
         except ValueError as e:
             raise HTTPException(status_code=409, detail=str(e))
         return {"approval": updated}
@@ -1785,6 +2016,7 @@ def register_dashboard_routes(app, version: str) -> None:
         """The firm's four model risk profiles, for a picker UI."""
         await get_current_user(request)
         from runtime.portfolio.model_portfolios import MODEL_PROFILES
+
         return {"profiles": list(MODEL_PROFILES)}
 
     # ── Portfolios [STUB + file-backed list] ──────────────────────────────────
@@ -1838,8 +2070,12 @@ def register_dashboard_routes(app, version: str) -> None:
         return {
             "portfolio_id": portfolio_id,
             "by_asset_class": [{"label": k, "weight": round(v, 2)} for k, v in sorted(grouped.items())],
-            "by_sector": [], "by_industry": [], "by_country": [], "by_currency": [],
-            "mode": "reference_target_allocation", "stub": False,
+            "by_sector": [],
+            "by_industry": [],
+            "by_country": [],
+            "by_currency": [],
+            "mode": "reference_target_allocation",
+            "stub": False,
         }
 
     @app.get("/api/portfolios/{portfolio_id}/impact")
@@ -1853,7 +2089,9 @@ def register_dashboard_routes(app, version: str) -> None:
         review = _review_reference_portfolio(portfolio)
         return {
             "portfolio_id": portfolio_id,
-            "decisions": [{"type": "hold_reference", "label": "Manter alvos até receber posições reais e dados de mercado"}],
+            "decisions": [
+                {"type": "hold_reference", "label": "Manter alvos até receber posições reais e dados de mercado"}
+            ],
             "readiness_score": 0,
             "sub_scores": {"positions": 0, "market_data": 0, "suitability": 0},
             "top_risks": review["alerts"],
@@ -1868,7 +2106,11 @@ def register_dashboard_routes(app, version: str) -> None:
         portfolio = await _get_portfolio_for(user["office_id"], portfolio_id)
         return {
             "portfolio_id": portfolio_id,
-            "narrative": "Carteira-modelo moderada de R$ 1 milhão com 45% em renda fixa brasileira, 15% em renda fixa internacional, 10% em multimercados, 25% em renda variável e 4,5% em alternativos. A parcela de IA é satélite, limitada a 7% do patrimônio.",
+            "narrative": (
+                "Carteira-modelo moderada de R$ 1 milhão com 45% em renda fixa brasileira, "
+                "15% em renda fixa internacional, 10% em multimercados, 25% em renda variável "
+                "e 4,5% em alternativos. A parcela de IA é satélite, limitada a 7% do patrimônio."
+            ),
             "review_policy": portfolio.get("review_policy", {}),
             "stub": False,
         }
@@ -1900,9 +2142,15 @@ def register_dashboard_routes(app, version: str) -> None:
             client_ids = {c["id"] for c in await ClientRepository().list_clients(office_id)}
             items = [
                 {
-                    "client_id": v["client_id"], "client_name": v["client_name"], "type": v["type"],
-                    "current": v["current"], "limit": v["limit"], "diff": v["diff"],
-                    "severity": v["severity"], "message": v["message"], "is_demo": v.get("is_demo", False),
+                    "client_id": v["client_id"],
+                    "client_name": v["client_name"],
+                    "type": v["type"],
+                    "current": v["current"],
+                    "limit": v["limit"],
+                    "diff": v["diff"],
+                    "severity": v["severity"],
+                    "message": v["message"],
+                    "is_demo": v.get("is_demo", False),
                     "is_client": v["client_id"] in client_ids,
                 }
                 for v in violations
@@ -1910,13 +2158,23 @@ def register_dashboard_routes(app, version: str) -> None:
             critical = sum(1 for v in items if v["severity"] == "CRITICAL")
             warnings = sum(1 for v in items if v["severity"] == "WARNING")
             return {
-                "total": len(items), "critical": critical, "warnings": warnings, "items": items,
-                "portfolios": result["data"]["portfolios"], "available": True, "stub": False,
+                "total": len(items),
+                "critical": critical,
+                "warnings": warnings,
+                "items": items,
+                "portfolios": result["data"]["portfolios"],
+                "available": True,
+                "stub": False,
             }
         except Exception as exc:
             return {
-                "total": 0, "critical": 0, "warnings": 0, "items": [], "portfolios": [],
-                "stub": False, **_market_unavailable("alerts", exc),
+                "total": 0,
+                "critical": 0,
+                "warnings": 0,
+                "items": [],
+                "portfolios": [],
+                "stub": False,
+                **_market_unavailable("alerts", exc),
             }
 
     # ── Intelligence — MarketAgent (Wealth Copilot MVP 2, phase 1) ───────────
@@ -1933,13 +2191,19 @@ def register_dashboard_routes(app, version: str) -> None:
         await get_current_user(request)
         try:
             from agents.market_agent import MarketAgent
+
             result = await MarketAgent().run()
             return {**result["data"], "available": True, "stub": False}
         except Exception as exc:
             return {
-                "timestamp": None, "market_status": "NORMAL", "movements": [],
-                "relevant_changes": [], "potential_impacts": [], "intelligence_events": [],
-                "stub": False, **_market_unavailable("market", exc),
+                "timestamp": None,
+                "market_status": "NORMAL",
+                "movements": [],
+                "relevant_changes": [],
+                "potential_impacts": [],
+                "intelligence_events": [],
+                "stub": False,
+                **_market_unavailable("market", exc),
             }
 
     @app.get("/api/intelligence")
@@ -1953,6 +2217,7 @@ def register_dashboard_routes(app, version: str) -> None:
         user = await get_current_user(request)
         try:
             from agents.intelligence_engine import IntelligenceEngine
+
             result = await IntelligenceEngine().run({"office_id": user["office_id"]})
             events = result["data"]["events"]
             return {
@@ -1960,12 +2225,19 @@ def register_dashboard_routes(app, version: str) -> None:
                 "override": sum(1 for e in events if e["status"] == "OVERRIDE"),
                 "recalibrate": sum(1 for e in events if e["status"] == "RECALIBRATE"),
                 "neutral": sum(1 for e in events if e["status"] == "NEUTRAL"),
-                "events": events, "available": True, "stub": False,
+                "events": events,
+                "available": True,
+                "stub": False,
             }
         except Exception as exc:
             return {
-                "total": 0, "override": 0, "recalibrate": 0, "neutral": 0, "events": [],
-                "stub": False, **_market_unavailable("intelligence", exc),
+                "total": 0,
+                "override": 0,
+                "recalibrate": 0,
+                "neutral": 0,
+                "events": [],
+                "stub": False,
+                **_market_unavailable("intelligence", exc),
             }
 
     @app.get("/api/intelligence/history")
@@ -2006,12 +2278,16 @@ def register_dashboard_routes(app, version: str) -> None:
         user = await get_current_user(request)
         try:
             from agents.priority_engine import PriorityEngine
+
             result = await PriorityEngine().run({"office_id": user["office_id"]})
             return {**result["data"], "available": True, "stub": False}
         except Exception as exc:
             return {
-                "total": 0, "by_level": {}, "items": [],
-                "stub": False, **_market_unavailable("priorities", exc),
+                "total": 0,
+                "by_level": {},
+                "items": [],
+                "stub": False,
+                **_market_unavailable("priorities", exc),
             }
 
     # ── Assets [STUB] ─────────────────────────────────────────────────────────
@@ -2097,12 +2373,15 @@ def register_dashboard_routes(app, version: str) -> None:
             raise HTTPException(status_code=422, detail="text is required")
         try:
             from capability.adapters.android import AndroidTTSAdapter
+
             adapter = AndroidTTSAdapter()
             if not adapter.is_available():
-                return {"spoken": False, "error": "termux-tts-speak not available",
-                        "corrective_action": "pkg install termux-api"}
-            result = adapter.speak(data.text, language=data.language,
-                                   pitch=data.pitch, rate=data.rate)
+                return {
+                    "spoken": False,
+                    "error": "termux-tts-speak not available",
+                    "corrective_action": "pkg install termux-api",
+                }
+            result = adapter.speak(data.text, language=data.language, pitch=data.pitch, rate=data.rate)
             return {"spoken": result.success, "error": result.error if not result.success else None}
         except Exception as exc:
             raise HTTPException(status_code=500, detail=str(exc))
@@ -2111,10 +2390,14 @@ def register_dashboard_routes(app, version: str) -> None:
     async def android_sms_inbox(limit: int = Query(20, le=100), offset: int = Query(0, ge=0)):
         try:
             from capability.adapters.android import AndroidSMSAdapter
+
             adapter = AndroidSMSAdapter()
             if not adapter.is_available():
-                return {"messages": [], "error": "termux-sms-send not available",
-                        "corrective_action": "pkg install termux-api"}
+                return {
+                    "messages": [],
+                    "error": "termux-sms-send not available",
+                    "corrective_action": "pkg install termux-api",
+                }
             result = adapter.inbox(limit=limit, offset=offset)
             if result.success:
                 return result.data
@@ -2128,6 +2411,7 @@ def register_dashboard_routes(app, version: str) -> None:
             raise HTTPException(status_code=422, detail="number and message are required")
         try:
             from capability.adapters.android import AndroidSMSAdapter
+
             adapter = AndroidSMSAdapter()
             if not adapter.is_available():
                 return {"sent": False, "error": "termux-sms-send not available"}
@@ -2140,10 +2424,14 @@ def register_dashboard_routes(app, version: str) -> None:
     async def android_contacts(q: str = Query(None)):
         try:
             from capability.adapters.android import AndroidContactAdapter
+
             adapter = AndroidContactAdapter()
             if not adapter.is_available():
-                return {"contacts": [], "error": "termux-contact-list not available",
-                        "corrective_action": "pkg install termux-api"}
+                return {
+                    "contacts": [],
+                    "error": "termux-contact-list not available",
+                    "corrective_action": "pkg install termux-api",
+                }
             result = adapter.find(q) if q else adapter.list_contacts()
             if result.success:
                 return result.data
@@ -2157,10 +2445,13 @@ def register_dashboard_routes(app, version: str) -> None:
     async def brief_get():
         """Return the last generated brief (from cache) or generate a new one."""
         from runtime.ai.brief_diario import get_last_brief, build_brief
+
         cached = get_last_brief()
         if cached:
             return {**cached, "from_cache": True}
-        import asyncio, concurrent.futures
+        import asyncio
+        import concurrent.futures
+
         loop = asyncio.get_event_loop()
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
             brief = await loop.run_in_executor(pool, lambda: build_brief(use_llm=False))
@@ -2169,8 +2460,10 @@ def register_dashboard_routes(app, version: str) -> None:
     @app.post("/api/brief/diario")
     async def brief_generate(data: BriefRequest):
         """Generate a fresh brief and optionally send to Telegram."""
-        import asyncio, concurrent.futures
+        import asyncio
+        import concurrent.futures
         from runtime.ai.brief_diario import build_brief, send_brief_to_telegram
+
         loop = asyncio.get_event_loop()
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
             brief = await loop.run_in_executor(pool, lambda: build_brief(use_llm=data.use_llm))
@@ -2184,6 +2477,7 @@ def register_dashboard_routes(app, version: str) -> None:
         """Return last 30 brief summaries."""
         from pathlib import Path
         import json as _json
+
         hist_path = Path.home() / ".flowcore" / "brief_history.json"
         if hist_path.exists():
             try:
@@ -2198,12 +2492,14 @@ def register_dashboard_routes(app, version: str) -> None:
     async def metrics():
         """Internal FlowCore metrics — request counts, latency, AI calls."""
         from runtime.observability import get_metrics
+
         return get_metrics()
 
     @app.post("/api/metrics/reset")
     async def metrics_reset():
         """Reset in-process metrics counters."""
         from runtime.observability import reset_metrics
+
         reset_metrics()
         return {"reset": True}
 
@@ -2217,12 +2513,14 @@ def register_dashboard_routes(app, version: str) -> None:
     @app.get("/api/scheduler/jobs")
     async def scheduler_list():
         from runtime.job_scheduler import JobScheduler
+
         return {"jobs": JobScheduler().list_jobs()}
 
     @app.post("/api/scheduler/brief/enable")
     async def scheduler_brief_enable():
         """Register daily morning brief cron job (07:30 BRT, weekdays)."""
         from runtime.job_scheduler import JobScheduler
+
         sched = JobScheduler()
         try:
             ok = sched.add_job(_BRIEF_JOB_NAME, _BRIEF_JOB_SCRIPT, _BRIEF_JOB_CRON)
@@ -2234,14 +2532,17 @@ def register_dashboard_routes(app, version: str) -> None:
     async def scheduler_brief_disable():
         """Unregister the daily morning brief cron job."""
         from runtime.job_scheduler import JobScheduler
+
         removed = JobScheduler().remove_job(_BRIEF_JOB_NAME)
         return {"disabled": removed}
 
     @app.post("/api/scheduler/brief/run-now")
     async def scheduler_brief_run_now():
         """Trigger the brief job immediately (blocking — may take up to 2 min with LLM)."""
-        import asyncio, concurrent.futures
+        import asyncio
+        import concurrent.futures
         from runtime.ai.brief_diario import build_brief, send_brief_to_telegram
+
         loop = asyncio.get_event_loop()
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
             brief = await loop.run_in_executor(pool, lambda: build_brief(use_llm=True))

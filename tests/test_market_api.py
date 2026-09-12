@@ -1,4 +1,5 @@
 """Tests for GET /api/market (Wealth Copilot MVP 2, phase 1)."""
+
 from __future__ import annotations
 
 import sys
@@ -38,15 +39,17 @@ class TestMarketEndpoint:
         resp = client.get("/api/market", headers=headers)
         assert resp.status_code == 200
         data = resp.json()
-        for key in ("timestamp", "market_status", "movements", "relevant_changes",
-                    "potential_impacts", "available"):
+        for key in ("timestamp", "market_status", "movements", "relevant_changes", "potential_impacts", "available"):
             assert key in data
 
     def test_movement_shape_matches_contract(self):
         client, headers = _client_and_headers()
-        items = {"watchlist": "default", "items": [
-            {"symbol": "^GSPC", "level": 5271.0, "delta_pct_1d": 0.8, "status": "ok"},
-        ]}
+        items = {
+            "watchlist": "default",
+            "items": [
+                {"symbol": "^GSPC", "level": 5271.0, "delta_pct_1d": 0.8, "status": "ok"},
+            ],
+        }
         with patch("runtime.market_intelligence.watchlist.snapshot", return_value=items):
             resp = client.get("/api/market", headers=headers)
         sp500 = next(m for m in resp.json()["movements"] if m["asset"] == "S&P 500")

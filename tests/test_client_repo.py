@@ -3,6 +3,7 @@
 Same asyncio.run() convention as tests/test_flow_repo.py /
 tests/test_tenant_repo.py — no pytest-asyncio dependency in this project.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -102,6 +103,7 @@ class TestClientEditingAndTenantIsolation:
         """The core tenant-isolation guarantee: even with the exact right
         client id, editing from the wrong office_id must fail, never
         silently succeed or leak the other office's data."""
+
         async def scenario():
             repo = _repo(tmp_path)
             await repo.seed_office("office-a", with_demo_clients=True)
@@ -120,6 +122,7 @@ class TestClientEditingAndTenantIsolation:
         ids (e.g. "demo-client-01") — the composite (office_id, id) primary
         key is what actually keeps them isolated, not distinct ids. Prove
         editing one never bleeds into the other."""
+
         async def scenario():
             repo = _repo(tmp_path)
             await repo.seed_office("office-a", with_demo_clients=True)
@@ -187,8 +190,11 @@ class TestCreateClient:
             repo = _repo(tmp_path)
             await repo.seed_office("office-a", with_demo_clients=False)
             return await repo.create_client(
-                "office-a", "Cliente Completo", current_allocation={"br_equity_funds": 30.0},
-                email="cliente@example.com", phone="+5511999999999",
+                "office-a",
+                "Cliente Completo",
+                current_allocation={"br_equity_funds": 30.0},
+                email="cliente@example.com",
+                phone="+5511999999999",
             )
 
         client = asyncio.run(scenario())

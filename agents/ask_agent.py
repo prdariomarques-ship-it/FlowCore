@@ -23,6 +23,7 @@ Only the market_* tools and regime_signals are global, read-only market
 data with no tenant concept at all, so those are the only ones exposed
 here.
 """
+
 from __future__ import annotations
 
 from typing import Any

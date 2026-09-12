@@ -8,13 +8,13 @@ else in service.py's full tool catalog (memory_save, note_save,
 portfolio_summary, ...) has no office_id at all and must never be
 reachable from this agent.
 """
+
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
-import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -25,10 +25,18 @@ from agents.ask_agent import AskAgent, _is_tenant_safe  # noqa: E402
 
 class TestTenantSafeToolFilter:
     def test_market_tools_are_safe(self):
-        for name in ("market_correlation", "market_risk", "market_rebalance",
-                     "market_briefing", "market_yield_curve", "market_fx",
-                     "market_alerts", "market_news", "market_scores_history",
-                     "market_events"):
+        for name in (
+            "market_correlation",
+            "market_risk",
+            "market_rebalance",
+            "market_briefing",
+            "market_yield_curve",
+            "market_fx",
+            "market_alerts",
+            "market_news",
+            "market_scores_history",
+            "market_events",
+        ):
             assert _is_tenant_safe(name), name
 
     def test_regime_signals_is_safe(self):
@@ -38,9 +46,16 @@ class TestTenantSafeToolFilter:
         # These have no office_id anywhere (service.py's _memory_save_tool
         # etc.) -- exposing them here would leak one office's memory/notes/
         # portfolio to another.
-        for name in ("memory_save", "memory_recall", "note_save",
-                     "portfolio_summary", "portfolio_impact",
-                     "portfolio_exposure", "portfolio_recommendations", "doctor"):
+        for name in (
+            "memory_save",
+            "memory_recall",
+            "note_save",
+            "portfolio_summary",
+            "portfolio_impact",
+            "portfolio_exposure",
+            "portfolio_recommendations",
+            "doctor",
+        ):
             assert not _is_tenant_safe(name), name
 
 
@@ -67,10 +82,13 @@ class TestAskAgentBuildsARestrictedEngine:
             async def handle(self, question, context="", timeout=None):
                 raise AssertionError("not exercised in this test")
 
-        with patch("service._agent_tools", fake_tools), \
-             patch("service._llm_router", object()), \
-             patch("runtime.agent.engine.AgentEngine", _FakeEngine):
+        with (
+            patch("service._agent_tools", fake_tools),
+            patch("service._llm_router", object()),
+            patch("runtime.agent.engine.AgentEngine", _FakeEngine),
+        ):
             from agents.ask_agent import _build_engine
+
             _build_engine()
 
         names = {t.name for t in captured["tools"]}

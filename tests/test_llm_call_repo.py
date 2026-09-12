@@ -5,6 +5,7 @@ Sync repository (matches MetricsSink's sync interface) -- no
 asyncio.run() wrapping needed, unlike the rest of this suite's async
 repositories.
 """
+
 from __future__ import annotations
 
 import sys

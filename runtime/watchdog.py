@@ -217,9 +217,9 @@ class WatchdogService:
             else:
                 attempted = self._try_restart(restart_cmd)
                 if attempted and self._process_running(name):
-                    results.append(WatchResult(
-                        f"bot:{name}", WatchStatus.OK, f"{name} restarted OK", restart_attempted=True
-                    ))
+                    results.append(
+                        WatchResult(f"bot:{name}", WatchStatus.OK, f"{name} restarted OK", restart_attempted=True)
+                    )
                 else:
                     results.append(
                         WatchResult(

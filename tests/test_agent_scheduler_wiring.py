@@ -8,6 +8,7 @@ version string to exercise the wiring itself -- see api/router.py's
 comment on why version=="test" is the universal sentinel every other
 test relies on to skip this.
 """
+
 from __future__ import annotations
 
 import sys
@@ -72,6 +73,7 @@ class TestSchedulerWiringForRealApps:
             return real_import(name, *args, **kwargs)
 
         import sys as _sys
+
         for mod in list(_sys.modules):
             if mod.startswith("scheduler"):
                 monkeypatch.delitem(_sys.modules, mod, raising=False)

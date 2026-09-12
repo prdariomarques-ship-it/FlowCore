@@ -68,8 +68,12 @@ async def observe_and_dispatch(llm_router: Any | None = None) -> dict[str, Any]:
     )
 
     summary = {
-        "offices_checked": 0, "events_published": 0, "events_deduplicated": 0,
-        "followups_flagged": 0, "recoveries_detected": 0, "errors": [],
+        "offices_checked": 0,
+        "events_published": 0,
+        "events_deduplicated": 0,
+        "followups_flagged": 0,
+        "recoveries_detected": 0,
+        "errors": [],
     }
 
     for office in offices:
@@ -78,8 +82,7 @@ async def observe_and_dispatch(llm_router: Any | None = None) -> dict[str, Any]:
             client_ids = {c["id"] for c in await ClientRepository().list_clients(office_id)}
             result = await ComplianceAgent().run({"office_id": office_id})
             violations = [
-                v for v in result["data"]["violations"]
-                if v["severity"] == "CRITICAL" and v["client_id"] in client_ids
+                v for v in result["data"]["violations"] if v["severity"] == "CRITICAL" and v["client_id"] in client_ids
             ]
 
             active_dedup_keys: set[str] = set()
@@ -87,9 +90,11 @@ async def observe_and_dispatch(llm_router: Any | None = None) -> dict[str, Any]:
 
             for v in violations:
                 violation_event = AgentEvent(
-                    type="PORTFOLIO_OUT_OF_PROFILE", source="compliance_agent",
+                    type="PORTFOLIO_OUT_OF_PROFILE",
+                    source="compliance_agent",
                     entity={"kind": "client", "id": v["client_id"]},
-                    payload={"message": v["message"], "violation": v}, priority="CRITICAL",
+                    payload={"message": v["message"], "violation": v},
+                    priority="CRITICAL",
                 )
                 dedup_key = violation_event.dedup_key()
                 active_dedup_keys.add(dedup_key)
@@ -109,7 +114,8 @@ async def observe_and_dispatch(llm_router: Any | None = None) -> dict[str, Any]:
                     )
                     if not followed_up:
                         followup_event = AgentEvent(
-                            type="CLIENT_FOLLOWUP_OVERDUE", source="observer_loop",
+                            type="CLIENT_FOLLOWUP_OVERDUE",
+                            source="observer_loop",
                             entity={"kind": "client", "id": v["client_id"]},
                             payload={"violations": [v], "days_open": int((now - first_seen) // 86400)},
                             priority="HIGH",
@@ -123,7 +129,10 @@ async def observe_and_dispatch(llm_router: Any | None = None) -> dict[str, Any]:
 
             # ── Recovery: a previously-open violation no longer active ──────
             open_events = await event_repo.list_events(
-                office_id, status="processed", type="PORTFOLIO_OUT_OF_PROFILE", limit=200,
+                office_id,
+                status="processed",
+                type="PORTFOLIO_OUT_OF_PROFILE",
+                limit=200,
             )
             already_notified_clients: set[str] = set()
             for oe in open_events:
@@ -135,8 +144,10 @@ async def observe_and_dispatch(llm_router: Any | None = None) -> dict[str, Any]:
                     continue
                 already_notified_clients.add(client_key)
                 recovered_event = AgentEvent(
-                    type="PORTFOLIO_BACK_IN_PROFILE", source="observer_loop",
-                    entity=oe["entity"], priority="MEDIUM",
+                    type="PORTFOLIO_BACK_IN_PROFILE",
+                    source="observer_loop",
+                    entity=oe["entity"],
+                    priority="MEDIUM",
                 )
                 published = await event_repo.publish(office_id, recovered_event)
                 await orchestrator.handle_event(office_id, published)

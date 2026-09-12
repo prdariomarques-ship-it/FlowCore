@@ -57,9 +57,15 @@ class AgentEvent:
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "AgentEvent":
         return cls(
-            id=d["id"], type=d["type"], timestamp=d["timestamp"], source=d["source"],
-            entity=d["entity"], payload=d.get("payload", {}), priority=d.get("priority", "MEDIUM"),
-            status=d.get("status", "pending"), metadata=d.get("metadata", {}),
+            id=d["id"],
+            type=d["type"],
+            timestamp=d["timestamp"],
+            source=d["source"],
+            entity=d["entity"],
+            payload=d.get("payload", {}),
+            priority=d.get("priority", "MEDIUM"),
+            status=d.get("status", "pending"),
+            metadata=d.get("metadata", {}),
         )
 
     def dedup_key(self) -> str:
@@ -72,6 +78,8 @@ class AgentEvent:
         import json
 
         key_material = json.dumps(
-            {"type": self.type, "entity": self.entity, "payload": self.payload}, sort_keys=True, default=str,
+            {"type": self.type, "entity": self.entity, "payload": self.payload},
+            sort_keys=True,
+            default=str,
         )
         return hashlib.sha256(key_material.encode("utf-8")).hexdigest()[:24]

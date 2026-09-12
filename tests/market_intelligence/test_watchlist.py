@@ -22,12 +22,15 @@ from runtime.observers.base import ObserverError  # noqa: E402
 
 class TestUsdbrlFallback:
     def test_falls_back_to_ptax_when_yfinance_fails(self):
-        with patch(
-            "runtime.market_intelligence.watchlist.fetch_quote",
-            side_effect=ObserverError("USDBRL=X unavailable"),
-        ), patch(
-            "runtime.market_intelligence.watchlist.fetch_usdbrl_ptax",
-            return_value={"symbol": "USDBRL=PTAX", "price": 5.20, "previous_close": 5.18},
+        with (
+            patch(
+                "runtime.market_intelligence.watchlist.fetch_quote",
+                side_effect=ObserverError("USDBRL=X unavailable"),
+            ),
+            patch(
+                "runtime.market_intelligence.watchlist.fetch_usdbrl_ptax",
+                return_value={"symbol": "USDBRL=PTAX", "price": 5.20, "previous_close": 5.18},
+            ),
         ):
             from runtime.market_intelligence.watchlist import snapshot
 
@@ -39,10 +42,13 @@ class TestUsdbrlFallback:
         assert item["delta_pct_1d"] == round((5.20 - 5.18) / 5.18 * 100, 2)
 
     def test_yfinance_success_never_touches_ptax(self):
-        with patch(
-            "runtime.market_intelligence.watchlist.fetch_quote",
-            return_value={"symbol": "USDBRL=X", "price": 5.10, "previous_close": 5.05},
-        ), patch("runtime.market_intelligence.watchlist.fetch_usdbrl_ptax") as ptax_mock:
+        with (
+            patch(
+                "runtime.market_intelligence.watchlist.fetch_quote",
+                return_value={"symbol": "USDBRL=X", "price": 5.10, "previous_close": 5.05},
+            ),
+            patch("runtime.market_intelligence.watchlist.fetch_usdbrl_ptax") as ptax_mock,
+        ):
             from runtime.market_intelligence.watchlist import snapshot
 
             result = snapshot("brasil")
@@ -52,12 +58,15 @@ class TestUsdbrlFallback:
         assert item["level"] == 5.10
 
     def test_no_data_when_both_yfinance_and_ptax_fail(self):
-        with patch(
-            "runtime.market_intelligence.watchlist.fetch_quote",
-            side_effect=ObserverError("USDBRL=X unavailable"),
-        ), patch(
-            "runtime.market_intelligence.watchlist.fetch_usdbrl_ptax",
-            side_effect=ObserverError("PTAX also unavailable"),
+        with (
+            patch(
+                "runtime.market_intelligence.watchlist.fetch_quote",
+                side_effect=ObserverError("USDBRL=X unavailable"),
+            ),
+            patch(
+                "runtime.market_intelligence.watchlist.fetch_usdbrl_ptax",
+                side_effect=ObserverError("PTAX also unavailable"),
+            ),
         ):
             from runtime.market_intelligence.watchlist import snapshot
 

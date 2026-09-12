@@ -24,14 +24,27 @@ class PersistentMetricsSink(MetricsSink):
         self._repo = repo or LLMCallRepository()
 
     def record_call(
-        self, provider: str, model: str, latency_ms: float, success: bool, error: str | None,
-        purpose: str | None = None, tokens: int | None = None, office_id: str | None = None,
+        self,
+        provider: str,
+        model: str,
+        latency_ms: float,
+        success: bool,
+        error: str | None,
+        purpose: str | None = None,
+        tokens: int | None = None,
+        office_id: str | None = None,
     ) -> None:
         self._memory.record_call(provider, model, latency_ms, success, error, purpose=purpose)
         try:
             self._repo.record_call(
-                provider, model, latency_ms, success, error,
-                purpose=purpose, tokens=tokens, office_id=office_id,
+                provider,
+                model,
+                latency_ms,
+                success,
+                error,
+                purpose=purpose,
+                tokens=tokens,
+                office_id=office_id,
             )
         except Exception:
             pass  # persisted history is observability, not load-bearing -- never break a real LLM call over it

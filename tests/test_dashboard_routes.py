@@ -1,4 +1,5 @@
 """Tests for Dashboard v4 API routes (api/dashboard_routes.py)."""
+
 from __future__ import annotations
 
 import json
@@ -18,12 +19,14 @@ def _client():
     pytest.importorskip("httpx")
     from fastapi.testclient import TestClient
     from api.router import create_app
+
     return TestClient(create_app(version="test", platform_info={"os_name": "test"}))
 
 
 def test_route_models_are_module_level_for_fastapi_annotation_resolution():
     """Python 3.13 resolves endpoint annotations after route registration."""
     import api.dashboard_routes as dashboard_routes
+
     assert dashboard_routes.TTSRequest.__module__ == "api.dashboard_routes"
     assert dashboard_routes.SMSSendRequest.__module__ == "api.dashboard_routes"
     client = _client()
@@ -32,9 +35,11 @@ def test_route_models_are_module_level_for_fastapi_annotation_resolution():
 
 # ── /api/ask ─────────────────────────────────────────────────────────────────
 
+
 class TestAsk:
     def _headers(self):
         from tests._auth_helper import signup_office
+
         return signup_office(_client())["headers"]
 
     def test_requires_auth(self):
@@ -73,10 +78,14 @@ class TestAsk:
         assert r.status_code == 422
 
     def test_history_accepted(self):
-        r = _client().post("/api/ask", json={
-            "question": "continue",
-            "history": [{"role": "user", "content": "hello"}, {"role": "assistant", "content": "hi"}],
-        }, headers=self._headers())
+        r = _client().post(
+            "/api/ask",
+            json={
+                "question": "continue",
+                "history": [{"role": "user", "content": "hello"}, {"role": "assistant", "content": "hi"}],
+            },
+            headers=self._headers(),
+        )
         assert r.status_code == 200
 
 
@@ -88,19 +97,31 @@ class TestAskAgentTierIsTriedFirst:
 
     def test_used_before_ollama_when_it_succeeds(self):
         from tests._auth_helper import signup_office
+
         c = _client()
         headers = signup_office(c)["headers"]
 
-        fake_record = type("Record", (), {
-            "status": "completed",
-            "result": {"status": "ok", "data": {
-                "answer": "Correlação de 0.42 entre ouro e dólar.",
-                "model": "deepseek-chat", "tool_used": "market_correlation", "tool_result": None,
-            }},
-        })()
+        fake_record = type(
+            "Record",
+            (),
+            {
+                "status": "completed",
+                "result": {
+                    "status": "ok",
+                    "data": {
+                        "answer": "Correlação de 0.42 entre ouro e dólar.",
+                        "model": "deepseek-chat",
+                        "tool_used": "market_correlation",
+                        "tool_result": None,
+                    },
+                },
+            },
+        )()
 
-        with patch("agents.runner.AgentRunner.run", return_value=fake_record) as mocked_run, \
-             patch("api.dashboard_routes._tcp_reachable") as mocked_reachable:
+        with (
+            patch("agents.runner.AgentRunner.run", return_value=fake_record) as mocked_run,
+            patch("api.dashboard_routes._tcp_reachable") as mocked_reachable,
+        ):
             r = c.post("/api/ask", json={"question": "oi"}, headers=headers)
 
         assert r.status_code == 200
@@ -113,17 +134,24 @@ class TestAskAgentTierIsTriedFirst:
 
     def test_falls_through_to_ollama_when_ask_agent_errors(self):
         from tests._auth_helper import signup_office
+
         c = _client()
         headers = signup_office(c)["headers"]
 
-        fake_record = type("Record", (), {
-            "status": "completed",
-            "result": {"status": "error", "data": {"reason": "no provider available"}},
-        })()
+        fake_record = type(
+            "Record",
+            (),
+            {
+                "status": "completed",
+                "result": {"status": "error", "data": {"reason": "no provider available"}},
+            },
+        )()
 
-        with patch("agents.runner.AgentRunner.run", return_value=fake_record), \
-             patch("api.dashboard_routes._tcp_reachable", return_value=False), \
-             patch("service._llm_router.generate", side_effect=RuntimeError("no llm")):
+        with (
+            patch("agents.runner.AgentRunner.run", return_value=fake_record),
+            patch("api.dashboard_routes._tcp_reachable", return_value=False),
+            patch("service._llm_router.generate", side_effect=RuntimeError("no llm")),
+        ):
             r = c.post("/api/ask", json={"question": "oi"}, headers=headers)
 
         assert r.status_code == 200
@@ -131,6 +159,7 @@ class TestAskAgentTierIsTriedFirst:
 
 
 # ── _tcp_reachable — fast-fail probe used before AI provider calls ────────────
+
 
 class TestTcpReachable:
     def test_unreachable_host_returns_false_fast(self):
@@ -147,6 +176,7 @@ class TestTcpReachable:
 
     def test_no_hostname_returns_false(self):
         from api.dashboard_routes import _tcp_reachable
+
         assert _tcp_reachable("not-a-url", timeout=1.0) is False
 
     def test_reachable_host_returns_true(self):
@@ -172,20 +202,22 @@ class TestAskSkipsUnreachableEndpoints:
 
     def test_ollama_candidate_skipped_when_unreachable(self, tmp_path, monkeypatch):
         import api.dashboard_routes as dr
+
         monkeypatch.setattr(dr, "_DATA_DIR", tmp_path / ".flowcore")
         (tmp_path / ".flowcore").mkdir(parents=True)
-        (tmp_path / ".flowcore" / "ai.json").write_text(
-            json.dumps({"ollama_url": "http://10.255.255.1:11434"})
-        )
+        (tmp_path / ".flowcore" / "ai.json").write_text(json.dumps({"ollama_url": "http://10.255.255.1:11434"}))
 
         from tests._auth_helper import signup_office
+
         c = _client()
         headers = signup_office(c)["headers"]
 
-        with patch("agents.runner.AgentRunner.list_agents", return_value=[]), \
-             patch("api.dashboard_routes._tcp_reachable", return_value=False) as mocked_reachable, \
-             patch("service._llm_router.generate", side_effect=RuntimeError("no llm")), \
-             patch("api.dashboard_routes._http_json") as mocked_http:
+        with (
+            patch("agents.runner.AgentRunner.list_agents", return_value=[]),
+            patch("api.dashboard_routes._tcp_reachable", return_value=False) as mocked_reachable,
+            patch("service._llm_router.generate", side_effect=RuntimeError("no llm")),
+            patch("api.dashboard_routes._http_json") as mocked_http,
+        ):
             r = c.post("/api/ask", json={"question": "oi"}, headers=headers)
 
         assert r.status_code == 200
@@ -201,15 +233,19 @@ class TestAskRateLimit:
 
     def setup_method(self):
         from runtime.rate_limit import reset_rate_limit
+
         reset_rate_limit()
 
     def test_429_after_the_limit_is_exceeded(self):
         from tests._auth_helper import signup_office
+
         c = _client()
         headers = signup_office(c)["headers"]
 
-        with patch("api.dashboard_routes._tcp_reachable", return_value=False), \
-             patch("agents.runner.AgentRunner.run", side_effect=RuntimeError("no ask agent available")):
+        with (
+            patch("api.dashboard_routes._tcp_reachable", return_value=False),
+            patch("agents.runner.AgentRunner.run", side_effect=RuntimeError("no ask agent available")),
+        ):
             for _ in range(20):
                 r = c.post("/api/ask", json={"question": "oi"}, headers=headers)
                 assert r.status_code == 200
@@ -218,12 +254,15 @@ class TestAskRateLimit:
 
     def test_different_offices_have_independent_budgets(self):
         from tests._auth_helper import signup_office
+
         c = _client()
         headers_a = signup_office(c)["headers"]
         headers_b = signup_office(c, "Outro Escritório")["headers"]
 
-        with patch("api.dashboard_routes._tcp_reachable", return_value=False), \
-             patch("agents.runner.AgentRunner.run", side_effect=RuntimeError("no ask agent available")):
+        with (
+            patch("api.dashboard_routes._tcp_reachable", return_value=False),
+            patch("agents.runner.AgentRunner.run", side_effect=RuntimeError("no ask agent available")),
+        ):
             for _ in range(20):
                 c.post("/api/ask", json={"question": "oi"}, headers=headers_a)
             exhausted_a = c.post("/api/ask", json={"question": "oi"}, headers=headers_a)
@@ -256,6 +295,7 @@ class TestAskDeepSeekFallback:
 
     def _session(self):
         from tests._auth_helper import signup_office
+
         c = _client()
         return c, signup_office(c)
 
@@ -263,7 +303,10 @@ class TestAskDeepSeekFallback:
         from runtime.llm.models import LLMResponse
 
         fake_response = LLMResponse(
-            text="Resposta via DeepSeek", provider="deepseek", model="deepseek-chat", latency_ms=42.0,
+            text="Resposta via DeepSeek",
+            provider="deepseek",
+            model="deepseek-chat",
+            latency_ms=42.0,
         )
         c, session = self._session()
         with self._unreachable_client(), self._ask_agent_tier_skipped():
@@ -290,10 +333,14 @@ class TestAskDeepSeekFallback:
         c, session = self._session()
         with self._unreachable_client(), self._ask_agent_tier_skipped():
             with patch("service._llm_router.generate", return_value=fake_response) as mocked_generate:
-                r = c.post("/api/ask", json={
-                    "question": "e agora?",
-                    "history": [{"role": "user", "content": "oi"}, {"role": "assistant", "content": "olá"}],
-                }, headers=session["headers"])
+                r = c.post(
+                    "/api/ask",
+                    json={
+                        "question": "e agora?",
+                        "history": [{"role": "user", "content": "oi"}, {"role": "assistant", "content": "olá"}],
+                    },
+                    headers=session["headers"],
+                )
 
         assert r.status_code == 200
         request = mocked_generate.call_args[0][0]
@@ -307,7 +354,9 @@ class TestAskDeepSeekFallback:
         # its own answer (": Hello! How can I help you today?").
         from runtime.llm.models import LLMResponse
 
-        fake_response = LLMResponse(text=": Hello! How can I help you today?", provider="deepseek", model="deepseek-v4-flash", latency_ms=1.0)
+        fake_response = LLMResponse(
+            text=": Hello! How can I help you today?", provider="deepseek", model="deepseek-v4-flash", latency_ms=1.0
+        )
         c, session = self._session()
         with self._unreachable_client(), self._ask_agent_tier_skipped():
             with patch("service._llm_router.generate", return_value=fake_response):
@@ -359,6 +408,7 @@ class TestAskDeepSeekFallback:
 
 # ── /api/market/overview — must evaluate alerts, not just read stale ones ────
 
+
 class TestMarketOverviewEvaluatesAlerts:
     """Regression test: nothing in the running app calls evaluate_alerts() on
     a schedule — /api/market/overview only ever read the (always-empty)
@@ -378,6 +428,7 @@ class TestMarketOverviewEvaluatesAlerts:
 
 # ── /api/ai-runtime/* ────────────────────────────────────────────────────────
 
+
 class TestAIRuntimeConfig:
     def test_config_get_returns_200(self):
         r = _client().get("/api/ai-runtime/config")
@@ -389,11 +440,13 @@ class TestAIRuntimeConfig:
 
     def test_config_patch_saves_tailscale_url(self, tmp_path, monkeypatch):
         import api.dashboard_routes as dr
+
         monkeypatch.setattr(dr, "_DATA_DIR", tmp_path / ".flowcore")
         (tmp_path / ".flowcore").mkdir(parents=True)
 
         from fastapi.testclient import TestClient
         from api.router import create_app
+
         c = TestClient(create_app(version="test"))
 
         r = c.patch("/api/ai-runtime/config", json={"ollama_url": "http://100.64.0.2:11434"})
@@ -406,11 +459,13 @@ class TestAIRuntimeConfig:
 
     def test_config_patch_model_only(self, tmp_path, monkeypatch):
         import api.dashboard_routes as dr
+
         monkeypatch.setattr(dr, "_DATA_DIR", tmp_path / ".flowcore")
         (tmp_path / ".flowcore").mkdir(parents=True)
 
         from fastapi.testclient import TestClient
         from api.router import create_app
+
         c = TestClient(create_app(version="test"))
         r = c.patch("/api/ai-runtime/config", json={"model": "qwen3:8b"})
         assert r.status_code == 200
@@ -418,26 +473,33 @@ class TestAIRuntimeConfig:
 
     def test_config_url_trailing_slash_stripped(self, tmp_path, monkeypatch):
         import api.dashboard_routes as dr
+
         monkeypatch.setattr(dr, "_DATA_DIR", tmp_path / ".flowcore")
         (tmp_path / ".flowcore").mkdir(parents=True)
 
         from fastapi.testclient import TestClient
         from api.router import create_app
+
         c = TestClient(create_app(version="test"))
         r = c.patch("/api/ai-runtime/config", json={"ollama_url": "http://100.64.0.2:11434/"})
         assert r.json()["ollama_url"] == "http://100.64.0.2:11434"
 
     def test_config_patch_saves_openai_compatible_provider(self, tmp_path, monkeypatch):
         import api.dashboard_routes as dr
+
         monkeypatch.setattr(dr, "_DATA_DIR", tmp_path / ".flowcore")
         (tmp_path / ".flowcore").mkdir(parents=True)
         from fastapi.testclient import TestClient
         from api.router import create_app
+
         c = TestClient(create_app(version="test"))
-        r = c.patch("/api/ai-runtime/config", json={
-            "openai_url": "http://100.127.43.83:1234/",
-            "openai_model": "nemotron-3.5-lightning",
-        })
+        r = c.patch(
+            "/api/ai-runtime/config",
+            json={
+                "openai_url": "http://100.127.43.83:1234/",
+                "openai_model": "nemotron-3.5-lightning",
+            },
+        )
         assert r.status_code == 200
         assert r.json()["openai_url"] == "http://100.127.43.83:1234"
         assert r.json()["openai_model"] == "nemotron-3.5-lightning"
@@ -452,11 +514,13 @@ class TestAIRuntimeStatus:
 
     def test_unconfigured_endpoints_report_configured_false(self, tmp_path, monkeypatch):
         import api.dashboard_routes as dr
+
         monkeypatch.setattr(dr, "_DATA_DIR", tmp_path / ".flowcore")
         (tmp_path / ".flowcore").mkdir(parents=True)
 
         from fastapi.testclient import TestClient
         from api.router import create_app
+
         c = TestClient(create_app(version="test"))
 
         with patch("api.dashboard_routes._tcp_reachable", return_value=False):
@@ -471,14 +535,21 @@ class TestAIRuntimeStatus:
 
     def test_unreachable_endpoint_reported_honestly(self, tmp_path, monkeypatch):
         import api.dashboard_routes as dr
+
         monkeypatch.setattr(dr, "_DATA_DIR", tmp_path / ".flowcore")
         (tmp_path / ".flowcore").mkdir(parents=True)
-        (tmp_path / ".flowcore" / "ai.json").write_text(json.dumps({
-            "ollama_url": "http://10.255.255.1:11434", "model": "phi4-mini",
-        }))
+        (tmp_path / ".flowcore" / "ai.json").write_text(
+            json.dumps(
+                {
+                    "ollama_url": "http://10.255.255.1:11434",
+                    "model": "phi4-mini",
+                }
+            )
+        )
 
         from fastapi.testclient import TestClient
         from api.router import create_app
+
         c = TestClient(create_app(version="test"))
 
         with patch("api.dashboard_routes._tcp_reachable", return_value=False):
@@ -490,18 +561,27 @@ class TestAIRuntimeStatus:
 
     def test_reachable_but_model_not_pulled(self, tmp_path, monkeypatch):
         import api.dashboard_routes as dr
+
         monkeypatch.setattr(dr, "_DATA_DIR", tmp_path / ".flowcore")
         (tmp_path / ".flowcore").mkdir(parents=True)
-        (tmp_path / ".flowcore" / "ai.json").write_text(json.dumps({
-            "ollama_url": "http://127.0.0.1:11434", "model": "qwen2.5:1.5b",
-        }))
+        (tmp_path / ".flowcore" / "ai.json").write_text(
+            json.dumps(
+                {
+                    "ollama_url": "http://127.0.0.1:11434",
+                    "model": "qwen2.5:1.5b",
+                }
+            )
+        )
 
         from fastapi.testclient import TestClient
         from api.router import create_app
+
         c = TestClient(create_app(version="test"))
 
-        with patch("api.dashboard_routes._tcp_reachable", return_value=True), \
-             patch("api.dashboard_routes._http_json", return_value={"models": [{"name": "phi4-mini:latest"}]}):
+        with (
+            patch("api.dashboard_routes._tcp_reachable", return_value=True),
+            patch("api.dashboard_routes._http_json", return_value={"models": [{"name": "phi4-mini:latest"}]}),
+        ):
             r = c.get("/api/ai-runtime/status")
         pc = r.json()["pc"]
         assert pc["reachable"] is True
@@ -511,18 +591,27 @@ class TestAIRuntimeStatus:
 
     def test_reachable_and_model_available(self, tmp_path, monkeypatch):
         import api.dashboard_routes as dr
+
         monkeypatch.setattr(dr, "_DATA_DIR", tmp_path / ".flowcore")
         (tmp_path / ".flowcore").mkdir(parents=True)
-        (tmp_path / ".flowcore" / "ai.json").write_text(json.dumps({
-            "ollama_url": "http://127.0.0.1:11434", "model": "qwen2.5",
-        }))
+        (tmp_path / ".flowcore" / "ai.json").write_text(
+            json.dumps(
+                {
+                    "ollama_url": "http://127.0.0.1:11434",
+                    "model": "qwen2.5",
+                }
+            )
+        )
 
         from fastapi.testclient import TestClient
         from api.router import create_app
+
         c = TestClient(create_app(version="test"))
 
-        with patch("api.dashboard_routes._tcp_reachable", return_value=True), \
-             patch("api.dashboard_routes._http_json", return_value={"models": [{"name": "qwen2.5:1.5b"}]}):
+        with (
+            patch("api.dashboard_routes._tcp_reachable", return_value=True),
+            patch("api.dashboard_routes._http_json", return_value={"models": [{"name": "qwen2.5:1.5b"}]}),
+        ):
             r = c.get("/api/ai-runtime/status")
         pc = r.json()["pc"]
         assert pc["reachable"] is True
@@ -531,18 +620,27 @@ class TestAIRuntimeStatus:
 
     def test_tags_call_failing_is_distinct_from_unreachable(self, tmp_path, monkeypatch):
         import api.dashboard_routes as dr
+
         monkeypatch.setattr(dr, "_DATA_DIR", tmp_path / ".flowcore")
         (tmp_path / ".flowcore").mkdir(parents=True)
-        (tmp_path / ".flowcore" / "ai.json").write_text(json.dumps({
-            "ollama_url": "http://127.0.0.1:11434", "model": "phi4-mini",
-        }))
+        (tmp_path / ".flowcore" / "ai.json").write_text(
+            json.dumps(
+                {
+                    "ollama_url": "http://127.0.0.1:11434",
+                    "model": "phi4-mini",
+                }
+            )
+        )
 
         from fastapi.testclient import TestClient
         from api.router import create_app
+
         c = TestClient(create_app(version="test"))
 
-        with patch("api.dashboard_routes._tcp_reachable", return_value=True), \
-             patch("api.dashboard_routes._http_json", side_effect=RuntimeError("HTTP error: 500")):
+        with (
+            patch("api.dashboard_routes._tcp_reachable", return_value=True),
+            patch("api.dashboard_routes._http_json", side_effect=RuntimeError("HTTP error: 500")),
+        ):
             r = c.get("/api/ai-runtime/status")
         pc = r.json()["pc"]
         assert pc["reachable"] is True
@@ -588,16 +686,20 @@ class TestAIRuntime:
 
 # ── /api/market/* ─────────────────────────────────────────────────────────────
 
+
 class TestMarketEndpoints:
-    @pytest.mark.parametrize("path", [
-        "/api/market/fx",
-        "/api/market/yield-curve",
-        "/api/market/rebalancing",
-        "/api/market/watchlists",
-        "/api/market/alerts",
-        "/api/market/calendar",
-        "/api/market/news",
-    ])
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/api/market/fx",
+            "/api/market/yield-curve",
+            "/api/market/rebalancing",
+            "/api/market/watchlists",
+            "/api/market/alerts",
+            "/api/market/calendar",
+            "/api/market/news",
+        ],
+    )
     def test_returns_200(self, path):
         r = _client().get(path)
         assert r.status_code == 200
@@ -625,13 +727,15 @@ class TestMarketEndpoints:
         import runtime.market_intelligence.news as news
 
         def fake_fetch(symbol):
-            return [{
-                "headline": f"Mercado {symbol}",
-                "publisher": "Fonte de teste",
-                "link": f"https://example.com/{symbol}",
-                "timestamp": "2026-08-25T12:00:00+00:00",
-                "related_symbol": symbol,
-            }]
+            return [
+                {
+                    "headline": f"Mercado {symbol}",
+                    "publisher": "Fonte de teste",
+                    "link": f"https://example.com/{symbol}",
+                    "timestamp": "2026-08-25T12:00:00+00:00",
+                    "related_symbol": symbol,
+                }
+            ]
 
         monkeypatch.setattr(news, "_fetch_news", fake_fetch)
         data = _client().get("/api/market/news?section=brasil&limit=1").json()
@@ -641,7 +745,17 @@ class TestMarketEndpoints:
         assert data["next_cursor"] == "1"
         assert len(data["items"]) == 1
         item = data["items"][0]
-        for field in ("id", "headline", "publisher", "provider", "canonical_url", "published_at", "collected_at", "related_assets", "status"):
+        for field in (
+            "id",
+            "headline",
+            "publisher",
+            "provider",
+            "canonical_url",
+            "published_at",
+            "collected_at",
+            "related_assets",
+            "status",
+        ):
             assert field in item
         assert item["provider"]["id"] == "yahoo_finance"
         assert item["canonical_url"].startswith("https://example.com/")
@@ -684,7 +798,9 @@ class TestMarketEndpoints:
         from runtime.llm.models import LLMResponse
 
         news._HEADLINE_TRANSLATION_CACHE.clear()
-        fake_response = LLMResponse(text="Mercado em alta continua", provider="deepseek", model="deepseek-chat", latency_ms=1.0)
+        fake_response = LLMResponse(
+            text="Mercado em alta continua", provider="deepseek", model="deepseek-chat", latency_ms=1.0
+        )
 
         with patch("service._llm_router.generate", return_value=fake_response) as mocked_generate:
             result = news._translate_to_portuguese("Market rally continues")
@@ -696,6 +812,7 @@ class TestMarketEndpoints:
 
 
 # ── /api/macro-score/* ───────────────────────────────────────────────────────
+
 
 class TestMacroScore:
     def test_current_returns_200(self):
@@ -713,6 +830,7 @@ class TestMacroScore:
 
 # ── /api/regime/signals ────────────────────────────────────────────────────────
 
+
 class TestRegimeSignals:
     def test_returns_200(self):
         r = _client().get("/api/regime/signals")
@@ -723,6 +841,7 @@ class TestRegimeSignals:
 
 
 # ── /api/portfolios/* (fase 0: office-scoped, requires auth) ─────────────────
+
 
 class TestPortfolios:
     def test_requires_auth(self):
@@ -782,6 +901,7 @@ class TestPortfolios:
 
 # ── /api/assets/{symbol} ────────────────────────────────────────────────────
 
+
 class TestAssets:
     def test_returns_200(self):
         r = _client().get("/api/assets/PETR4")
@@ -800,6 +920,7 @@ class TestAssets:
 
 
 # ── /api/outlook/* ───────────────────────────────────────────────────────────
+
 
 class TestOutlook:
     def test_auth_status_returns_200(self):
@@ -832,12 +953,16 @@ class TestOutlook:
 
 # ── /api/calendar/* ──────────────────────────────────────────────────────────
 
+
 class TestCalendar:
-    @pytest.mark.parametrize("path", [
-        "/api/calendar/today",
-        "/api/calendar/week",
-        "/api/calendar/next",
-    ])
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/api/calendar/today",
+            "/api/calendar/week",
+            "/api/calendar/next",
+        ],
+    )
     def test_returns_200(self, path):
         r = _client().get(path)
         assert r.status_code == 200

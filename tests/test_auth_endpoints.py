@@ -4,6 +4,7 @@ tests/test_tenant_repo.py's repository tests, including the OWASP-
 aligned password policy and login throttling added after reviewing
 OWASP's Password Storage and Authentication Cheat Sheets.
 """
+
 from __future__ import annotations
 
 import sys
@@ -34,45 +35,87 @@ def _unique_email() -> str:
 
 class TestSignupValidation:
     def test_password_shorter_than_8_is_rejected(self):
-        resp = _client().post("/api/auth/signup", json={
-            "office_name": "Escritório", "name": "Teste", "email": _unique_email(), "password": "curta",
-        })
+        resp = _client().post(
+            "/api/auth/signup",
+            json={
+                "office_name": "Escritório",
+                "name": "Teste",
+                "email": _unique_email(),
+                "password": "curta",
+            },
+        )
         assert resp.status_code == 422
 
     def test_password_longer_than_128_is_rejected(self):
-        resp = _client().post("/api/auth/signup", json={
-            "office_name": "Escritório", "name": "Teste", "email": _unique_email(), "password": "a" * 129,
-        })
+        resp = _client().post(
+            "/api/auth/signup",
+            json={
+                "office_name": "Escritório",
+                "name": "Teste",
+                "email": _unique_email(),
+                "password": "a" * 129,
+            },
+        )
         assert resp.status_code == 422
 
     def test_password_at_minimum_length_is_accepted(self):
-        resp = _client().post("/api/auth/signup", json={
-            "office_name": "Escritório", "name": "Teste", "email": _unique_email(), "password": "12345678",
-        })
+        resp = _client().post(
+            "/api/auth/signup",
+            json={
+                "office_name": "Escritório",
+                "name": "Teste",
+                "email": _unique_email(),
+                "password": "12345678",
+            },
+        )
         assert resp.status_code == 200
 
     def test_malformed_email_is_rejected(self):
-        resp = _client().post("/api/auth/signup", json={
-            "office_name": "Escritório", "name": "Teste", "email": "not-an-email", "password": "senha-valida-123",
-        })
+        resp = _client().post(
+            "/api/auth/signup",
+            json={
+                "office_name": "Escritório",
+                "name": "Teste",
+                "email": "not-an-email",
+                "password": "senha-valida-123",
+            },
+        )
         assert resp.status_code == 422
 
     def test_duplicate_email_is_409(self):
         client = _client()
         email = _unique_email()
-        first = client.post("/api/auth/signup", json={
-            "office_name": "A", "name": "A", "email": email, "password": "senha-valida-123",
-        })
+        first = client.post(
+            "/api/auth/signup",
+            json={
+                "office_name": "A",
+                "name": "A",
+                "email": email,
+                "password": "senha-valida-123",
+            },
+        )
         assert first.status_code == 200
-        second = client.post("/api/auth/signup", json={
-            "office_name": "B", "name": "B", "email": email, "password": "outra-senha-456",
-        })
+        second = client.post(
+            "/api/auth/signup",
+            json={
+                "office_name": "B",
+                "name": "B",
+                "email": email,
+                "password": "outra-senha-456",
+            },
+        )
         assert second.status_code == 409
 
     def test_response_never_includes_password_fields(self):
-        resp = _client().post("/api/auth/signup", json={
-            "office_name": "Escritório", "name": "Teste", "email": _unique_email(), "password": "senha-valida-123",
-        })
+        resp = _client().post(
+            "/api/auth/signup",
+            json={
+                "office_name": "Escritório",
+                "name": "Teste",
+                "email": _unique_email(),
+                "password": "senha-valida-123",
+            },
+        )
         body = resp.text.lower()
         assert "password_hash" not in body and "password_salt" not in body
 
@@ -81,9 +124,15 @@ class TestLoginAndLogout:
     def test_login_with_correct_password_succeeds(self):
         client = _client()
         email = _unique_email()
-        client.post("/api/auth/signup", json={
-            "office_name": "Escritório", "name": "Teste", "email": email, "password": "senha-correta-123",
-        })
+        client.post(
+            "/api/auth/signup",
+            json={
+                "office_name": "Escritório",
+                "name": "Teste",
+                "email": email,
+                "password": "senha-correta-123",
+            },
+        )
         resp = client.post("/api/auth/login", json={"email": email, "password": "senha-correta-123"})
         assert resp.status_code == 200
         assert resp.json()["token"]
@@ -91,9 +140,15 @@ class TestLoginAndLogout:
     def test_login_with_wrong_password_is_401(self):
         client = _client()
         email = _unique_email()
-        client.post("/api/auth/signup", json={
-            "office_name": "Escritório", "name": "Teste", "email": email, "password": "senha-correta-123",
-        })
+        client.post(
+            "/api/auth/signup",
+            json={
+                "office_name": "Escritório",
+                "name": "Teste",
+                "email": email,
+                "password": "senha-correta-123",
+            },
+        )
         resp = client.post("/api/auth/login", json={"email": email, "password": "senha-errada"})
         assert resp.status_code == 401
 
@@ -141,10 +196,16 @@ class TestSessionsList:
         # make three, not two.
         client = _client()
         email = _unique_email()
-        client.post("/api/auth/signup", json={
-            "office_name": "Escritório", "name": "Teste", "email": email, "password": "senha-de-teste-123",
-        })
-        login1 = client.post("/api/auth/login", json={"email": email, "password": "senha-de-teste-123"})
+        client.post(
+            "/api/auth/signup",
+            json={
+                "office_name": "Escritório",
+                "name": "Teste",
+                "email": email,
+                "password": "senha-de-teste-123",
+            },
+        )
+        client.post("/api/auth/login", json={"email": email, "password": "senha-de-teste-123"})
         login2 = client.post("/api/auth/login", json={"email": email, "password": "senha-de-teste-123"})
         headers2 = {"Authorization": f"Bearer {login2.json()['token']}"}
 
@@ -156,7 +217,7 @@ class TestSessionsList:
 
     def test_scoped_to_one_user(self):
         client = _client()
-        session_a = signup_office(client)
+        signup_office(client)
         session_b = signup_office(client, "Outro Escritório")
         sessions_b = client.get("/api/auth/sessions", headers=session_b["headers"]).json()["sessions"]
         assert len(sessions_b) == 1
@@ -175,9 +236,15 @@ class TestSessionsDelete:
     def test_revoking_a_session_logs_it_out(self):
         client = _client()
         email = _unique_email()
-        client.post("/api/auth/signup", json={
-            "office_name": "Escritório", "name": "Teste", "email": email, "password": "senha-de-teste-123",
-        })
+        client.post(
+            "/api/auth/signup",
+            json={
+                "office_name": "Escritório",
+                "name": "Teste",
+                "email": email,
+                "password": "senha-de-teste-123",
+            },
+        )
         login1 = client.post("/api/auth/login", json={"email": email, "password": "senha-de-teste-123"})
         login2 = client.post("/api/auth/login", json={"email": email, "password": "senha-de-teste-123"})
         headers1 = {"Authorization": f"Bearer {login1.json()['token']}"}
@@ -209,9 +276,15 @@ class TestLoginRateLimiting:
     def test_sixth_consecutive_failed_attempt_is_429(self):
         client = _client()
         email = _unique_email()
-        client.post("/api/auth/signup", json={
-            "office_name": "Escritório", "name": "Teste", "email": email, "password": "senha-correta-123",
-        })
+        client.post(
+            "/api/auth/signup",
+            json={
+                "office_name": "Escritório",
+                "name": "Teste",
+                "email": email,
+                "password": "senha-correta-123",
+            },
+        )
         for _ in range(5):
             resp = client.post("/api/auth/login", json={"email": email, "password": "senha-errada"})
             assert resp.status_code == 401

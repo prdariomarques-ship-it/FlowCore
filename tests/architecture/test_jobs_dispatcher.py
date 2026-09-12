@@ -58,10 +58,7 @@ class TestSnapshotCache:
             return {"heavy": "result"}
 
         # Simulate 5 concurrent requests arriving at the same instant
-        tasks = [
-            asyncio.create_task(cache.get_or_compute("heavy_key", heavy_computation))
-            for _ in range(5)
-        ]
+        tasks = [asyncio.create_task(cache.get_or_compute("heavy_key", heavy_computation)) for _ in range(5)]
         results = await asyncio.gather(*tasks)
 
         for res in results:

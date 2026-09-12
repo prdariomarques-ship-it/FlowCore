@@ -98,8 +98,11 @@ class CoreOrchestrator:
         notification = await self._send_telegram(office, f"{emoji} {client_name}\n\n{reasoning}")
 
         decision = {
-            "agent": "client_intelligence", "action": "notify_advisor",
-            "reasoning": reasoning, "reasoning_source": reasoning_source, "notification": notification,
+            "agent": "client_intelligence",
+            "action": "notify_advisor",
+            "reasoning": reasoning,
+            "reasoning_source": reasoning_source,
+            "notification": notification,
         }
         return await self._record(office_id, event, "processed", decision)
 
@@ -114,7 +117,8 @@ class CoreOrchestrator:
 
         office = await self._get_office(office_id)
         notification = await self._send_telegram(
-            office, f"🟢 {client_name} voltou a ficar dentro da política de alocação combinada.",
+            office,
+            f"🟢 {client_name} voltou a ficar dentro da política de alocação combinada.",
         )
         decision = {"agent": "client_intelligence", "action": "notify_advisor_recovered", "notification": notification}
         return await self._record(office_id, event, "processed", decision)
@@ -133,7 +137,8 @@ class CoreOrchestrator:
 
         approval_repo = AgentApprovalRepository()
         already_pending = [
-            a for a in await approval_repo.list_approvals(office_id, status="pending")
+            a
+            for a in await approval_repo.list_approvals(office_id, status="pending")
             if a["action_type"] == "contact_client" and a["entity"].get("id") == client_id
         ]
         if already_pending:
@@ -151,7 +156,11 @@ class CoreOrchestrator:
         draft = draft_review_request(client["name"], violations, advisor_name, office_name)
 
         approval = await approval_repo.create(
-            office_id, event["id"], "followup_agent", "contact_client", event["entity"],
+            office_id,
+            event["id"],
+            "followup_agent",
+            "contact_client",
+            event["entity"],
             {"client_id": client_id, "client_name": client["name"], "draft": draft, "channels": ["email", "whatsapp"]},
         )
 
@@ -163,15 +172,22 @@ class CoreOrchestrator:
         )
 
         decision = {
-            "agent": "followup_agent", "action": "propose_client_contact", "approval_id": approval["id"],
-            "reasoning": reasoning, "reasoning_source": reasoning_source, "notification": notification,
+            "agent": "followup_agent",
+            "action": "propose_client_contact",
+            "approval_id": approval["id"],
+            "reasoning": reasoning,
+            "reasoning_source": reasoning_source,
+            "notification": notification,
         }
         return await self._record(office_id, event, "processed", decision)
 
     # ── Reasoning ────────────────────────────────────────────────────────────
 
     async def _reason_violation(
-        self, client: dict[str, Any] | None, event: dict[str, Any], office: dict[str, Any] | None,
+        self,
+        client: dict[str, Any] | None,
+        event: dict[str, Any],
+        office: dict[str, Any] | None,
         office_id: str,
     ) -> tuple[str, str]:
         message = event["payload"].get("message", "")
@@ -188,7 +204,10 @@ class CoreOrchestrator:
         return await self._call_llm(prompt, fallback, office_id)
 
     async def _reason_followup(
-        self, client: dict[str, Any], event: dict[str, Any], office: dict[str, Any] | None,
+        self,
+        client: dict[str, Any],
+        event: dict[str, Any],
+        office: dict[str, Any] | None,
         office_id: str,
     ) -> tuple[str, str]:
         days_open = event["payload"].get("days_open")
@@ -251,7 +270,9 @@ class CoreOrchestrator:
     async def _ignore(self, office_id: str, event: dict[str, Any], reason: str) -> dict[str, Any]:
         return await self._record(office_id, event, "ignored", {"reason": reason})
 
-    async def _record(self, office_id: str, event: dict[str, Any], status: str, decision: dict[str, Any]) -> dict[str, Any]:
+    async def _record(
+        self, office_id: str, event: dict[str, Any], status: str, decision: dict[str, Any]
+    ) -> dict[str, Any]:
         from storage.agent_event_repo import AgentEventRepository
 
         return await AgentEventRepository().record_decision(office_id, event["id"], status, decision)

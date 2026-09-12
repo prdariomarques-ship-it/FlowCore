@@ -268,11 +268,7 @@ class AsyncJobDispatcher:
 
     def get_metrics(self) -> dict[str, Any]:
         """Return operational metrics for dispatcher throughput and error rates."""
-        avg_latency = (
-            (self._total_execution_ms / self._total_completed)
-            if self._total_completed > 0
-            else 0.0
-        )
+        avg_latency = (self._total_execution_ms / self._total_completed) if self._total_completed > 0 else 0.0
         return {
             "queue_depth": self._queue.qsize(),
             "active_workers": len(self._running_tasks),

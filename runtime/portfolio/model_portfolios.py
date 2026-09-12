@@ -11,6 +11,7 @@ look like" without that being tied to any specific client or office.
 Real target-allocation weights (config/portfolio_*_1m.json), not
 fabricated at request time.
 """
+
 from __future__ import annotations
 
 import json

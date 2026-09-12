@@ -1,4 +1,5 @@
 """Tests for Fase 3 — Dashboard v4 backend endpoints."""
+
 from __future__ import annotations
 
 import json
@@ -13,15 +14,17 @@ if str(ROOT) not in sys.path:
 
 
 def _client():
-    fastapi = pytest.importorskip("fastapi")
+    pytest.importorskip("fastapi")
     pytest.importorskip("httpx")
     from fastapi.testclient import TestClient
     from api.router import create_app
+
     app = create_app(version="test", platform_info={"os_name": "test"})
     return TestClient(app)
 
 
 # ── GET /api/doctor/{check} ────────────────────────────────────────────────────
+
 
 class TestDoctorCheckEndpoint:
     def test_known_check_returns_200(self):
@@ -51,6 +54,7 @@ class TestDoctorCheckEndpoint:
 
 
 # ── GET /api/logs ─────────────────────────────────────────────────────────────
+
 
 class TestLogsEndpoint:
     def test_returns_200_even_without_log_file(self):
@@ -82,13 +86,13 @@ class TestLogsEndpoint:
         log_file.write_text("2024-01-01 INFO startup\n2024-01-01 ERROR crash\n")
 
         import api.router as router_mod
-        orig_file = router_mod.__file__
 
         monkeypatch.setattr(router_mod, "__file__", str(tmp_path / "api" / "router.py"))
         (tmp_path / "api").mkdir(exist_ok=True)
 
         from fastapi.testclient import TestClient
         from api.router import create_app
+
         app = create_app(version="test")
         c = TestClient(app)
 
@@ -98,6 +102,7 @@ class TestLogsEndpoint:
 
 
 # ── GET /api/scheduler/jobs ───────────────────────────────────────────────────
+
 
 class TestSchedulerEndpoints:
     def test_list_jobs_returns_200(self):
@@ -116,12 +121,14 @@ class TestSchedulerEndpoints:
 
     def test_run_and_pause_real_job(self, tmp_path, monkeypatch):
         import runtime.job_scheduler as jmod
+
         monkeypatch.setattr(jmod, "_JOBS_FILE", tmp_path / "jobs.json")
 
         script = tmp_path / "noop.py"
         script.write_text("print('ok')\n")
 
         from runtime.job_scheduler import JobScheduler
+
         sched = JobScheduler()
         sched._load()
         sched.add_job("test_job", str(script), "0 * * * *")
@@ -141,6 +148,7 @@ class TestSchedulerEndpoints:
 
 
 # ── POST /api/observer/ingest ─────────────────────────────────────────────────
+
 
 class TestObserverIngest:
     def test_returns_200_when_not_configured(self):
@@ -162,6 +170,7 @@ class TestObserverIngest:
 
 # ── GET /api/whatsapp/qr ──────────────────────────────────────────────────────
 
+
 class TestWhatsAppQR:
     def test_get_returns_200_unconfigured(self):
         r = _client().get("/api/whatsapp/qr")
@@ -180,6 +189,7 @@ class TestWhatsAppQR:
 
     def test_reads_whatsapp_json_when_present(self, tmp_path, monkeypatch):
         from pathlib import Path as _Path
+
         monkeypatch.setattr(_Path, "home", staticmethod(lambda: tmp_path))
 
         cfg_dir = tmp_path / ".flowcore"
@@ -190,6 +200,7 @@ class TestWhatsAppQR:
 
         from fastapi.testclient import TestClient
         from api.router import create_app
+
         c = TestClient(create_app(version="test"))
         r = c.get("/api/whatsapp/qr")
         assert r.status_code == 200

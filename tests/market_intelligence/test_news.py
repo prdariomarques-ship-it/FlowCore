@@ -4,6 +4,7 @@ canonical_url is a real http(s) URL (see web/index.html's renderNewsList),
 so a gap in this fallback chain silently degrades every affected item to
 "nothing happens when you tap it".
 """
+
 from __future__ import annotations
 
 import sys
@@ -39,9 +40,13 @@ class TestFetchNewsLinkExtraction:
         assert self._fetch_with(item)["link"] == "https://example.com/b"
 
     def test_falls_back_to_click_through_url(self):
-        item = _yfinance_item({
-            "title": "Headline", "canonicalUrl": None, "clickThroughUrl": {"url": "https://example.com/c"},
-        })
+        item = _yfinance_item(
+            {
+                "title": "Headline",
+                "canonicalUrl": None,
+                "clickThroughUrl": {"url": "https://example.com/c"},
+            }
+        )
         assert self._fetch_with(item)["link"] == "https://example.com/c"
 
     def test_falls_back_to_preview_url(self):

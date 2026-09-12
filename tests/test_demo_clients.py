@@ -13,6 +13,7 @@ this file covers the office-scoped wrapper module
 (runtime/portfolio/demo_clients.py), its ComplianceAgent integration,
 and the HTTP endpoints.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -121,7 +122,9 @@ class TestDemoClientsEndpoints:
 
     def test_update_unknown_client_is_404(self):
         client, session = _office_with_demo_clients()
-        resp = client.put("/api/clients/demo/nope", json={"current_allocation": {"ai_theme": 1.0}}, headers=session["headers"])
+        resp = client.put(
+            "/api/clients/demo/nope", json={"current_allocation": {"ai_theme": 1.0}}, headers=session["headers"]
+        )
         assert resp.status_code == 404
 
     def test_update_and_reset_roundtrip(self):
@@ -145,7 +148,9 @@ class TestDemoClientsEndpoints:
         client_id = client.get("/api/clients/demo", headers=session_a["headers"]).json()["clients"][0]["id"]
 
         resp = client.put(
-            f"/api/clients/demo/{client_id}", json={"current_allocation": {"ai_theme": 77.0}}, headers=session_b["headers"]
+            f"/api/clients/demo/{client_id}",
+            json={"current_allocation": {"ai_theme": 77.0}},
+            headers=session_b["headers"],
         )
         assert resp.status_code == 404
 
@@ -212,7 +217,8 @@ class TestClientCreationEndpoint:
 
         put_resp = client.put(
             f"/api/clients/demo/{created['id']}",
-            json={"current_allocation": {"br_equity_funds": 20.0}}, headers=session["headers"],
+            json={"current_allocation": {"br_equity_funds": 20.0}},
+            headers=session["headers"],
         )
         assert put_resp.status_code == 200
         assert put_resp.json()["client"]["current_allocation"]["br_equity_funds"] == 20.0
@@ -220,10 +226,18 @@ class TestClientCreationEndpoint:
     def test_full_payload_with_allocation_and_contact(self):
         client = _client()
         session = signup_office(client)
-        resp = client.post("/api/clients", json={
-            "name": "Cliente Completo", "profile": "arrojado", "reference_value": 750000.0,
-            "current_allocation": {"global_equity": 40.0}, "email": "c@example.com", "phone": "+5511988887777",
-        }, headers=session["headers"])
+        resp = client.post(
+            "/api/clients",
+            json={
+                "name": "Cliente Completo",
+                "profile": "arrojado",
+                "reference_value": 750000.0,
+                "current_allocation": {"global_equity": 40.0},
+                "email": "c@example.com",
+                "phone": "+5511988887777",
+            },
+            headers=session["headers"],
+        )
         assert resp.status_code == 200
         c = resp.json()["client"]
         assert c["profile"] == "arrojado"

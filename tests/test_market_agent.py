@@ -5,6 +5,7 @@ deterministic and don't depend on live yfinance access — MarketAgent's
 job is classifying whatever watchlist.py hands it, not fetching data
 itself, so that's the right seam to mock at.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -109,10 +110,16 @@ class TestMissingOrFailedSource:
         # Previously the real exception text was thrown away entirely --
         # every failing tab showed the same generic "fonte indisponível"
         # with no way to tell a timeout from Yahoo blocking the network.
-        items = _fake_snapshot({"^GSPC": {
-            "level": None, "delta_pct_1d": None, "status": "error",
-            "error": "Timed out fetching ^GSPC after 6.0s",
-        }})
+        items = _fake_snapshot(
+            {
+                "^GSPC": {
+                    "level": None,
+                    "delta_pct_1d": None,
+                    "status": "error",
+                    "error": "Timed out fetching ^GSPC after 6.0s",
+                }
+            }
+        )
         with patch("runtime.market_intelligence.watchlist.snapshot", return_value=items):
             result = _run(MarketAgent().run())
         sp500 = next(m for m in result["data"]["movements"] if m["asset"] == "S&P 500")
@@ -127,10 +134,17 @@ class TestMissingOrFailedSource:
 
 class TestMarketStatus:
     def test_normal_when_everything_is_low_relevance(self):
-        items = _fake_snapshot({s: {"level": 100.0, "delta_pct_1d": 0.01, "status": "ok"}
-                                 for cfg in MARKET_THRESHOLDS.values() if (s := cfg["symbol"])})
-        with patch("runtime.market_intelligence.watchlist.snapshot", return_value=items), \
-             patch("agents.market_agent._DI_MOCK_CURRENT", 13.10):  # zero the mock's own move too
+        items = _fake_snapshot(
+            {
+                s: {"level": 100.0, "delta_pct_1d": 0.01, "status": "ok"}
+                for cfg in MARKET_THRESHOLDS.values()
+                if (s := cfg["symbol"])
+            }
+        )
+        with (
+            patch("runtime.market_intelligence.watchlist.snapshot", return_value=items),
+            patch("agents.market_agent._DI_MOCK_CURRENT", 13.10),
+        ):  # zero the mock's own move too
             result = _run(MarketAgent().run())
         assert result["data"]["market_status"] == "NORMAL"
 
@@ -153,8 +167,10 @@ class TestHistoryField:
     def test_history_populated_from_real_fetch(self):
         items = _fake_snapshot({"^GSPC": {"level": 5000.0, "delta_pct_1d": 0.2, "status": "ok"}})
         closes = [4950.0, 4960.0, 4980.0, 5000.0]
-        with patch("runtime.market_intelligence.watchlist.snapshot", return_value=items), \
-             patch("runtime.observers.providers.yfinance_provider.fetch_history", return_value=closes):
+        with (
+            patch("runtime.market_intelligence.watchlist.snapshot", return_value=items),
+            patch("runtime.observers.providers.yfinance_provider.fetch_history", return_value=closes),
+        ):
             result = _run(MarketAgent().run())
         sp500 = next(m for m in result["data"]["movements"] if m["asset"] == "S&P 500")
         assert sp500["history"] == closes
@@ -178,7 +194,14 @@ class TestAgentContract:
         result = _run(MarketAgent().run())
         assert result["status"] == "ok"
         data = result["data"]
-        for key in ("timestamp", "market_status", "movements", "relevant_changes", "potential_impacts", "intelligence_events"):
+        for key in (
+            "timestamp",
+            "market_status",
+            "movements",
+            "relevant_changes",
+            "potential_impacts",
+            "intelligence_events",
+        ):
             assert key in data
         assert len(data["movements"]) == len(MARKET_THRESHOLDS)
 

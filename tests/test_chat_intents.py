@@ -3,6 +3,7 @@ Copilot MVP2 phase 5 (market, intelligence, priority) — same pattern as
 the existing compliance intercept: real agent data formatted as chat
 prose instead of routed through an LLM.
 """
+
 from __future__ import annotations
 
 import sys
@@ -14,6 +15,8 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+pytest.importorskip("fastapi")
 
 from api.dashboard_routes import (  # noqa: E402
     _is_intelligence_question,
@@ -63,9 +66,12 @@ class TestChatIntentsRequireAuth:
 class TestMarketChatIntent:
     def test_reports_relevant_moves_with_mock_tag(self):
         client, headers = _client_and_headers()
-        items = {"watchlist": "default", "items": [
-            {"symbol": "^BVSP", "level": 130000.0, "delta_pct_1d": 3.2, "status": "ok"},
-        ]}
+        items = {
+            "watchlist": "default",
+            "items": [
+                {"symbol": "^BVSP", "level": 130000.0, "delta_pct_1d": 3.2, "status": "ok"},
+            ],
+        }
         with patch("runtime.market_intelligence.watchlist.snapshot", return_value=items):
             resp = client.post("/api/ask", json={"question": "o que mudou no mercado hoje?"}, headers=headers)
         assert resp.status_code == 200
@@ -86,8 +92,10 @@ class TestMarketChatIntent:
 class TestIntelligenceChatIntent:
     def test_neutral_when_no_events(self):
         client, headers = _client_and_headers()
-        with patch("agents.intelligence_engine.IntelligenceEngine._market_events", return_value=[]), \
-             patch("agents.intelligence_engine.IntelligenceEngine._compliance_events", return_value=[]):
+        with (
+            patch("agents.intelligence_engine.IntelligenceEngine._market_events", return_value=[]),
+            patch("agents.intelligence_engine.IntelligenceEngine._compliance_events", return_value=[]),
+        ):
             resp = client.post("/api/ask", json={"question": "explique esse override"}, headers=headers)
         assert resp.status_code == 200
         data = resp.json()

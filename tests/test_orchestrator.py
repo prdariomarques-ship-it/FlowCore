@@ -9,6 +9,7 @@ against the real data/flowcore.db, relying on TenantRepository's
 random-hex office_id (like the rest of this suite's API-level tests, see
 tests/_auth_helper.py) for isolation rather than a per-test database.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -65,7 +66,8 @@ async def _office_with_client_and_violation(telegram_chat_id: str | None = "-100
     clients = await client_repo.list_clients(office["id"])
     client = next(c for c in clients if c["id"] == "demo-client-21")  # Junqueira Capital, out of band
     event = AgentEvent(
-        type="PORTFOLIO_OUT_OF_PROFILE", source="compliance_agent",
+        type="PORTFOLIO_OUT_OF_PROFILE",
+        source="compliance_agent",
         entity={"kind": "client", "id": client["id"]},
         payload={"message": "Renda Fixa Total 2.0 p.p. acima do limite (67.0% vs 65.0%)."},
         priority="HIGH",
@@ -215,13 +217,17 @@ class TestPortfolioOutOfProfile:
         """The client vanished (deleted?) between the observation cycle
         that published the event and the orchestrator handling it -- never
         crash, degrade to the id itself rather than fabricating a name."""
+
         async def scenario():
             tenant_repo = TenantRepository()
             office = await tenant_repo.create_office("Escritório Teste Ghost")
             await tenant_repo.set_telegram_chat_id(office["id"], "-100999")
             event = AgentEvent(
-                type="PORTFOLIO_OUT_OF_PROFILE", source="compliance_agent",
-                entity={"kind": "client", "id": "ghost-client"}, payload={"message": "x"}, priority="HIGH",
+                type="PORTFOLIO_OUT_OF_PROFILE",
+                source="compliance_agent",
+                entity={"kind": "client", "id": "ghost-client"},
+                payload={"message": "x"},
+                priority="HIGH",
             )
             published = await AgentEventRepository().publish(office["id"], event)
             orchestrator = CoreOrchestrator(llm_router=None)
@@ -257,8 +263,10 @@ class TestPortfolioBackInProfile:
         async def scenario():
             office, client, _ = await _office_with_client_and_violation()
             event = AgentEvent(
-                type="PORTFOLIO_BACK_IN_PROFILE", source="compliance_agent",
-                entity={"kind": "client", "id": client["id"]}, priority="MEDIUM",
+                type="PORTFOLIO_BACK_IN_PROFILE",
+                source="compliance_agent",
+                entity={"kind": "client", "id": client["id"]},
+                priority="MEDIUM",
             )
             published = await AgentEventRepository().publish(office["id"], event)
             orchestrator = CoreOrchestrator()
@@ -276,8 +284,10 @@ class TestPortfolioBackInProfile:
         async def scenario():
             office, client, _ = await _office_with_client_and_violation(telegram_chat_id=None)
             event = AgentEvent(
-                type="PORTFOLIO_BACK_IN_PROFILE", source="compliance_agent",
-                entity={"kind": "client", "id": client["id"]}, priority="MEDIUM",
+                type="PORTFOLIO_BACK_IN_PROFILE",
+                source="compliance_agent",
+                entity={"kind": "client", "id": client["id"]},
+                priority="MEDIUM",
             )
             published = await AgentEventRepository().publish(office["id"], event)
             return await CoreOrchestrator().handle_event(office["id"], published)
@@ -289,7 +299,8 @@ class TestPortfolioBackInProfile:
 class TestClientFollowupOverdue:
     def _followup_event(self, client_id: str, days_open: int = 3) -> AgentEvent:
         return AgentEvent(
-            type="CLIENT_FOLLOWUP_OVERDUE", source="observer_loop",
+            type="CLIENT_FOLLOWUP_OVERDUE",
+            source="observer_loop",
             entity={"kind": "client", "id": client_id},
             payload={
                 "violations": [{"message": "Renda Fixa 2.0 p.p. acima do limite.", "severity": "CRITICAL"}],
@@ -303,9 +314,11 @@ class TestClientFollowupOverdue:
             office, client, _ = await _office_with_client_and_violation()
             event = await AgentEventRepository().publish(office["id"], self._followup_event(client["id"]))
             orchestrator = CoreOrchestrator(llm_router=_FakeLLMRouter("Explicação real."))
-            with patch("runtime.telegram.send_message", return_value={"ok": True}), \
-                 patch("runtime.client_outreach._send_email_channel") as mock_email, \
-                 patch("runtime.client_outreach._send_whatsapp_channel") as mock_whatsapp:
+            with (
+                patch("runtime.telegram.send_message", return_value={"ok": True}),
+                patch("runtime.client_outreach._send_email_channel") as mock_email,
+                patch("runtime.client_outreach._send_whatsapp_channel") as mock_whatsapp,
+            ):
                 result = await orchestrator.handle_event(office["id"], event)
                 # The orchestrator must never itself call the send
                 # channels -- only AgentApprovalRepository.decide() +

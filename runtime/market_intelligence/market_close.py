@@ -7,10 +7,11 @@ build_briefing(), already deterministic and network-failure-tolerant.
 This module only adds the "monta o texto" (client + Instagram) and
 "salva tudo organizado" steps — no LLM required, same as the briefing.
 """
+
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -42,7 +43,7 @@ def _instagram_version(lines: list[str], generated_at: str) -> str:
         f"{body}\n\n"
         f"#mercadofinanceiro #investimentos #economia #bolsadevalores"
     )
-    return text[: _INSTAGRAM_MAX_CHARS]
+    return text[:_INSTAGRAM_MAX_CHARS]
 
 
 def _persist(package: dict[str, Any]) -> str | None:
@@ -64,6 +65,7 @@ def _render_card(lines: list[str], generated_at: str) -> str | None:
     failure) the text versions still stand on their own."""
     try:
         from runtime.market_intelligence.market_close_card import render_close_card
+
         date_key = datetime.fromisoformat(generated_at).strftime("%Y-%m-%d")
         path = _HISTORY_DIR / f"{date_key}.png"
         return render_close_card(lines, generated_at, path)

@@ -9,10 +9,10 @@ Pipeline:
 
 Deterministic path never fails. LLM polish is always optional.
 """
+
 from __future__ import annotations
 
 import json
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -22,6 +22,7 @@ _BRIEF_HISTORY = Path.home() / ".flowcore" / "brief_history.json"
 
 
 # ── formatters ────────────────────────────────────────────────────────────────
+
 
 def _fmt(v: Any, decimals: int = 2, unit: str = "") -> str:
     if v is None:
@@ -43,9 +44,11 @@ def _arrow(v: Any) -> str:
 
 # ── section collectors ────────────────────────────────────────────────────────
 
+
 def _section_macro() -> dict[str, Any]:
     try:
         from runtime.market_intelligence.score_history import score_history
+
         hist = score_history()
         dims = []
         for dim, view in hist.get("windows", {}).items():
@@ -54,12 +57,14 @@ def _section_macro() -> dict[str, Any]:
             val = latest.get("value")
             d5v = d5.get("value")
             trend = "→" if d5v is None else ("↑" if val and val > d5v else "↓")
-            dims.append({
-                "dimension": dim,
-                "value": val,
-                "status": latest.get("status", ""),
-                "trend": trend,
-            })
+            dims.append(
+                {
+                    "dimension": dim,
+                    "value": val,
+                    "status": latest.get("status", ""),
+                    "trend": trend,
+                }
+            )
         return {"ok": True, "dimensions": dims}
     except Exception as exc:
         return {"ok": False, "error": str(exc), "dimensions": []}
@@ -71,12 +76,10 @@ def _section_regime() -> dict[str, Any]:
         from runtime.macro_score.engine import MacroScoreEngine
         from runtime.regime.engine import RegimeEngine
         from storage import EventRepository
+
         engine = RegimeEngine(MacroScoreEngine(EventRepository()))
         regime_signals = run_sync(engine.classify_all())
-        signals = [
-            {"name": s.dimension, "status": s.regime, "value": s.score}
-            for s in regime_signals
-        ]
+        signals = [{"name": s.dimension, "status": s.regime, "value": s.score} for s in regime_signals]
         return {"ok": True, "signals": signals}
     except Exception as exc:
         return {"ok": False, "error": str(exc), "signals": []}
@@ -85,8 +88,14 @@ def _section_regime() -> dict[str, Any]:
 def _section_fx() -> dict[str, Any]:
     try:
         from runtime.market_intelligence.fx_analysis import analyze_fx
+
         fx = analyze_fx()
-        return {"ok": True, "dxy_delta": fx.get("dxy_delta_pct_1d"), "pairs": fx.get("pairs", []), "regime": fx.get("usd_regime", "")}
+        return {
+            "ok": True,
+            "dxy_delta": fx.get("dxy_delta_pct_1d"),
+            "pairs": fx.get("pairs", []),
+            "regime": fx.get("usd_regime", ""),
+        }
     except Exception as exc:
         return {"ok": False, "error": str(exc), "dxy_delta": None, "pairs": []}
 
@@ -94,6 +103,7 @@ def _section_fx() -> dict[str, Any]:
 def _section_yield() -> dict[str, Any]:
     try:
         from runtime.market_intelligence.yield_curve import build_yield_curve
+
         curve = build_yield_curve()
         return {
             "ok": True,
@@ -110,10 +120,14 @@ def _section_yield() -> dict[str, Any]:
 def _section_news() -> dict[str, Any]:
     try:
         from runtime.market_intelligence.news import fetch_news
+
         result = fetch_news(max_per_group=3, section="all")
         items = result.get("items", [])
         categories = sorted({i["category"] for i in items})
-        top = [{"headline": i["headline"], "category": i["category"], "publisher": i.get("publisher", "")} for i in items[:5]]
+        top = [
+            {"headline": i["headline"], "category": i["category"], "publisher": i.get("publisher", "")}
+            for i in items[:5]
+        ]
         return {"ok": True, "total": len(items), "categories": categories, "top": top}
     except Exception as exc:
         return {"ok": False, "error": str(exc), "total": 0, "top": []}
@@ -122,6 +136,7 @@ def _section_news() -> dict[str, Any]:
 def _section_alerts() -> dict[str, Any]:
     try:
         from runtime.market_intelligence.alerts import list_alerts
+
         alerts = list_alerts(limit=5)
         return {"ok": True, "alerts": alerts}
     except Exception as exc:
@@ -130,9 +145,11 @@ def _section_alerts() -> dict[str, Any]:
 
 # ── LLM polish ────────────────────────────────────────────────────────────────
 
+
 def _polish_with_llm(raw_text: str, ollama_url: str, model: str) -> str:
     """Ask LLM to turn raw market data into a fluent morning brief in PT-BR."""
     import urllib.request
+
     system = (
         "Você é o analista matinal do FlowCore. Transforme os dados brutos em um "
         "parágrafo de 4-6 frases em português brasileiro, fluente e objetivo, "
@@ -140,14 +157,16 @@ def _polish_with_llm(raw_text: str, ollama_url: str, model: str) -> str:
         "Preserve todos os números. Não invente dados. Não use linguagem sensacionalista."
     )
     prompt = f"Dados brutos do mercado:\n\n{raw_text}\n\nEscreva o brief matinal:"
-    payload = json.dumps({
-        "model": model,
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": prompt},
-        ],
-        "stream": False,
-    }).encode()
+    payload = json.dumps(
+        {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": prompt},
+            ],
+            "stream": False,
+        }
+    ).encode()
     req = urllib.request.Request(
         f"{ollama_url.rstrip('/')}/api/chat",
         data=payload,
@@ -160,9 +179,10 @@ def _polish_with_llm(raw_text: str, ollama_url: str, model: str) -> str:
 
 # ── text formatter for Telegram ───────────────────────────────────────────────
 
+
 def _format_telegram(sections: dict[str, Any], llm_text: str | None, generated_at: str) -> str:
     lines: list[str] = []
-    lines.append(f"📊 *BRIEF MATINAL — FlowCore*")
+    lines.append("📊 *BRIEF MATINAL — FlowCore*")
     lines.append(f"_{generated_at[:10]} {generated_at[11:16]} UTC_")
     lines.append("")
 
@@ -174,8 +194,9 @@ def _format_telegram(sections: dict[str, Any], llm_text: str | None, generated_a
     y = sections["yield"]
     if y["ok"]:
         state_emoji = {"normal": "✅", "inverted": "⚠️", "flat": "➡️"}.get(y.get("state", ""), "📈")
-        lines.append(f"{state_emoji} *Curva EUA*: {y.get('state', '—')} "
-                     f"(10Y-2Y: {_fmt(y.get('slope_10y_2y'), 0, ' bps')})")
+        lines.append(
+            f"{state_emoji} *Curva EUA*: {y.get('state', '—')} (10Y-2Y: {_fmt(y.get('slope_10y_2y'), 0, ' bps')})"
+        )
 
     # FX
     fx = sections["fx"]
@@ -183,8 +204,10 @@ def _format_telegram(sections: dict[str, Any], llm_text: str | None, generated_a
         lines.append(f"💱 *DXY*: {_fmt(fx.get('dxy_delta'), 2, '%')}{_arrow(fx.get('dxy_delta'))}")
         for pair in fx.get("pairs", [])[:3]:
             if pair.get("level") is not None:
-                lines.append(f"  • {pair['name']}: {pair['level']:.4f} "
-                             f"({_fmt(pair.get('delta_pct_1d'))}%{_arrow(pair.get('delta_pct_1d'))})")
+                lines.append(
+                    f"  • {pair['name']}: {pair['level']:.4f} "
+                    f"({_fmt(pair.get('delta_pct_1d'))}%{_arrow(pair.get('delta_pct_1d'))})"
+                )
 
     # Regime
     reg = sections["regime"]
@@ -196,8 +219,10 @@ def _format_telegram(sections: dict[str, Any], llm_text: str | None, generated_a
     mac = sections["macro"]
     if mac["ok"] and mac["dimensions"]:
         for dim in mac["dimensions"][:3]:
-            lines.append(f"📐 *Macro {dim['dimension']}*: {_fmt(dim.get('value'))} "
-                         f"({dim.get('status', '')} {dim.get('trend', '')})")
+            lines.append(
+                f"📐 *Macro {dim['dimension']}*: {_fmt(dim.get('value'))} "
+                f"({dim.get('status', '')} {dim.get('trend', '')})"
+            )
 
     # News
     news = sections["news"]
@@ -221,6 +246,7 @@ def _format_telegram(sections: dict[str, Any], llm_text: str | None, generated_a
 
 
 # ── main entry point ──────────────────────────────────────────────────────────
+
 
 def build_brief(
     *,
@@ -300,6 +326,7 @@ def build_brief(
     # Sync to Obsidian vault (silent — never blocks brief delivery)
     try:
         from runtime.obsidian import ObsidianSync
+
         obsidian_result = ObsidianSync().write_brief(result)
         result["obsidian"] = obsidian_result
     except Exception as exc:
@@ -322,6 +349,7 @@ def send_brief_to_telegram(brief: dict[str, Any]) -> bool:
     """Send the telegram_text to the configured Telegram channel. Returns True on success."""
     try:
         from runtime.telegram import send_message
+
         send_message(brief["telegram_text"])
         return True
     except Exception:

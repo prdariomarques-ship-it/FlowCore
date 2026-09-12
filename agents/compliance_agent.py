@@ -37,6 +37,7 @@ never a guessed position or a fabricated limit. Callers that already
 have a one-off current_allocation (e.g. a manual test) can also pass it
 in via `context["portfolios"]` without persisting anything.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -114,15 +115,17 @@ class ComplianceAgent(BaseAgent):
             return []
         clients = []
         for c in await load_demo_clients(office_id):
-            clients.append({
-                "id": c.get("id", ""),
-                "name": c.get("name", ""),
-                "target_allocation": reference["target_allocation"],
-                "sleeve_limits": reference["sleeve_limits"],
-                "review_policy": reference["review_policy"],
-                "current_allocation": c.get("current_allocation") or None,
-                "demo": bool(c.get("is_demo")),
-            })
+            clients.append(
+                {
+                    "id": c.get("id", ""),
+                    "name": c.get("name", ""),
+                    "target_allocation": reference["target_allocation"],
+                    "sleeve_limits": reference["sleeve_limits"],
+                    "review_policy": reference["review_policy"],
+                    "current_allocation": c.get("current_allocation") or None,
+                    "demo": bool(c.get("is_demo")),
+                }
+            )
         return clients
 
     @staticmethod
@@ -178,39 +181,56 @@ class ComplianceAgent(BaseAgent):
                 continue
             item_ids = [i["id"] for i in target_allocation if i.get("class") in classes]
             current_sum = self._sleeve_current(sleeve_name, item_ids, current)
-            violations.extend(self._check_band(
-                type_slug=sleeve_name.upper(), label=sleeve_name.replace("_", " ").title(),
-                current=current_sum,
-                min_limit=sleeve_limits.get(f"{sleeve_name}_min"),
-                max_limit=sleeve_limits.get(f"{sleeve_name}_max"),
-                **args,
-            ))
+            violations.extend(
+                self._check_band(
+                    type_slug=sleeve_name.upper(),
+                    label=sleeve_name.replace("_", " ").title(),
+                    current=current_sum,
+                    min_limit=sleeve_limits.get(f"{sleeve_name}_min"),
+                    max_limit=sleeve_limits.get(f"{sleeve_name}_max"),
+                    **args,
+                )
+            )
 
         ai_theme_item = next((i for i in target_allocation if i.get("id") == _AI_THEME_ITEM_ID), None)
         if ai_theme_item:
-            violations.extend(self._check_band(
-                type_slug="AI_THEME", label=ai_theme_item.get("label", _AI_THEME_ITEM_ID),
-                current=float(current.get(_AI_THEME_ITEM_ID, 0)),
-                min_limit=sleeve_limits.get("ai_theme_min"), max_limit=sleeve_limits.get("ai_theme_max"),
-                **args,
-            ))
+            violations.extend(
+                self._check_band(
+                    type_slug="AI_THEME",
+                    label=ai_theme_item.get("label", _AI_THEME_ITEM_ID),
+                    current=float(current.get(_AI_THEME_ITEM_ID, 0)),
+                    min_limit=sleeve_limits.get("ai_theme_min"),
+                    max_limit=sleeve_limits.get("ai_theme_max"),
+                    **args,
+                )
+            )
 
         liquidity_item = next((i for i in target_allocation if i.get("id") == _LIQUIDITY_ITEM_ID), None)
         if liquidity_item:
-            violations.extend(self._check_band(
-                type_slug="LIQUIDEZ", label=liquidity_item.get("label", _LIQUIDITY_ITEM_ID),
-                current=float(current.get(_LIQUIDITY_ITEM_ID, 0)),
-                min_limit=sleeve_limits.get("liquidity_floor"), max_limit=None,
-                **args,
-            ))
+            violations.extend(
+                self._check_band(
+                    type_slug="LIQUIDEZ",
+                    label=liquidity_item.get("label", _LIQUIDITY_ITEM_ID),
+                    current=float(current.get(_LIQUIDITY_ITEM_ID, 0)),
+                    min_limit=sleeve_limits.get("liquidity_floor"),
+                    max_limit=None,
+                    **args,
+                )
+            )
 
         status = (
-            "DESENQUADRADO" if any(v["severity"] == "CRITICAL" for v in violations)
-            else "ATENCAO" if violations else "NORMAL"
+            "DESENQUADRADO"
+            if any(v["severity"] == "CRITICAL" for v in violations)
+            else "ATENCAO"
+            if violations
+            else "NORMAL"
         )
         return {
-            "portfolio_id": portfolio_id, "portfolio_name": name, "status": status,
-            "violations": violations, "is_demo": is_demo,
+            "portfolio_id": portfolio_id,
+            "portfolio_name": name,
+            "status": status,
+            "violations": violations,
+            "is_demo": is_demo,
         }
 
     @staticmethod
@@ -239,8 +259,16 @@ class ComplianceAgent(BaseAgent):
 
     @staticmethod
     def _check_band(
-        *, type_slug: str, label: str, current: float, min_limit: float | None, max_limit: float | None,
-        critical_margin: float, portfolio_id: str, portfolio_name: str, is_demo: bool = False,
+        *,
+        type_slug: str,
+        label: str,
+        current: float,
+        min_limit: float | None,
+        max_limit: float | None,
+        critical_margin: float,
+        portfolio_id: str,
+        portfolio_name: str,
+        is_demo: bool = False,
     ) -> list[dict[str, Any]]:
         """One-sided or two-sided band check against a real sleeve_limits entry.
 
@@ -251,22 +279,32 @@ class ComplianceAgent(BaseAgent):
         out: list[dict[str, Any]] = []
         if max_limit is not None and current > max_limit:
             diff = round(current - max_limit, 2)
-            out.append({
-                "client_id": portfolio_id, "client_name": portfolio_name,
-                "type": f"EXCESSO_{type_slug}",
-                "current": round(current, 2), "limit": max_limit, "diff": diff,
-                "severity": "CRITICAL" if diff > critical_margin else "WARNING",
-                "message": f"{label} {diff:.1f} p.p. acima do limite ({current:.1f}% vs {max_limit:.1f}%).",
-                "is_demo": is_demo,
-            })
+            out.append(
+                {
+                    "client_id": portfolio_id,
+                    "client_name": portfolio_name,
+                    "type": f"EXCESSO_{type_slug}",
+                    "current": round(current, 2),
+                    "limit": max_limit,
+                    "diff": diff,
+                    "severity": "CRITICAL" if diff > critical_margin else "WARNING",
+                    "message": f"{label} {diff:.1f} p.p. acima do limite ({current:.1f}% vs {max_limit:.1f}%).",
+                    "is_demo": is_demo,
+                }
+            )
         if min_limit is not None and current < min_limit:
             diff = round(min_limit - current, 2)
-            out.append({
-                "client_id": portfolio_id, "client_name": portfolio_name,
-                "type": f"ABAIXO_{type_slug}",
-                "current": round(current, 2), "limit": min_limit, "diff": diff,
-                "severity": "CRITICAL" if diff > critical_margin else "WARNING",
-                "message": f"{label} {diff:.1f} p.p. abaixo do piso ({current:.1f}% vs {min_limit:.1f}%).",
-                "is_demo": is_demo,
-            })
+            out.append(
+                {
+                    "client_id": portfolio_id,
+                    "client_name": portfolio_name,
+                    "type": f"ABAIXO_{type_slug}",
+                    "current": round(current, 2),
+                    "limit": min_limit,
+                    "diff": diff,
+                    "severity": "CRITICAL" if diff > critical_margin else "WARNING",
+                    "message": f"{label} {diff:.1f} p.p. abaixo do piso ({current:.1f}% vs {min_limit:.1f}%).",
+                    "is_demo": is_demo,
+                }
+            )
         return out

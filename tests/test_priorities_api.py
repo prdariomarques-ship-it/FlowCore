@@ -1,4 +1,5 @@
 """Tests for GET /api/priorities (Wealth Copilot MVP 2, phase 3)."""
+
 from __future__ import annotations
 
 import sys

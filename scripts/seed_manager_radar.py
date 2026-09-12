@@ -11,6 +11,7 @@ Safe to re-run — it always creates a new document (radar entries are
 dated snapshots, not something you'd want silently overwritten), so
 running it twice will just create a duplicate entry.
 """
+
 from __future__ import annotations
 
 import sys

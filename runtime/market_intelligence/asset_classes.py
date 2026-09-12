@@ -37,14 +37,18 @@ def analyze_asset_classes() -> dict:
         delta = event.payload.get("delta_pct") or event.payload.get("delta_bps")
         delta_label = "bps" if "delta_bps" in event.payload else "pct"
         posture = _posture(event.payload)
-        cls_data = result["classes"].setdefault(
-            cls, {"name": CLASS_LABELS.get(cls, cls), "sources": [], "values": []})
-        cls_data["sources"].append({
-            "source": event.source, "symbol": event.symbol,
-            "value": value,
-            "delta": delta, "delta_unit": delta_label,
-            "posture": posture, "timestamp": event.timestamp,
-        })
+        cls_data = result["classes"].setdefault(cls, {"name": CLASS_LABELS.get(cls, cls), "sources": [], "values": []})
+        cls_data["sources"].append(
+            {
+                "source": event.source,
+                "symbol": event.symbol,
+                "value": value,
+                "delta": delta,
+                "delta_unit": delta_label,
+                "posture": posture,
+                "timestamp": event.timestamp,
+            }
+        )
         cls_data["values"].append(value)
     return result
 

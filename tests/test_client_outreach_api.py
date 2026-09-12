@@ -2,6 +2,7 @@
 PUT /api/clients/demo/{id}/contact, GET /api/clients/review-requests,
 POST /api/clients/{id}/request-review.
 """
+
 from __future__ import annotations
 
 import sys
@@ -50,7 +51,6 @@ class TestContactUpdate:
         assert resp.status_code == 401
 
     def test_set_and_read_back(self):
-        client, session = None, None
         c = _client()
         session = signup_office(c)
         seed_with_demo_clients(session["office_id"])
@@ -78,7 +78,8 @@ class TestContactUpdate:
         client_id = c.get("/api/clients/demo", headers=session_a["headers"]).json()["clients"][0]["id"]
 
         resp = c.put(
-            f"/api/clients/demo/{client_id}/contact", json={"email": "attacker@example.com"},
+            f"/api/clients/demo/{client_id}/contact",
+            json={"email": "attacker@example.com"},
             headers=session_b["headers"],
         )
         assert resp.status_code == 404
@@ -133,7 +134,9 @@ class TestRequestReviewSend:
         clients = c.get("/api/clients/demo", headers=session["headers"]).json()["clients"]
         # demo-client-01 ("Família Andrade") sits within every band per config/demo_clients.json
         in_band = next(cl for cl in clients if cl["id"] == "demo-client-01")
-        resp = c.post(f"/api/clients/{in_band['id']}/request-review", json={"channels": ["email"]}, headers=session["headers"])
+        resp = c.post(
+            f"/api/clients/{in_band['id']}/request-review", json={"channels": ["email"]}, headers=session["headers"]
+        )
         assert resp.status_code == 400
 
     def test_no_contact_info_reports_honestly_not_an_error(self):
@@ -141,10 +144,13 @@ class TestRequestReviewSend:
         session = signup_office(c)
         seed_with_demo_clients(session["office_id"])
         clients = c.get("/api/clients/demo", headers=session["headers"]).json()["clients"]
-        out_of_band = next(cl for cl in clients if cl["id"] == "demo-client-21")["id"]  # Junqueira Capital, no contact set
+        out_of_band = next(cl for cl in clients if cl["id"] == "demo-client-21")[
+            "id"
+        ]  # Junqueira Capital, no contact set
 
         resp = c.post(
-            f"/api/clients/{out_of_band}/request-review", json={"channels": ["email", "whatsapp"]},
+            f"/api/clients/{out_of_band}/request-review",
+            json={"channels": ["email", "whatsapp"]},
             headers=session["headers"],
         )
         assert resp.status_code == 200
@@ -153,10 +159,14 @@ class TestRequestReviewSend:
 
     def test_email_sent_end_to_end_with_mocked_transport(self):
         client, session, client_id = _office_with_out_of_band_client()
-        with patch("runtime.email_sender.is_configured", return_value=True), \
-             patch("runtime.email_sender.send_email", return_value={"to": "cliente@example.com"}):
+        with (
+            patch("runtime.email_sender.is_configured", return_value=True),
+            patch("runtime.email_sender.send_email", return_value={"to": "cliente@example.com"}),
+        ):
             resp = client.post(
-                f"/api/clients/{client_id}/request-review", json={"channels": ["email"]}, headers=session["headers"],
+                f"/api/clients/{client_id}/request-review",
+                json={"channels": ["email"]},
+                headers=session["headers"],
             )
         assert resp.status_code == 200
         assert resp.json()["channels"]["email"]["status"] == "sent"
@@ -165,7 +175,9 @@ class TestRequestReviewSend:
         client, session_a, client_id = _office_with_out_of_band_client()
         session_b = signup_office(client, "Outro Escritório")
         resp = client.post(
-            f"/api/clients/{client_id}/request-review", json={"channels": ["email"]}, headers=session_b["headers"],
+            f"/api/clients/{client_id}/request-review",
+            json={"channels": ["email"]},
+            headers=session_b["headers"],
         )
         assert resp.status_code == 404
 
@@ -211,9 +223,13 @@ class TestClient360:
 
     def test_includes_outreach_history_after_a_send(self):
         client, session, client_id = _office_with_out_of_band_client()
-        with patch("runtime.email_sender.is_configured", return_value=True), \
-             patch("runtime.email_sender.send_email", return_value={"to": "cliente@example.com"}):
-            client.post(f"/api/clients/{client_id}/request-review", json={"channels": ["email"]}, headers=session["headers"])
+        with (
+            patch("runtime.email_sender.is_configured", return_value=True),
+            patch("runtime.email_sender.send_email", return_value={"to": "cliente@example.com"}),
+        ):
+            client.post(
+                f"/api/clients/{client_id}/request-review", json={"channels": ["email"]}, headers=session["headers"]
+            )
 
         resp = client.get(f"/api/clients/{client_id}/360", headers=session["headers"])
         history = resp.json()["outreach_history"]

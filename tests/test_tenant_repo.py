@@ -5,6 +5,7 @@ No pytest-asyncio dependency in this project — each test wraps its async
 body in a single asyncio.run() call, same convention as
 tests/test_flow_repo.py for storage.flow_repo.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -330,8 +331,6 @@ class TestPasswordHashingStandard:
         keep working — fase 0 shipped before this fix, so real accounts
         could already be in that shape."""
         import hashlib
-
-        from storage.tenant_repo import TenantRepository
 
         async def scenario():
             repo = _repo(tmp_path)

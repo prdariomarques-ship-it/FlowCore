@@ -69,7 +69,10 @@ class DeepSeekProvider(LLMProvider):
     name = "deepseek"
 
     def __init__(
-        self, api_key: str | None = None, default_model: str | None = None, base_url: str | None = None,
+        self,
+        api_key: str | None = None,
+        default_model: str | None = None,
+        base_url: str | None = None,
     ) -> None:
         self._api_key = api_key if api_key is not None else os.getenv("DEEPSEEK_API_KEY")
         self._default_model = default_model or os.getenv("DEEPSEEK_MODEL") or _DEFAULT_MODEL

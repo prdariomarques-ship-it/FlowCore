@@ -19,6 +19,7 @@ same manual-call style):
         user = await get_current_user(request)
         ...
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -34,7 +35,7 @@ _BEARER_PREFIX = "Bearer "
 def _extract_token(request: Request) -> str | None:
     header = request.headers.get(_AUTH_HEADER)
     if header and header.startswith(_BEARER_PREFIX):
-        return header[len(_BEARER_PREFIX):].strip()
+        return header[len(_BEARER_PREFIX) :].strip()
     return None
 
 

@@ -1,6 +1,7 @@
 """Tests for the autonomous Agent Runtime's observability + notification
 config endpoints: GET /api/agent-events, GET/PUT /api/office/notifications.
 """
+
 from __future__ import annotations
 
 import sys
@@ -47,7 +48,9 @@ class TestAgentEventsList:
         session_a = signup_office(c)
         session_b = signup_office(c, "Outro Escritório")
 
-        event = AgentEvent(type="PORTFOLIO_OUT_OF_PROFILE", source="compliance_agent", entity={"kind": "client", "id": "c1"})
+        event = AgentEvent(
+            type="PORTFOLIO_OUT_OF_PROFILE", source="compliance_agent", entity={"kind": "client", "id": "c1"}
+        )
         asyncio.run(AgentEventRepository().publish(session_a["office_id"], event))
 
         resp_a = c.get("/api/agent-events", headers=session_a["headers"])
@@ -66,8 +69,12 @@ class TestAgentEventsList:
         repo = AgentEventRepository()
 
         async def seed():
-            pending = await repo.publish(session["office_id"], AgentEvent(type="X", source="s", entity={"kind": "client", "id": "c1"}))
-            processed = await repo.publish(session["office_id"], AgentEvent(type="X", source="s", entity={"kind": "client", "id": "c2"}))
+            pending = await repo.publish(
+                session["office_id"], AgentEvent(type="X", source="s", entity={"kind": "client", "id": "c1"})
+            )
+            processed = await repo.publish(
+                session["office_id"], AgentEvent(type="X", source="s", entity={"kind": "client", "id": "c2"})
+            )
             await repo.record_decision(session["office_id"], processed["id"], "processed", {"action": "notify_advisor"})
             return pending
 
@@ -94,7 +101,9 @@ class TestOfficeNotifications:
     def test_set_and_read_back(self):
         c = _client()
         session = signup_office(c)
-        put_resp = c.put("/api/office/notifications", json={"telegram_chat_id": "-100123456"}, headers=session["headers"])
+        put_resp = c.put(
+            "/api/office/notifications", json={"telegram_chat_id": "-100123456"}, headers=session["headers"]
+        )
         assert put_resp.status_code == 200
         assert put_resp.json()["telegram_chat_id"] == "-100123456"
 
@@ -167,8 +176,11 @@ class TestNotificationTestSend:
         session = signup_office(c)
         resp = c.post("/api/office/notifications/test", headers=session["headers"])
         assert resp.status_code == 200
-        assert resp.json() == {"sent": False, "reason": "no_chat_id",
-                                "detail": "Nenhum chat_id configurado para este escritório. Configure em Ajustes."}
+        assert resp.json() == {
+            "sent": False,
+            "reason": "no_chat_id",
+            "detail": "Nenhum chat_id configurado para este escritório. Configure em Ajustes.",
+        }
 
     def test_bot_token_missing_on_server(self, monkeypatch):
         monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
@@ -190,7 +202,10 @@ class TestNotificationTestSend:
         session = signup_office(c)
         c.put("/api/office/notifications", json={"telegram_chat_id": "883232211"}, headers=session["headers"])
 
-        with patch("runtime.telegram.send_message", side_effect=TelegramError("Telegram API error 403: bot was blocked by the user")):
+        with patch(
+            "runtime.telegram.send_message",
+            side_effect=TelegramError("Telegram API error 403: bot was blocked by the user"),
+        ):
             resp = c.post("/api/office/notifications/test", headers=session["headers"])
         body = resp.json()
         assert body["sent"] is False

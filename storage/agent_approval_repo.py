@@ -61,8 +61,13 @@ class AgentApprovalRepository:
             await db.commit()
 
     async def create(
-        self, office_id: str, event_id: str, agent: str, action_type: str,
-        entity: dict[str, Any], payload: dict[str, Any],
+        self,
+        office_id: str,
+        event_id: str,
+        agent: str,
+        action_type: str,
+        entity: dict[str, Any],
+        payload: dict[str, Any],
     ) -> dict[str, Any]:
         await self.ensure_tables()
         approval_id = secrets.token_hex(12)
@@ -74,8 +79,14 @@ class AgentApprovalRepository:
                     result_json, created_at, decided_at, decided_by_user_id)
                    VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', NULL, ?, NULL, NULL)""",
                 (
-                    approval_id, office_id, event_id, agent, action_type,
-                    json.dumps(entity, ensure_ascii=False), json.dumps(payload, ensure_ascii=False), now,
+                    approval_id,
+                    office_id,
+                    event_id,
+                    agent,
+                    action_type,
+                    json.dumps(entity, ensure_ascii=False),
+                    json.dumps(payload, ensure_ascii=False),
+                    now,
                 ),
             )
             await db.commit()
@@ -85,7 +96,8 @@ class AgentApprovalRepository:
         await self.ensure_tables()
         async with aiosqlite.connect(self._db_path) as db:
             cursor = await db.execute(
-                "SELECT * FROM agent_approvals WHERE office_id = ? AND id = ?", (office_id, approval_id),
+                "SELECT * FROM agent_approvals WHERE office_id = ? AND id = ?",
+                (office_id, approval_id),
             )
             row = await cursor.fetchone()
             if row is None:
@@ -99,7 +111,8 @@ class AgentApprovalRepository:
         await self.ensure_tables()
         async with aiosqlite.connect(self._db_path) as db:
             cursor = await db.execute(
-                "SELECT status, COUNT(*) FROM agent_approvals WHERE office_id = ? GROUP BY status", (office_id,),
+                "SELECT status, COUNT(*) FROM agent_approvals WHERE office_id = ? GROUP BY status",
+                (office_id,),
             )
             rows = await cursor.fetchall()
             return {r[0]: r[1] for r in rows}
@@ -139,7 +152,11 @@ class AgentApprovalRepository:
         return await self.get(office_id, approval_id)
 
     async def decide(
-        self, office_id: str, approval_id: str, status: str, decided_by_user_id: str,
+        self,
+        office_id: str,
+        approval_id: str,
+        status: str,
+        decided_by_user_id: str,
         result: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Records a human decision. Raises KeyError if the approval
@@ -158,7 +175,14 @@ class AgentApprovalRepository:
             await db.execute(
                 "UPDATE agent_approvals SET status = ?, decided_at = ?, decided_by_user_id = ?, result_json = ? "
                 "WHERE office_id = ? AND id = ?",
-                (status, time.time(), decided_by_user_id, json.dumps(result, ensure_ascii=False) if result else None, office_id, approval_id),
+                (
+                    status,
+                    time.time(),
+                    decided_by_user_id,
+                    json.dumps(result, ensure_ascii=False) if result else None,
+                    office_id,
+                    approval_id,
+                ),
             )
             await db.commit()
         return await self.get(office_id, approval_id)
@@ -166,10 +190,16 @@ class AgentApprovalRepository:
     @staticmethod
     def _row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
         return {
-            "id": row["id"], "office_id": row["office_id"], "event_id": row["event_id"],
-            "agent": row["agent"], "action_type": row["action_type"],
-            "entity": json.loads(row["entity_json"]), "payload": json.loads(row["payload_json"]),
-            "status": row["status"], "result": json.loads(row["result_json"]) if row["result_json"] else None,
-            "created_at": row["created_at"], "decided_at": row["decided_at"],
+            "id": row["id"],
+            "office_id": row["office_id"],
+            "event_id": row["event_id"],
+            "agent": row["agent"],
+            "action_type": row["action_type"],
+            "entity": json.loads(row["entity_json"]),
+            "payload": json.loads(row["payload_json"]),
+            "status": row["status"],
+            "result": json.loads(row["result_json"]) if row["result_json"] else None,
+            "created_at": row["created_at"],
+            "decided_at": row["decided_at"],
             "decided_by_user_id": row["decided_by_user_id"],
         }

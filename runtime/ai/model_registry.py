@@ -3,6 +3,7 @@
 Each entry records capabilities, cost, latency, and availability so the
 router can make evidence-based decisions instead of hard-coded rules.
 """
+
 from __future__ import annotations
 
 import json
@@ -28,9 +29,9 @@ TASK_TYPES = (
 @dataclass
 class ModelEntry:
     id: str
-    provider: str                   # "ollama" | "openai_compat" | "anthropic"
+    provider: str  # "ollama" | "openai_compat" | "anthropic"
     base_url: str
-    capabilities: list[str]         # from TASK_TYPES + ["vision","tools","thinking"]
+    capabilities: list[str]  # from TASK_TYPES + ["vision","tools","thinking"]
     parameter_size: str = ""
     quantization: str = ""
     context_length: int = 4096
@@ -72,10 +73,13 @@ class ModelRegistry:
 
     def _save(self) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._path.write_text(json.dumps(
-            {k: v.to_dict() for k, v in self._models.items()},
-            indent=2, ensure_ascii=False,
-        ))
+        self._path.write_text(
+            json.dumps(
+                {k: v.to_dict() for k, v in self._models.items()},
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
 
     # ── CRUD ─────────────────────────────────────────────────────────────────
 
@@ -129,6 +133,7 @@ class ModelRegistry:
     def sync_from_ollama(self, ollama_url: str) -> list[str]:
         """Pull available models from Ollama and upsert into registry."""
         import urllib.request
+
         try:
             req = urllib.request.urlopen(f"{ollama_url.rstrip('/')}/api/tags", timeout=10)
             data = json.loads(req.read())

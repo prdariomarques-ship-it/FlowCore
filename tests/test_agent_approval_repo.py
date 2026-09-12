@@ -4,6 +4,7 @@ human-in-the-loop approval queue for LEVEL 3+ agent actions.
 No pytest-asyncio dependency -- each test wraps its async body in
 asyncio.run(), same convention as the rest of this suite.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -27,14 +28,21 @@ def _run(coro):
     return asyncio.run(coro)
 
 
-_PAYLOAD = {"client_id": "c1", "client_name": "Família Teste", "draft": {"subject": "s", "body": "b"}, "channels": ["email"]}
+_PAYLOAD = {
+    "client_id": "c1",
+    "client_name": "Família Teste",
+    "draft": {"subject": "s", "body": "b"},
+    "channels": ["email"],
+}
 
 
 class TestCreateAndGet:
     def test_create_then_get(self, tmp_path):
         async def scenario():
             repo = _repo(tmp_path)
-            created = await repo.create("office-1", "event-1", "followup_agent", "contact_client", {"kind": "client", "id": "c1"}, _PAYLOAD)
+            created = await repo.create(
+                "office-1", "event-1", "followup_agent", "contact_client", {"kind": "client", "id": "c1"}, _PAYLOAD
+            )
             return created, await repo.get("office-1", created["id"])
 
         created, fetched = _run(scenario())
@@ -54,7 +62,9 @@ class TestCreateAndGet:
     def test_scoped_to_one_office(self, tmp_path):
         async def scenario():
             repo = _repo(tmp_path)
-            created = await repo.create("office-a", "event-1", "followup_agent", "contact_client", {"kind": "client", "id": "c1"}, _PAYLOAD)
+            created = await repo.create(
+                "office-a", "event-1", "followup_agent", "contact_client", {"kind": "client", "id": "c1"}, _PAYLOAD
+            )
             return await repo.get("office-b", created["id"])
 
         assert _run(scenario()) is None
@@ -65,7 +75,9 @@ class TestListApprovals:
         async def scenario():
             repo = _repo(tmp_path)
             first = await repo.create("office-1", "e1", "a", "contact_client", {"kind": "client", "id": "c1"}, _PAYLOAD)
-            second = await repo.create("office-1", "e2", "a", "contact_client", {"kind": "client", "id": "c2"}, _PAYLOAD)
+            second = await repo.create(
+                "office-1", "e2", "a", "contact_client", {"kind": "client", "id": "c2"}, _PAYLOAD
+            )
             return first, second, await repo.list_approvals("office-1")
 
         first, second, items = _run(scenario())
@@ -74,8 +86,12 @@ class TestListApprovals:
     def test_filters_by_status(self, tmp_path):
         async def scenario():
             repo = _repo(tmp_path)
-            pending = await repo.create("office-1", "e1", "a", "contact_client", {"kind": "client", "id": "c1"}, _PAYLOAD)
-            approved = await repo.create("office-1", "e2", "a", "contact_client", {"kind": "client", "id": "c2"}, _PAYLOAD)
+            pending = await repo.create(
+                "office-1", "e1", "a", "contact_client", {"kind": "client", "id": "c1"}, _PAYLOAD
+            )
+            approved = await repo.create(
+                "office-1", "e2", "a", "contact_client", {"kind": "client", "id": "c2"}, _PAYLOAD
+            )
             await repo.decide("office-1", approved["id"], "approved", "user-1")
             return pending, await repo.list_approvals("office-1", status="pending")
 
@@ -97,7 +113,9 @@ class TestUpdatePayload:
     def test_edit_while_pending(self, tmp_path):
         async def scenario():
             repo = _repo(tmp_path)
-            created = await repo.create("office-1", "e1", "a", "contact_client", {"kind": "client", "id": "c1"}, _PAYLOAD)
+            created = await repo.create(
+                "office-1", "e1", "a", "contact_client", {"kind": "client", "id": "c1"}, _PAYLOAD
+            )
             edited = {**_PAYLOAD, "draft": {"subject": "editado", "body": "b"}}
             return await repo.update_payload("office-1", created["id"], edited)
 
@@ -107,7 +125,9 @@ class TestUpdatePayload:
     def test_cannot_edit_a_decided_approval(self, tmp_path):
         async def scenario():
             repo = _repo(tmp_path)
-            created = await repo.create("office-1", "e1", "a", "contact_client", {"kind": "client", "id": "c1"}, _PAYLOAD)
+            created = await repo.create(
+                "office-1", "e1", "a", "contact_client", {"kind": "client", "id": "c1"}, _PAYLOAD
+            )
             await repo.decide("office-1", created["id"], "approved", "user-1")
             with pytest.raises(ValueError):
                 await repo.update_payload("office-1", created["id"], _PAYLOAD)
@@ -126,8 +146,12 @@ class TestDecide:
     def test_approve_records_decision(self, tmp_path):
         async def scenario():
             repo = _repo(tmp_path)
-            created = await repo.create("office-1", "e1", "a", "contact_client", {"kind": "client", "id": "c1"}, _PAYLOAD)
-            return await repo.decide("office-1", created["id"], "approved", "user-42", result={"channels": {"email": {"status": "sent"}}})
+            created = await repo.create(
+                "office-1", "e1", "a", "contact_client", {"kind": "client", "id": "c1"}, _PAYLOAD
+            )
+            return await repo.decide(
+                "office-1", created["id"], "approved", "user-42", result={"channels": {"email": {"status": "sent"}}}
+            )
 
         decided = _run(scenario())
         assert decided["status"] == "approved"
@@ -138,7 +162,9 @@ class TestDecide:
     def test_reject_records_decision_without_result(self, tmp_path):
         async def scenario():
             repo = _repo(tmp_path)
-            created = await repo.create("office-1", "e1", "a", "contact_client", {"kind": "client", "id": "c1"}, _PAYLOAD)
+            created = await repo.create(
+                "office-1", "e1", "a", "contact_client", {"kind": "client", "id": "c1"}, _PAYLOAD
+            )
             return await repo.decide("office-1", created["id"], "rejected", "user-42")
 
         decided = _run(scenario())
@@ -148,7 +174,9 @@ class TestDecide:
     def test_cannot_decide_twice(self, tmp_path):
         async def scenario():
             repo = _repo(tmp_path)
-            created = await repo.create("office-1", "e1", "a", "contact_client", {"kind": "client", "id": "c1"}, _PAYLOAD)
+            created = await repo.create(
+                "office-1", "e1", "a", "contact_client", {"kind": "client", "id": "c1"}, _PAYLOAD
+            )
             await repo.decide("office-1", created["id"], "approved", "user-1")
             with pytest.raises(ValueError):
                 await repo.decide("office-1", created["id"], "rejected", "user-2")
@@ -165,7 +193,9 @@ class TestDecide:
     def test_invalid_status_rejected(self, tmp_path):
         async def scenario():
             repo = _repo(tmp_path)
-            created = await repo.create("office-1", "e1", "a", "contact_client", {"kind": "client", "id": "c1"}, _PAYLOAD)
+            created = await repo.create(
+                "office-1", "e1", "a", "contact_client", {"kind": "client", "id": "c1"}, _PAYLOAD
+            )
             with pytest.raises(ValueError):
                 await repo.decide("office-1", created["id"], "pending", "user-1")
 
@@ -174,7 +204,9 @@ class TestDecide:
     def test_cannot_decide_another_offices_approval(self, tmp_path):
         async def scenario():
             repo = _repo(tmp_path)
-            created = await repo.create("office-a", "e1", "a", "contact_client", {"kind": "client", "id": "c1"}, _PAYLOAD)
+            created = await repo.create(
+                "office-a", "e1", "a", "contact_client", {"kind": "client", "id": "c1"}, _PAYLOAD
+            )
             with pytest.raises(KeyError):
                 await repo.decide("office-b", created["id"], "approved", "user-1")
 
@@ -186,7 +218,9 @@ class TestCountByStatus:
         async def scenario():
             repo = _repo(tmp_path)
             await repo.create("office-1", "e1", "a", "contact_client", {"kind": "client", "id": "c1"}, _PAYLOAD)
-            second = await repo.create("office-1", "e2", "a", "contact_client", {"kind": "client", "id": "c2"}, _PAYLOAD)
+            second = await repo.create(
+                "office-1", "e2", "a", "contact_client", {"kind": "client", "id": "c2"}, _PAYLOAD
+            )
             await repo.decide("office-1", second["id"], "approved", "user-1")
             return await repo.count_by_status("office-1")
 

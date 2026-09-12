@@ -20,6 +20,7 @@ real field (client name, the violation's own message, advisor/office
 name) — nothing invented, matching the same "every recommendation must
 be explainable" rule IntelligenceEngine already follows.
 """
+
 from __future__ import annotations
 
 import json
@@ -30,7 +31,9 @@ from typing import Any
 _DATA_DIR = Path.home() / ".flowcore"
 
 
-def draft_review_request(client_name: str, violations: list[dict[str, Any]], advisor_name: str, office_name: str) -> dict[str, str]:
+def draft_review_request(
+    client_name: str, violations: list[dict[str, Any]], advisor_name: str, office_name: str
+) -> dict[str, str]:
     """Pure function: real inputs in, a drafted subject/body/whatsapp text
     out. No I/O, no side effects — safe to call just to preview a draft
     before anyone decides to send it."""
@@ -93,7 +96,11 @@ def outreach_history(office_id: str, client_id: str, limit: int = 50) -> list[di
 
 
 def send_review_request(
-    office_id: str, client: dict[str, Any], draft: dict[str, str], channels: list[str], triggered_by_user_id: str,
+    office_id: str,
+    client: dict[str, Any],
+    draft: dict[str, str],
+    channels: list[str],
+    triggered_by_user_id: str,
 ) -> dict[str, Any]:
     """Attempts to send `draft` to `client` over each requested channel.
 
@@ -110,10 +117,17 @@ def send_review_request(
     if "whatsapp" in channels:
         results["whatsapp"] = _send_whatsapp_channel(client, draft)
 
-    _record_audit(office_id, {
-        "timestamp": time.time(), "client_id": client["id"], "client_name": client["name"],
-        "channels": channels, "results": results, "triggered_by_user_id": triggered_by_user_id,
-    })
+    _record_audit(
+        office_id,
+        {
+            "timestamp": time.time(),
+            "client_id": client["id"],
+            "client_name": client["name"],
+            "channels": channels,
+            "results": results,
+            "triggered_by_user_id": triggered_by_user_id,
+        },
+    )
     return results
 
 

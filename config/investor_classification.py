@@ -32,12 +32,10 @@ uma decisão real de compliance, reconfirme os valores abaixo contra o
 texto consolidado em
 https://conteudo.cvm.gov.br/legislacao/resolucoes/resol030.html
 """
+
 from __future__ import annotations
 
-LEGAL_BASIS = (
-    "CVM Resolução nº 30/2021, arts. 11 e 12 "
-    "(conforme alterada pelas Resoluções CVM 162/2022 e 179/2023)"
-)
+LEGAL_BASIS = "CVM Resolução nº 30/2021, arts. 11 e 12 (conforme alterada pelas Resoluções CVM 162/2022 e 179/2023)"
 
 PROFESSIONAL_INVESTOR_THRESHOLD = 10_000_000.00
 QUALIFIED_INVESTOR_THRESHOLD = 1_000_000.00
@@ -50,9 +48,25 @@ QUALIFIED_INVESTOR_THRESHOLD = 1_000_000.00
 # consulta da CVM em 2022 (B3 Comunicado Externo CE 001-2022) além dos
 # exames mais comumente citados (CGA, CEA, CFP, CNPI).
 ACCEPTED_CERTIFICATIONS: tuple[str, ...] = (
-    "CGA", "CEA", "CFP", "CNPI", "CFA", "ACIIA", "PQO", "CPA-10", "CPA-20",
-    "CAIA", "FRM", "CQF", "CFG", "CGE", "CA-600", "CA-400", "CA-300",
-    "CTP", "FPA",
+    "CGA",
+    "CEA",
+    "CFP",
+    "CNPI",
+    "CFA",
+    "ACIIA",
+    "PQO",
+    "CPA-10",
+    "CPA-20",
+    "CAIA",
+    "FRM",
+    "CQF",
+    "CFG",
+    "CGE",
+    "CA-600",
+    "CA-400",
+    "CA-300",
+    "CTP",
+    "FPA",
 )
 
 CATEGORIES: tuple[str, ...] = ("geral", "qualificado", "profissional")

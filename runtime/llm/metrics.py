@@ -41,8 +41,15 @@ class ProviderMetrics:
 class MetricsSink(ABC):
     @abstractmethod
     def record_call(
-        self, provider: str, model: str, latency_ms: float, success: bool, error: str | None,
-        purpose: str | None = None, tokens: int | None = None, office_id: str | None = None,
+        self,
+        provider: str,
+        model: str,
+        latency_ms: float,
+        success: bool,
+        error: str | None,
+        purpose: str | None = None,
+        tokens: int | None = None,
+        office_id: str | None = None,
     ) -> None: ...
 
     @abstractmethod
@@ -53,8 +60,15 @@ class MetricsSink(ABC):
 
 class NullMetrics(MetricsSink):
     def record_call(
-        self, provider: str, model: str, latency_ms: float, success: bool, error: str | None,
-        purpose: str | None = None, tokens: int | None = None, office_id: str | None = None,
+        self,
+        provider: str,
+        model: str,
+        latency_ms: float,
+        success: bool,
+        error: str | None,
+        purpose: str | None = None,
+        tokens: int | None = None,
+        office_id: str | None = None,
     ) -> None:
         pass
 
@@ -67,8 +81,15 @@ class InMemoryMetrics(MetricsSink):
         self._by_provider: dict[str, ProviderMetrics] = {}
 
     def record_call(
-        self, provider: str, model: str, latency_ms: float, success: bool, error: str | None,
-        purpose: str | None = None, tokens: int | None = None, office_id: str | None = None,
+        self,
+        provider: str,
+        model: str,
+        latency_ms: float,
+        success: bool,
+        error: str | None,
+        purpose: str | None = None,
+        tokens: int | None = None,
+        office_id: str | None = None,
     ) -> None:
         m = self._by_provider.setdefault(provider, ProviderMetrics(provider=provider))
         m.calls += 1

@@ -13,6 +13,7 @@ an inherently one-time bootstrap behavior, not something every test can
 trigger. Tests that need a populated office should seed one explicitly
 with seed_with_demo_clients() after signing up.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -24,14 +25,22 @@ def signup_office(client, office_name: str = "Escritório de Teste") -> dict:
     {"token", "office_id", "user", "headers"} — `headers` is ready to
     pass as `headers=` to any TestClient call."""
     email = f"test-{uuid.uuid4().hex}@example.com"
-    resp = client.post("/api/auth/signup", json={
-        "office_name": office_name, "name": "Teste", "email": email, "password": "senha-de-teste-123",
-    })
+    resp = client.post(
+        "/api/auth/signup",
+        json={
+            "office_name": office_name,
+            "name": "Teste",
+            "email": email,
+            "password": "senha-de-teste-123",
+        },
+    )
     assert resp.status_code == 200, resp.text
     data = resp.json()
     token = data["token"]
     return {
-        "token": token, "office_id": data["office"]["id"], "user": data["user"],
+        "token": token,
+        "office_id": data["office"]["id"],
+        "user": data["user"],
         "headers": {"Authorization": f"Bearer {token}"},
     }
 

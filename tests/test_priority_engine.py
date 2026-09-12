@@ -1,4 +1,5 @@
 """Tests for agents/priority_engine.py (Wealth Copilot MVP 2, phase 3)."""
+
 from __future__ import annotations
 
 import asyncio
@@ -13,8 +14,12 @@ def _run(coro):
 
 
 def _event(status: str, reason: str = "x", affected_portfolios: list[str] | None = None) -> dict:
-    return {"status": status, "reason": reason, "suggested_action": "Fazer algo.",
-            "affected_portfolios": affected_portfolios or []}
+    return {
+        "status": status,
+        "reason": reason,
+        "suggested_action": "Fazer algo.",
+        "affected_portfolios": affected_portfolios or [],
+    }
 
 
 class TestLevelMapping:
@@ -139,7 +144,9 @@ class TestGroupByClient:
         client = TestClient(create_app(version="test"))
         session = signup_office(client)
         put_resp = client.put(
-            "/api/portfolio/reference", json={"current_allocation": {"ai_theme": 20.0}}, headers=session["headers"],
+            "/api/portfolio/reference",
+            json={"current_allocation": {"ai_theme": 20.0}},
+            headers=session["headers"],
         )
         assert put_resp.status_code == 200
 

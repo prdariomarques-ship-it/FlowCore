@@ -3,6 +3,7 @@
 Telegram messages. No invented signal logic here, just message
 formatting and the send loop's error handling.
 """
+
 from __future__ import annotations
 
 import sys
@@ -18,7 +19,9 @@ from scripts.signal_engine import check_and_send_signals, format_alert_message  
 
 def _alert(**overrides):
     base = {
-        "rule": "sp500_daily_drop", "source": "sp500", "severity": "critical",
+        "rule": "sp500_daily_drop",
+        "source": "sp500",
+        "severity": "critical",
         "label": "S&P 500 cai mais de 3% no dia",
         "payload": {"value": 4200.5, "delta_pct": -3.4},
         "fired_at": "2026-01-01T00:00:00+00:00",

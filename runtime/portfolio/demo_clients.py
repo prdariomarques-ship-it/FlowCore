@@ -15,6 +15,7 @@ signup starts with zero clients — a real paying customer's account must
 never show fabricated clients. This module just reads/edits/resets
 whatever an office already has.
 """
+
 from __future__ import annotations
 
 from typing import Any

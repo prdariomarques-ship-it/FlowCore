@@ -8,6 +8,8 @@ from unittest.mock import patch
 
 import pytest
 
+pytest.importorskip("pydantic")
+
 from darius.interfaces.notifications import (
     NotificationChannelAdapter,
     NotificationMessage,

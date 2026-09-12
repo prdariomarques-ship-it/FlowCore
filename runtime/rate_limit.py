@@ -9,6 +9,7 @@ request counts, success or failure, and state is plain in-memory
 (correct only because this runs as one process; would need a shared
 store behind multiple workers/instances).
 """
+
 from __future__ import annotations
 
 import time

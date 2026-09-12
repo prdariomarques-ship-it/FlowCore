@@ -225,10 +225,16 @@ class _CapturingMetrics:
         self.calls = []
 
     def record_call(self, provider, model, latency_ms, success, error, purpose=None, tokens=None, office_id=None):
-        self.calls.append({
-            "provider": provider, "model": model, "success": success,
-            "purpose": purpose, "tokens": tokens, "office_id": office_id,
-        })
+        self.calls.append(
+            {
+                "provider": provider,
+                "model": model,
+                "success": success,
+                "purpose": purpose,
+                "tokens": tokens,
+                "office_id": office_id,
+            }
+        )
 
     def snapshot(self):
         return []
@@ -241,7 +247,9 @@ class TestMetricsAttribution:
         class _TokenProvider(_StubProvider):
             def generate(self, request):
                 self.call_count += 1
-                return LLMResponse(text="ok", provider=self.name, model="stub-model", latency_ms=5.0, tokens_estimated=250)
+                return LLMResponse(
+                    text="ok", provider=self.name, model="stub-model", latency_ms=5.0, tokens_estimated=250
+                )
 
         p = _TokenProvider("deepseek")
         metrics = _CapturingMetrics()

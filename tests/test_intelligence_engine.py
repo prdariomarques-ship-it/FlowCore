@@ -4,6 +4,7 @@ All tests pass `market`/`compliance` in via context, matching the real
 MarketSnapshot/ComplianceAgent output shapes, so none of this depends on
 live yfinance access.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -22,16 +23,24 @@ def _run(coro):
 
 def _market(movements: list[dict] | None = None) -> dict:
     return {
-        "timestamp": "2026-01-01T00:00:00+00:00", "market_status": "NORMAL",
-        "movements": movements or [], "relevant_changes": [], "potential_impacts": [],
+        "timestamp": "2026-01-01T00:00:00+00:00",
+        "market_status": "NORMAL",
+        "movements": movements or [],
+        "relevant_changes": [],
+        "potential_impacts": [],
         "intelligence_events": [],
     }
 
 
 def _movement(asset: str, change: float, relevance: str, unit: str = "percent") -> dict:
     return {
-        "asset": asset, "previous_value": 100.0, "current_value": 100.0 + change,
-        "change": change, "unit": unit, "relevance": relevance, "source": "live",
+        "asset": asset,
+        "previous_value": 100.0,
+        "current_value": 100.0 + change,
+        "change": change,
+        "unit": unit,
+        "relevance": relevance,
+        "source": "live",
     }
 
 
@@ -41,8 +50,13 @@ def _compliance(portfolios: list[dict] | None = None) -> dict:
 
 def _violation(severity: str, type_: str = "EXCESSO_AI_THEME", client_id: str = "moderate-ia-1m") -> dict:
     return {
-        "client_id": client_id, "client_name": "Carteira Moderada", "type": type_,
-        "current": 16.0, "limit": 10.0, "diff": 6.0, "severity": severity,
+        "client_id": client_id,
+        "client_name": "Carteira Moderada",
+        "type": type_,
+        "current": 16.0,
+        "limit": 10.0,
+        "diff": 6.0,
+        "severity": severity,
         "message": f"Tema IA 6.0 p.p. acima do limite ({type_}).",
     }
 
@@ -97,10 +111,14 @@ class TestRecalibrate:
 class TestOverride:
     def test_critical_renda_fixa_violation_explained_by_us10y_is_override(self):
         market = _market([_movement("US Treasury 10Y", 0.15, "HIGH", unit="percentage_points")])
-        compliance = _compliance([{
-            "status": "DESENQUADRADO",
-            "violations": [_violation("CRITICAL", type_="ABAIXO_RENDA_FIXA_TOTAL")],
-        }])
+        compliance = _compliance(
+            [
+                {
+                    "status": "DESENQUADRADO",
+                    "violations": [_violation("CRITICAL", type_="ABAIXO_RENDA_FIXA_TOTAL")],
+                }
+            ]
+        )
         result = _run(IntelligenceEngine().run({"market": market, "compliance": compliance}))
         events = result["data"]["events"]
         override = next(e for e in events if e["status"] == "OVERRIDE")

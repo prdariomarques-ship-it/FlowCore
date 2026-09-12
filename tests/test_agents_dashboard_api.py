@@ -2,6 +2,7 @@
 panel's single aggregating endpoint (§18/§25): scheduler status, event
 and approval counts, LLM cost summary, and a recent-activity feed.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -42,8 +43,10 @@ class TestAgentsDashboard:
         # api/router.py's version-gated block) -- the endpoint must treat
         # that as "disabled", not crash on a missing attribute.
         assert body["scheduler"] == {
-            "enabled": False, "running": False,
-            "interval_seconds": body["scheduler"]["interval_seconds"], "tasks": [],
+            "enabled": False,
+            "running": False,
+            "interval_seconds": body["scheduler"]["interval_seconds"],
+            "tasks": [],
         }
         assert body["events"] == {"by_status": {}, "by_type": {}, "total": 0}
         assert body["approvals"] == {"by_status": {}, "pending": 0}
@@ -63,12 +66,19 @@ class TestAgentsDashboard:
         async def seed():
             event_repo = AgentEventRepository()
             published = await event_repo.publish(
-                office_id, AgentEvent(type="PORTFOLIO_OUT_OF_PROFILE", source="compliance_agent", entity={"kind": "client", "id": "c1"}),
+                office_id,
+                AgentEvent(
+                    type="PORTFOLIO_OUT_OF_PROFILE", source="compliance_agent", entity={"kind": "client", "id": "c1"}
+                ),
             )
             await event_repo.record_decision(office_id, published["id"], "processed", {"action": "notify_advisor"})
             await AgentApprovalRepository().create(
-                office_id, published["id"], "followup_agent", "contact_client",
-                {"kind": "client", "id": "c1"}, {"client_id": "c1", "client_name": "Teste", "draft": {}, "channels": ["email"]},
+                office_id,
+                published["id"],
+                "followup_agent",
+                "contact_client",
+                {"kind": "client", "id": "c1"},
+                {"client_id": "c1", "client_name": "Teste", "draft": {}, "channels": ["email"]},
             )
 
         asyncio.run(seed())
@@ -88,9 +98,12 @@ class TestAgentsDashboard:
         session_a = signup_office(c)
         session_b = signup_office(c, "Outro Escritório")
 
-        _asyncio.run(AgentEventRepository().publish(
-            session_a["office_id"], AgentEvent(type="X", source="s", entity={"kind": "client", "id": "c1"}),
-        ))
+        _asyncio.run(
+            AgentEventRepository().publish(
+                session_a["office_id"],
+                AgentEvent(type="X", source="s", entity={"kind": "client", "id": "c1"}),
+            )
+        )
 
         resp_b = c.get("/api/agents/dashboard", headers=session_b["headers"])
         assert resp_b.json()["events"]["total"] == 0

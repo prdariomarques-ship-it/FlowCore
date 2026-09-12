@@ -53,7 +53,9 @@ class AgentEventRepository:
                     updated_at REAL NOT NULL
                 )
             """)
-            await db.execute("CREATE INDEX IF NOT EXISTS idx_agent_events_office ON agent_events(office_id, created_at)")
+            await db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_agent_events_office ON agent_events(office_id, created_at)"
+            )
             await db.execute(
                 "CREATE INDEX IF NOT EXISTS idx_agent_events_dedup ON agent_events(office_id, dedup_key, created_at)"
             )
@@ -75,16 +77,26 @@ class AgentEventRepository:
                     metadata_json, dedup_key, decision_json, created_at, updated_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)""",
                 (
-                    row["id"], office_id, row["type"], row["source"],
-                    json.dumps(row["entity"], ensure_ascii=False), json.dumps(row["payload"], ensure_ascii=False),
-                    row["priority"], row["status"], json.dumps(row["metadata"], ensure_ascii=False),
-                    event.dedup_key(), now, now,
+                    row["id"],
+                    office_id,
+                    row["type"],
+                    row["source"],
+                    json.dumps(row["entity"], ensure_ascii=False),
+                    json.dumps(row["payload"], ensure_ascii=False),
+                    row["priority"],
+                    row["status"],
+                    json.dumps(row["metadata"], ensure_ascii=False),
+                    event.dedup_key(),
+                    now,
+                    now,
                 ),
             )
             await db.commit()
         return await self.get_event(office_id, row["id"])
 
-    async def has_recent_duplicate(self, office_id: str, dedup_key: str, window_seconds: float = _DEDUP_WINDOW_SECONDS) -> bool:
+    async def has_recent_duplicate(
+        self, office_id: str, dedup_key: str, window_seconds: float = _DEDUP_WINDOW_SECONDS
+    ) -> bool:
         """True if this office already has an event with the same
         dedup_key (same type+entity+payload -- "the same situation")
         published within the window. Keeps an ongoing, unchanged
@@ -103,7 +115,8 @@ class AgentEventRepository:
         await self.ensure_tables()
         async with aiosqlite.connect(self._db_path) as db:
             cursor = await db.execute(
-                "SELECT * FROM agent_events WHERE office_id = ? AND id = ?", (office_id, event_id),
+                "SELECT * FROM agent_events WHERE office_id = ? AND id = ?",
+                (office_id, event_id),
             )
             row = await cursor.fetchone()
             if row is None:
@@ -112,7 +125,11 @@ class AgentEventRepository:
             return self._row_to_dict(dict(zip(columns, row)))
 
     async def list_events(
-        self, office_id: str, status: str | None = None, type: str | None = None, limit: int = 50,
+        self,
+        office_id: str,
+        status: str | None = None,
+        type: str | None = None,
+        limit: int = 50,
     ) -> list[dict[str, Any]]:
         await self.ensure_tables()
         query = "SELECT * FROM agent_events WHERE office_id = ?"
@@ -138,7 +155,8 @@ class AgentEventRepository:
         await self.ensure_tables()
         async with aiosqlite.connect(self._db_path) as db:
             cursor = await db.execute(
-                "SELECT status, COUNT(*) FROM agent_events WHERE office_id = ? GROUP BY status", (office_id,),
+                "SELECT status, COUNT(*) FROM agent_events WHERE office_id = ? GROUP BY status",
+                (office_id,),
             )
             rows = await cursor.fetchall()
             return {r[0]: r[1] for r in rows}
@@ -147,7 +165,8 @@ class AgentEventRepository:
         await self.ensure_tables()
         async with aiosqlite.connect(self._db_path) as db:
             cursor = await db.execute(
-                "SELECT type, COUNT(*) FROM agent_events WHERE office_id = ? GROUP BY type", (office_id,),
+                "SELECT type, COUNT(*) FROM agent_events WHERE office_id = ? GROUP BY type",
+                (office_id,),
             )
             rows = await cursor.fetchall()
             return {r[0]: r[1] for r in rows}
@@ -180,7 +199,9 @@ class AgentEventRepository:
             await db.commit()
         return await self.get_event(office_id, event_id)
 
-    async def record_decision(self, office_id: str, event_id: str, status: str, decision: dict[str, Any]) -> dict[str, Any] | None:
+    async def record_decision(
+        self, office_id: str, event_id: str, status: str, decision: dict[str, Any]
+    ) -> dict[str, Any] | None:
         """CoreOrchestrator calls this once it has finished handling an
         event -- persists the outcome (reasoning, action taken, whether a
         notification was actually sent) and moves status out of
@@ -197,10 +218,17 @@ class AgentEventRepository:
     @staticmethod
     def _row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
         return {
-            "id": row["id"], "office_id": row["office_id"], "type": row["type"], "source": row["source"],
-            "entity": json.loads(row["entity_json"]), "payload": json.loads(row["payload_json"]),
-            "priority": row["priority"], "status": row["status"], "metadata": json.loads(row["metadata_json"]),
+            "id": row["id"],
+            "office_id": row["office_id"],
+            "type": row["type"],
+            "source": row["source"],
+            "entity": json.loads(row["entity_json"]),
+            "payload": json.loads(row["payload_json"]),
+            "priority": row["priority"],
+            "status": row["status"],
+            "metadata": json.loads(row["metadata_json"]),
             "dedup_key": row["dedup_key"],
             "decision": json.loads(row["decision_json"]) if row["decision_json"] else None,
-            "created_at": row["created_at"], "updated_at": row["updated_at"],
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
         }

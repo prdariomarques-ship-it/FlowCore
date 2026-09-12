@@ -48,6 +48,7 @@ Four tables:
 - login_attempts: every login attempt (success or failure), used only to
   throttle brute force per email — see is_rate_limited().
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -84,7 +85,9 @@ def _verify_password_hash(password: str, salt: str, stored_hash: str) -> bool:
     (verified at the hardcoded legacy count of 200,000 iterations)."""
     if stored_hash.startswith("pbkdf2_sha256$"):
         _, iterations_str, hash_salt, digest = stored_hash.split("$", 3)
-        candidate = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), hash_salt.encode("utf-8"), int(iterations_str)).hex()
+        candidate = hashlib.pbkdf2_hmac(
+            "sha256", password.encode("utf-8"), hash_salt.encode("utf-8"), int(iterations_str)
+        ).hex()
         return secrets.compare_digest(candidate, digest)
     legacy_digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), 200_000).hex()
     return secrets.compare_digest(legacy_digest, stored_hash)
@@ -147,7 +150,9 @@ class TenantRepository:
             """)
             await db.execute("CREATE INDEX IF NOT EXISTS idx_users_office ON users(office_id)")
             await db.execute("CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)")
-            await db.execute("CREATE INDEX IF NOT EXISTS idx_login_attempts_email ON login_attempts(email, attempted_at)")
+            await db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_login_attempts_email ON login_attempts(email, attempted_at)"
+            )
             await self._ensure_notification_columns(db)
             await self._ensure_session_columns(db)
             await db.execute("CREATE INDEX IF NOT EXISTS idx_sessions_public_id ON sessions(id)")
@@ -229,9 +234,7 @@ class TenantRepository:
         agents/orchestrator.py, which checks this before sending)."""
         await self.ensure_tables()
         async with aiosqlite.connect(self._db_path) as db:
-            await db.execute(
-                "UPDATE offices SET telegram_chat_id = ? WHERE id = ?", (chat_id or None, office_id)
-            )
+            await db.execute("UPDATE offices SET telegram_chat_id = ? WHERE id = ?", (chat_id or None, office_id))
             await db.commit()
         return await self.get_office(office_id)
 
@@ -338,23 +341,36 @@ class TenantRepository:
         await self.ensure_tables()
         async with aiosqlite.connect(self._db_path) as db:
             cursor = await db.execute(
-                "SELECT id, office_id, email, name, role, created_at FROM users WHERE office_id = ? ORDER BY created_at ASC",
+                "SELECT id, office_id, email, name, role, created_at "
+                "FROM users WHERE office_id = ? ORDER BY created_at ASC",
                 (office_id,),
             )
             rows = await cursor.fetchall()
             return [self._public_user(*r) for r in rows]
 
     @staticmethod
-    def _public_user(user_id: str, office_id: str, email: str, name: str, role: str, created_at: float) -> dict[str, Any]:
+    def _public_user(
+        user_id: str, office_id: str, email: str, name: str, role: str, created_at: float
+    ) -> dict[str, Any]:
         """Never includes password_hash/password_salt — this is the shape
         returned to callers and eventually serialized into API responses."""
-        return {"id": user_id, "office_id": office_id, "email": email, "name": name, "role": role, "created_at": created_at}
+        return {
+            "id": user_id,
+            "office_id": office_id,
+            "email": email,
+            "name": name,
+            "role": role,
+            "created_at": created_at,
+        }
 
     # ── Sessions ────────────────────────────────────────────────────────────
 
     async def create_session(
-        self, user_id: str, ttl_seconds: int = _SESSION_TTL_SECONDS,
-        user_agent: str | None = None, ip_address: str | None = None,
+        self,
+        user_id: str,
+        ttl_seconds: int = _SESSION_TTL_SECONDS,
+        user_agent: str | None = None,
+        ip_address: str | None = None,
     ) -> dict[str, Any]:
         await self.ensure_tables()
         token = secrets.token_urlsafe(32)
@@ -369,8 +385,11 @@ class TenantRepository:
             )
             await db.commit()
         return {
-            "token": token, "id": session_id, "user_id": user_id,
-            "created_at": now, "expires_at": expires_at,
+            "token": token,
+            "id": session_id,
+            "user_id": user_id,
+            "created_at": now,
+            "expires_at": expires_at,
         }
 
     async def get_session_id(self, token: str) -> str | None:
@@ -400,8 +419,7 @@ class TenantRepository:
             )
             rows = await cursor.fetchall()
         return [
-            {"id": r[0], "created_at": r[1], "expires_at": r[2], "user_agent": r[3], "ip_address": r[4]}
-            for r in rows
+            {"id": r[0], "created_at": r[1], "expires_at": r[2], "user_agent": r[3], "ip_address": r[4]} for r in rows
         ]
 
     async def delete_session_by_id(self, user_id: str, session_id: str) -> bool:
@@ -412,7 +430,8 @@ class TenantRepository:
         await self.ensure_tables()
         async with aiosqlite.connect(self._db_path) as db:
             cursor = await db.execute(
-                "DELETE FROM sessions WHERE id = ? AND user_id = ?", (session_id, user_id),
+                "DELETE FROM sessions WHERE id = ? AND user_id = ?",
+                (session_id, user_id),
             )
             await db.commit()
             return cursor.rowcount > 0

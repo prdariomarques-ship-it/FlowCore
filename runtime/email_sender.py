@@ -23,6 +23,7 @@ as ai.json (api/dashboard_routes.py's _read_json):
 Never configured out of the box — is_configured() lets callers degrade
 honestly ("email não configurado") instead of pretending to send.
 """
+
 from __future__ import annotations
 
 import smtplib

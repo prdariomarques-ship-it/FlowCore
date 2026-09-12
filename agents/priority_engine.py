@@ -22,6 +22,7 @@ engine sees is "barely worth mentioning". A future MarketAgent change
 that also surfaces LOW-relevance movements would need a LOW branch here;
 not invented ahead of that need.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -45,6 +46,7 @@ class PriorityEngine(BaseAgent):
             if not office_id:
                 raise ValueError("PriorityEngine.run() requires context['office_id'] (or precomputed 'events')")
             from agents.intelligence_engine import IntelligenceEngine
+
             events = (await IntelligenceEngine().run({"office_id": office_id}))["data"]["events"]
 
         items = [self._to_priority_item(e) for e in events]
@@ -80,6 +82,7 @@ class PriorityEngine(BaseAgent):
         client_records: dict[str, dict[str, Any]] = {}
         if office_id:
             from storage.client_repo import ClientRepository
+
             client_records = {c["id"]: c for c in await ClientRepository().list_clients(office_id)}
             # A ComplianceAgent-evaluated "portfolio" can be the office's
             # own reference policy, not a real client (see
@@ -92,17 +95,19 @@ class PriorityEngine(BaseAgent):
         for client_id, client_items in grouped.items():
             client_items = sorted(client_items, key=lambda i: _LEVEL_ORDER[i.level])
             record = client_records.get(client_id)
-            entries.append({
-                "client_id": client_id,
-                # Falls back to the raw id only when there's no office_id to
-                # resolve a real name against (e.g. a caller testing with
-                # precomputed events directly) — never a guessed display name.
-                "client_name": record["name"] if record else client_id,
-                "is_demo": record["is_demo"] if record else None,
-                "worst_level": client_items[0].level,
-                "issues_count": len(client_items),
-                "items": [i.to_dict() for i in client_items],
-            })
+            entries.append(
+                {
+                    "client_id": client_id,
+                    # Falls back to the raw id only when there's no office_id to
+                    # resolve a real name against (e.g. a caller testing with
+                    # precomputed events directly) — never a guessed display name.
+                    "client_name": record["name"] if record else client_id,
+                    "is_demo": record["is_demo"] if record else None,
+                    "worst_level": client_items[0].level,
+                    "issues_count": len(client_items),
+                    "items": [i.to_dict() for i in client_items],
+                }
+            )
         entries.sort(key=lambda e: (_LEVEL_ORDER[e["worst_level"]], -e["issues_count"], e["client_name"]))
         return entries
 
@@ -123,7 +128,9 @@ class PriorityEngine(BaseAgent):
         }[status]
         return PriorityItem(
             source="compliance" if affected_portfolios else "intelligence",
-            level=level, title=title, reason=event["reason"],
+            level=level,
+            title=title,
+            reason=event["reason"],
             suggested_action=event.get("suggested_action") or "Nenhuma ação necessária.",
             affected_portfolios=affected_portfolios,
             affected_clients_count=len(affected_portfolios),

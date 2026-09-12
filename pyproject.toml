@@ -10,5 +10,15 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"flowcore.py" = ["E402"]        # sys.path.insert() must run before local imports
+"flowcore.py" = [
+    "E402",  # sys.path.insert() must run before local imports
+    "F401",  # `import fastapi`/`import apscheduler` here are availability
+             # probes for cmd_selftest()/cmd_doctor() (raise/skip on
+             # ImportError) — the import itself is the check, not its name
+]
 "tests/test_api.py" = ["E402"]  # pytest.importorskip() must run before TestClient import
+"scripts/seed_manager_radar.py" = [
+    "E501",  # CONTENT is a verbatim markdown report (real report prose,
+             # not code) — hard-wrapping it would change what actually
+             # gets stored as the seeded document
+]

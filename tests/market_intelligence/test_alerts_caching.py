@@ -8,15 +8,21 @@ value and reads alerts via list_alerts() (a separate DB read) instead.
 These tests cover the TTL cache added to stop that live sweep from
 running on every single request.
 """
+
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 ROOT = Path(__file__).resolve().parent.parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+pytest.importorskip("pandas")
+pytest.importorskip("yfinance")
 
 from runtime.market_intelligence.alerts import (  # noqa: E402
     ALERT_DEFAULTS,

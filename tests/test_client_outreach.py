@@ -1,13 +1,13 @@
 """Tests for runtime/client_outreach.py — drafting and sending client
 review-request invitations (email + WhatsApp).
 """
+
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -16,8 +16,13 @@ if str(ROOT) not in sys.path:
 from runtime.client_outreach import draft_review_request, outreach_history, send_review_request  # noqa: E402
 
 _VIOLATION = {
-    "client_id": "c1", "client_name": "Família Teste", "type": "EXCESSO_AI_THEME",
-    "current": 16.0, "limit": 10.0, "diff": 6.0, "severity": "CRITICAL",
+    "client_id": "c1",
+    "client_name": "Família Teste",
+    "type": "EXCESSO_AI_THEME",
+    "current": 16.0,
+    "limit": 10.0,
+    "diff": 6.0,
+    "severity": "CRITICAL",
     "message": "Tema IA 6.0 p.p. acima do limite (16.0% vs 10.0%).",
 }
 
@@ -66,8 +71,10 @@ class TestSendReviewRequest:
         assert results["email"]["status"] == "not_configured"
 
     def test_email_sent_successfully(self):
-        with patch("runtime.email_sender.is_configured", return_value=True), \
-             patch("runtime.email_sender.send_email", return_value={"to": "familia@example.com"}):
+        with (
+            patch("runtime.email_sender.is_configured", return_value=True),
+            patch("runtime.email_sender.send_email", return_value={"to": "familia@example.com"}),
+        ):
             results = send_review_request("office-1", _CLIENT_WITH_BOTH, _DRAFT, ["email"], "user-1")
         assert results["email"]["status"] == "sent"
         assert results["email"]["to"] == "familia@example.com"
@@ -75,8 +82,10 @@ class TestSendReviewRequest:
     def test_email_error_is_reported_not_swallowed(self):
         from runtime.email_sender import EmailError
 
-        with patch("runtime.email_sender.is_configured", return_value=True), \
-             patch("runtime.email_sender.send_email", side_effect=EmailError("SMTP boom")):
+        with (
+            patch("runtime.email_sender.is_configured", return_value=True),
+            patch("runtime.email_sender.send_email", side_effect=EmailError("SMTP boom")),
+        ):
             results = send_review_request("office-1", _CLIENT_WITH_BOTH, _DRAFT, ["email"], "user-1")
         assert results["email"]["status"] == "error"
         assert "SMTP boom" in results["email"]["error"]

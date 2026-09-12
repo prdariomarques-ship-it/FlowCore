@@ -32,6 +32,7 @@ message already uses.
 Manual test (single pass, real send if alerts are configured and any
 rule is currently breached): python3 scripts/signal_engine.py --once
 """
+
 from __future__ import annotations
 
 import sys
@@ -95,7 +96,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--once", action="store_true", help="Run a single evaluation pass and exit (manual testing)")
     parser.add_argument(
-        "--interval", type=int, default=DEFAULT_POLL_INTERVAL_SECONDS,
+        "--interval",
+        type=int,
+        default=DEFAULT_POLL_INTERVAL_SECONDS,
         help=f"Seconds between evaluation passes (default: {DEFAULT_POLL_INTERVAL_SECONDS})",
     )
     args = parser.parse_args(argv)

@@ -29,6 +29,7 @@ Two tables:
   reset_demo_clients() has something real to revert to; a client with no
   known original state can't be "reset" (nothing invented to fall back on).
 """
+
 from __future__ import annotations
 
 import json
@@ -171,8 +172,17 @@ class ClientRepository:
                            (id, office_id, name, profile, reference_value, current_allocation_json,
                             original_allocation_json, is_demo, created_at, updated_at, email, phone)
                            VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, NULL, NULL)""",
-                        (c["id"], office_id, c.get("name", ""), c.get("profile", ""),
-                         c.get("reference_value"), allocation, allocation, now, now),
+                        (
+                            c["id"],
+                            office_id,
+                            c.get("name", ""),
+                            c.get("profile", ""),
+                            c.get("reference_value"),
+                            allocation,
+                            allocation,
+                            now,
+                            now,
+                        ),
                     )
             await db.commit()
 
@@ -248,9 +258,14 @@ class ClientRepository:
             return self._row_to_client(row) if row else None
 
     async def create_client(
-        self, office_id: str, name: str, profile: str = "",
-        reference_value: float | None = None, current_allocation: dict[str, float] | None = None,
-        email: str | None = None, phone: str | None = None,
+        self,
+        office_id: str,
+        name: str,
+        profile: str = "",
+        reference_value: float | None = None,
+        current_allocation: dict[str, float] | None = None,
+        email: str | None = None,
+        phone: str | None = None,
     ) -> dict[str, Any]:
         """A real, advisor-entered client -- is_demo=0 and
         original_allocation_json=NULL (there is no fabricated "original"
@@ -272,7 +287,9 @@ class ClientRepository:
             await db.commit()
         return await self.get_client(office_id, client_id)
 
-    async def save_client_allocation(self, office_id: str, client_id: str, current_allocation: dict[str, float]) -> dict[str, Any]:
+    async def save_client_allocation(
+        self, office_id: str, client_id: str, current_allocation: dict[str, float]
+    ) -> dict[str, Any]:
         """Merge `current_allocation` onto one client's position. Scoped by
         office_id in the WHERE clause of every query — a client id alone
         (even if guessed correctly) can never be edited from the wrong
@@ -289,7 +306,9 @@ class ClientRepository:
             await db.commit()
         return await self.get_client(office_id, client_id)
 
-    async def save_client_contact(self, office_id: str, client_id: str, email: str | None, phone: str | None) -> dict[str, Any]:
+    async def save_client_contact(
+        self, office_id: str, client_id: str, email: str | None, phone: str | None
+    ) -> dict[str, Any]:
         """Set (or clear, by passing an empty string) a real client's own
         contact info — never inferred, never defaulted. Raises KeyError if
         no such client in this office (same tenant-scoping guarantee as
@@ -308,8 +327,11 @@ class ClientRepository:
         return await self.get_client(office_id, client_id)
 
     async def set_investor_classification(
-        self, office_id: str, client_id: str,
-        declared_investments: float | None, certification: str | None,
+        self,
+        office_id: str,
+        client_id: str,
+        declared_investments: float | None,
+        certification: str | None,
     ) -> dict[str, Any]:
         """Records a client's investor category per CVM Resolução 30/2021
         (config/investor_classification.py) — the category is always
@@ -357,10 +379,19 @@ class ClientRepository:
     @staticmethod
     def _row_to_client(row: tuple) -> dict[str, Any]:
         return {
-            "id": row[0], "office_id": row[1], "name": row[2], "profile": row[3],
-            "reference_value": row[4], "current_allocation": json.loads(row[5]),
-            "is_demo": bool(row[6]), "created_at": row[7], "updated_at": row[8],
-            "email": row[9], "phone": row[10],
-            "investor_category": row[11], "investor_declared_investments": row[12],
-            "investor_certification": row[13], "investor_attestation_at": row[14],
+            "id": row[0],
+            "office_id": row[1],
+            "name": row[2],
+            "profile": row[3],
+            "reference_value": row[4],
+            "current_allocation": json.loads(row[5]),
+            "is_demo": bool(row[6]),
+            "created_at": row[7],
+            "updated_at": row[8],
+            "email": row[9],
+            "phone": row[10],
+            "investor_category": row[11],
+            "investor_declared_investments": row[12],
+            "investor_certification": row[13],
+            "investor_attestation_at": row[14],
         }

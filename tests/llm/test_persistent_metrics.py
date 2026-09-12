@@ -1,4 +1,5 @@
 """Tests for runtime/llm/persistent_metrics.py -- PersistentMetricsSink."""
+
 from __future__ import annotations
 
 import sys
@@ -16,9 +17,18 @@ class TestPersistentMetricsSink:
     def test_writes_to_the_injected_repo(self):
         fake_repo = MagicMock()
         sink = PersistentMetricsSink(repo=fake_repo)
-        sink.record_call("deepseek", "deepseek-chat", 100.0, True, None, purpose="chat", tokens=42, office_id="office-1")
+        sink.record_call(
+            "deepseek", "deepseek-chat", 100.0, True, None, purpose="chat", tokens=42, office_id="office-1"
+        )
         fake_repo.record_call.assert_called_once_with(
-            "deepseek", "deepseek-chat", 100.0, True, None, purpose="chat", tokens=42, office_id="office-1",
+            "deepseek",
+            "deepseek-chat",
+            100.0,
+            True,
+            None,
+            purpose="chat",
+            tokens=42,
+            office_id="office-1",
         )
 
     def test_snapshot_reflects_in_memory_counters_like_before(self):

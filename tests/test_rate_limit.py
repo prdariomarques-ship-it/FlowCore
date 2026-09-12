@@ -4,10 +4,10 @@ that had no rate limiting at all before this, unlike /api/auth/login's
 DB-backed OWASP throttle (storage/tenant_repo.py, a different mechanism
 for a different purpose: brute-force protection, not CPU protection).
 """
+
 from __future__ import annotations
 
 import sys
-import time
 from pathlib import Path
 from unittest.mock import patch
 

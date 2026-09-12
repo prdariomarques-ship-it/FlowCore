@@ -99,7 +99,11 @@ class LLMRouter:
                     )
                     raise
                 self._metrics.record_call(
-                    name, response.model, response.latency_ms, True, None,
+                    name,
+                    response.model,
+                    response.latency_ms,
+                    True,
+                    None,
                     purpose=request.metadata.get("purpose"),
                     tokens=response.tokens_estimated,
                     office_id=request.metadata.get("office_id"),

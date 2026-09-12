@@ -5,6 +5,7 @@ photo only ever appears once an advisor uploads a REAL one of
 themselves via runtime.advisor_photo.normalize_advisor_photo(); see
 that module's docstring for why this is upload-only, never generated.
 """
+
 from __future__ import annotations
 
 import base64
@@ -104,9 +105,9 @@ class TestAdvisorPhotoUpload:
 
     def test_omitting_photo_leaves_an_existing_one_untouched(self):
         client, session = _session()
-        photo = client.put(
-            "/api/advisor", json={"photo": _fake_photo_data_uri()}, headers=session["headers"]
-        ).json()["photo"]
+        photo = client.put("/api/advisor", json={"photo": _fake_photo_data_uri()}, headers=session["headers"]).json()[
+            "photo"
+        ]
         client.put("/api/advisor", json={"title": "Novo Cargo"}, headers=session["headers"])
         assert client.get("/api/advisor", headers=session["headers"]).json()["photo"] == photo
 

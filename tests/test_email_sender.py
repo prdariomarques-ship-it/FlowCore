@@ -1,4 +1,5 @@
 """Tests for runtime/email_sender.py — plain SMTP outbound email."""
+
 from __future__ import annotations
 
 import json
@@ -35,10 +36,17 @@ class TestConfiguration:
         assert is_configured() is False
 
     def test_is_configured_true_with_full_config(self, config_path):
-        config_path.write_text(json.dumps({
-            "smtp_host": "smtp.example.com", "smtp_port": 587,
-            "username": "a@example.com", "password": "app-password", "from_address": "a@example.com",
-        }))
+        config_path.write_text(
+            json.dumps(
+                {
+                    "smtp_host": "smtp.example.com",
+                    "smtp_port": 587,
+                    "username": "a@example.com",
+                    "password": "app-password",
+                    "from_address": "a@example.com",
+                }
+            )
+        )
         from runtime.email_sender import is_configured
 
         assert is_configured() is True
@@ -52,11 +60,18 @@ class TestSendEmail:
             send_email("client@example.com", "Assunto", "Corpo")
 
     def test_sends_via_smtp_when_configured(self, config_path):
-        config_path.write_text(json.dumps({
-            "smtp_host": "smtp.example.com", "smtp_port": 587,
-            "username": "a@example.com", "password": "app-password",
-            "from_address": "a@example.com", "from_name": "FlowCore",
-        }))
+        config_path.write_text(
+            json.dumps(
+                {
+                    "smtp_host": "smtp.example.com",
+                    "smtp_port": 587,
+                    "username": "a@example.com",
+                    "password": "app-password",
+                    "from_address": "a@example.com",
+                    "from_name": "FlowCore",
+                }
+            )
+        )
         from runtime.email_sender import send_email
 
         mock_server = MagicMock()
@@ -72,10 +87,17 @@ class TestSendEmail:
     def test_smtp_failure_raises_email_error(self, config_path):
         import smtplib
 
-        config_path.write_text(json.dumps({
-            "smtp_host": "smtp.example.com", "smtp_port": 587,
-            "username": "a@example.com", "password": "app-password", "from_address": "a@example.com",
-        }))
+        config_path.write_text(
+            json.dumps(
+                {
+                    "smtp_host": "smtp.example.com",
+                    "smtp_port": 587,
+                    "username": "a@example.com",
+                    "password": "app-password",
+                    "from_address": "a@example.com",
+                }
+            )
+        )
         from runtime.email_sender import EmailError, send_email
 
         with patch("smtplib.SMTP", side_effect=smtplib.SMTPConnectError(421, "boom")):

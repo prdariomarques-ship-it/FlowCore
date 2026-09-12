@@ -344,12 +344,14 @@ def generate(base_url: str, model: str, prompt: str, timeout: float = DEFAULT_GE
     """
     ensure_model_loaded(base_url, model, timeout=timeout)
 
-    payload = json.dumps({
-        "model": model,
-        "prompt": prompt,
-        "stream": True,
-        "options": {"num_ctx": DEFAULT_NUM_CTX},
-    })
+    payload = json.dumps(
+        {
+            "model": model,
+            "prompt": prompt,
+            "stream": True,
+            "options": {"num_ctx": DEFAULT_NUM_CTX},
+        }
+    )
     request = urllib.request.Request(
         f"{base_url.rstrip('/')}/api/generate",
         data=payload.encode("utf-8"),

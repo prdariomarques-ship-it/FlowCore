@@ -6,6 +6,7 @@ against portfolio_moderate_1m.json's actual sleeve_limits, and the
 sleeve-level override added to avoid double-counting br_fixed_liquidity
 inside renda_fixa_total.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -65,8 +66,10 @@ class TestNoData:
             await repo.seed_office("office-1", with_demo_clients=True)
             return await ComplianceAgent().run({"office_id": "office-1"})
 
-        with patch("runtime.portfolio.reference.ClientRepository", return_value=repo), \
-             patch("runtime.portfolio.demo_clients.ClientRepository", return_value=repo):
+        with (
+            patch("runtime.portfolio.reference.ClientRepository", return_value=repo),
+            patch("runtime.portfolio.demo_clients.ClientRepository", return_value=repo),
+        ):
             result = _run(scenario())
         assert result["status"] == "ok"
         assert result["data"]["portfolios_evaluated"] == 28  # 1 policy row + 27 demo clients
@@ -107,12 +110,14 @@ class TestViolations:
     def test_no_violation_when_within_limits(self):
         # A position that sits inside every sleeve_limits band should
         # produce zero violations and status NORMAL.
-        portfolio = _reference_portfolio({
-            "__sleeve__:renda_fixa_total": 60.0,
-            "ai_theme": 7.0,
-            "__sleeve__:alternativos": 4.5,
-            "br_fixed_liquidity": 10.0,
-        })
+        portfolio = _reference_portfolio(
+            {
+                "__sleeve__:renda_fixa_total": 60.0,
+                "ai_theme": 7.0,
+                "__sleeve__:alternativos": 4.5,
+                "br_fixed_liquidity": 10.0,
+            }
+        )
         result = _run(ComplianceAgent().run({"portfolios": [portfolio]}))
         assert result["data"]["violations"] == []
         assert result["data"]["portfolios"][0]["status"] == "NORMAL"
@@ -142,10 +147,12 @@ class TestSleeveOverride:
         # item-level sum. With the override, renda_fixa_total is read
         # directly from the synthetic key and liquidity's own value has no
         # side effect on it.
-        portfolio = _reference_portfolio({
-            "__sleeve__:renda_fixa_total": 60.0,
-            "br_fixed_liquidity": 10.0,
-        })
+        portfolio = _reference_portfolio(
+            {
+                "__sleeve__:renda_fixa_total": 60.0,
+                "br_fixed_liquidity": 10.0,
+            }
+        )
         result = _run(ComplianceAgent().run({"portfolios": [portfolio]}))
         violations = result["data"]["violations"]
         assert not any("RENDA_FIXA_TOTAL" in v["type"] for v in violations)
