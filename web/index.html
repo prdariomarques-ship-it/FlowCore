@@ -386,6 +386,14 @@ details.mi>summary::marker{display:none}
   .nav,.fab,.more-menu{display:none!important}
 }
 
+/* ── App loader — covers the whole screen from first paint (no
+   display:none here, unlike auth-screen/app) so there's no flash of
+   the authenticated shell before checkAuthAndStart() decides what to
+   show. Removed via hideAppLoader() once that decision is made. ── */
+#app-loader{position:fixed;inset:0;z-index:10000;background:var(--bg);display:flex;align-items:center;justify-content:center}
+.loader-spinner{width:32px;height:32px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent);animation:app-loader-spin 0.8s linear infinite}
+@keyframes app-loader-spin{to{transform:rotate(360deg)}}
+
 /* ── Auth screen (login/signup) — works at every viewport width, not
    just desktop, since it gates the mobile experience too. ── */
 #auth-screen{position:fixed;inset:0;z-index:9999;background:var(--bg);display:none;align-items:center;justify-content:center;padding:20px}
@@ -1167,6 +1175,7 @@ async function submitAuth(){
   }
 }
 
+function hideAppLoader(){ const el=document.getElementById('app-loader'); if(el) el.style.display='none'; }
 function showAuthScreen(){ hideAppLoader(); document.getElementById('auth-screen').style.display='flex'; }
 function hideAuthScreen(){ document.getElementById('auth-screen').style.display='none'; }
 
