@@ -1,5 +1,4 @@
 """FlowCore MCP tool definitions and handlers."""
-
 from __future__ import annotations
 
 import json
@@ -75,7 +74,9 @@ FLOWCORE_TOOLS: list[Tool] = [
         description="Save a text memory to FlowCore persistent storage.",
         inputSchema={
             "type": "object",
-            "properties": {"text": {"type": "string", "description": "Memory text to store."}},
+            "properties": {
+                "text": {"type": "string", "description": "Memory text to store."}
+            },
             "required": ["text"],
         },
     ),
@@ -116,7 +117,9 @@ FLOWCORE_TOOLS: list[Tool] = [
         description="Search memories and documents in FlowCore.",
         inputSchema={
             "type": "object",
-            "properties": {"q": {"type": "string", "description": "Search query string."}},
+            "properties": {
+                "q": {"type": "string", "description": "Search query string."}
+            },
             "required": ["q"],
         },
     ),
@@ -211,7 +214,8 @@ FLOWCORE_TOOLS: list[Tool] = [
     Tool(
         name="flow_run",
         description=(
-            "Execute a FlowCore flow by its ID. Runs each step's agent in sequence and returns the full FlowRun result."
+            "Execute a FlowCore flow by its ID. Runs each step's agent in "
+            "sequence and returns the full FlowRun result."
         ),
         inputSchema={
             "type": "object",
@@ -235,7 +239,6 @@ _TOOL_MAP: dict[str, Tool] = {t.name: t for t in FLOWCORE_TOOLS}
 
 # ── Handlers ──────────────────────────────────────────────────────────────────
 
-
 def _ok(data: Any) -> CallToolResult:
     return CallToolResult(
         content=[TextContent(text=json.dumps(data, indent=2, default=str))],
@@ -253,9 +256,11 @@ def _err(msg: str) -> CallToolResult:
 def handle_capability_list(_args: dict) -> CallToolResult:
     try:
         from capability.registry import CapabilityRegistry
-
         reg = CapabilityRegistry()
-        caps = {cap: (adapter is not None) for cap, adapter in reg.list_capabilities().items()}
+        caps = {
+            cap: (adapter is not None)
+            for cap, adapter in reg.list_capabilities().items()
+        }
         return _ok({"capabilities": caps})
     except Exception as exc:
         return _err(f"capability_list failed: {exc}")
@@ -264,7 +269,6 @@ def handle_capability_list(_args: dict) -> CallToolResult:
 def handle_doctor_run(_args: dict) -> CallToolResult:
     try:
         from doctor.service import DoctorService
-
         report = DoctorService().run(verbose=False)
         checks = [
             {
@@ -290,7 +294,6 @@ def handle_passport_issue(args: dict) -> CallToolResult:
     try:
         from passport.generator import PassportGenerator
         from passport.schema import AgentIdentity
-
         agent_name = args.get("agent_name", "mcp-agent")
         ttl = int(args.get("ttl", 3600))
         requested = args.get("requested_capabilities") or None
@@ -305,7 +308,6 @@ def handle_passport_issue(args: dict) -> CallToolResult:
 def handle_memory_list(args: dict) -> CallToolResult:
     try:
         from storage import MemoryRepository
-
         limit = min(int(args.get("limit", 20)), 200)
         mems = MemoryRepository().list_all()
         return _ok({"memories": mems[-limit:], "total": len(mems)})
@@ -316,7 +318,6 @@ def handle_memory_list(args: dict) -> CallToolResult:
 def handle_memory_save(args: dict) -> CallToolResult:
     try:
         from storage import MemoryRepository
-
         text = args.get("text", "")
         if not text:
             return _err("text is required")
@@ -329,12 +330,13 @@ def handle_memory_save(args: dict) -> CallToolResult:
 def handle_note_list(args: dict) -> CallToolResult:
     try:
         from storage import DocumentRepository
-
         docs = DocumentRepository().list_all_sync()
         kind_filter = args.get("kind")
         kinds = {"note", "todo", "agenda"}
         notes = [
-            d for d in docs if d.get("source") in kinds and (kind_filter is None or d.get("source") == kind_filter)
+            d for d in docs
+            if d.get("source") in kinds
+            and (kind_filter is None or d.get("source") == kind_filter)
         ]
         return _ok({"notes": notes})
     except Exception as exc:
@@ -344,7 +346,6 @@ def handle_note_list(args: dict) -> CallToolResult:
 def handle_note_create(args: dict) -> CallToolResult:
     try:
         from storage import DocumentRepository
-
         text = args.get("text", "")
         kind = args.get("kind", "note")
         if not text:
@@ -366,13 +367,11 @@ def handle_search(args: dict) -> CallToolResult:
         results: dict = {"query": q, "memories": [], "documents": []}
         try:
             from storage import MemoryRepository
-
             results["memories"] = MemoryRepository().search(q)
         except Exception:
             pass
         try:
             from storage import DocumentRepository
-
             results["documents"] = DocumentRepository().search_sync(q)
         except Exception:
             pass
@@ -384,7 +383,6 @@ def handle_search(args: dict) -> CallToolResult:
 def handle_daemon_status(_args: dict) -> CallToolResult:
     try:
         from runtime.daemon import FlowCoreDaemon
-
         return _ok(FlowCoreDaemon().status())
     except Exception as exc:
         return _err(f"daemon_status failed: {exc}")
@@ -393,7 +391,6 @@ def handle_daemon_status(_args: dict) -> CallToolResult:
 def handle_agent_list(_args: dict) -> CallToolResult:
     try:
         from agents.runner import AgentRunner
-
         runner = AgentRunner(require_passport=False)
         return _ok({"agents": runner.list_agents()})
     except Exception as exc:
@@ -403,7 +400,6 @@ def handle_agent_list(_args: dict) -> CallToolResult:
 def handle_agent_run(args: dict) -> CallToolResult:
     try:
         from agents.runner import AgentRunner
-
         agent_name = args.get("agent_name", "")
         context = args.get("context") or {}
         if not agent_name:
@@ -418,7 +414,6 @@ def handle_agent_run(args: dict) -> CallToolResult:
 def handle_agent_history(args: dict) -> CallToolResult:
     try:
         from agents.task_store import AgentTaskStore
-
         limit = min(int(args.get("limit", 20)), 200)
         agent = args.get("agent") or None
         store = AgentTaskStore()
@@ -431,7 +426,6 @@ def handle_agent_history(args: dict) -> CallToolResult:
 def handle_flow_list(_args: dict) -> CallToolResult:
     try:
         from flows.store import FlowStore
-
         flows = FlowStore().list_flows()
         return _ok({"flows": [f.to_dict() for f in flows], "total": len(flows)})
     except Exception as exc:
@@ -442,7 +436,6 @@ def handle_flow_create(args: dict) -> CallToolResult:
     try:
         from flows.schema import Flow
         from flows.store import FlowStore
-
         name = args.get("name", "")
         if not name:
             return _err("name is required")
@@ -461,7 +454,6 @@ def handle_flow_run(args: dict) -> CallToolResult:
     try:
         from flows.runner import FlowRunner
         from flows.store import FlowStore
-
         flow_id = args.get("flow_id", "")
         if not flow_id:
             return _err("flow_id is required")

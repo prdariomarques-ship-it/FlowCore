@@ -306,3 +306,67 @@ class TestSendB3Summary:
         req = m.call_args[0][0]
         body = json.loads(req.data.decode("utf-8"))
         assert body["chat_id"] == "883232211"
+
+
+class TestGetRecentChats:
+    def test_raises_without_token(self):
+        from runtime.telegram import TelegramNotConfiguredError, get_recent_chats
+
+        with pytest.raises(TelegramNotConfiguredError):
+            get_recent_chats()
+
+    def test_extracts_distinct_chats_from_private_messages(self, monkeypatch):
+        from runtime.telegram import get_recent_chats
+
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "tok")
+        payload = {
+            "ok": True,
+            "result": [
+                {
+                    "update_id": 1,
+                    "message": {
+                        "chat": {"id": 883232211, "first_name": "Dário", "last_name": "marques", "type": "private"},
+                        "text": "Oi",
+                    },
+                },
+                {
+                    "update_id": 2,
+                    "message": {
+                        "chat": {"id": 883232211, "first_name": "Dário", "last_name": "marques", "type": "private"},
+                        "text": "Gg",
+                    },
+                },
+            ],
+        }
+        with patch("runtime.telegram.urllib.request.urlopen", return_value=_mock_urlopen(payload)):
+            chats = get_recent_chats()
+        assert chats == [{"chat_id": "883232211", "name": "Dário marques", "type": "private"}]
+
+    def test_group_chat_uses_title(self, monkeypatch):
+        from runtime.telegram import get_recent_chats
+
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "tok")
+        payload = {
+            "ok": True,
+            "result": [
+                {"update_id": 1, "message": {"chat": {"id": -100123, "title": "Escritório PMX", "type": "group"}}},
+            ],
+        }
+        with patch("runtime.telegram.urllib.request.urlopen", return_value=_mock_urlopen(payload)):
+            chats = get_recent_chats()
+        assert chats == [{"chat_id": "-100123", "name": "Escritório PMX", "type": "group"}]
+
+    def test_no_updates_returns_empty_list(self, monkeypatch):
+        from runtime.telegram import get_recent_chats
+
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "tok")
+        with patch("runtime.telegram.urllib.request.urlopen", return_value=_mock_urlopen({"ok": True, "result": []})):
+            assert get_recent_chats() == []
+
+    def test_ignores_updates_without_a_message(self, monkeypatch):
+        from runtime.telegram import get_recent_chats
+
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "tok")
+        payload = {"ok": True, "result": [{"update_id": 1, "my_chat_member": {}}]}
+        with patch("runtime.telegram.urllib.request.urlopen", return_value=_mock_urlopen(payload)):
+            assert get_recent_chats() == []

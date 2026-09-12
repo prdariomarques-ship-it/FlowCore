@@ -25,6 +25,7 @@ from __future__ import annotations
 from runtime.llm.budget import BudgetPolicy, CallCountBudget, NoLimitBudget
 from runtime.llm.cache import CacheBackend, InMemoryTTLCache, NullCache
 from runtime.llm.metrics import InMemoryMetrics, MetricsSink, NullMetrics
+from runtime.llm.persistent_metrics import PersistentMetricsSink
 from runtime.llm.models import (
     LLMAllProvidersFailedError,
     LLMAuthenticationError,
@@ -62,6 +63,7 @@ __all__ = [
     "MetricsSink",
     "NoLimitBudget",
     "NullCache",
+    "PersistentMetricsSink",
     "NullMetrics",
     "ProviderNotFoundError",
     "ProviderRegistry",

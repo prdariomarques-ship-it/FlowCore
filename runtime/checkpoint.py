@@ -14,7 +14,6 @@ Usage::
     if state:
         offset = state["offset"]   # resume from 42
 """
-
 from __future__ import annotations
 
 import json
@@ -83,7 +82,8 @@ class CheckpointStore:
         """Return metadata for every checkpoint on disk."""
         if not _CHECKPOINT_DIR.exists():
             return []
-        return [Checkpoint(p.stem).metadata() for p in sorted(_CHECKPOINT_DIR.glob("*.json"))]
+        return [Checkpoint(p.stem).metadata()
+                for p in sorted(_CHECKPOINT_DIR.glob("*.json"))]
 
     @staticmethod
     def clear_all() -> int:

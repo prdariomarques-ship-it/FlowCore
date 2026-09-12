@@ -6,7 +6,6 @@ generic label ("Nota"/"TODO"/"Agenda") instead of its actual text. Also
 covers the "radar" note kind used for manager-letters digests (Verde,
 Legacy, Kinea, TAG...), including title derivation from the first line.
 """
-
 from __future__ import annotations
 
 import sys
@@ -38,18 +37,17 @@ class TestNotesApiRadarKind:
         from fastapi.testclient import TestClient
         from api.router import create_app
 
-        monkeypatch.setattr("storage.document_repo.get_db_path", lambda: str(tmp_path / "docs.db"))
+        monkeypatch.setattr(
+            "storage.document_repo.get_db_path", lambda: str(tmp_path / "docs.db")
+        )
         app = create_app(version="test", platform_info={"os_name": "test"})
         return TestClient(app)
 
     def test_create_radar_note_derives_title_from_first_line(self, client):
-        r = client.post(
-            "/api/notes",
-            json={
-                "text": "## Radar de Cartas de Gestão | 05/09/2026\n\nresto do conteúdo",
-                "kind": "radar",
-            },
-        )
+        r = client.post("/api/notes", json={
+            "text": "## Radar de Cartas de Gestão | 05/09/2026\n\nresto do conteúdo",
+            "kind": "radar",
+        })
         assert r.status_code == 201
 
         listed = client.get("/api/notes", params={"kind": "radar"}).json()["notes"]

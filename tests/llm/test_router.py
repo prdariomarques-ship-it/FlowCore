@@ -215,6 +215,67 @@ class TestMetricsIntegration:
         assert snap[0]["successes"] == 1
 
 
+class _CapturingMetrics:
+    """Records the exact kwargs record_call() was invoked with, so tests
+    can check attribution (tokens, office_id) flows through unchanged --
+    InMemoryMetrics itself discards those fields, it only tracks
+    call/success/failure counts."""
+
+    def __init__(self):
+        self.calls = []
+
+    def record_call(self, provider, model, latency_ms, success, error, purpose=None, tokens=None, office_id=None):
+        self.calls.append({
+            "provider": provider, "model": model, "success": success,
+            "purpose": purpose, "tokens": tokens, "office_id": office_id,
+        })
+
+    def snapshot(self):
+        return []
+
+
+class TestMetricsAttribution:
+    def test_tokens_and_office_id_flow_through_on_success(self):
+        from runtime.llm import LLMRequest, LLMResponse
+
+        class _TokenProvider(_StubProvider):
+            def generate(self, request):
+                self.call_count += 1
+                return LLMResponse(text="ok", provider=self.name, model="stub-model", latency_ms=5.0, tokens_estimated=250)
+
+        p = _TokenProvider("deepseek")
+        metrics = _CapturingMetrics()
+        router = _build([p], metrics=metrics)
+        router.generate(LLMRequest(prompt="x", metadata={"purpose": "orchestrator_reasoning", "office_id": "office-1"}))
+
+        assert metrics.calls[0]["tokens"] == 250
+        assert metrics.calls[0]["office_id"] == "office-1"
+        assert metrics.calls[0]["purpose"] == "orchestrator_reasoning"
+
+    def test_office_id_recorded_on_failure_too(self):
+        from runtime.llm import LLMProviderUnavailableError, LLMRequest
+
+        p = _StubProvider("a", fail_with=LLMProviderUnavailableError("down"), fail_times=-1)
+        metrics = _CapturingMetrics()
+        router = _build([p], metrics=metrics, retry_attempts=1)
+        with pytest.raises(Exception):  # noqa: B017 -- exact type not the point here
+            router.generate(LLMRequest(prompt="x", metadata={"office_id": "office-2"}))
+
+        assert all(c["office_id"] == "office-2" for c in metrics.calls)
+        assert all(c["success"] is False for c in metrics.calls)
+
+    def test_no_metadata_gives_none_attribution_not_an_error(self):
+        from runtime.llm import LLMRequest
+
+        p = _StubProvider("a", text="ok")
+        metrics = _CapturingMetrics()
+        router = _build([p], metrics=metrics)
+        router.generate(LLMRequest(prompt="x"))
+
+        assert metrics.calls[0]["office_id"] is None
+        assert metrics.calls[0]["tokens"] is None
+
+
 class TestCacheIntegration:
     def test_second_identical_call_is_served_from_cache(self):
         from runtime.llm import LLMRequest

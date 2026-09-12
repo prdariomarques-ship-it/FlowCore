@@ -3,7 +3,6 @@
 Centralises every SQLite operation on the `documents` table.
 Previously these were duplicated inline across 8+ functions in flowcore.py.
 """
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -59,7 +58,10 @@ class DocumentRepository:
                 "SELECT id, title, content, source, created_at FROM documents ORDER BY created_at DESC"
             )
             rows = await cursor.fetchall()
-            return [{"id": r[0], "title": r[1], "content": r[2], "source": r[3], "created_at": r[4]} for r in rows]
+            return [
+                {"id": r[0], "title": r[1], "content": r[2], "source": r[3], "created_at": r[4]}
+                for r in rows
+            ]
 
     async def get_by_id(self, doc_id: int) -> dict[str, Any] | None:
         await self.ensure_table()

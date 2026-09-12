@@ -100,6 +100,18 @@ class TestFetchQuote:
             with pytest.raises(ObserverError):
                 fetch_quote("^VIX", retries=0)
 
+    def test_shared_executor_is_sized_for_a_constrained_mobile_uplink(self):
+        # Regression guard: this was widened to 16 workers on the theory
+        # that more headroom above ALERT_DEFAULTS' ~11 sources would help
+        # -- real-device testing found the opposite (16 concurrent
+        # yfinance connections oversubscribe a mobile link and time out
+        # more, not less). Tuned down to 6, the same value watchlist.py's
+        # snapshot() uses for the identical reason. If this creeps back up,
+        # it's worth re-testing on a real constrained connection first.
+        from runtime.observers.providers import yfinance_provider as provider
+
+        assert provider._executor._max_workers == 6
+
     def test_caches_within_ttl(self):
         from runtime.observers.providers.yfinance_provider import fetch_quote
 

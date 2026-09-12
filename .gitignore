@@ -50,3 +50,5 @@ tmp/
 
 # Termux-specific
 .termux/
+.venv/
+__pycache__/

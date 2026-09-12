@@ -7,12 +7,12 @@ Fonts are bundled under assets/fonts/ so this never depends on a system
 font being present (see assets/fonts/LICENSE.txt — Liberation Sans,
 SIL OFL 1.1).
 """
-
 from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
 from textwrap import wrap
+from typing import Any
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -20,13 +20,13 @@ _ROOT = Path(__file__).resolve().parent.parent.parent
 _FONT_DIR = _ROOT / "assets" / "fonts"
 
 _SIZE = 1080
-_BG = (10, 15, 30)  # #0a0f1e
-_PANEL = (17, 24, 39)  # #111827
-_BORDER = (30, 58, 95)  # #1e3a5f
-_ACCENT = (0, 212, 255)  # #00d4ff
-_ACCENT2 = (124, 58, 237)  # #7c3aed
-_TEXT = (226, 232, 240)  # #e2e8f0
-_TEXT2 = (148, 163, 184)  # #94a3b8
+_BG = (10, 15, 30)          # #0a0f1e
+_PANEL = (17, 24, 39)       # #111827
+_BORDER = (30, 58, 95)      # #1e3a5f
+_ACCENT = (0, 212, 255)     # #00d4ff
+_ACCENT2 = (124, 58, 237)   # #7c3aed
+_TEXT = (226, 232, 240)     # #e2e8f0
+_TEXT2 = (148, 163, 184)    # #94a3b8
 
 _MAX_HIGHLIGHTS = 6
 _WRAP_CHARS = 44
@@ -78,10 +78,7 @@ def render_close_card(
     panel_bottom = _SIZE - 140
     draw.rounded_rectangle(
         [(60, panel_top), (_SIZE - 60, panel_bottom)],
-        radius=24,
-        fill=_PANEL,
-        outline=_BORDER,
-        width=2,
+        radius=24, fill=_PANEL, outline=_BORDER, width=2,
     )
 
     y = panel_top + 40

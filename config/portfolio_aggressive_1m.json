@@ -1,0 +1,208 @@
+{
+  "id": "aggressive-ia-1m",
+  "name": "Carteira Agressiva — R$ 1 milhão — Exposição IA",
+  "currency": "BRL",
+  "reference_value": 1000000,
+  "profile": "agressivo",
+  "purpose": "Carteira modelo de referência por perfil (comparação, não uma carteira de cliente real); monitoramento e alertas, sem execução automática de ordens. Pesos por ativo redesenhados a partir de práticas de mercado de private banking (não uma escala proporcional da carteira moderada) — ver o racional em cada item.",
+  "target_allocation": [
+    {
+      "id": "br_fixed_liquidity",
+      "label": "Brasil — reserva de liquidez pós-fixada",
+      "class": "renda_fixa_brasil",
+      "benchmark": "CDI/Selic",
+      "role": "liquidez mínima, ainda assim nunca zerada — piso residual de caixa mesmo no perfil de maior risco",
+      "weight": 2.0,
+      "amount": 20000
+    },
+    {
+      "id": "br_fixed_opportunity",
+      "label": "Brasil — reserva de oportunidade pós-fixada",
+      "class": "renda_fixa_brasil",
+      "benchmark": "CDI/Selic",
+      "role": "dry powder mínimo",
+      "weight": 1.0,
+      "amount": 10000
+    },
+    {
+      "id": "br_fixed_post",
+      "label": "Brasil — pós-fixado estrutural",
+      "class": "renda_fixa_brasil",
+      "benchmark": "CDI/Selic",
+      "role": "posição residual; sleeve de renda fixa reduzido ao mínimo funcional",
+      "weight": 1.0,
+      "amount": 10000
+    },
+    {
+      "id": "br_fixed_pre",
+      "label": "Brasil — prefixado",
+      "class": "renda_fixa_brasil",
+      "benchmark": "Prefixado",
+      "role": "zerado — sleeve de renda fixa pequeno demais para justificar aposta de indexador",
+      "weight": 0.0,
+      "amount": 0
+    },
+    {
+      "id": "br_inflation_ima_b5",
+      "label": "Brasil — inflação curta/média IMA-B 5",
+      "class": "renda_fixa_brasil",
+      "benchmark": "IMA-B 5",
+      "role": "zerado no perfil agressivo",
+      "weight": 0.0,
+      "amount": 0
+    },
+    {
+      "id": "br_inflation_ima_b5_plus",
+      "label": "Brasil — inflação longa IMA-B 5+",
+      "class": "renda_fixa_brasil",
+      "benchmark": "IMA-B 5+",
+      "role": "zerado — risco do portfólio vem inteiramente de bolsa e alternativos, não de duration",
+      "weight": 0.0,
+      "amount": 0
+    },
+    {
+      "id": "us_treasury",
+      "label": "Internacional — US Treasuries",
+      "class": "renda_fixa_internacional",
+      "benchmark": "Treasury",
+      "role": "âncora defensiva residual",
+      "weight": 1.5,
+      "amount": 15000
+    },
+    {
+      "id": "global_bonds",
+      "label": "Internacional — Global Bonds",
+      "class": "renda_fixa_internacional",
+      "benchmark": "Global Aggregate Bonds",
+      "role": "posição residual de renda fixa global",
+      "weight": 1.5,
+      "amount": 15000
+    },
+    {
+      "id": "corporate_bonds",
+      "label": "Internacional — Corporate Bonds investment grade",
+      "class": "renda_fixa_internacional",
+      "benchmark": "Global IG Corporate Bonds",
+      "role": "maior peso relativo dentro da renda fixa internacional residual — mais tolerância a risco de crédito/spread do que os outros perfis",
+      "weight": 3.0,
+      "amount": 30000
+    },
+    {
+      "id": "multi_market",
+      "label": "Fundos multimercados / hedge funds",
+      "class": "multimercado",
+      "benchmark": "CDI + risco controlado",
+      "role": "diversificação de estratégias e fatores; peso menor que nos demais perfis — investidor agressivo prefere exposição direta a bolsa/alternativos a fundos hedgeados",
+      "weight": 8.0,
+      "amount": 80000
+    },
+    {
+      "id": "br_equity_funds",
+      "label": "Fundos de ações Brasil",
+      "class": "renda_variavel_brasil",
+      "benchmark": "Ibovespa / índice amplo",
+      "role": "núcleo diversificado de bolsa doméstica, maior peso individual da carteira",
+      "weight": 30.0,
+      "amount": 300000
+    },
+    {
+      "id": "global_equity",
+      "label": "Ações globais diversificadas",
+      "class": "renda_variavel_global",
+      "benchmark": "MSCI ACWI / índice amplo",
+      "role": "principal motor de crescimento internacional do perfil",
+      "weight": 27.0,
+      "amount": 270000
+    },
+    {
+      "id": "ai_theme",
+      "label": "Tema inteligência artificial",
+      "class": "renda_variavel_tematica",
+      "benchmark": "Índice/ETF amplo de IA e infraestrutura",
+      "role": "maior satélite temático entre os quatro perfis, mas ainda minoritário frente ao núcleo diversificado (br_equity_funds + global_equity somam mais que o dobro do satélite)",
+      "weight": 13.0,
+      "amount": 130000
+    },
+    {
+      "id": "real_estate",
+      "label": "Alternativos — fundos imobiliários",
+      "class": "alternativos",
+      "benchmark": "IFIX / renda imobiliária",
+      "role": "renda real e diversificação; peso estável entre perfis, não é uma aposta de risco",
+      "weight": 3.0,
+      "amount": 30000
+    },
+    {
+      "id": "gold",
+      "label": "Alternativos — ouro",
+      "class": "alternativos",
+      "benchmark": "Ouro",
+      "role": "proteção de cauda reduzida — menor necessidade de hedge no perfil de maior tolerância a risco",
+      "weight": 1.0,
+      "amount": 10000
+    },
+    {
+      "id": "crypto",
+      "label": "Alternativos — criptoativos",
+      "class": "alternativos",
+      "benchmark": "Cesta cripto limitada",
+      "role": "principal alavanca de risco dos alternativos; próximo do teto documentado em referências de mercado mesmo para o perfil mais agressivo (Itaú: 1-3%; Morgan Stanley: ~4% em 'opportunistic growth')",
+      "weight": 4.5,
+      "amount": 45000
+    },
+    {
+      "id": "stablecoin",
+      "label": "Alternativos — stablecoin",
+      "class": "alternativos",
+      "benchmark": "USD tokenizado",
+      "role": "instrumento de liquidez digital, não de risco — mantido pequeno e estável entre perfis",
+      "weight": 0.5,
+      "amount": 5000
+    },
+    {
+      "id": "industrial_metals",
+      "label": "Alternativos — prata, paládio e cobre",
+      "class": "alternativos",
+      "benchmark": "Cesta de commodities metálicas",
+      "role": "maior exposição cíclica entre os quatro perfis",
+      "weight": 3.0,
+      "amount": 30000
+    }
+  ],
+  "sleeve_limits": {
+    "renda_fixa_total_min": 6.0,
+    "renda_fixa_total_max": 18.0,
+    "ai_theme_min": 6.0,
+    "ai_theme_max": 18.0,
+    "alternativos_max": 15.0,
+    "single_issuer_max": 15.0,
+    "liquidity_floor": 1.5,
+    "opportunity_reserve_target": 1.0
+  },
+  "review_policy": {
+    "frequency": "daily",
+    "mode": "review_and_alert_only",
+    "automatic_orders": false,
+    "rebalance_trigger_relative_drift_pct": 20.0,
+    "rebalance_trigger_absolute_points": 3.0,
+    "event_triggers": [
+      "decision or communication from central banks",
+      "inflation or employment release",
+      "BRL or USD move above 2 percent in a day",
+      "broad equity index move above 3 percent in a day",
+      "material credit, issuer, fund or counterparty event",
+      "earnings, guidance or regulatory event for AI exposure",
+      "liquidity reserve below floor",
+      "portfolio sleeve outside hard limits"
+    ],
+    "daily_output": [
+      "target versus current weight",
+      "drift and contribution to risk",
+      "events detected and source timestamp",
+      "liquidity and concentration warnings",
+      "proposed rebalance, if any",
+      "human approval required before any order"
+    ]
+  },
+  "disclaimer": "Modelo de referência educacional, não recomendação individual nem ordem de investimento. Produtos, tributação, custos, suitability, liquidez e proteção devem ser confirmados antes de qualquer aplicação."
+}

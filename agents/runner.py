@@ -7,7 +7,6 @@ Usage::
     record = runner.run_sync("health")
     print(record.status, record.result)
 """
-
 from __future__ import annotations
 
 import asyncio
@@ -50,14 +49,15 @@ class AgentRunner:
             loop = asyncio.get_event_loop()
             if loop.is_running():
                 import concurrent.futures
-
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                     future = pool.submit(
                         asyncio.run,
                         self.run(agent_name, context, passport_agent_name),
                     )
                     return future.result(timeout=60)
-            return loop.run_until_complete(self.run(agent_name, context, passport_agent_name))
+            return loop.run_until_complete(
+                self.run(agent_name, context, passport_agent_name)
+            )
         except RuntimeError:
             return asyncio.run(self.run(agent_name, context, passport_agent_name))
 
@@ -129,7 +129,6 @@ class AgentRunner:
             from passport.generator import PassportGenerator
             from passport.schema import AgentIdentity
             from passport.validator import PassportValidator
-
             gen = PassportGenerator(ttl=300)
             passport = gen.issue(AgentIdentity(name=agent_name))
             result = PassportValidator().validate(passport)
@@ -142,7 +141,6 @@ class AgentRunner:
     def _maybe_notify(self, agent_name: str, record: AgentTaskRecord) -> None:
         try:
             from runtime.shell import is_available, run
-
             if not is_available("termux-notification"):
                 return
             emoji = "✅" if record.status == "completed" else "❌"
@@ -150,7 +148,8 @@ class AgentRunner:
             if record.error:
                 body += f": {record.error[:80]}"
             run(
-                ["termux-notification", "--id", "9001", "--title", "FlowCore Agent", "--content", body],
+                ["termux-notification", "--id", "9001",
+                 "--title", "FlowCore Agent", "--content", body],
                 timeout=5,
             )
         except Exception:
@@ -163,6 +162,11 @@ class AgentRunner:
             ("agents.market_close_agent", "MarketCloseAgent"),
             ("agents.daily_brief_agent", "DailyBriefAgent"),
             ("agents.notify_market_close_agent", "NotifyMarketCloseAgent"),
+            ("agents.compliance_agent", "ComplianceAgent"),
+            ("agents.market_agent", "MarketAgent"),
+            ("agents.intelligence_engine", "IntelligenceEngine"),
+            ("agents.priority_engine", "PriorityEngine"),
+            ("agents.ask_agent", "AskAgent"),
         ):
             try:
                 mod = __import__(cls_path[0], fromlist=[cls_path[1]])

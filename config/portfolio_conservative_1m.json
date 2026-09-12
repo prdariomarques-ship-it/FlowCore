@@ -1,0 +1,208 @@
+{
+  "id": "conservative-ia-1m",
+  "name": "Carteira Conservadora — R$ 1 milhão — Exposição IA",
+  "currency": "BRL",
+  "reference_value": 1000000,
+  "profile": "conservador",
+  "purpose": "Carteira modelo de referência por perfil (comparação, não uma carteira de cliente real); monitoramento e alertas, sem execução automática de ordens. Pesos por ativo redesenhados a partir de práticas de mercado de private banking (não uma escala proporcional da carteira moderada) — ver o racional em cada item.",
+  "target_allocation": [
+    {
+      "id": "br_fixed_liquidity",
+      "label": "Brasil — reserva de liquidez pós-fixada",
+      "class": "renda_fixa_brasil",
+      "benchmark": "CDI/Selic",
+      "role": "liquidez imediata; maior reserva do que nos perfis de mais risco, pois a necessidade de liquidez não desaparece com a tolerância a risco",
+      "weight": 15.0,
+      "amount": 150000
+    },
+    {
+      "id": "br_fixed_opportunity",
+      "label": "Brasil — reserva de oportunidade pós-fixada",
+      "class": "renda_fixa_brasil",
+      "benchmark": "CDI/Selic",
+      "role": "dry powder com regra de acionamento",
+      "weight": 6.0,
+      "amount": 60000
+    },
+    {
+      "id": "br_fixed_post",
+      "label": "Brasil — pós-fixado estrutural",
+      "class": "renda_fixa_brasil",
+      "benchmark": "CDI/Selic",
+      "role": "estabilidade e carrego; maior bloco único do perfil, pós-fixado domina a renda fixa conservadora",
+      "weight": 20.0,
+      "amount": 200000
+    },
+    {
+      "id": "br_fixed_pre",
+      "label": "Brasil — prefixado",
+      "class": "renda_fixa_brasil",
+      "benchmark": "Prefixado",
+      "role": "diversificação de indexador; risco de marcação a mercado mantido moderado",
+      "weight": 6.0,
+      "amount": 60000
+    },
+    {
+      "id": "br_inflation_ima_b5",
+      "label": "Brasil — inflação curta/média IMA-B 5",
+      "class": "renda_fixa_brasil",
+      "benchmark": "IMA-B 5",
+      "role": "proteção real com duration menor",
+      "weight": 5.0,
+      "amount": 50000
+    },
+    {
+      "id": "br_inflation_ima_b5_plus",
+      "label": "Brasil — inflação longa IMA-B 5+",
+      "class": "renda_fixa_brasil",
+      "benchmark": "IMA-B 5+",
+      "role": "proteção real e duration longa; posição reduzida no perfil conservador para limitar sensibilidade a juros",
+      "weight": 3.0,
+      "amount": 30000
+    },
+    {
+      "id": "us_treasury",
+      "label": "Internacional — US Treasuries",
+      "class": "renda_fixa_internacional",
+      "benchmark": "Treasury",
+      "role": "âncora defensiva da renda fixa internacional; maior peso relativo no perfil conservador",
+      "weight": 8.0,
+      "amount": 80000
+    },
+    {
+      "id": "global_bonds",
+      "label": "Internacional — Global Bonds",
+      "class": "renda_fixa_internacional",
+      "benchmark": "Global Aggregate Bonds",
+      "role": "renda fixa global diversificada",
+      "weight": 4.0,
+      "amount": 40000
+    },
+    {
+      "id": "corporate_bonds",
+      "label": "Internacional — Corporate Bonds investment grade",
+      "class": "renda_fixa_internacional",
+      "benchmark": "Global IG Corporate Bonds",
+      "role": "prêmio de crédito com limite de qualidade; posição reduzida para minimizar risco de spread",
+      "weight": 2.0,
+      "amount": 20000
+    },
+    {
+      "id": "multi_market",
+      "label": "Fundos multimercados / hedge funds",
+      "class": "multimercado",
+      "benchmark": "CDI + risco controlado",
+      "role": "diversificação de estratégias e fatores",
+      "weight": 15.0,
+      "amount": 150000
+    },
+    {
+      "id": "br_equity_funds",
+      "label": "Fundos de ações Brasil",
+      "class": "renda_variavel_brasil",
+      "benchmark": "Ibovespa / índice amplo",
+      "role": "toda a exposição de bolsa doméstica do perfil, via fundo diversificado, sem posição satélite concentrada",
+      "weight": 5.0,
+      "amount": 50000
+    },
+    {
+      "id": "global_equity",
+      "label": "Ações globais diversificadas",
+      "class": "renda_variavel_global",
+      "benchmark": "MSCI ACWI / índice amplo",
+      "role": "exposição internacional modesta, mantendo a bolsa como um todo baixa no perfil conservador",
+      "weight": 3.0,
+      "amount": 30000
+    },
+    {
+      "id": "ai_theme",
+      "label": "Tema inteligência artificial",
+      "class": "renda_variavel_tematica",
+      "benchmark": "Índice/ETF amplo de IA e infraestrutura",
+      "role": "satélite temático concentrado excluído do perfil conservador (prática padrão de core-satellite: satélite de tema único não entra em carteira conservadora)",
+      "weight": 0.0,
+      "amount": 0
+    },
+    {
+      "id": "real_estate",
+      "label": "Alternativos — fundos imobiliários",
+      "class": "alternativos",
+      "benchmark": "IFIX / renda imobiliária",
+      "role": "renda real e diversificação; maior parte dos alternativos do perfil, por ser gerador de renda e menos volátil",
+      "weight": 5.0,
+      "amount": 50000
+    },
+    {
+      "id": "gold",
+      "label": "Alternativos — ouro",
+      "class": "alternativos",
+      "benchmark": "Ouro",
+      "role": "proteção de cauda e diversificação",
+      "weight": 2.5,
+      "amount": 25000
+    },
+    {
+      "id": "crypto",
+      "label": "Alternativos — criptoativos",
+      "class": "alternativos",
+      "benchmark": "Cesta cripto limitada",
+      "role": "excluído do perfil conservador (nenhuma referência de mercado consultada recomenda cripto para esse perfil)",
+      "weight": 0.0,
+      "amount": 0
+    },
+    {
+      "id": "stablecoin",
+      "label": "Alternativos — stablecoin",
+      "class": "alternativos",
+      "benchmark": "USD tokenizado",
+      "role": "excluído do perfil conservador junto com cripto — mesmo risco de emissor e plataforma",
+      "weight": 0.0,
+      "amount": 0
+    },
+    {
+      "id": "industrial_metals",
+      "label": "Alternativos — prata, paládio e cobre",
+      "class": "alternativos",
+      "benchmark": "Cesta de commodities metálicas",
+      "role": "diversificação cíclica; posição mínima no perfil conservador",
+      "weight": 0.5,
+      "amount": 5000
+    }
+  ],
+  "sleeve_limits": {
+    "renda_fixa_total_min": 62.0,
+    "renda_fixa_total_max": 75.0,
+    "ai_theme_min": 0.0,
+    "ai_theme_max": 2.0,
+    "alternativos_max": 10.0,
+    "single_issuer_max": 2.0,
+    "liquidity_floor": 12.0,
+    "opportunity_reserve_target": 6.0
+  },
+  "review_policy": {
+    "frequency": "daily",
+    "mode": "review_and_alert_only",
+    "automatic_orders": false,
+    "rebalance_trigger_relative_drift_pct": 20.0,
+    "rebalance_trigger_absolute_points": 3.0,
+    "event_triggers": [
+      "decision or communication from central banks",
+      "inflation or employment release",
+      "BRL or USD move above 2 percent in a day",
+      "broad equity index move above 3 percent in a day",
+      "material credit, issuer, fund or counterparty event",
+      "earnings, guidance or regulatory event for AI exposure",
+      "liquidity reserve below floor",
+      "portfolio sleeve outside hard limits"
+    ],
+    "daily_output": [
+      "target versus current weight",
+      "drift and contribution to risk",
+      "events detected and source timestamp",
+      "liquidity and concentration warnings",
+      "proposed rebalance, if any",
+      "human approval required before any order"
+    ]
+  },
+  "disclaimer": "Modelo de referência educacional, não recomendação individual nem ordem de investimento. Produtos, tributação, custos, suitability, liquidez e proteção devem ser confirmados antes de qualquer aplicação."
+}

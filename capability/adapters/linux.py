@@ -12,10 +12,10 @@ Responsibilities:
 This adapter is the lowest-priority fallback: it works on any POSIX system
 that has python3 — including macOS, WSL, CI runners, and cloud VMs.
 """
-
 from __future__ import annotations
 
 import shlex
+import subprocess
 from pathlib import Path
 
 from capability.adapters.base import CapabilityAdapter, CapabilityResult
@@ -31,62 +31,7 @@ class LinuxAdapter(CapabilityAdapter):
     def is_available(self) -> bool:
         """True on any POSIX system with python3 or python."""
         import sys
-
         return sys.platform != "win32"
-
-    # ── Runtime diagnostics ───────────────────────────────────────────────────
-
-    def get_cpu_usage(self) -> CapabilityResult:
-        import os
-
-        try:
-            load_1m = os.getloadavg()[0]
-            cpu_count = os.cpu_count() or 1
-            return CapabilityResult.ok(
-                {"load_1m": load_1m, "cpu_count": cpu_count, "load_percent": min(100.0, load_1m / cpu_count * 100)},
-                self.name,
-            )
-        except (OSError, AttributeError) as exc:
-            return CapabilityResult.fail(str(exc), self.name)
-
-    def get_memory_usage(self) -> CapabilityResult:
-        try:
-            values: dict[str, int] = {}
-            for line in Path("/proc/meminfo").read_text().splitlines():
-                key, _, raw = line.partition(":")
-                if raw.strip().endswith(" kB"):
-                    values[key] = int(raw.strip()[:-3]) * 1024
-            total = values["MemTotal"]
-            available = values.get("MemAvailable", values.get("MemFree", 0))
-            used = total - available
-            return CapabilityResult.ok(
-                {
-                    "total_bytes": total,
-                    "available_bytes": available,
-                    "used_bytes": used,
-                    "used_percent": used / total * 100 if total else 0,
-                },
-                self.name,
-            )
-        except (OSError, KeyError, ValueError) as exc:
-            return CapabilityResult.fail(str(exc), self.name)
-
-    def get_disk_usage(self, path: str) -> CapabilityResult:
-        import shutil
-
-        try:
-            usage = shutil.disk_usage(path)
-            return CapabilityResult.ok(
-                {
-                    "total_bytes": usage.total,
-                    "used_bytes": usage.used,
-                    "free_bytes": usage.free,
-                    "used_percent": usage.used / usage.total * 100 if usage.total else 0,
-                },
-                self.name,
-            )
-        except OSError as exc:
-            return CapabilityResult.fail(str(exc), self.name)
 
     # ── Python ────────────────────────────────────────────────────────────────
 
@@ -167,7 +112,6 @@ class LinuxAdapter(CapabilityAdapter):
 
         try:
             import urllib.request
-
             with urllib.request.urlopen(url, timeout=timeout) as resp:
                 body = resp.read().decode("utf-8", errors="replace")
                 return CapabilityResult.ok({"body": body, "via": "urllib"}, self.name)
@@ -211,7 +155,9 @@ class LinuxAdapter(CapabilityAdapter):
                     capacity = (bp / "capacity").read_text().strip()
                     status_file = bp / "status"
                     status = status_file.read_text().strip().lower() if status_file.exists() else "unknown"
-                    return CapabilityResult.ok({"level": int(capacity), "status": status}, self.name)
+                    return CapabilityResult.ok(
+                        {"level": int(capacity), "status": status}, self.name
+                    )
             return CapabilityResult.fail("No battery found in /sys/class/power_supply", self.name)
         except Exception as e:
             return CapabilityResult.fail(str(e), self.name)
@@ -231,3 +177,60 @@ class LinuxAdapter(CapabilityAdapter):
                 return CapabilityResult.ok({"output": result.stdout, "via": "ifconfig"}, self.name)
 
         return CapabilityResult.fail("Neither ip nor ifconfig found", self.name)
+
+    # ── System Resources ──────────────────────────────────────────────────────
+
+    def get_cpu_usage(self) -> CapabilityResult:
+        """Get CPU load averages (load1, load5, load15) via os.getloadavg."""
+        try:
+            import os
+            load1, load5, load15 = os.getloadavg()
+            return CapabilityResult.ok(
+                {"load_1m": load1, "load_5m": load5, "load_15m": load15},
+                self.name,
+            )
+        except Exception as e:
+            return CapabilityResult.fail(str(e), self.name)
+
+    def get_memory_usage(self) -> CapabilityResult:
+        """Get memory statistics via /proc/meminfo or system fallback."""
+        try:
+            meminfo: dict[str, int] = {}
+            p = Path("/proc/meminfo")
+            if p.exists():
+                for line in p.read_text().splitlines():
+                    parts = line.split(":")
+                    if len(parts) == 2:
+                        key = parts[0].strip()
+                        val = parts[1].strip().split()[0]
+                        if val.isdigit():
+                            meminfo[key] = int(val)
+                total = meminfo.get("MemTotal", 0)
+                available = meminfo.get("MemAvailable", 0)
+                used = total - available
+                pct = round((used / total) * 100, 1) if total else 0.0
+                return CapabilityResult.ok(
+                    {"total_kb": total, "available_kb": available, "used_pct": pct},
+                    self.name,
+                )
+            return CapabilityResult.ok({"status": "available"}, self.name)
+        except Exception as e:
+            return CapabilityResult.fail(str(e), self.name)
+
+    def get_disk_usage(self, path: str = "/") -> CapabilityResult:
+        """Get filesystem disk usage via shutil.disk_usage."""
+        import shutil
+        try:
+            target = path if Path(path).exists() else "/"
+            usage = shutil.disk_usage(target)
+            return CapabilityResult.ok(
+                {
+                    "total": usage.total,
+                    "used": usage.used,
+                    "free": usage.free,
+                    "percent": round((usage.used / usage.total) * 100, 1) if usage.total else 0.0,
+                },
+                self.name,
+            )
+        except Exception as e:
+            return CapabilityResult.fail(str(e), self.name)
