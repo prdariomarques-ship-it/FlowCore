@@ -6,6 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0a0f1e">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 34'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='34' y2='34'%3E%3Cstop offset='0' stop-color='%2300d4ff'/%3E%3Cstop offset='1' stop-color='%237c3aed'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='3' y='3' width='28' height='28' rx='8' fill='url(%23g)'/%3E%3Crect x='10' y='18' width='4' height='8' rx='1.2' fill='%230a0f1e'/%3E%3Crect x='16' y='13' width='4' height='13' rx='1.2' fill='%230a0f1e'/%3E%3Crect x='22' y='7' width='4' height='19' rx='1.2' fill='%230a0f1e'/%3E%3C/svg%3E">
 <title>FlowCore</title>
 <style>
 :root{
@@ -17,11 +18,12 @@
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;min-height:100vh;padding-bottom:84px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
 /* Header */
 .header{background:linear-gradient(135deg,#0a0f1e,#111827);border-bottom:1px solid var(--border);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}
 .hb{display:flex;align-items:center;gap:10px}
-.logo{width:34px;height:34px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:900;color:#fff}
+.logo{width:34px;height:34px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .bn{font-size:17px;font-weight:700;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .bs{font-size:10px;color:var(--text2);margin-top:1px}
 .hr{display:flex;align-items:center;gap:8px}
@@ -141,6 +143,28 @@ details.mi>summary::marker{display:none}
 .sk{background:linear-gradient(90deg,var(--bg3) 25%,var(--border) 50%,var(--bg3) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;height:13px;margin-bottom:7px}
 @keyframes shimmer{0%{background-position:200%}100%{background-position:-200%}}
 .empty{text-align:center;color:var(--text2);padding:22px;font-size:13px}
+.compliance-banner{display:flex;align-items:center;gap:9px;padding:11px 13px;border-radius:10px;margin-bottom:12px;font-size:13px;font-weight:600}
+.compliance-banner.ok{background:rgba(16,185,129,.12);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.compliance-banner.crit{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.compliance-item{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;border-left:3px solid var(--yellow)}
+.compliance-item.crit{border-left-color:var(--red)}
+.compliance-item .ci-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.compliance-item .ci-name{font-size:13px;font-weight:700;color:var(--text)}
+.compliance-item .ci-reason{font-size:12px;color:var(--text2);margin-bottom:8px}
+.compliance-bar{height:6px;border-radius:3px;background:var(--border);overflow:hidden;margin-bottom:6px}
+.compliance-bar-fill{height:100%;border-radius:3px;background:var(--yellow)}
+.compliance-bar-fill.crit{background:var(--red)}
+.compliance-bar-limit{position:relative;height:0}
+.compliance-bar-limit span{position:absolute;top:-19px;font-size:10px;color:var(--text2);transform:translateX(-50%)}
+.compliance-figures{display:flex;justify-content:space-between;font-size:11px;color:var(--text2)}
+.rp-sleeve{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+.rp-sleeve:last-child{border-bottom:none}
+.rp-sleeve-info{flex:1;min-width:0}
+.rp-sleeve-label{font-size:13px;font-weight:600;color:var(--text)}
+.rp-sleeve-band{font-size:11px;color:var(--text2);margin-top:1px}
+.rp-sleeve-input{width:72px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 9px;font-size:13px;text-align:right;outline:none}
+.rp-sleeve-input:focus{border-color:var(--accent)}
+.rp-sleeve-pct{font-size:12px;color:var(--text2)}
 
 /* Notify */
 .notify-btn{width:100%;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:var(--yellow);padding:10px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
@@ -232,13 +256,244 @@ details.mi>summary::marker{display:none}
 .more-menu button:last-child{border-bottom:none}
 .more-menu button:hover{background:var(--bg3);color:var(--accent)}
 .more-menu button .ni-icon{font-size:18px}
+
+/* ══ Desktop sidebar layout (Wealth Copilot) ══
+   Mobile keeps the existing bottom-nav/header exactly as it was — this
+   only activates at desktop widths via the media query at the bottom of
+   this block, so nothing here changes phone behavior. */
+.sidebar{display:none}
+.desktop-only{display:none}
+.mobile-only{display:block}
+
+@media(min-width:960px){
+  /* Desktop supports both a dark theme (the original FlowCore palette,
+     the :root defaults — no override needed) and a light/purple theme
+     (the "NeuroVest"-style reference), switchable at runtime via the
+     toggle in the topbar (see #dw-theme-toggle / setDesktopTheme()) and
+     remembered per-browser in localStorage. Scoped to
+     body[data-desktop-theme="light"] so :root (used below 960px, i.e.
+     the phone experience) is never touched — mobile always keeps its
+     original dark theme regardless of the desktop toggle. Every desktop
+     rule below already reads color via these custom properties
+     (var(--bg), var(--text), ...) rather than hardcoded values, so this
+     one override re-themes the whole desktop dashboard. */
+  body[data-desktop-theme="light"]{
+    --bg:#f7f6fc;--bg2:#ffffff;--bg3:#f1eefa;--border:#e3dff2;
+    --accent:#7c3aed;--accent2:#a78bfa;
+    --text:#1f1b3a;--text2:#6b6480;
+    --shadow:0 4px 20px rgba(124,58,237,.08);
+  }
+  body[data-desktop-theme="light"] .kpi-icon.info{background:rgba(124,58,237,.12)}
+  body{padding-bottom:0;display:flex}
+  .header{display:none}
+  .dw-theme-toggle{background:var(--bg3);border:1px solid var(--border);border-radius:20px;width:30px;height:30px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .dw-theme-toggle:hover{border-color:var(--accent)}
+  .sidebar{
+    display:flex;flex-direction:column;width:220px;flex-shrink:0;min-height:100vh;
+    background:var(--bg2);border-right:1px solid var(--border);padding:18px 12px;
+  }
+  .sb-logo{display:flex;align-items:center;gap:10px;padding:0 8px 20px}
+  .sb-brand{font-size:16px;font-weight:700;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .sb-tagline{font-size:10px;color:var(--text2)}
+  .sb-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:9px;color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;border:none;background:none;text-align:left;width:100%;margin-bottom:2px}
+  .sb-item:hover{background:var(--bg3);color:var(--text)}
+  .sb-item.active{background:var(--bg3);color:var(--accent)}
+  .sb-icon{font-size:16px;width:18px;text-align:center}
+
+  .dw-main{flex:1;min-width:0;display:flex;flex-direction:column}
+  .dw-topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 24px;border-bottom:1px solid var(--border);background:var(--bg)}
+  .dw-search{flex:1;max-width:480px;background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:9px 14px;color:var(--text2);font-size:13px}
+  .dw-topright{display:flex;align-items:center;gap:16px;font-size:12px;color:var(--text2);white-space:nowrap}
+  .dw-bell{position:relative;cursor:pointer;font-size:16px}
+  .dw-bell .dot{position:absolute;top:-2px;right:-2px;width:7px;height:7px;border-radius:50%;background:var(--red)}
+  .dw-dropdown{position:absolute;top:26px;right:0;width:260px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px;box-shadow:0 8px 24px rgba(0,0,0,.3);z-index:250;cursor:default}
+  .dw-dropdown-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text2);margin-bottom:8px}
+  .dw-avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff}
+
+  .dw-wrap{max-width:100%;padding:22px 24px;flex:1}
+  .dw-greeting h1{font-size:24px;font-weight:800;margin-bottom:2px}
+  .dw-greeting p{font-size:13px;color:var(--text2)}
+
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0}
+  .kpi-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:flex;align-items:center;gap:12px}
+  .kpi-icon{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+  .kpi-icon.crit{background:rgba(239,68,68,.15);color:var(--red)}
+  .kpi-icon.warn{background:rgba(245,158,11,.15);color:var(--yellow)}
+  .kpi-icon.ok{background:rgba(16,185,129,.15);color:var(--green)}
+  .kpi-icon.info{background:rgba(0,212,255,.15);color:var(--accent)}
+  .kpi-num{font-size:22px;font-weight:800;line-height:1.1}
+  .kpi-label{font-size:12px;font-weight:700;margin-top:2px}
+  .kpi-sub{font-size:11px;color:var(--text2)}
+
+  .dw-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px}
+  .dw-table{width:100%;border-collapse:collapse;font-size:12px}
+  .dw-table th{text-align:left;color:var(--text2);font-weight:600;padding:6px 4px;border-bottom:1px solid var(--border);font-size:10px;text-transform:uppercase}
+  .dw-table td{padding:8px 4px;border-bottom:1px solid var(--border)}
+  .dw-table tr:last-child td{border-bottom:none}
+  .dw-link{color:var(--accent);font-size:11px;font-weight:600;cursor:pointer}
+  .dw-empty{text-align:center;color:var(--text2);padding:24px 10px;font-size:12px}
+
+  .intel-mini{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+  .intel-mini:last-child{border-bottom:none}
+  .intel-mini-icon{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+  .intel-mini-title{font-size:12px;font-weight:700}
+  .intel-mini-sub{font-size:11px;color:var(--text2)}
+
+  .timeline-item{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+  .timeline-item:last-child{border-bottom:none}
+  .timeline-dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0}
+  .timeline-time{font-size:10px;color:var(--text2);width:42px;flex-shrink:0;padding-top:1px}
+  .timeline-text b{display:block;font-size:12px;margin-bottom:1px}
+  .timeline-text span{font-size:11px;color:var(--text2)}
+
+  .impact-row{padding:8px 0;border-bottom:1px solid var(--border)}
+  .impact-row:last-child{border-bottom:none}
+  .impact-name{font-size:12px;font-weight:700}
+  .impact-reason{font-size:11px;color:var(--text2);margin-bottom:5px}
+  .impact-bar-bg{height:4px;border-radius:2px;background:var(--border);overflow:hidden}
+  .impact-bar-fill{height:100%;border-radius:2px}
+
+  .dw-chat-chip{display:block;width:100%;text-align:left;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-size:11px;padding:8px 10px;border-radius:8px;margin-bottom:6px;cursor:pointer}
+  .dw-chat-chip:hover{border-color:var(--accent);color:var(--text)}
+
+  .dw-grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px}
+  .dw-tabs{display:flex;gap:4px;margin-bottom:10px;border-bottom:1px solid var(--border);overflow-x:auto}
+  .dw-tab{background:none;border:none;color:var(--text2);font-size:11px;font-weight:600;padding:6px 10px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;flex-shrink:0}
+  .dw-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+  .dw-spark{vertical-align:middle}
+  .mini-list-item{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:11px}
+  .mini-list-item:last-child{border-bottom:none}
+  .mini-list-item b{display:block;font-size:12px}
+  .mini-list-item span{color:var(--text2)}
+  .mini-list-tag{font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0;height:fit-content}
+
+  .donut-wrap{display:flex;align-items:center;gap:14px}
+  .donut-legend{flex:1;font-size:11px}
+  .donut-legend-item{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+  .donut-legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .donut-legend-item b{margin-left:auto}
+  .donut-profile{font-size:11px;color:var(--text2);margin-top:8px;text-align:center}
+
+  .dw-advisor-card{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+  .dw-advisor-avatar{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#fff;flex-shrink:0}
+  .dw-advisor-name{font-size:15px;font-weight:800}
+  .dw-advisor-title{font-size:12px;color:var(--text2)}
+  .dw-advisor-quote{margin-left:auto;font-size:12px;color:var(--text2);font-style:italic;max-width:340px;text-align:right}
+
+  .wrap{max-width:100%;margin:0;padding:0}
+  .mobile-only{display:none}
+  .desktop-only{display:block}
+  .nav,.fab,.more-menu{display:none!important}
+}
+
+/* ── Auth screen (login/signup) — works at every viewport width, not
+   just desktop, since it gates the mobile experience too. ── */
+#auth-screen{position:fixed;inset:0;z-index:9999;background:var(--bg);display:none;align-items:center;justify-content:center;padding:20px}
+.auth-box{width:100%;max-width:380px}
+.auth-tabs{display:flex;gap:8px;margin-bottom:16px}
+.auth-tab{flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-size:13px;font-weight:600;padding:9px;border-radius:8px;cursor:pointer}
+.auth-tab.active{color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2));border-color:transparent}
+.auth-field{width:100%;margin-bottom:10px;box-sizing:border-box}
+.auth-error{display:none;color:var(--red);font-size:12px;margin-bottom:10px;text-align:center}
 </style>
 </head>
 <body>
 
+<div id="auth-screen">
+  <div class="card auth-box">
+    <div style="text-align:center;margin-bottom:18px">
+      <div class="logo" style="margin:0 auto 10px">
+        <svg width="34" height="34" viewBox="0 0 34 34">
+          <rect x="3" y="3" width="28" height="28" rx="8" fill="url(#logoGradA)"/>
+          <rect x="10" y="18" width="4" height="8" rx="1.2" fill="var(--bg)"/>
+          <rect x="16" y="13" width="4" height="13" rx="1.2" fill="var(--bg)"/>
+          <rect x="22" y="7" width="4" height="19" rx="1.2" fill="var(--bg)"/>
+          <defs><linearGradient id="logoGradA" x1="0" y1="0" x2="34" y2="34">
+            <stop offset="0" style="stop-color:var(--accent)"/>
+            <stop offset="1" style="stop-color:var(--accent2)"/>
+          </linearGradient></defs>
+        </svg>
+      </div>
+      <div class="bn" style="font-size:20px">FlowCore</div>
+      <div class="bs">Wealth Copilot</div>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="auth-tab-login" onclick="setAuthMode('login')">Entrar</button>
+      <button class="auth-tab" id="auth-tab-signup" onclick="setAuthMode('signup')">Criar escritório</button>
+    </div>
+    <div class="auth-error" id="auth-error"></div>
+    <input class="if auth-field" id="auth-office-name" placeholder="Nome do escritório" style="display:none">
+    <input class="if auth-field" id="auth-name" placeholder="Seu nome" style="display:none">
+    <input class="if auth-field" id="auth-email" placeholder="Email" type="email">
+    <input class="if auth-field" id="auth-password" placeholder="Senha (mín. 8 caracteres)" type="password" minlength="8" onkeydown="if(event.key==='Enter')submitAuth()">
+    <button class="bs2" style="width:100%;height:38px;border-radius:8px" id="auth-submit-btn" onclick="submitAuth()">Entrar</button>
+  </div>
+</div>
+
+<!-- Desktop sidebar (hidden on mobile via CSS) -->
+<div class="sidebar">
+  <div class="sb-logo">
+    <div class="logo">
+      <svg width="34" height="34" viewBox="0 0 34 34">
+        <rect x="3" y="3" width="28" height="28" rx="8" fill="url(#logoGradB)"/>
+        <rect x="10" y="18" width="4" height="8" rx="1.2" fill="var(--bg2)"/>
+        <rect x="16" y="13" width="4" height="13" rx="1.2" fill="var(--bg2)"/>
+        <rect x="22" y="7" width="4" height="19" rx="1.2" fill="var(--bg2)"/>
+        <defs><linearGradient id="logoGradB" x1="0" y1="0" x2="34" y2="34">
+          <stop offset="0" style="stop-color:var(--accent)"/>
+          <stop offset="1" style="stop-color:var(--accent2)"/>
+        </linearGradient></defs>
+      </svg>
+    </div>
+    <div><div class="sb-brand">FlowCore</div><div class="sb-tagline">Wealth Copilot</div></div>
+  </div>
+  <button class="sb-item active" id="sb-home" onclick="pg('home',this,true)"><span class="sb-icon">🏠</span>Visão Geral</button>
+  <button class="sb-item" id="sb-portfolio" onclick="pg('portfolio',this,true)"><span class="sb-icon">💼</span>Carteiras</button>
+  <button class="sb-item" id="sb-news" onclick="pg('news',this,true)"><span class="sb-icon">📈</span>Mercado</button>
+  <button class="sb-item" id="sb-ai" onclick="pg('ai',this,true)"><span class="sb-icon">💡</span>Insights</button>
+  <button class="sb-item" id="sb-chat" onclick="pg('chat',this,true)"><span class="sb-icon">💬</span>Chat IA</button>
+  <button class="sb-item" id="sb-agents" onclick="pg('agents',this,true)"><span class="sb-icon">🛠</span>Operacional</button>
+  <button class="sb-item" id="sb-admin" onclick="pg('admin',this,true)"><span class="sb-icon">⚙</span>Configurações</button>
+</div>
+
+<div class="dw-main">
+  <div class="dw-topbar desktop-only">
+    <input class="dw-search" placeholder="Buscar carteira, ativo ou fazer uma pergunta..." onkeydown="if(event.key==='Enter'){pg('chat',document.getElementById('sb-chat'),true);document.getElementById('chat-inp').value=this.value;sendChat();}">
+    <div class="dw-topright">
+      <span id="dw-datetime">—</span>
+      <button class="dw-theme-toggle" id="dw-theme-toggle" onclick="toggleDesktopTheme()" title="Alternar tema claro/escuro">🌙</button>
+      <span class="dw-bell" onclick="toggleNotifPanel()">🔔<span class="dot" id="dw-alert-dot" style="display:none"></span>
+        <div id="notif-panel" class="dw-dropdown" style="display:none" onclick="event.stopPropagation()">
+          <div class="dw-dropdown-title">Alertas críticos</div>
+          <div id="notif-panel-body"><div class="empty" style="font-size:12px">Nenhum alerta crítico agora.</div></div>
+        </div>
+      </span>
+      <div class="dw-avatar" id="dw-topbar-avatar" onclick="openProfileModal()" style="cursor:pointer" title="Meu perfil">—</div>
+    </div>
+  </div>
+
+  <div id="profile-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;align-items:center;justify-content:center;padding:16px">
+    <div class="card" style="max-width:340px;width:100%">
+      <div class="ch"><span class="ct">Meu perfil</span><span class="ci" style="cursor:pointer" onclick="closeProfileModal()">✕</span></div>
+      <div id="profile-modal-body"><div class="sk" style="height:52px"></div></div>
+      <button class="btn br" style="width:100%;margin-top:10px" onclick="if(confirm('Sair da conta?'))logoutFlowCore()">Sair da conta</button>
+    </div>
+  </div>
+
 <div class="header">
   <div class="hb">
-    <div class="logo">F</div>
+    <div class="logo">
+      <svg width="34" height="34" viewBox="0 0 34 34">
+        <rect x="3" y="3" width="28" height="28" rx="8" fill="url(#logoGradC)"/>
+        <rect x="10" y="18" width="4" height="8" rx="1.2" fill="var(--bg)"/>
+        <rect x="16" y="13" width="4" height="13" rx="1.2" fill="var(--bg)"/>
+        <rect x="22" y="7" width="4" height="19" rx="1.2" fill="var(--bg)"/>
+        <defs><linearGradient id="logoGradC" x1="0" y1="0" x2="34" y2="34">
+          <stop offset="0" style="stop-color:var(--accent)"/>
+          <stop offset="1" style="stop-color:var(--accent2)"/>
+        </linearGradient></defs>
+      </svg>
+    </div>
     <div>
       <div class="bn">FlowCore</div>
       <div class="bs" id="last-upd">A carregar...</div>
@@ -254,7 +509,121 @@ details.mi>summary::marker{display:none}
 
   <!-- ══ VISÃO FINANCEIRA ══ -->
   <div class="page active" id="page-home">
+
+    <!-- ══ Desktop Wealth Copilot dashboard ══ -->
+    <div class="desktop-only" id="dw-dashboard">
+      <div class="dw-wrap">
+        <div class="dw-greeting">
+          <h1 id="dw-greeting-text">Bom dia!</h1>
+          <p>Aqui está o que merece a sua atenção hoje.</p>
+        </div>
+
+        <div class="card dw-advisor-card" id="dw-advisor-card">
+          <div class="dw-advisor-avatar" id="dw-advisor-avatar">—</div>
+          <div class="dw-advisor-info">
+            <div class="dw-advisor-name" id="dw-advisor-name">—</div>
+            <div class="dw-advisor-title" id="dw-advisor-title">—</div>
+          </div>
+          <div class="dw-advisor-quote" id="dw-advisor-quote"></div>
+        </div>
+
+        <div class="kpi-grid" id="dw-kpis">
+          <div class="kpi-card"><div class="kpi-icon crit">🔴</div><div><div class="kpi-num" id="kpi-override">—</div><div class="kpi-label" style="color:var(--red)">Carteiras em Override</div><div class="kpi-sub">Revisão de tese recomendada</div></div></div>
+          <div class="kpi-card"><div class="kpi-icon warn">🟡</div><div><div class="kpi-num" id="kpi-recalibrate">—</div><div class="kpi-label" style="color:var(--yellow)">Carteiras em Recalibração</div><div class="kpi-sub">Ajustes sugeridos</div></div></div>
+          <div class="kpi-card"><div class="kpi-icon ok">🟢</div><div><div class="kpi-num" id="kpi-healthy">—</div><div class="kpi-label" style="color:var(--green)">Carteiras saudáveis</div><div class="kpi-sub">Dentro da política de alocação</div></div></div>
+          <div class="kpi-card"><div class="kpi-icon info">👥</div><div><div class="kpi-num" id="kpi-clients">—</div><div class="kpi-label">Total de clientes</div><div class="kpi-sub">Sob monitoramento</div></div></div>
+        </div>
+
+        <div class="card" id="dw-approvals-card" style="display:none;margin-bottom:16px">
+          <div class="ch"><span class="ct">Aguardando sua aprovação</span></div>
+          <div id="dw-approvals-list"></div>
+        </div>
+
+        <div class="dw-grid3">
+          <div class="card">
+            <div class="ch"><span class="ct">Alertas de Desenquadramento</span><span class="dw-link" onclick="pg('portfolio',document.getElementById('sb-portfolio'),true)">Ver todos →</span></div>
+            <div id="dw-alerts-table"><div class="sk"></div><div class="sk"></div></div>
+          </div>
+          <div class="card">
+            <div class="ch"><span class="ct">Inteligência de Mercado</span><span class="dw-link" onclick="pg('news',document.getElementById('sb-news'),true)">Ver mais →</span></div>
+            <div class="dw-tabs" id="dw-market-tabs">
+              <button class="dw-tab active" data-group="indices" onclick="setDwMarketGroup('indices')">Índices</button>
+              <button class="dw-tab" data-group="cambio" onclick="setDwMarketGroup('cambio')">Câmbio</button>
+              <button class="dw-tab" data-group="commodities" onclick="setDwMarketGroup('commodities')">Commodities</button>
+              <button class="dw-tab" data-group="juros" onclick="setDwMarketGroup('juros')">Juros</button>
+            </div>
+            <div id="dw-market-table"><div class="sk"></div><div class="sk"></div></div>
+          </div>
+          <div class="card">
+            <div class="ch"><span class="ct">Assistente IA</span></div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Pergunte sobre a carteira, mercado, alertas ou peça uma análise.</div>
+            <div id="dw-chat-chips">
+              <button class="dw-chat-chip" onclick="dwAsk('O que mudou no mercado hoje?')">💬 O que mudou no mercado hoje?</button>
+              <button class="dw-chat-chip" onclick="dwAsk('Quais clientes estão desenquadrados hoje?')">💬 Quais clientes estão desenquadrados hoje?</button>
+              <button class="dw-chat-chip" onclick="dwAsk('Explique o último override.')">💬 Explique o último override.</button>
+              <button class="dw-chat-chip" onclick="dwAsk('O que devo priorizar hoje?')">💬 O que devo priorizar hoje?</button>
+              <button class="dw-chat-chip" onclick="dwAsk('Quais carteiras merecem atenção?')">💬 Quais carteiras merecem atenção?</button>
+            </div>
+            <div class="ir" style="margin-top:8px;margin-bottom:0">
+              <input class="if" id="dw-chat-inp" placeholder="Digite sua pergunta..." onkeydown="if(event.key==='Enter')dwAsk(this.value)">
+              <button class="bs2" onclick="dwAsk(document.getElementById('dw-chat-inp').value)">➤</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="dw-grid4">
+          <div class="card">
+            <div class="ch"><span class="ct">Recalibração</span></div>
+            <div id="dw-recalibrate-list"><div class="sk"></div><div class="sk"></div></div>
+          </div>
+          <div class="card">
+            <div class="ch"><span class="ct">Override</span></div>
+            <div id="dw-override-list"><div class="sk"></div><div class="sk"></div></div>
+          </div>
+          <div class="card">
+            <div class="ch"><span class="ct">Prioridades do Dia</span><span class="dw-link" onclick="pg('portfolio',document.getElementById('sb-portfolio'),true)">Ver todas →</span></div>
+            <div id="dw-impacted"><div class="sk"></div><div class="sk"></div></div>
+          </div>
+          <div class="card">
+            <div class="ch"><span class="ct">Risco da Carteira Agregada</span></div>
+            <div class="dw-tabs" id="dw-risk-profile-tabs">
+              <button class="dw-tab active" data-profile="" onclick="setDwRiskProfile('')">Escritório</button>
+              <button class="dw-tab" data-profile="conservador" onclick="setDwRiskProfile('conservador')">Conservador</button>
+              <button class="dw-tab" data-profile="moderado" onclick="setDwRiskProfile('moderado')">Moderado</button>
+              <button class="dw-tab" data-profile="arrojado" onclick="setDwRiskProfile('arrojado')">Arrojado</button>
+              <button class="dw-tab" data-profile="agressivo" onclick="setDwRiskProfile('agressivo')">Agressivo</button>
+            </div>
+            <div id="dw-risk"><div class="sk"></div><div class="sk"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mobile-only">
     <div class="gap">
+      <!-- Executive Summary -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div>
+            <div style="font-size:22px;font-weight:700;color:var(--accent);margin-bottom:4px" id="home-greeting">Olá!</div>
+            <div style="font-size:13px;color:var(--text2)" id="home-timestamp">Iniciando...</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:28px" id="home-emoji">📊</div>
+          </div>
+        </div>
+        <div style="border-top:1px solid var(--border);padding-top:12px">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text2);margin-bottom:8px">Status</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <div style="background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);padding:6px 10px;border-radius:6px;font-size:12px;color:var(--green)">🟢 Sistema</div>
+            <div style="background:rgba(0,212,255,.15);border:1px solid rgba(0,212,255,.3);padding:6px 10px;border-radius:6px;font-size:12px;color:var(--accent)" id="home-status">⏳ Verificando...</div>
+          </div>
+          <div style="margin-top:10px;font-size:12px;color:var(--text)" id="home-actions">
+            <div style="padding:6px 0">🎯 Últimas ações: Nenhuma pendente</div>
+          </div>
+        </div>
+      </div>
+
       <div class="card">
         <div class="ch"><span class="ct">Visão financeira</span><span class="tag ty">Referência</span></div>
         <div class="metric-grid">
@@ -283,13 +652,56 @@ details.mi>summary::marker{display:none}
         <div class="row"><span class="rl">Concentração por emissor</span><span class="rv">Máx. 2%</span></div>
       </div>
     </div>
+    </div><!-- /mobile-only -->
   </div>
 
   <!-- ══ PORTFOLIO ══ -->
   <div class="page" id="page-portfolio"><div class="gap">
+    <!-- Real, advisor-entered clients -->
+    <div class="card" id="clients-card">
+      <div class="ch"><span class="ct">Clientes</span><button class="btn-sm" onclick="toggleAddClientForm()">+ Adicionar cliente</button></div>
+      <div id="add-client-form" style="display:none;margin-bottom:10px">
+        <div class="ai-cfg-row"><input class="if" id="new-client-name" placeholder="Nome do cliente *"></div>
+        <div class="ai-cfg-row">
+          <select class="if" id="new-client-profile">
+            <option value="">Perfil (opcional)</option>
+            <option value="conservador">Conservador</option>
+            <option value="moderado">Moderado</option>
+            <option value="arrojado">Arrojado</option>
+            <option value="agressivo">Agressivo</option>
+          </select>
+        </div>
+        <div class="ai-cfg-row"><input class="if" id="new-client-value" type="number" placeholder="Valor de referência (R$, opcional)"></div>
+        <div class="ai-cfg-row"><input class="if" id="new-client-email" placeholder="E-mail (opcional)"></div>
+        <div class="ai-cfg-row"><input class="if" id="new-client-phone" placeholder="Telefone/WhatsApp (opcional)"></div>
+        <div class="btns" style="margin-top:0"><button class="btn bg" onclick="createClient()">✓ Cadastrar</button><button class="btn-sm" onclick="toggleAddClientForm()">Cancelar</button></div>
+      </div>
+      <div id="clients-list"><div class="sk" style="height:52px"></div></div>
+    </div>
     <div class="card"><div class="ch"><span class="ct">Carteira moderada</span><span class="tag tp">R$ 1.000.000</span></div><div id="portfolio-summary"><div class="sk"></div><div class="sk"></div></div></div>
     <div class="card"><div class="ch"><span class="ct">Alocação por classe</span><span class="ci">◒</span></div><div id="portfolio-exposure"><div class="sk"></div></div></div>
     <div class="card"><div class="ch"><span class="ct">Revisão diária</span><button class="btn-sm" onclick="loadPortfolio(true)">↻ Revisar</button></div><div id="portfolio-review"><div class="empty">A revisão é informacional e não executa ordens.</div></div></div>
+
+    <!-- Compliance alerts (desenquadramento) -->
+    <div class="card" id="compliance-card">
+      <div class="ch"><span class="ct">Desenquadramento de carteira</span><span class="ci">⚖️</span></div>
+      <div id="compliance-banner"></div>
+      <div id="compliance-list"><div class="sk" style="height:52px"></div></div>
+    </div>
+
+    <!-- Editable reference (model) portfolio -->
+    <div class="card" id="reference-portfolio-card">
+      <div class="ch">
+        <span class="ct">Posição da carteira modelo</span>
+        <span class="tag ty" id="rp-customized-tag" style="display:none">Personalizado</span>
+      </div>
+      <div id="rp-sleeves"><div class="sk" style="height:52px"></div></div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="bs2" style="flex:1" onclick="saveReferencePortfolio()">💾 Salvar</button>
+        <button class="btn-sm" onclick="resetReferencePortfolio()">↺ Resetar</button>
+      </div>
+      <div id="rp-status" style="font-size:11px;color:var(--text2);margin-top:8px;text-align:center"></div>
+    </div>
   </div></div>
 
   <!-- ══ IA ══ -->
@@ -304,7 +716,22 @@ details.mi>summary::marker{display:none}
   <div class="page" id="page-admin">
     <div class="gap">
       <div class="card"><div class="ch"><span class="ct">Daemon FlowCore</span><span class="ci">⚙</span></div><div class="row"><span class="rl">Estado</span><span class="rv" id="d-state"><span class="tag ty">─</span></span></div><div class="row"><span class="rl">PID / uptime / ciclo</span><span class="rv" id="d-pid">─</span></div><div class="row"><span class="rl">Detalhe</span><span class="rv" id="d-up" style="color:var(--text2)">─</span></div><div class="row"><span class="rl">Heartbeat</span><span class="rv" id="d-cyc" style="color:var(--text2)">─</span></div><div class="btns"><button class="btn bg" onclick="da('start')">▶ Iniciar</button><button class="btn br" onclick="da('stop')">■ Parar</button></div></div>
-      <div class="card"><div class="ch"><span class="ct">Notificação Android</span><span class="ci">🔔</span></div><div class="ir"><input class="if" id="n-text" placeholder="Mensagem para o Android..."><button class="bs2" onclick="sendNotify()">🔔</button></div><div class="row" style="padding-top:0;border:none"><span class="rl">via Termux API</span><span class="tag ty" id="n-status">nativo Android</span></div></div>
+      <div class="card"><div class="ch"><span class="ct">Notificação Android</span><span class="ci">🔔</span></div><div class="ir"><label class="sr-only" for="n-text">Mensagem para o Android</label><input class="if" id="n-text" placeholder="Mensagem para o Android..."><button class="bs2" onclick="sendNotify()">🔔</button></div><div class="row" style="padding-top:0;border:none"><span class="rl">via Termux API</span><span class="tag ty" id="n-status">nativo Android</span></div></div>
+      <div class="card" id="office-notify-card">
+        <div class="ch"><span class="ct">Notificações do Telegram</span><span class="ci">📨</span></div>
+        <div style="font-size:12px;color:var(--text2);padding:0 2px 8px">Os agentes autônomos avisam por aqui quando encontram algo (carteira desenquadrada, cliente pendente de contato). Precisa do <b>chat_id</b> da conversa com o bot do escritório.</div>
+        <div class="ir"><input class="if" id="office-telegram-chat-id" placeholder="Telegram chat_id (ex: 123456789)"><button class="bs2" onclick="saveOfficeNotifications()">✓</button></div>
+        <div class="row" style="padding-top:0;border:none"><span class="rl">Status atual</span><span class="rv" id="office-notify-status">─</span></div>
+        <button class="btn-sm" style="margin-top:8px" onclick="discoverTelegramChatId()">🔍 Descobrir automaticamente</button>
+        <button class="btn-sm" style="margin-top:8px" onclick="testOfficeNotification()">🔔 Enviar teste</button>
+        <div id="office-notify-discover-result" style="margin-top:8px"></div>
+        <div id="office-notify-test-result" style="margin-top:8px"></div>
+      </div>
+      <div class="card" id="sessions-card">
+        <div class="ch"><span class="ct">Sessões ativas</span><span class="ci">💻</span></div>
+        <div style="font-size:12px;color:var(--text2);padding:0 2px 8px">Todos os dispositivos/navegadores onde sua conta está logada agora. Encerra qualquer um que você não reconhecer.</div>
+        <div id="sessions-list"><div class="sk" style="height:52px"></div></div>
+      </div>
       <div class="card" id="sys-storage-card">
         <div class="ch"><span class="ct">Armazenamento</span><span class="ci">💾</span></div>
         <div class="sk"></div>
@@ -335,8 +762,28 @@ details.mi>summary::marker{display:none}
   <div class="page" id="page-news">
     <div class="gap">
       <div class="card">
+        <div class="ch"><span class="ct">Inteligência de Mercado</span><span class="ci">📊</span></div>
+        <div class="dw-tabs" id="nw-market-tabs">
+          <button class="dw-tab active" data-group="indices" onclick="setNwMarketGroup('indices')">Índices</button>
+          <button class="dw-tab" data-group="cambio" onclick="setNwMarketGroup('cambio')">Câmbio</button>
+          <button class="dw-tab" data-group="commodities" onclick="setNwMarketGroup('commodities')">Commodities</button>
+          <button class="dw-tab" data-group="juros" onclick="setNwMarketGroup('juros')">Juros</button>
+        </div>
+        <div id="nw-market-table"><div class="sk"></div><div class="sk"></div></div>
+      </div>
+      <div class="card">
         <div class="ch"><span class="ct">Notícias de mercado</span><span class="ci">📰</span></div>
         <div class="ml" id="news-list"><div class="sk"></div><div class="sk"></div></div>
+      </div>
+      <div class="card" id="market-sources-card">
+        <div class="ch" style="cursor:pointer" onclick="toggleCollapsible('market-sources-body','market-sources-chevron','block')">
+          <span class="ct"><span id="market-sources-chevron">▸</span> Diagnóstico de fontes oficiais</span>
+          <button class="btn-sm" onclick="event.stopPropagation();loadMarketSources()">↻</button>
+        </div>
+        <div id="market-sources-body" style="display:none">
+          <div style="font-size:12px;color:var(--text2);padding:0 2px 8px">De onde vêm os dados de taxa de juros exibidos no FlowCore — cada fonte com data da observação e disponibilidade em tempo real, nunca um valor sintetizado.</div>
+          <div id="market-sources-list"><div class="sk" style="height:52px"></div></div>
+        </div>
       </div>
     </div>
   </div>
@@ -347,15 +794,19 @@ details.mi>summary::marker{display:none}
       <div class="card">
         <div class="ch"><span class="ct">Assistente</span><button class="btn-sm" onclick="toggleAiCfg()">⚙ Config</button></div>
         <div class="chat-provider" id="chat-provider-info">Verificando provider…</div>
+        <div id="chat-offline-banner" style="display:none"></div>
         <div id="ai-cfg-box" style="display:none;margin-top:8px">
           <div class="sr-title" style="margin-bottom:6px">Principal (PC)</div>
           <div class="ai-cfg-row"><input class="if" id="ai-ollama-url" placeholder="URL do Ollama no PC (ex: http://192.168.1.50:11434)"></div>
           <div class="ai-cfg-row"><input class="if" id="ai-model" placeholder="Modelo no PC (ex: qwen2.5:3b)"></div>
+          <div id="ai-status-pc" style="margin:0 0 8px"></div>
           <div class="sr-title" style="margin:10px 0 6px">Backup (celular, usado se o PC não responder)</div>
           <div class="ai-cfg-row"><input class="if" id="ai-fallback-url" placeholder="URL do Ollama no celular (ex: http://127.0.0.1:11434)"></div>
           <div class="ai-cfg-row"><input class="if" id="ai-fallback-model" placeholder="Modelo no celular (ex: qwen2.5:1.5b)"></div>
+          <div id="ai-status-celular" style="margin:0 0 8px"></div>
           <div class="sr-title" style="margin:10px 0 6px">Avançado</div>
           <div class="ai-cfg-row"><input class="if" id="ai-openai-url" placeholder="URL OpenAI-compat (opcional)"></div>
+          <div id="ai-status-openai" style="margin:0 0 8px"></div>
           <div class="btns" style="margin-top:0"><button class="btn bg" onclick="saveAiConfig()">✓ Salvar</button><button class="btn-sm" onclick="loadAiConfig()">↻ Recarregar</button></div>
         </div>
       </div>
@@ -378,6 +829,7 @@ details.mi>summary::marker{display:none}
       <div class="card">
         <div class="ch"><span class="ct">Pesquisar</span><span class="ci">🔍</span></div>
         <div class="ir">
+          <label class="sr-only" for="s-inp">Pesquisar em tudo</label>
           <input class="if" id="s-inp" placeholder="Pesquisar em tudo...">
           <button class="bs2" onclick="doSearch()">🔍</button>
         </div>
@@ -394,6 +846,7 @@ details.mi>summary::marker{display:none}
           <div class="ks" data-kind="radar"  onclick="selKind(this)">📊 Radar</div>
         </div>
         <div class="ir">
+          <label class="sr-only" for="note-inp">Nova nota</label>
           <textarea class="if" id="note-inp" rows="1" placeholder="Escreve aqui..."></textarea>
           <button class="bs2" onclick="addNote()">✓</button>
         </div>
@@ -411,10 +864,34 @@ details.mi>summary::marker{display:none}
   <div class="page" id="page-agents">
     <div class="gap">
 
+      <!-- Agent Runtime observability panel (§18/§25) -->
+      <div class="card" id="agents-obs-card">
+        <div class="ch"><span class="ct">🤖 Agentes Autônomos</span><button class="btn-sm" onclick="loadAgentsObservability()">↻</button></div>
+        <div class="kpi-grid" id="agents-obs-kpis" style="margin-top:10px">
+          <div class="kpi-card"><div class="kpi-icon ok">⚙</div><div><div class="kpi-num" id="aobs-active">—</div><div class="kpi-label">Ativos</div><div class="kpi-sub" id="aobs-active-sub">—</div></div></div>
+          <div class="kpi-card"><div class="kpi-icon info">▶</div><div><div class="kpi-num" id="aobs-running">—</div><div class="kpi-label">Executando Agora</div></div></div>
+          <div class="kpi-card"><div class="kpi-icon warn">⏳</div><div><div class="kpi-num" id="aobs-pending">—</div><div class="kpi-label" style="color:var(--yellow)">Aguardando Aprovação</div></div></div>
+          <div class="kpi-card"><div class="kpi-icon ok">✅</div><div><div class="kpi-num" id="aobs-done">—</div><div class="kpi-label" style="color:var(--green)">Concluídos</div></div></div>
+          <div class="kpi-card"><div class="kpi-icon crit">⚠</div><div><div class="kpi-num" id="aobs-failed">—</div><div class="kpi-label" style="color:var(--red)">Com Erro</div></div></div>
+          <div class="kpi-card"><div class="kpi-icon info">🗓</div><div><div class="kpi-num" id="aobs-scheduled">—</div><div class="kpi-label">Agendados</div></div></div>
+        </div>
+        <div style="margin-top:14px">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:6px">Custo de IA</div>
+          <div id="aobs-llm-cost" style="font-size:12px;color:var(--text2)">—</div>
+        </div>
+        <div style="margin-top:14px">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:6px">Atividade recente</div>
+          <div id="aobs-activity"><div class="empty">Sem atividade registrada ainda.</div></div>
+        </div>
+      </div>
+
       <!-- Agent cards -->
       <div class="card">
-        <div class="ch"><span class="ct">Agentes disponíveis</span><span class="ci">🤖</span></div>
-        <div id="agent-cards" style="display:flex;flex-direction:column;gap:8px">
+        <div class="ch" style="cursor:pointer" onclick="toggleCollapsible('agent-cards','agent-cards-chevron','flex')">
+          <span class="ct"><span id="agent-cards-chevron">▸</span> Agentes disponíveis</span>
+          <span class="ci">🤖</span>
+        </div>
+        <div id="agent-cards" style="display:none;flex-direction:column;gap:8px">
           <div class="sk" style="height:52px"></div>
           <div class="sk" style="height:52px"></div>
         </div>
@@ -428,20 +905,20 @@ details.mi>summary::marker{display:none}
 
       <!-- Task history -->
       <div class="card">
-        <div class="ch">
-          <span class="ct">Histórico de tarefas</span>
-          <button class="btn-sm" onclick="loadAgents()">↻</button>
+        <div class="ch" style="cursor:pointer" onclick="toggleCollapsible('task-history','task-history-chevron','block')">
+          <span class="ct"><span id="task-history-chevron">▸</span> Histórico de tarefas</span>
+          <button class="btn-sm" onclick="event.stopPropagation();loadAgents()">↻</button>
         </div>
-        <div id="task-history"><div class="sk"></div><div class="sk"></div></div>
+        <div id="task-history" style="display:none"><div class="sk"></div><div class="sk"></div></div>
       </div>
 
       <!-- Flows -->
       <div class="card">
-        <div class="ch">
-          <div><span class="ct">Flows</span><div class="flow-subtitle">Automatize tarefas combinando agentes</div></div>
-          <button class="btn-sm" onclick="openFlowBuilder()">＋ Criar Flow</button>
+        <div class="ch" style="cursor:pointer" onclick="toggleCollapsible('flow-cards','flow-cards-chevron','flex')">
+          <div><span class="ct"><span id="flow-cards-chevron">▸</span> Flows</span><div class="flow-subtitle">Automatize tarefas combinando agentes</div></div>
+          <button class="btn-sm" onclick="event.stopPropagation();openFlowBuilder()">＋ Criar Flow</button>
         </div>
-        <div id="flow-cards" style="display:flex;flex-direction:column;gap:8px">
+        <div id="flow-cards" style="display:none;flex-direction:column;gap:8px">
           <div class="sk" style="height:42px"></div>
         </div>
       </div>
@@ -469,12 +946,14 @@ details.mi>summary::marker{display:none}
 
 </div>
 
+</div><!-- /dw-main -->
+
   <!-- Bottom nav - New Navigation -->
 <div class="nav">
   <button class="ni active" onclick="pg('home',this)"><span class="ni-icon">🏠</span><span>Início</span></button>
   <button class="ni" onclick="pg('portfolio',this)"><span class="ni-icon">💹</span><span>Finanças</span></button>
   <button class="ni" onclick="pg('ai',this)"><span class="ni-icon">🧠</span><span>Inteligência</span></button>
-  <button class="ni" onclick="pg('agents',this)"><span class="ni-icon">⚡</span><span>Ações</span></button>
+  <button class="ni" onclick="pg('agents',this)"><span class="ni-icon">🛠</span><span>Operacional</span></button>
   <button class="ni" onclick="toggleMoreMenu()"><span class="ni-icon">⋯</span><span>Mais</span></button>
 </div>
 
@@ -491,6 +970,17 @@ details.mi>summary::marker{display:none}
 
 <div class="toast" id="toast"></div>
 
+<!-- Client 360 (Fase 1: consolidated per-client view) -->
+<div id="client360-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;align-items:center;justify-content:center;padding:16px">
+  <div class="card" style="width:100%;max-width:480px;max-height:85vh;overflow-y:auto">
+    <div class="ch">
+      <span class="ct" id="client360-title" style="font-size:14px;text-transform:none;letter-spacing:normal;color:var(--text)">Cliente</span>
+      <button class="btn-sm" onclick="closeClient360()">✕ Fechar</button>
+    </div>
+    <div id="client360-body"><div class="sk"></div></div>
+  </div>
+</div>
+
 <script>
 const API='';
 let _noteKind='note';
@@ -499,15 +989,30 @@ let _noteKind='note';
 function pg(name,btn){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.ni').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   if(btn) btn.classList.add('active');
-  if(name==='admin') loadSys();
-  if(name==='portfolio') loadPortfolio();
+  const sbBtn=document.getElementById('sb-'+name);
+  if(sbBtn) sbBtn.classList.add('active');
+  if(name==='home') loadDashboardOverview();
+  if(name==='admin'){loadSys();loadOfficeNotifications();loadSessions();}
+  if(name==='portfolio'){loadPortfolio();loadComplianceAlerts();loadReferencePortfolio();loadClients();}
   if(name==='notes') loadNotes();
-  if(name==='news') loadNews();
-  if(name==='chat') loadAiConfig();
-  if(name==='agents'){loadAgents();loadFlows();}
+  if(name==='news'){loadNews();loadMarketSources();loadNwMarket();}
+  if(name==='chat'){loadAiConfig();checkChatOfflineBanner();}
+  if(name==='agents'){loadAgents();loadFlows();loadAgentsObservability();}
   closeMoreMenu();
+}
+
+/* ── Generic collapsible section (task history, agent cards, …) —
+   collapsed by default, header doubles as the toggle link, so a section
+   nobody asked to see doesn't take up page space until it's clicked. ── */
+function toggleCollapsible(boxId,chevronId,openDisplay){
+  const box=document.getElementById(boxId);
+  const chevron=document.getElementById(chevronId);
+  const open=box.style.display!=='none';
+  box.style.display=open?'none':openDisplay;
+  chevron.textContent=open?'▸':'▾';
 }
 
 /* ── More Menu ── */
@@ -541,15 +1046,141 @@ function toast(m,ms=2500){
 
 /* ── API ── */
 async function api(path,opts={}){
-  const r=await fetch(API+path,{headers:{'Content-Type':'application/json'},...opts});
+  const token=localStorage.getItem('flowcore-token');
+  const headers={'Content-Type':'application/json',...(opts.headers||{})};
+  if(token) headers['Authorization']='Bearer '+token;
+  const r=await fetch(API+path,{...opts,headers});
+  if(r.status===401){
+    // Only treat this as "the session ended" if the token that just
+    // failed is still the one in use — a slow request started under an
+    // old session (e.g. still in flight from before a logout) must not
+    // kick the user back to the login screen after they've since logged
+    // into a fresh session with a new token.
+    if(localStorage.getItem('flowcore-token')===token){
+      localStorage.removeItem('flowcore-token');
+      showAuthScreen();
+    }
+    throw new Error('401');
+  }
   if(!r.ok) throw new Error(r.status);
   return r.json();
+}
+
+/* ── Auth (fase 0: multi-office login) ──
+   Gates the whole app (mobile and desktop) behind a real logged-in
+   session — see api/tenant_auth.py. Token is a plain bearer string in
+   localStorage (per-browser, never sent anywhere but this API). */
+let _authMode='login';
+function setAuthMode(mode){
+  _authMode=mode;
+  document.getElementById('auth-tab-login').classList.toggle('active',mode==='login');
+  document.getElementById('auth-tab-signup').classList.toggle('active',mode==='signup');
+  document.getElementById('auth-office-name').style.display=mode==='signup'?'block':'none';
+  document.getElementById('auth-name').style.display=mode==='signup'?'block':'none';
+  document.getElementById('auth-submit-btn').textContent=mode==='signup'?'Criar escritório':'Entrar';
+  document.getElementById('auth-error').style.display='none';
+}
+
+async function submitAuth(){
+  const email=document.getElementById('auth-email').value.trim();
+  const password=document.getElementById('auth-password').value;
+  const errBox=document.getElementById('auth-error');
+  errBox.style.display='none';
+  try{
+    let resp;
+    if(_authMode==='signup'){
+      const office_name=document.getElementById('auth-office-name').value.trim();
+      const name=document.getElementById('auth-name').value.trim();
+      if(!office_name||!name||!email||!password) throw new Error('Preencha todos os campos.');
+      resp=await fetch(API+'/api/auth/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({office_name,name,email,password})});
+    }else{
+      if(!email||!password) throw new Error('Preencha email e senha.');
+      resp=await fetch(API+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+    }
+    if(!resp.ok){
+      const body=await resp.json().catch(()=>({}));
+      // FastAPI's own request-validation errors (missing/malformed field)
+      // shape `detail` as an array of {msg, loc, type} objects, not a
+      // plain string like our own HTTPException calls (409/401/429) —
+      // without this, a 422 rendered "[object Object]" instead of the
+      // actual message (e.g. "a senha precisa ter pelo menos 8 caracteres").
+      let message=body.detail;
+      if(Array.isArray(message)) message=message.map(e=>e.msg).join(' ');
+      throw new Error(message||(resp.status===401?'Email ou senha inválidos.':'Falha ao autenticar.'));
+    }
+    const data=await resp.json();
+    localStorage.setItem('flowcore-token',data.token);
+    hideAuthScreen();
+    startApp();
+  }catch(e){
+    errBox.textContent=e.message;
+    errBox.style.display='block';
+  }
+}
+
+function showAuthScreen(){ document.getElementById('auth-screen').style.display='flex'; }
+function hideAuthScreen(){ document.getElementById('auth-screen').style.display='none'; }
+
+async function logoutFlowCore(){
+  const token=localStorage.getItem('flowcore-token');
+  localStorage.removeItem('flowcore-token');
+  try{ await fetch(API+'/api/auth/logout',{method:'POST',headers:{'Authorization':'Bearer '+token}}); }catch(e){}
+  showAuthScreen();
+}
+
+async function checkAuthAndStart(){
+  if(!localStorage.getItem('flowcore-token')){ showAuthScreen(); return; }
+  try{
+    await api('/api/auth/me');
+    hideAuthScreen();
+    startApp();
+  }catch(e){
+    showAuthScreen();
+  }
+}
+
+/* ── Home greeting ── */
+function updateHomeGreeting(){
+  const now=new Date();
+  const hour=now.getHours();
+  const greetings={
+    morning:{text:'Bom dia',emoji:'🌅'},
+    afternoon:{text:'Boa tarde',emoji:'☀️'},
+    evening:{text:'Boa noite',emoji:'🌙'}
+  };
+  let period='afternoon';
+  if(hour<12) period='morning';
+  else if(hour>=18) period='evening';
+  const g=greetings[period];
+  document.getElementById('home-greeting').textContent=g.text+', usuário';
+  document.getElementById('home-emoji').textContent=g.emoji;
+  const dayName=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'][now.getDay()];
+  const dateStr=dayName+', '+now.toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'});
+  document.getElementById('home-timestamp').textContent=dateStr+' · '+now.toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});
+  const dwGreeting=document.getElementById('dw-greeting-text');
+  if(dwGreeting) dwGreeting.textContent=g.text+'!';
+  const dwDatetime=document.getElementById('dw-datetime');
+  if(dwDatetime) dwDatetime.textContent=dateStr+' · '+now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+}
+function updateHomeStatus(s){
+  if(!s.doctor_summary) return;
+  const su=s.doctor_summary;
+  const hasWarnings=su.warnings>0;
+  const hasErrors=su.failed>0;
+  let statusColor=hasErrors?'🔴':hasWarnings?'🟡':'🟢';
+  let statusText=hasErrors?'Com problemas':hasWarnings?'Com avisos':'Operacional';
+  document.getElementById('home-status').textContent=statusColor+' '+statusText;
+  if(su.passed||su.warnings||su.failed){
+    const summary=[su.passed&&(su.passed+' OK'),su.warnings&&(su.warnings+' avisos'),su.failed&&(su.failed+' problemas')].filter(Boolean).join(' · ');
+    document.getElementById('home-actions').innerHTML=`<div style="padding:6px 0">🔍 Sistema: ${summary}</div>`;
+  }
 }
 
 /* ── Refresh ── */
 async function refresh(){
   const dot=document.getElementById('dot');
   loadMarketSnapshot();
+  updateHomeGreeting();
   try{
     const [s,notes]=await Promise.all([
       api('/api/status'),
@@ -557,6 +1188,7 @@ async function refresh(){
     ]);
     dot.classList.remove('off');
     document.getElementById('last-upd').textContent='Atualizado '+new Date().toLocaleTimeString('pt-PT');
+    updateHomeStatus(s);
     renderStatus(s);
     renderNotesList(notes.notes||[]);
   }catch(e){
@@ -642,6 +1274,71 @@ function renderStatus(s){
   if(!chks.length && !s.doctor_summary) cl.innerHTML='<div class="empty">Doctor não disponível</div>';
 }
 
+/* ── Clients (real, advisor-entered) ── */
+function toggleAddClientForm(){
+  const box=document.getElementById('add-client-form');
+  box.style.display=box.style.display==='none'?'block':'none';
+}
+
+async function loadClients(){
+  const box=document.getElementById('clients-list');
+  try{
+    const r=await api('/api/clients/demo');
+    renderClientsList(r.clients||[]);
+  }catch(e){
+    box.innerHTML='<div class="empty">Não foi possível carregar os clientes.</div>';
+  }
+}
+
+function renderClientsList(clients){
+  const box=document.getElementById('clients-list');
+  if(!clients.length){
+    box.innerHTML='<div class="empty">Nenhum cliente cadastrado ainda. Use "+ Adicionar cliente" para começar.</div>';
+    return;
+  }
+  box.innerHTML='';
+  for(const c of clients){
+    const nameAttr=escapeHtml(c.name).replace(/'/g,"&#39;");
+    const el=document.createElement('div');
+    el.className='row';
+    el.style.cursor='pointer';
+    el.onclick=()=>openClient360(c.id, c.name);
+    const demoTag=c.is_demo?' <span class="tag ty" style="font-size:9px">fictício</span>':'';
+    const catTag=c.investor_category==='profissional'?' <span class="tag tp" style="font-size:9px">PROFISSIONAL</span>'
+                :c.investor_category==='qualificado'?' <span class="tag ty" style="font-size:9px">QUALIFICADO</span>':'';
+    const value=c.reference_value?`R$ ${Number(c.reference_value).toLocaleString('pt-BR')}`:'—';
+    el.innerHTML=`<span class="rl">${escapeHtml(c.name)}${demoTag}${catTag}</span><span class="rv" style="color:var(--text2)">${escapeHtml(c.profile||'—')} · ${value}</span>`;
+    box.appendChild(el);
+  }
+}
+
+async function createClient(){
+  const name=document.getElementById('new-client-name').value.trim();
+  if(!name){toast('Nome é obrigatório.');return;}
+  const valueRaw=document.getElementById('new-client-value').value.trim();
+  const payload={
+    name,
+    profile: document.getElementById('new-client-profile').value,
+    reference_value: valueRaw?Number(valueRaw):null,
+    email: document.getElementById('new-client-email').value.trim(),
+    phone: document.getElementById('new-client-phone').value.trim(),
+  };
+  try{
+    await api('/api/clients',{method:'POST',body:JSON.stringify(payload)});
+    toast('Cliente cadastrado.');
+    document.getElementById('new-client-name').value='';
+    document.getElementById('new-client-value').value='';
+    document.getElementById('new-client-email').value='';
+    document.getElementById('new-client-phone').value='';
+    document.getElementById('new-client-profile').value='';
+    toggleAddClientForm();
+    loadClients();
+    loadComplianceAlerts();
+  }catch(e){
+    toast('Erro ao cadastrar: '+e.message);
+  }
+}
+
 /* ── Portfolio ── */
 async function loadPortfolio(){
   try{
@@ -657,7 +1354,32 @@ async function loadPortfolio(){
 let _chatHistory=[];
 function toggleAiCfg(){
   const box=document.getElementById('ai-cfg-box');
-  box.style.display=box.style.display==='none'?'block':'none';
+  const opening=box.style.display==='none';
+  box.style.display=opening?'block':'none';
+  if(opening) loadAiStatus();
+}
+function renderAiEndpointStatus(info, isOpenai){
+  if(!info || !info.configured) return '<span style="font-size:11px;color:var(--text2)">não configurado</span>';
+  if(!info.reachable) return `<span class="tag tr" style="font-size:11px">offline — ${escapeHtml(info.error||'')}</span>`;
+  if(isOpenai) return '<span class="tag tg" style="font-size:11px">online</span>';
+  if(info.model_available===false) return `<span class="tag tr" style="font-size:11px">${escapeHtml(info.error||'modelo não encontrado')}</span>`;
+  if(info.model_available===null) return '<span class="tag ty" style="font-size:11px">online — não foi possível confirmar o modelo</span>';
+  return '<span class="tag tg" style="font-size:11px">online · modelo OK</span>';
+}
+async function loadAiStatus(){
+  for(const id of ['ai-status-pc','ai-status-celular','ai-status-openai']){
+    document.getElementById(id).innerHTML='<span style="font-size:11px;color:var(--text2)">verificando…</span>';
+  }
+  try{
+    const s=await api('/api/ai-runtime/status');
+    document.getElementById('ai-status-pc').innerHTML=renderAiEndpointStatus(s.pc);
+    document.getElementById('ai-status-celular').innerHTML=renderAiEndpointStatus(s.celular);
+    document.getElementById('ai-status-openai').innerHTML=renderAiEndpointStatus(s.openai_compat, true);
+  }catch(e){
+    for(const id of ['ai-status-pc','ai-status-celular','ai-status-openai']){
+      document.getElementById(id).innerHTML='';
+    }
+  }
 }
 async function loadAiConfig(){
   try{
@@ -674,6 +1396,27 @@ async function loadAiConfig(){
     document.getElementById('chat-provider-info').textContent='Não foi possível ler a config de IA.';
   }
 }
+
+async function checkChatOfflineBanner(){
+  const banner=document.getElementById('chat-offline-banner');
+  try{
+    const s=await api('/api/ai-runtime/status');
+    const pcDown=s.pc && s.pc.configured && !s.pc.reachable;
+    const celularConfiguredAndDown=s.celular && s.celular.configured && !s.celular.reachable;
+    const celularUnconfigured=!s.celular || !s.celular.configured;
+    if(pcDown && (celularUnconfigured || celularConfiguredAndDown)){
+      banner.style.display='block';
+      banner.innerHTML='<div class="tag tr" style="font-size:11px;padding:8px;display:block;margin-top:6px">'
+        +'⚠️ Ollama local offline — as perguntas vão cair no DeepSeek (nuvem) automaticamente. '
+        +'<span style="text-decoration:underline;cursor:pointer" onclick="toggleAiCfg()">Configurar backup local</span>'
+        +'</div>';
+    }else{
+      banner.style.display='none';
+    }
+  }catch(e){
+    banner.style.display='none';
+  }
+}
 async function saveAiConfig(){
   try{
     await api('/api/ai-runtime/config',{method:'PATCH',body:JSON.stringify({
@@ -685,6 +1428,7 @@ async function saveAiConfig(){
     })});
     toast('Config de IA salva');
     loadAiConfig();
+    loadAiStatus();
     toggleAiCfg();
   }catch(e){toast('Erro ao salvar: '+e.message);}
 }
@@ -731,6 +1475,144 @@ async function loadSys(){
     renderPassport(pp);
   }catch(e){
     document.getElementById('sys-storage-card').querySelector('.ch').insertAdjacentHTML('afterend','<div class="empty">Sem dados</div>');
+  }
+}
+
+async function loadOfficeNotifications(){
+  try{
+    const r=await api('/api/office/notifications');
+    document.getElementById('office-telegram-chat-id').value=r.telegram_chat_id||'';
+    document.getElementById('office-notify-status').innerHTML=r.telegram_chat_id
+      ? `<span class="tag tg">configurado</span>`
+      : `<span class="tag tr">não configurado — agentes não conseguem te avisar</span>`;
+  }catch(e){
+    document.getElementById('office-notify-status').textContent='Erro ao carregar';
+  }
+}
+
+async function saveOfficeNotifications(){
+  const chatId=document.getElementById('office-telegram-chat-id').value.trim();
+  try{
+    const r=await api('/api/office/notifications',{method:'PUT',body:JSON.stringify({telegram_chat_id:chatId||null})});
+    document.getElementById('office-notify-status').innerHTML=r.telegram_chat_id
+      ? `<span class="tag tg">configurado</span>`
+      : `<span class="tag tr">não configurado</span>`;
+    toast('Salvo. Os próximos alertas dos agentes vão pra esse chat.');
+  }catch(e){
+    toast('Erro ao salvar chat_id.');
+  }
+}
+
+async function discoverTelegramChatId(){
+  const box=document.getElementById('office-notify-discover-result');
+  box.innerHTML='<span style="font-size:12px;color:var(--text2)">Buscando…</span>';
+  try{
+    const r=await api('/api/office/notifications/discover-chat-id');
+    if(!r.available){
+      box.innerHTML=`<div class="empty" style="font-size:12px">Não foi possível buscar automaticamente (${r.reason==='not_configured'?'bot do FlowCore não configurado neste servidor':r.reason}). Use o método manual (getUpdates) descrito na documentação.</div>`;
+      return;
+    }
+    if(!r.chats.length){
+      box.innerHTML='<div class="empty" style="font-size:12px">Nenhuma conversa encontrada ainda. Manda uma mensagem qualquer pro bot no Telegram e tenta de novo.</div>';
+      return;
+    }
+    box.innerHTML='';
+    for(const c of r.chats){
+      const el=document.createElement('div');
+      el.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border:1px solid var(--border);border-radius:8px;margin-bottom:4px;cursor:pointer';
+      el.innerHTML=`<span style="font-size:12px">${escapeHtml(c.name)} <span style="color:var(--text2)">(${c.type})</span></span><span class="tag ty" style="font-size:10px">usar</span>`;
+      el.onclick=()=>{
+        document.getElementById('office-telegram-chat-id').value=c.chat_id;
+        box.innerHTML='';
+        toast('Preenchido. Clica em ✓ pra salvar.');
+      };
+      box.appendChild(el);
+    }
+  }catch(e){
+    box.innerHTML='<div class="empty" style="font-size:12px">Erro ao buscar.</div>';
+  }
+}
+
+async function testOfficeNotification(){
+  const box=document.getElementById('office-notify-test-result');
+  box.innerHTML='<span style="font-size:12px;color:var(--text2)">Enviando…</span>';
+  try{
+    const r=await api('/api/office/notifications/test',{method:'POST'});
+    if(r.sent){
+      box.innerHTML='<div class="tag tg" style="font-size:12px">Enviado! Confira o Telegram.</div>';
+      return;
+    }
+    const reasons={
+      no_chat_id: 'Nenhum chat_id salvo -- preenche e salva o campo acima primeiro.',
+      bot_not_configured: 'O servidor não tem TELEGRAM_BOT_TOKEN configurado (.env do FlowCore no Termux).',
+      telegram_error: r.detail,
+    };
+    box.innerHTML=`<div class="tag tr" style="font-size:12px">Falhou: ${escapeHtml(reasons[r.reason]||r.detail||r.reason)}</div>`;
+  }catch(e){
+    box.innerHTML='<div class="empty" style="font-size:12px">Erro ao enviar teste.</div>';
+  }
+}
+
+function timeAgo(unixSeconds){
+  const diff=Date.now()/1000-unixSeconds;
+  if(diff<60) return 'agora mesmo';
+  if(diff<3600) return `há ${Math.floor(diff/60)} min`;
+  if(diff<86400) return `há ${Math.floor(diff/3600)}h`;
+  return `há ${Math.floor(diff/86400)}d`;
+}
+
+function deviceLabel(userAgent){
+  if(!userAgent) return 'Dispositivo desconhecido';
+  if(/Android/i.test(userAgent)) return 'Android';
+  if(/iPhone|iPad/i.test(userAgent)) return 'iPhone/iPad';
+  if(/Windows/i.test(userAgent)) return 'Windows';
+  if(/Macintosh/i.test(userAgent)) return 'Mac';
+  if(/Linux/i.test(userAgent)) return 'Linux';
+  return userAgent.length>40?userAgent.slice(0,40)+'…':userAgent;
+}
+
+function deviceIcon(userAgent){
+  if(userAgent && /Android|iPhone/i.test(userAgent)) return '📱';
+  if(userAgent && /iPad/i.test(userAgent)) return '📱';
+  return '💻';
+}
+
+async function loadSessions(){
+  const box=document.getElementById('sessions-list');
+  try{
+    const r=await api('/api/auth/sessions');
+    if(!r.sessions.length){box.innerHTML='<div class="empty">Nenhuma sessão ativa.</div>';return;}
+    box.innerHTML='';
+    for(const s of r.sessions){
+      const el=document.createElement('div');
+      el.style.cssText='display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:10px;margin-bottom:6px'+(s.current?';border-color:var(--green)':'');
+      el.innerHTML=`<div style="display:flex;gap:10px;align-items:center;min-width:0">
+          <span style="font-size:20px">${deviceIcon(s.user_agent)}</span>
+          <div style="min-width:0">
+            <div style="font-size:13px;font-weight:600">${escapeHtml(deviceLabel(s.user_agent))}${s.ip_address?` <span style="font-weight:400;color:var(--text2)">· ${escapeHtml(s.ip_address)}</span>`:''}</div>
+            <div style="font-size:11px;color:var(--text2)">Entrou ${timeAgo(s.created_at)}</div>
+          </div>
+        </div>`+
+        (s.current
+          ? `<span class="tag tg" style="white-space:nowrap">Sessão atual</span>`
+          : `<button class="btn-sm" data-session-id="${s.id}" style="white-space:nowrap">Encerrar</button>`);
+      if(!s.current){
+        el.querySelector('button').onclick=()=>revokeSession(s.id);
+      }
+      box.appendChild(el);
+    }
+  }catch(e){
+    box.innerHTML='<div class="empty">Erro ao carregar sessões.</div>';
+  }
+}
+
+async function revokeSession(sessionId){
+  try{
+    await api(`/api/auth/sessions/${sessionId}`,{method:'DELETE'});
+    toast('Sessão encerrada.');
+    loadSessions();
+  }catch(e){
+    toast('Erro ao encerrar sessão.');
   }
 }
 
@@ -788,6 +1670,42 @@ function renderNewsList(items){
     el.innerHTML=`<div class="mi-text">${escapeHtml(n.headline||'')}</div>
       <div class="mi-meta">${escapeHtml(source)}${date?' · '+date:''}</div>`;
     l.appendChild(el);
+  }
+}
+
+async function loadMarketSources(){
+  const box=document.getElementById('market-sources-list');
+  try{
+    const r=await api('/api/market/sources');
+    if(r.stub||!(r.catalog&&r.catalog.length)){
+      box.innerHTML='<div class="empty">Diagnóstico de fontes indisponível.</div>';
+      return;
+    }
+    let html='';
+    html+='<div style="font-size:12px;color:var(--text2);margin:6px 0 4px">Observações ao vivo</div>';
+    for(const obs of (r.official_observations||[])){
+      const dot=obs.available?'🟢':'🔴';
+      if(!obs.available){
+        html+=`<div class="row" style="padding:6px 0"><span class="rl">${dot} ${escapeHtml(obs.source)}</span><span class="rv" style="color:var(--text2)">indisponível (${escapeHtml(obs.error||'')})</span></div>`;
+        continue;
+      }
+      if(obs.value!==undefined){
+        html+=`<div class="row" style="padding:6px 0"><span class="rl">${dot} ${escapeHtml(obs.label||obs.instrument||obs.source)}</span><span class="rv">${obs.value.toFixed(2)}% <span style="color:var(--text2);font-size:11px">(${escapeHtml(obs.observation_date||'')})</span></span></div>`;
+      }
+      for(const p of (obs.points||[])){
+        html+=`<div class="row" style="padding:6px 0"><span class="rl">${dot} ${escapeHtml(p.label)} · ${escapeHtml(obs.source)}</span><span class="rv">${p.value.toFixed(2)}% <span style="color:var(--text2);font-size:11px">(${escapeHtml(p.observation_date||'')})</span></span></div>`;
+      }
+    }
+    html+='<div style="font-size:12px;color:var(--text2);margin:12px 0 4px">Catálogo de fontes</div>';
+    const tierLabel={official:'oficial',fallback:'fallback',optional_authenticated:'opcional (requer chave)',reference_only:'referência'};
+    for(const s of r.catalog){
+      const opt=(r.optional_sources||[]).find(o=>o.source===s.id);
+      const configuredTag=opt?(opt.configured?'<span class="tag tg" style="font-size:9px">configurado</span>':'<span class="tag ty" style="font-size:9px">não configurado</span>'):'';
+      html+=`<div class="row" style="padding:6px 0;align-items:flex-start"><span class="rl">${escapeHtml(s.name)}<br><span style="font-size:11px;color:var(--text2)">${escapeHtml((s.coverage||[]).join(', '))}</span></span><span class="rv" style="text-align:right"><span class="tag ty" style="font-size:9px">${tierLabel[s.tier]||s.tier}</span> ${configuredTag}</span></div>`;
+    }
+    box.innerHTML=html;
+  }catch(e){
+    box.innerHTML='<div class="empty">Erro ao carregar diagnóstico de fontes.</div>';
   }
 }
 
@@ -943,6 +1861,50 @@ function fup(s){
 /* ── Agents ── */
 const _agentIcons={health:'❤️',doctor:'🩺',market_close:'📊',daily_brief:'🗞️',notify_market_close:'🔔'};
 
+async function loadAgentsObservability(){
+  try{
+    const d=await api('/api/agents/dashboard');
+    const s=d.scheduler||{};
+    const byStatus=(d.events&&d.events.by_status)||{};
+    document.getElementById('aobs-active').textContent=(s.enabled&&s.running)?'Sim':'Não';
+    document.getElementById('aobs-active-sub').textContent=s.enabled?`observando a cada ${s.interval_seconds}s`:'apscheduler não instalado';
+    document.getElementById('aobs-running').textContent=byStatus.processing||0;
+    document.getElementById('aobs-pending').textContent=(d.approvals&&d.approvals.pending)||0;
+    document.getElementById('aobs-done').textContent=(byStatus.processed||0)+(byStatus.resolved||0);
+    document.getElementById('aobs-failed').textContent=byStatus.failed||0;
+    document.getElementById('aobs-scheduled').textContent=((s.tasks)||[]).length;
+
+    const u=d.llm_usage||{};
+    const t=u.today||{},w=u.last_7d||{},m=u.last_30d||{};
+    document.getElementById('aobs-llm-cost').innerHTML=
+      `Hoje: ${t.total_calls||0} chamada${(t.total_calls||0)===1?'':'s'} (${t.failed_calls||0} falha${(t.failed_calls||0)===1?'':'s'}, ${(t.total_tokens||0).toLocaleString('pt-BR')} tokens) · `+
+      `7 dias: ${w.total_calls||0} (${(w.total_tokens||0).toLocaleString('pt-BR')} tokens) · `+
+      `30 dias: ${m.total_calls||0} (${(m.total_tokens||0).toLocaleString('pt-BR')} tokens)`;
+
+    const feed=document.getElementById('aobs-activity');
+    const items=d.recent_activity||[];
+    if(!items.length){feed.innerHTML='<div class="empty">Sem atividade registrada ainda.</div>';return;}
+    feed.innerHTML='';
+    for(const ev of items){
+      const el=document.createElement('div');
+      el.style.cssText='padding:8px 0;border-bottom:1px solid var(--border);font-size:12px';
+      const when=ev.created_at?new Date(ev.created_at*1000).toLocaleString('pt-BR'):'—';
+      const msg=(ev.payload&&ev.payload.message)||'';
+      // Honest provenance instead of a fabricated confidence score: which
+      // path actually produced the decision text (agents/orchestrator.py
+      // always records this, real LLM call vs. deterministic template).
+      const src=ev.decision&&ev.decision.reasoning_source;
+      const srcTag=src==='llm' ? '<span class="tag tg" style="font-size:9px">🤖 IA</span>'
+        : src==='template_fallback' ? '<span class="tag ty" style="font-size:9px">📋 modelo padrão</span>' : '';
+      el.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px"><b>${ev.type}</b><span style="color:var(--text2);white-space:nowrap">${when}</span></div>`+
+        `<div style="color:var(--text2)">${msg?msg+' · ':''}status: ${ev.status}${srcTag?' · '+srcTag:''}</div>`;
+      feed.appendChild(el);
+    }
+  }catch(e){
+    document.getElementById('aobs-activity').innerHTML='<div class="empty">API não disponível</div>';
+  }
+}
+
 async function loadAgents(){
   try{
     const [agentsRes,histRes]=await Promise.all([
@@ -955,6 +1917,655 @@ async function loadAgents(){
     document.getElementById('agent-cards').innerHTML='<div class="empty">API não disponível</div>';
     document.getElementById('task-history').innerHTML='<div class="empty">─</div>';
   }
+}
+
+/* ── Compliance / desenquadramento ── */
+async function loadComplianceAlerts(){
+  const banner=document.getElementById('compliance-banner');
+  const list=document.getElementById('compliance-list');
+  try{
+    const r=await api('/api/alerts');
+    banner.innerHTML='';
+    if(r.total===0){
+      const evaluated=(r.portfolios||[]).filter(p=>p.status==='NORMAL'||p.status==='ATENCAO'||p.status==='DESENQUADRADO');
+      list.innerHTML=evaluated.length
+        ? '<div class="empty">✅ Nenhuma carteira desenquadrada. Tudo dentro dos limites.</div>'
+        : '<div class="empty">Sem posição atual conhecida para calcular desenquadramento.<br>Configure a posição da carteira para ativar os alertas.</div>';
+      return;
+    }
+    if(r.critical>0){
+      banner.innerHTML=`<div class="compliance-banner crit">🔴 ${r.critical} carteira${r.critical>1?'s':''} desenquadrada${r.critical>1?'s':''}${r.warnings?` · ${r.warnings} em atenção`:''}</div>`;
+    }else{
+      banner.innerHTML=`<div class="compliance-banner ok" style="color:var(--yellow);background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.3)">🟡 ${r.warnings} em atenção</div>`;
+    }
+    list.innerHTML='';
+    for(const it of r.items){
+      const crit=it.severity==='CRITICAL';
+      const pct=Math.min(100,(it.current/it.limit)*100);
+      const el=document.createElement('div');
+      el.className='compliance-item'+(crit?' crit':'');
+      el.innerHTML=`
+        <div class="ci-top">
+          <span class="ci-name">${escapeHtml(it.client_name)}</span>
+          <span class="tag ${crit?'tr':'ty'}">${crit?'🔴 Desenquadrado':'🟡 Atenção'}</span>
+        </div>
+        <div class="ci-reason">${escapeHtml(it.message)}</div>
+        <div class="compliance-bar"><div class="compliance-bar-fill${crit?' crit':''}" style="width:${pct}%"></div></div>
+        <div class="compliance-figures"><span>${it.current}%</span><span>Limite: ${it.limit}%</span></div>`;
+      list.appendChild(el);
+    }
+  }catch(e){
+    banner.innerHTML='';
+    list.innerHTML='<div class="empty">Alertas indisponíveis: '+escapeHtml(e.message)+'</div>';
+  }
+}
+
+/* ── Reference (model) portfolio — editable ──
+   Four sleeves, matching exactly what ComplianceAgent checks against
+   sleeve_limits. The two aggregate sleeves (renda fixa total,
+   alternativos) write to a __sleeve__:<name> synthetic key instead of an
+   individual target_allocation item id — see
+   agents/compliance_agent.py::_sleeve_current for why: br_fixed_liquidity
+   belongs to renda_fixa_brasil (rolls into renda_fixa_total) AND is the
+   liquidity-floor item, so summing item-level entries would double-count
+   it the moment both are edited. Tema IA and Liquidez map to a single
+   target_allocation item each, so they write there directly. */
+const RP_SLEEVES=[
+  {key:'__sleeve__:renda_fixa_total',label:'Renda Fixa Total',minKey:'renda_fixa_total_min',maxKey:'renda_fixa_total_max'},
+  {key:'ai_theme',label:'Tema IA',minKey:'ai_theme_min',maxKey:'ai_theme_max'},
+  {key:'__sleeve__:alternativos',label:'Alternativos',minKey:null,maxKey:'alternativos_max'},
+  {key:'br_fixed_liquidity',label:'Liquidez',minKey:'liquidity_floor',maxKey:null},
+];
+
+async function loadReferencePortfolio(){
+  const box=document.getElementById('rp-sleeves');
+  try{
+    const rp=await api('/api/portfolio/reference');
+    const current=rp.current_allocation||{};
+    const limits=rp.sleeve_limits||{};
+    document.getElementById('rp-customized-tag').style.display=rp.is_customized?'inline-block':'none';
+    box.innerHTML='';
+    for(const s of RP_SLEEVES){
+      const min=s.minKey?limits[s.minKey]:null;
+      const max=s.maxKey?limits[s.maxKey]:null;
+      const band=(min!=null&&max!=null)?`Alvo ${min}%–${max}%`:(min!=null?`Piso ${min}%`:(max!=null?`Teto ${max}%`:'Sem limite definido'));
+      const val=current[s.key];
+      const row=document.createElement('div');
+      row.className='rp-sleeve';
+      row.innerHTML=`
+        <div class="rp-sleeve-info"><div class="rp-sleeve-label">${escapeHtml(s.label)}</div><div class="rp-sleeve-band">${band}</div></div>
+        <input class="rp-sleeve-input" type="number" step="0.1" data-key="${s.key}" value="${val!=null?val:''}" placeholder="—">
+        <span class="rp-sleeve-pct">%</span>`;
+      box.appendChild(row);
+    }
+  }catch(e){
+    box.innerHTML='<div class="empty">Carteira modelo indisponível: '+escapeHtml(e.message)+'</div>';
+  }
+}
+
+async function saveReferencePortfolio(){
+  const status=document.getElementById('rp-status');
+  const current_allocation={};
+  document.querySelectorAll('#rp-sleeves .rp-sleeve-input').forEach(inp=>{
+    if(inp.value!=='') current_allocation[inp.dataset.key]=parseFloat(inp.value);
+  });
+  status.textContent='Salvando…';
+  try{
+    await api('/api/portfolio/reference',{method:'PUT',body:JSON.stringify({current_allocation})});
+    status.textContent='✓ Posição salva '+new Date().toLocaleTimeString('pt-BR');
+    await Promise.all([loadReferencePortfolio(),loadComplianceAlerts()]);
+  }catch(e){
+    status.textContent='Erro ao salvar: '+e.message;
+  }
+}
+
+async function resetReferencePortfolio(){
+  const status=document.getElementById('rp-status');
+  status.textContent='Restaurando…';
+  try{
+    await api('/api/portfolio/reference/reset',{method:'POST'});
+    status.textContent='✓ Restaurado ao padrão';
+    await Promise.all([loadReferencePortfolio(),loadComplianceAlerts()]);
+  }catch(e){
+    status.textContent='Erro ao restaurar: '+e.message;
+  }
+}
+
+/* ── Desktop Wealth Copilot dashboard (Visão Geral) ──
+   All real data: /api/alerts (ComplianceAgent), /api/market (MarketAgent),
+   /api/intelligence (IntelligenceEngine), /api/priorities (PriorityEngine).
+   Only one portfolio exists today (the editable reference/model
+   portfolio) — KPIs and tables reflect that honestly rather than showing
+   placeholder multi-client numbers. */
+function loadDashboardOverview(){
+  // Each of these four calls updates its own section the moment IT
+  // resolves — deliberately NOT awaited together (no Promise.all/
+  // allSettled gate). /api/alerts is local/fast; /api/market and anything
+  // built on IntelligenceEngine touch live market data and can be slow.
+  // Gating the whole dashboard on the slowest one meant a fast, ready
+  // compliance table sat behind a skeleton for as long as the market call
+  // took — a real UX bug, not just a quirk of a slow network.
+  api('/api/alerts').then(alerts=>{
+    document.getElementById('kpi-healthy').textContent=(alerts.portfolios||[]).filter(p=>p.status==='NORMAL').length;
+    document.getElementById('kpi-clients').textContent=(alerts.portfolios||[]).length;
+    renderDwAlertsTable(alerts);
+    renderNotifPanel(alerts);
+    const dot=document.getElementById('dw-alert-dot');
+    if(dot) dot.style.display=alerts.critical>0?'block':'none';
+  }).catch(()=>{
+    document.getElementById('kpi-healthy').textContent='—';
+    document.getElementById('kpi-clients').textContent='—';
+    renderDwAlertsTable(null);
+  });
+
+  api('/api/market').then(renderDwMarketTable).catch(()=>renderDwMarketTable(null));
+  loadDwRisk();
+
+  api('/api/intelligence').then(intel=>{
+    document.getElementById('kpi-override').textContent=intel.override;
+    document.getElementById('kpi-recalibrate').textContent=intel.recalibrate;
+    renderDwEventList('dw-recalibrate-list', intel, 'RECALIBRATE', '✅ Nenhuma recalibração no momento.');
+    renderDwEventList('dw-override-list', intel, 'OVERRIDE', '✅ Nenhum override no momento.');
+  }).catch(()=>{
+    document.getElementById('kpi-override').textContent='—';
+    document.getElementById('kpi-recalibrate').textContent='—';
+    renderDwEventList('dw-recalibrate-list', null, 'RECALIBRATE', 'Indisponível.');
+    renderDwEventList('dw-override-list', null, 'OVERRIDE', 'Indisponível.');
+  });
+
+  api('/api/priorities').then(renderDwImpacted).catch(()=>renderDwImpacted(null));
+
+  api('/api/agent-approvals?status=pending').then(renderDwApprovals).catch(()=>{});
+}
+
+// ── Human-in-the-loop approval queue (§9) ────────────────────────────────
+// Renders every LEVEL 3+ action an autonomous agent has prepared but not
+// sent -- see agents/orchestrator.py. Persisted server-side, so this card
+// simply reflects what's really pending; it never invents an approval.
+function renderDwApprovals(data){
+  const card=document.getElementById('dw-approvals-card');
+  const box=document.getElementById('dw-approvals-list');
+  const items=(data&&data.items)||[];
+  if(!items.length){ card.style.display='none'; box.innerHTML=''; return; }
+  card.style.display='block';
+  box.innerHTML=items.map(a=>{
+    const p=a.payload||{};
+    const draft=p.draft||{};
+    const clientName=escapeHtml(p.client_name||'cliente');
+    return `<div class="compliance-item" id="approval-${a.id}" style="border-left-color:var(--yellow)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+        <div>
+          <div style="font-weight:700">${initialsAvatar(p.client_name||'?')}${clientName} — proposta de contato</div>
+          <div id="approval-view-${a.id}" style="font-size:12px;color:var(--text2);margin-top:6px;white-space:pre-wrap">${escapeHtml(draft.subject||'')}\n${escapeHtml(draft.body||'')}</div>
+          <div id="approval-edit-${a.id}" style="display:none;margin-top:6px">
+            <textarea id="approval-edit-body-${a.id}" style="width:100%;min-height:90px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px;font-size:12px" >${escapeHtml(draft.body||'')}</textarea>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+          <button class="btn-sm" style="background:var(--green);color:#fff;border-color:var(--green)" onclick="approveAgentAction('${a.id}')">✅ Aprovar</button>
+          <button class="btn-sm" onclick="toggleApprovalEdit('${a.id}')">✏️ Editar</button>
+          <button class="btn-sm" onclick="rejectAgentAction('${a.id}','${clientName.replace(/'/g,"&#39;")}')">🚫 Ignorar</button>
+          <button class="btn-sm" id="approval-save-${a.id}" style="display:none" onclick="saveApprovalEdit('${a.id}')">💾 Salvar</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleApprovalEdit(id){
+  document.getElementById(`approval-view-${id}`).style.display='none';
+  document.getElementById(`approval-edit-${id}`).style.display='block';
+  document.getElementById(`approval-save-${id}`).style.display='block';
+}
+
+async function saveApprovalEdit(id){
+  const newBody=document.getElementById(`approval-edit-body-${id}`).value;
+  try{
+    const current=await api('/api/agent-approvals?status=pending');
+    const approval=current.items.find(a=>a.id===id);
+    if(!approval){ toast('Aprovação não encontrada (já decidida?).'); return loadDashboardOverview(); }
+    const payload={...approval.payload,draft:{...approval.payload.draft,body:newBody}};
+    await api(`/api/agent-approvals/${id}`,{method:'PUT',body:JSON.stringify({payload})});
+    toast('Rascunho atualizado.');
+    api('/api/agent-approvals?status=pending').then(renderDwApprovals);
+  }catch(e){ toast('Erro ao salvar: '+e.message); }
+}
+
+async function approveAgentAction(id){
+  if(!confirm('Aprovar e enviar esta mensagem ao cliente agora?')) return;
+  try{
+    const r=await api(`/api/agent-approvals/${id}/approve`,{method:'POST'});
+    const labels={sent:'enviado',no_contact_info:'sem contato cadastrado',not_configured:'canal não configurado',error:'falha ao enviar'};
+    const parts=Object.entries(r.approval.result.channels).map(([ch,res])=>`${ch}: ${labels[res.status]||res.status}`);
+    toast('Aprovado — '+parts.join(' · '));
+    api('/api/agent-approvals?status=pending').then(renderDwApprovals);
+  }catch(e){ toast('Erro ao aprovar: '+e.message); }
+}
+
+async function rejectAgentAction(id,clientName){
+  if(!confirm(`Ignorar a proposta de contato para ${clientName}? A mensagem não será enviada.`)) return;
+  try{
+    await api(`/api/agent-approvals/${id}/reject`,{method:'POST'});
+    toast('Proposta ignorada.');
+    api('/api/agent-approvals?status=pending').then(renderDwApprovals);
+  }catch(e){ toast('Erro: '+e.message); }
+}
+
+function initialsAvatar(name){
+  // Deliberately not a photo: fabricating a realistic portrait for a
+  // fictitious/example client would misrepresent placeholder data as a
+  // real person. A colored initials badge (like Slack/Gmail) is honest
+  // about being a placeholder and needs no image asset at all.
+  const initials=(name||'?').trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  let hash=0; for(const ch of name||'') hash=(hash*31+ch.charCodeAt(0))>>>0;
+  const hue=hash%360;
+  return `<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:hsl(${hue},55%,88%);color:hsl(${hue},45%,32%);font-size:9px;font-weight:700;flex-shrink:0;margin-right:6px;vertical-align:middle">${escapeHtml(initials)}</span>`;
+}
+
+function renderDwAlertsTable(alerts){
+  const box=document.getElementById('dw-alerts-table');
+  if(!alerts||!alerts.items||!alerts.items.length){
+    box.innerHTML='<div class="dw-empty">✅ Nenhuma carteira desenquadrada no momento.</div>';
+    return;
+  }
+  let html='<table class="dw-table"><tr><th>Carteira</th><th>Atual</th><th>Limite</th><th>Desvio</th><th></th></tr>';
+  for(const it of alerts.items){
+    const crit=it.severity==='CRITICAL';
+    const demoTag=it.is_demo?' <span class="tag ty" style="font-size:9px">exemplo</span>':'';
+    const clientNameAttr=escapeHtml(it.client_name).replace(/'/g,"&#39;");
+    // is_client=false means this row is the office's own reference policy,
+    // not a real person — no 360 view or outreach makes sense for it (see
+    // api/dashboard_routes.py's /api/alerts docstring on why the flag exists).
+    const actions=it.is_client
+      ? `<button class="btn-sm" onclick="openClient360('${it.client_id}','${clientNameAttr}')" title="Ver 360 do cliente">👤 360</button> <button class="btn-sm" onclick="requestClientReview('${it.client_id}','${clientNameAttr}')" title="Enviar convite de revisão por email/WhatsApp">✉️ Convidar</button>`
+      : '';
+    html+=`<tr><td>${crit?'🔴':'🟡'} ${initialsAvatar(it.client_name)}${escapeHtml(it.client_name)}${demoTag}</td><td>${it.current}%</td><td>${it.limit}%</td><td style="color:${crit?'var(--red)':'var(--yellow)'}">+${it.diff}p.p.</td><td>${actions}</td></tr>`;
+  }
+  box.innerHTML=html+'</table>';
+}
+
+async function requestClientReview(clientId, clientName){
+  // Explicit, per-client, human-triggered — never automatic. See
+  // runtime/client_outreach.py's module docstring for why sending a
+  // real message to a real client is a confirm-before-you-send action.
+  if(!confirm(`Enviar convite de revisão para ${clientName} por email e WhatsApp?`)) return;
+  try{
+    const r=await api(`/api/clients/${clientId}/request-review`,{method:'POST',body:JSON.stringify({channels:['email','whatsapp']})});
+    const labels={sent:'enviado',no_contact_info:'sem contato cadastrado',not_configured:'canal não configurado',error:'falha ao enviar'};
+    const parts=Object.entries(r.channels).map(([ch,res])=>`${ch}: ${labels[res.status]||res.status}`);
+    toast(parts.join(' · '));
+  }catch(e){
+    toast('Erro: '+e.message);
+  }
+}
+
+const _HEALTH_LABEL={
+  SAUDAVEL:['🟢 Saudável','var(--green)'], ATENCAO:['🟡 Atenção','var(--yellow)'],
+  DESENQUADRADO:['🔴 Desenquadrado','var(--red)'], SEM_POSICAO_ATUAL:['⚪ Sem posição atual','var(--text2)'],
+  SEM_REGRAS_DEFINIDAS:['⚪ Sem regras definidas','var(--text2)'],
+};
+
+let _client360Id=null;
+
+async function openClient360(clientId, clientName){
+  _client360Id=clientId;
+  const overlay=document.getElementById('client360-overlay');
+  const body=document.getElementById('client360-body');
+  document.getElementById('client360-title').textContent=clientName;
+  body.innerHTML='<div class="sk"></div><div class="sk"></div>';
+  overlay.style.display='flex';
+  try{
+    const d=await api(`/api/clients/${clientId}/360`);
+    const [healthLabel,healthColor]=_HEALTH_LABEL[d.health]||[d.health,'var(--text2)'];
+    const c=d.client;
+    const catLabel={geral:'Geral',qualificado:'Qualificado',profissional:'Profissional'}[c.investor_category]||'Geral';
+    const catColor=c.investor_category==='profissional'?'var(--purple)':c.investor_category==='qualificado'?'var(--yellow)':'var(--text2)';
+
+    let allocRows='<div class="empty">Nenhuma posição registrada.</div>';
+    const allocEntries=Object.entries(c.current_allocation||{}).filter(([k])=>!k.startsWith('__sleeve__:'));
+    if(allocEntries.length){
+      allocRows=allocEntries.map(([k,v])=>`<div class="row"><span class="rl">${escapeHtml(k)}</span><span>${v}%</span></div>`).join('');
+    }
+
+    let violRows='<div class="empty">✅ Nenhuma violação aberta.</div>';
+    if(d.compliance.violations.length){
+      violRows=d.compliance.violations.map(v=>`<div class="compliance-item${v.severity==='CRITICAL'?' crit':''}">${escapeHtml(v.message)}</div>`).join('');
+    }
+
+    let historyRows='<div class="empty">Nenhum contato de revisão enviado ainda.</div>';
+    if(d.outreach_history.length){
+      const chLabel={sent:'enviado',no_contact_info:'sem contato',not_configured:'não configurado',error:'falha'};
+      historyRows=d.outreach_history.map(h=>{
+        const when=new Date(h.timestamp*1000).toLocaleString('pt-BR');
+        const parts=Object.entries(h.results||{}).map(([ch,res])=>`${ch}: ${chLabel[res.status]||res.status}`).join(' · ');
+        return `<div class="sr-item">${when}<div class="sr-sub">${parts}</div></div>`;
+      }).join('');
+    }
+
+    body.innerHTML=`
+      <div class="row"><span class="rl">Status</span><span style="color:${healthColor};font-weight:600">${healthLabel}</span></div>
+      <div class="row"><span class="rl">Email</span><span>${escapeHtml(c.email||'não cadastrado')}</span></div>
+      <div class="row"><span class="rl">WhatsApp</span><span>${escapeHtml(c.phone||'não cadastrado')}</span></div>
+      <div class="row"><span class="rl">Valor de referência</span><span>${c.reference_value?('R$ '+Number(c.reference_value).toLocaleString('pt-BR')):'—'}</span></div>
+      <div class="row"><span class="rl">Classificação (CVM Res. 30/2021)</span><span style="color:${catColor};font-weight:600">${catLabel}</span></div>
+      <div class="sr-title" style="margin-top:14px">Investidor qualificado / profissional</div>
+      <div class="ai-cfg-row"><input class="if" id="c360-investments" type="number" placeholder="Investimentos financeiros declarados (R$)" value="${c.investor_declared_investments||''}"></div>
+      <div class="ai-cfg-row"><input class="if" id="c360-certification" placeholder="Certificação (ex: CEA, CGA, CFP, CNPI...)" value="${escapeHtml(c.investor_certification||'')}"></div>
+      <div class="btns" style="margin-top:0"><button class="btn-sm" onclick="saveInvestorClassification()">✓ Confirmar declaração assinada (termo)</button></div>
+      <div class="sr-title" style="margin-top:14px">Alocação atual</div>${allocRows}
+      <div class="sr-title" style="margin-top:14px">Violações de compliance</div>${violRows}
+      <div class="sr-title" style="margin-top:14px">Histórico de outreach</div>${historyRows}
+    `;
+  }catch(e){
+    body.innerHTML=`<div class="empty">Erro ao carregar: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function closeClient360(){
+  document.getElementById('client360-overlay').style.display='none';
+}
+
+async function saveInvestorClassification(){
+  if(!_client360Id) return;
+  const investmentsRaw=document.getElementById('c360-investments').value.trim();
+  const certification=document.getElementById('c360-certification').value.trim();
+  try{
+    await api(`/api/clients/${_client360Id}/investor-classification`,{method:'PUT',body:JSON.stringify({
+      declared_investments: investmentsRaw?Number(investmentsRaw):null,
+      certification: certification||null,
+    })});
+    toast('Classificação atualizada.');
+    const name=document.getElementById('client360-title').textContent;
+    openClient360(_client360Id, name);
+    loadClients();
+  }catch(e){
+    toast('Erro ao classificar: '+e.message);
+  }
+}
+
+let _dwMarketData=null;
+let _dwMarketGroup='indices';
+
+function sparklineSvg(history, up){
+  // Real daily closes only (agents/market_agent.py's fetch_history) — an
+  // indicator with no usable history (fetch failed, or the MOCK entry,
+  // which never gets one) just renders no sparkline. Never a fabricated
+  // curve from a single data point.
+  if(!history||history.length<2) return '';
+  const w=56,h=20,pad=2;
+  const min=Math.min(...history),max=Math.max(...history);
+  const range=(max-min)||1;
+  const step=(w-pad*2)/(history.length-1);
+  const points=history.map((v,i)=>`${(pad+i*step).toFixed(1)},${(h-pad-((v-min)/range)*(h-pad*2)).toFixed(1)}`).join(' ');
+  const color=up?'var(--green)':'var(--red)';
+  return `<svg class="dw-spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5"/></svg>`;
+}
+
+function setDwMarketGroup(group){
+  _dwMarketGroup=group;
+  document.querySelectorAll('#dw-market-tabs .dw-tab').forEach(b=>b.classList.toggle('active', b.dataset.group===group));
+  renderDwMarketTable(_dwMarketData);
+}
+
+// Home-market flag/symbol per asset label (config/market_thresholds.py's
+// own `label` strings) -- real identity of the instrument, not decoration:
+// an unmapped future asset just falls back to a generic glyph below.
+const MARKET_ICONS={
+  'Ibovespa':'🇧🇷','S&P 500':'🇺🇸','Nasdaq':'🇺🇸','Dow Jones':'🇺🇸','FTSE 100':'🇬🇧','DAX':'🇩🇪','CAC 40':'🇫🇷','KOSPI':'🇰🇷',
+  'Dólar':'🇺🇸','Euro':'🇪🇺','Iene':'🇯🇵','Renminbi':'🇨🇳',
+  'US Treasury 3M':'🇺🇸','US Treasury 5Y':'🇺🇸','US Treasury 10Y':'🇺🇸','US Treasury 30Y':'🇺🇸','DI Jan (futuro)':'🇧🇷',
+  'Ouro':'🥇','Petróleo (WTI)':'🛢️','Cobre':'🟠','Prata':'⚪',
+};
+
+function marketGroupTableHtml(market, group){
+  if(!market||!market.movements||!market.movements.length){
+    return '<div class="dw-empty">Mercado indisponível.</div>';
+  }
+  const rows=market.movements.filter(m=>m.group===group);
+  let html='<table class="dw-table"><tr><th>Ativo</th><th style="text-align:right">Valor</th><th>Variação</th><th>Hoje</th></tr>';
+  let any=false;
+  let anyLive=false;
+  const errors=[];
+  for(const m of rows){
+    if(m.current_value==null){
+      if(m.error) errors.push(`${m.asset}: ${m.error}`);
+      continue;
+    }
+    any=true;
+    if(m.source==='live') anyLive=true;
+    const up=(m.change||0)>=0;
+    const unit=m.unit==='percentage_points'?'p.p.':'%';
+    const mockTag=m.source==='MOCK'?' <span class="tag ty" style="font-size:9px">MOCK</span>':'';
+    const icon=MARKET_ICONS[m.asset]||'📈';
+    html+=`<tr><td><span style="margin-right:6px">${icon}</span>${escapeHtml(m.asset)}${mockTag}</td><td style="text-align:right;font-variant-numeric:tabular-nums">${m.current_value.toFixed(2)}</td><td><span class="tag ${up?'tg':'tr'}">${up?'▲':'▼'} ${Math.abs(m.change).toFixed(2)}${unit}</span></td><td>${sparklineSvg(m.history,up)}</td></tr>`;
+  }
+  if(any){
+    const live=anyLive&&market.timestamp
+      ?`<div style="font-size:10.5px;color:var(--text2);margin-bottom:6px"><span style="color:var(--green)">●</span> Ao vivo · atualizado às ${new Date(market.timestamp).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>`
+      :'';
+    return live+html+'</table>';
+  }
+  // Real fetch failures, not "nothing to show" -- surface the actual
+  // error per asset instead of a generic "fonte indisponível" that gave
+  // no way to tell a timeout from an auth error from Yahoo blocking
+  // this network entirely.
+  const detail=errors.length?`<div style="font-size:11px;color:var(--text2);margin-top:6px">${errors.map(escapeHtml).join('<br>')}</div>`:'';
+  return `<div class="dw-empty">Sem dados de mercado nesta categoria (fonte indisponível).${detail}</div>`;
+}
+
+function renderDwMarketTable(market){
+  if(market!==undefined) _dwMarketData=market;
+  document.getElementById('dw-market-table').innerHTML=marketGroupTableHtml(_dwMarketData, _dwMarketGroup);
+}
+
+let _nwMarketData=null;
+let _nwMarketGroup='indices';
+
+function setNwMarketGroup(group){
+  _nwMarketGroup=group;
+  document.querySelectorAll('#nw-market-tabs .dw-tab').forEach(b=>b.classList.toggle('active', b.dataset.group===group));
+  renderNwMarketTable();
+}
+
+function renderNwMarketTable(market){
+  if(market!==undefined) _nwMarketData=market;
+  document.getElementById('nw-market-table').innerHTML=marketGroupTableHtml(_nwMarketData, _nwMarketGroup);
+}
+
+async function loadNwMarket(){
+  try{
+    const market=await api('/api/market');
+    renderNwMarketTable(market);
+  }catch(e){
+    renderNwMarketTable(null);
+  }
+}
+
+function renderDwEventList(boxId, intel, status, emptyMsg){
+  const box=document.getElementById(boxId);
+  if(!intel){box.innerHTML=`<div class="dw-empty">${emptyMsg}</div>`;return;}
+  const events=(intel.events||[]).filter(e=>e.status===status);
+  if(!events.length){box.innerHTML=`<div class="dw-empty">${emptyMsg}</div>`;return;}
+  let html='';
+  for(const e of events.slice(0,6)){
+    const portfolios=(e.affected_portfolios||[]).join(', ');
+    html+=`<div class="mini-list-item"><div><b>${escapeHtml(e.reason)}</b>${portfolios?`<span>${escapeHtml(portfolios)}</span>`:''}</div></div>`;
+  }
+  box.innerHTML=html;
+}
+
+function toggleNotifPanel(){
+  const panel=document.getElementById('notif-panel');
+  panel.style.display=panel.style.display==='none'?'block':'none';
+}
+
+function renderNotifPanel(alerts){
+  const body=document.getElementById('notif-panel-body');
+  const critical=((alerts&&alerts.items)||[]).filter(it=>it.severity==='CRITICAL');
+  if(!critical.length){
+    body.innerHTML='<div class="empty" style="font-size:12px">Nenhum alerta crítico agora.</div>';
+    return;
+  }
+  body.innerHTML=critical.map(it=>{
+    const clickable=it.is_client;
+    const nameAttr=escapeHtml(it.client_name).replace(/'/g,"&#39;");
+    const onclick=clickable?`onclick="openClient360('${it.client_id}','${nameAttr}');toggleNotifPanel()"`:'';
+    return `<div class="row" style="padding:6px 0;${clickable?'cursor:pointer':''}" ${onclick}>
+      <span class="rl" style="font-size:12px">🔴 ${escapeHtml(it.client_name)}</span>
+      <span class="rv" style="font-size:11px;color:var(--red)">+${it.diff}p.p.</span>
+    </div>`;
+  }).join('');
+}
+
+async function openProfileModal(){
+  document.getElementById('profile-overlay').style.display='flex';
+  const body=document.getElementById('profile-modal-body');
+  body.innerHTML='<div class="sk" style="height:52px"></div>';
+  try{
+    const [me, advisor]=await Promise.all([api('/api/auth/me'), api('/api/advisor')]);
+    const photoStyle=advisor.photo?`background-image:url(${advisor.photo});background-size:cover;background-position:center`:'';
+    const initials=(advisor.name||me.name||'?').trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    body.innerHTML=`
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
+        <div class="dw-advisor-avatar" id="profile-photo-preview" style="width:56px;height:56px;${photoStyle}">${advisor.photo?'':escapeHtml(initials)}</div>
+        <div>
+          <input type="file" accept="image/png,image/jpeg,image/webp" id="profile-photo-input" style="display:none" onchange="uploadAdvisorPhoto(this)">
+          <button class="btn-sm" onclick="document.getElementById('profile-photo-input').click()">📷 ${advisor.photo?'Trocar foto':'Adicionar foto'}</button>
+          ${advisor.photo?'<button class="btn-sm" onclick="clearAdvisorPhoto()" style="margin-left:6px">Remover</button>':''}
+        </div>
+      </div>
+      <div class="row"><span class="rl">Nome</span><span class="rv">${escapeHtml(advisor.name||me.name||'—')}</span></div>
+      <div class="row"><span class="rl">Cargo</span><span class="rv">${escapeHtml(advisor.title||'—')}</span></div>
+      <div class="row"><span class="rl">E-mail</span><span class="rv">${escapeHtml(me.email||'—')}</span></div>
+      <div class="row"><span class="rl">Papel</span><span class="rv">${escapeHtml(me.role||'—')}</span></div>`;
+  }catch(e){
+    body.innerHTML='<div class="empty">Não foi possível carregar o perfil.</div>';
+  }
+}
+
+function uploadAdvisorPhoto(input){
+  const file=input.files&&input.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=async()=>{
+    try{
+      await api('/api/advisor',{method:'PUT',body:JSON.stringify({photo:reader.result})});
+      toast('Foto atualizada.');
+      openProfileModal();
+      loadAdvisor();
+    }catch(e){
+      toast('Erro ao enviar foto: '+e.message);
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function clearAdvisorPhoto(){
+  try{
+    await api('/api/advisor',{method:'PUT',body:JSON.stringify({photo:''})});
+    toast('Foto removida.');
+    openProfileModal();
+    loadAdvisor();
+  }catch(e){
+    toast('Erro ao remover foto: '+e.message);
+  }
+}
+
+function closeProfileModal(){
+  document.getElementById('profile-overlay').style.display='none';
+}
+
+let _dwRiskProfile='';
+
+function setDwRiskProfile(profile){
+  _dwRiskProfile=profile;
+  document.querySelectorAll('#dw-risk-profile-tabs .dw-tab').forEach(b=>b.classList.toggle('active', b.dataset.profile===profile));
+  loadDwRisk();
+}
+
+async function loadDwRisk(){
+  const url=_dwRiskProfile?`/api/portfolio/risk-breakdown?profile=${_dwRiskProfile}`:'/api/portfolio/risk-breakdown';
+  try{
+    renderDwRisk(await api(url));
+  }catch(e){
+    renderDwRisk(null);
+  }
+}
+
+function renderDwRisk(risk){
+  const box=document.getElementById('dw-risk');
+  if(!risk||!risk.categories||!risk.categories.length){
+    box.innerHTML='<div class="dw-empty">Sem alocação configurada para calcular o risco agregado.</div>';
+    return;
+  }
+  const colors=['#00d4ff','#10b981','#f59e0b','#a78bfa','#f472b6'];
+  const total=risk.categories.reduce((s,c)=>s+c.weight,0)||1;
+  let acc=0;
+  const stops=risk.categories.map((c,i)=>{
+    const start=acc/total*100; acc+=c.weight;
+    const end=acc/total*100;
+    return `${colors[i%colors.length]} ${start.toFixed(1)}% ${end.toFixed(1)}%`;
+  }).join(', ');
+  const legend=risk.categories.map((c,i)=>
+    `<div class="donut-legend-item"><div class="donut-legend-dot" style="background:${colors[i%colors.length]}"></div>${escapeHtml(c.label)}<b>${c.weight.toFixed(1)}%</b></div>`
+  ).join('');
+  const sourceLabel=risk.source==='current_allocation'?'posição atual':'alocação-alvo (sem posição atual)';
+  box.innerHTML=`<div class="donut-wrap"><div style="width:84px;height:84px;border-radius:50%;background:conic-gradient(${stops});flex-shrink:0"></div><div class="donut-legend">${legend}</div></div><div class="donut-profile">Perfil: ${escapeHtml(risk.profile||'—')} · ${sourceLabel}</div>`;
+}
+
+function renderDwImpacted(prio){
+  const box=document.getElementById('dw-impacted');
+  const colors={CRITICAL:'var(--red)',HIGH:'var(--red)',MEDIUM:'var(--yellow)',LOW:'var(--green)',NEUTRAL:'var(--green)'};
+  const widths={CRITICAL:100,HIGH:80,MEDIUM:55,LOW:25,NEUTRAL:10};
+
+  // by_client consolidates every priority item tied to a real client into
+  // one row per client (worst issue first) — a much more actionable "who
+  // needs attention today" than a flat event feed. Items with no client
+  // (a market move not tied to any specific portfolio) never appear here
+  // by design, so the flat list stays the fallback when by_client is empty.
+  if(prio&&prio.by_client&&prio.by_client.length){
+    let html='';
+    for(const c of prio.by_client.slice(0,6)){
+      const nameAttr=escapeHtml(c.client_name).replace(/'/g,"&#39;");
+      const firstReason=c.items[0].reason;
+      const extra=c.issues_count>1?` (+${c.issues_count-1} outro${c.issues_count>2?'s':''})`:'';
+      html+=`<div class="impact-row" style="cursor:pointer" onclick="openClient360('${c.client_id}','${nameAttr}')">`
+        +`<div class="impact-name">${initialsAvatar(c.client_name)}${escapeHtml(c.client_name)}</div>`
+        +`<div class="impact-reason">${escapeHtml(firstReason)}${extra}</div>`
+        +`<div class="impact-bar-bg"><div class="impact-bar-fill" style="width:${widths[c.worst_level]}%;background:${colors[c.worst_level]}"></div></div>`
+        +`</div>`;
+    }
+    box.innerHTML=html;
+    return;
+  }
+
+  if(!prio||!prio.items||!prio.items.length){box.innerHTML='<div class="dw-empty">Nenhuma carteira impactada no momento.</div>';return;}
+  let html='';
+  for(const it of prio.items.slice(0,6)){
+    html+=`<div class="impact-row"><div class="impact-name">${escapeHtml(it.title)}</div><div class="impact-reason">${escapeHtml(it.reason)}</div><div class="impact-bar-bg"><div class="impact-bar-fill" style="width:${widths[it.level]}%;background:${colors[it.level]}"></div></div></div>`;
+  }
+  box.innerHTML=html;
+}
+
+async function dwAsk(question){
+  if(!question||!question.trim()) return;
+  const box=document.getElementById('dw-chat-chips');
+  const loading=document.createElement('div');
+  loading.className='dw-empty';
+  loading.style.textAlign='left';
+  loading.textContent='Pensando…';
+  box.appendChild(loading);
+  try{
+    const r=await api('/api/ask',{method:'POST',body:JSON.stringify({question,history:[]})});
+    loading.remove();
+    const answer=document.createElement('div');
+    answer.style.cssText='background:var(--bg3);border-radius:8px;padding:10px;font-size:12px;margin-top:6px;white-space:pre-wrap;color:var(--text)';
+    answer.textContent=r.answer;
+    box.appendChild(answer);
+  }catch(e){
+    loading.textContent='Erro: '+e.message;
+  }
+  document.getElementById('dw-chat-inp').value='';
 }
 
 function renderAgentCards(agents){
@@ -1168,9 +2779,69 @@ async function saveFlowBuilder(){
   }catch(e){toast('Erro: '+e.message);}
 }
 
-/* ── Init ── */
-refresh();
-setInterval(refresh,30000);
+/* ── Desktop theme toggle (dark/light) ──
+   Only affects the desktop layout (see the body[data-desktop-theme]
+   CSS rule) — mobile always uses its original dark theme. Remembered
+   per-browser via localStorage so a reload keeps the chosen theme. */
+function setDesktopTheme(theme){
+  document.body.dataset.desktopTheme=theme;
+  const btn=document.getElementById('dw-theme-toggle');
+  if(btn) btn.textContent=theme==='light'?'🌙':'☀️';
+  try{ localStorage.setItem('flowcore-desktop-theme',theme); }catch(e){}
+}
+function toggleDesktopTheme(){
+  setDesktopTheme(document.body.dataset.desktopTheme==='light'?'dark':'light');
+}
+(function initDesktopTheme(){
+  let saved='light';
+  try{ saved=localStorage.getItem('flowcore-desktop-theme')||'light'; }catch(e){}
+  setDesktopTheme(saved);
+})();
+
+/* ── Advisor card — name/title/quote from GET /api/advisor. Avatar is
+   initials by default (never a generated photo standing in for a real
+   person — same reasoning as the demo clients' avatars), but shows the
+   advisor's own real uploaded photo (a.photo) when one is configured
+   via the profile modal's upload control. */
+function setAvatarEl(el, name, photo){
+  if(!el) return;
+  const initials=(name||'?').trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  if(photo){
+    el.textContent='';
+    el.style.backgroundImage=`url(${photo})`;
+    el.style.backgroundSize='cover';
+    el.style.backgroundPosition='center';
+  }else{
+    el.textContent=initials;
+    el.style.backgroundImage='';
+  }
+}
+
+function loadAdvisor(){
+  api('/api/advisor').then(a=>{
+    setAvatarEl(document.getElementById('dw-advisor-avatar'), a.name, a.photo);
+    document.getElementById('dw-advisor-name').textContent=a.name||'—';
+    document.getElementById('dw-advisor-title').textContent=a.title||'';
+    document.getElementById('dw-advisor-quote').textContent=a.quote?`“${a.quote}”`:'';
+    setAvatarEl(document.getElementById('dw-topbar-avatar'), a.name, a.photo);
+  }).catch(()=>{});
+}
+
+/* ── Init ──
+   Anything that calls api() needs an authenticated session, so it only
+   starts inside startApp(), after checkAuthAndStart() confirms one
+   (either an already-valid stored token, or a fresh login/signup).
+   updateHomeGreeting() is pure UI (no network) and can run immediately. */
+function startApp(){
+  refresh();
+  loadDashboardOverview();
+  loadAdvisor();
+  setInterval(refresh,30000);
+  setInterval(loadDashboardOverview,60000);
+}
+updateHomeGreeting();
+setInterval(updateHomeGreeting,60000);
+checkAuthAndStart();
 </script>
 </body>
 </html>

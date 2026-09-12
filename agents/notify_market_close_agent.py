@@ -3,7 +3,6 @@ de Mercado" flow: reads the fechamento MarketCloseAgent just saved and sends
 an Android notification with the actual result (a real headline), not a
 generic "task completed" message.
 """
-
 from __future__ import annotations
 
 import json

@@ -25,8 +25,8 @@ from runtime.agent import AgentEngine, ToolSpec
 from runtime.exposure import ExposureEngine, compute_concentration
 from runtime.decision import DecisionEngine
 from runtime.impact import ImpactEngine
-from runtime.llm import InMemoryMetrics, LLMRequest, LLMRouter, LocalFirstPolicy, ProviderRegistry
-from runtime.llm.providers import OllamaProvider, OpenRouterProvider
+from runtime.llm import LLMRequest, LLMRouter, LocalFirstPolicy, PersistentMetricsSink, ProviderRegistry
+from runtime.llm.providers import DeepSeekProvider, OllamaProvider, OpenRouterProvider
 from runtime.narrative import NarrativeEngine
 from runtime.macro_score import MacroScoreEngine
 from runtime.product_mapping import DEFAULT_SHELF, list_shelves, load_shelf, map_action
@@ -51,8 +51,9 @@ _decision_engine = DecisionEngine(_impact_engine, _exposure_engine)
 # matching this project's existing "local-first" AI Philosophy.
 _llm_registry = ProviderRegistry()
 _llm_registry.register(OllamaProvider())
+_llm_registry.register(DeepSeekProvider())
 _llm_registry.register(OpenRouterProvider())
-_llm_router = LLMRouter(_llm_registry, LocalFirstPolicy(), metrics=InMemoryMetrics())
+_llm_router = LLMRouter(_llm_registry, LocalFirstPolicy(), metrics=PersistentMetricsSink())
 _narrative_engine = NarrativeEngine(_llm_router)
 
 # Canonical note/todo/agenda title labels. Previously CLI/MCP used

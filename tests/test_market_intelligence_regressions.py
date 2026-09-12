@@ -11,7 +11,6 @@ regime signal into the daily briefing:
    `except Exception: ...`, so the resulting TypeError was swallowed
    and the regime section was always silently empty/unavailable.
 """
-
 from __future__ import annotations
 
 import sys
@@ -72,18 +71,16 @@ class TestBriefingRegimeSection:
 
         fake_curve = YieldCurve(
             points=[CurvePoint("treasury", "10Y", 4.2, 4.1)],
-            slope_10y_2y=10,
-            slope_30y_10y=5,
-            previous_slope_10y_2y=8,
-            state="normal",
-            shape="bull-steepening",
-            interpretation="teste",
+            slope_10y_2y=10, slope_30y_10y=5, previous_slope_10y_2y=8,
+            state="normal", shape="bull-steepening", interpretation="teste",
         )
 
         with (
             patch.object(briefing, "build_yield_curve", lambda: fake_curve),
             patch.object(briefing, "analyze_fx", lambda: {"dxy_delta_pct_1d": 0.3, "pairs": []}),
             patch.object(briefing, "analyze_asset_classes", lambda: {"classes": {}}),
+            patch("runtime.market_intelligence.news.fetch_news", return_value={"items": []}),
+            patch("runtime.market_intelligence.alerts.list_alerts", return_value=[]),
         ):
             result = briefing.build_briefing()  # must not raise
 

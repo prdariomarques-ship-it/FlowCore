@@ -24,7 +24,19 @@ _DEFAULT_TIMEOUT_SECONDS = 10.0
 _DEFAULT_RETRIES = 2
 _RETRY_BACKOFF_SECONDS = 0.5
 
-_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="observer-yfinance")
+# evaluate_alerts() fans out to all ~10 distinct ALERT_DEFAULTS sources
+# concurrently (see runtime/market_intelligence/alerts.py), each landing
+# here. This was widened to 16 workers on the theory that more headroom
+# above the source count would keep a full alert sweep from becoming the
+# bottleneck -- but real-device testing (Termux/Android on a mobile
+# uplink, see runtime/market_intelligence/watchlist.py's own history)
+# found the opposite: 16 simultaneous yfinance connections oversubscribe
+# a constrained mobile link and time out more, not less, than fewer
+# workers would. watchlist.py's snapshot() was tuned down from 16 to 6
+# for exactly this reason; mirrored here after the same symptom showed up
+# in /api/market/overview on the FlowCore Mobile APK (Cloudflare AND
+# Tailscale routes both timing out).
+_executor = ThreadPoolExecutor(max_workers=6, thread_name_prefix="observer-yfinance")
 
 
 def _to_float(value: Any) -> float | None:
@@ -80,12 +92,12 @@ def _history_once(symbol: str, days: int) -> list[float]:
     # yfinance's download() may reject raw float timestamps on some
     # versions — pass datetime objects instead.
     import datetime as _dt
-
     start_dt = _dt.datetime.fromtimestamp(start, tz=_dt.timezone.utc)
     end_dt = _dt.datetime.fromtimestamp(end, tz=_dt.timezone.utc)
 
     def _do_download(kwargs: dict) -> Any:
-        return yf.download(symbol, auto_adjust=True, progress=False, timeout=_DEFAULT_TIMEOUT_SECONDS, **kwargs)
+        return yf.download(symbol, auto_adjust=True, progress=False,
+                           timeout=_DEFAULT_TIMEOUT_SECONDS, **kwargs)
 
     df: Any = None
     last_err: Exception | None = None
@@ -117,7 +129,8 @@ def _history_once(symbol: str, days: int) -> list[float]:
         # MultiIndex columns (e.g. ('Close', 'GC=F')): pick the tuple whose
         # first element matches, using the single-symbol level otherwise.
         if isinstance(df.columns, pd.MultiIndex):
-            candidates = [c for c in df.columns if isinstance(c, tuple) and c[0] == close_col]
+            candidates = [c for c in df.columns
+                          if isinstance(c, tuple) and c[0] == close_col]
             close_col = candidates[0] if candidates else df.columns[0]
     try:
         series = df[close_col]

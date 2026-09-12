@@ -2,7 +2,6 @@
 
 Single source of truth for the SQLite path.  All repositories use this.
 """
-
 from __future__ import annotations
 
 from config.loader import get_config

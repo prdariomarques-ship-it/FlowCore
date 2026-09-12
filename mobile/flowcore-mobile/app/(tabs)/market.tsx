@@ -17,9 +17,13 @@ export default function MarketScreen() {
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(async () => {
     setError(null);
-    try { const [market, note] = await Promise.all([getMarketOverview(), getMarketBriefing()]); setOverview(market.data); setBriefing(note.data); }
-    catch (e) { setError(e instanceof Error ? e.message : "Não foi possível consultar o FlowCore"); }
-    finally { setLoading(false); }
+    // Settled, not all: the briefing is a nice-to-have on top of the quotes. If it
+    // fails there is no reason to throw away an overview that came back fine.
+    const [market, note] = await Promise.allSettled([getMarketOverview(), getMarketBriefing()]);
+    if (market.status === "fulfilled") setOverview(market.value.data);
+    else setError(market.reason instanceof Error ? market.reason.message : "Não foi possível consultar o FlowCore");
+    setBriefing(note.status === "fulfilled" ? note.value.data : null);
+    setLoading(false);
   }, []);
   useEffect(() => { load(); }, [load]);
   return <ScreenContainer className="px-4"><FlatList data={overview?.items ?? []} keyExtractor={(item) => item.symbol} renderItem={({ item }) => <MarketRow item={item} />} refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor="#20C6D8" />} ListHeaderComponent={<View style={styles.header}><Text style={styles.heading}>Mercado</Text><Text style={styles.subtitle}>Mesmo feed usado pelo briefing de mercado</Text>{briefing?.lines?.length ? <SectionCard title="Briefing"><View style={styles.briefing}>{briefing.lines.slice(0, 6).map((line, index) => <Text key={`${line}-${index}`} style={styles.briefingLine}>{line}</Text>)}</View></SectionCard> : null}<Text style={styles.listTitle}>Índices e ativos monitorados</Text></View>} ListEmptyComponent={loading ? <ActivityIndicator color="#20C6D8" /> : <EmptyState title="Mercado indisponível" detail={error ?? "A fonte ainda não retornou cotações. Verifique a conexão na aba Conexão."} />} contentContainerStyle={styles.content} /></ScreenContainer>;

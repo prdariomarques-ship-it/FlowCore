@@ -1,5 +1,4 @@
 """runtime/obsidian.py — Obsidian vault sync for FlowCore Daily Notes."""
-
 from __future__ import annotations
 
 import json
@@ -86,7 +85,8 @@ def _brief_to_markdown(brief: dict[str, Any]) -> str:
         lines.append("## Macro Score")
         for dim in mac["dimensions"]:
             val_str = _fmt_num(dim.get("value"))
-            lines.append(f"- {dim['dimension']}: **{val_str}** ({dim.get('status', '')} {dim.get('trend', '')})")
+            lines.append(f"- {dim['dimension']}: **{val_str}** "
+                         f"({dim.get('status', '')} {dim.get('trend', '')})")
         lines.append("")
 
     news = sections.get("news", {})

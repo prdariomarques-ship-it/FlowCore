@@ -12,8 +12,14 @@
 # diretamente (ver deploy/proc_utils.sh), depois sobe tudo de novo.
 #
 # Uso (dentro de ~/FlowCore):
-#   bash deploy/restart.sh            # git pull + restart (padrão)
+#   bash deploy/restart.sh            # git pull (branch atualmente
+#                                      # checked out neste clone) + restart
 #   bash deploy/restart.sh --no-pull  # só restart, sem mexer no git
+#
+# ~/FlowCore é o clone de produção e deve ficar sempre em
+# claude/dario-os-platform-gcg6i2 (ou o branch ativo do momento) -- nunca
+# faça checkout de main ou merge de main aqui. Para trabalhar em main, use
+# um clone separado (ex.: ~/FlowCore-main). Ver README.md.
 set -u
 
 BASE="$HOME/FlowCore"
@@ -29,8 +35,16 @@ _log() { echo "$(date -Is) $*" | tee -a "$LOGDIR/restart.log"; }
 _log "=== Restart iniciado ==="
 
 if [ "${1:-}" != "--no-pull" ]; then
-    _log "git pull origin main..."
-    git pull origin main 2>&1 | tee -a "$LOGDIR/restart.log"
+    # Pull whatever branch this clone actually has checked out -- a
+    # hardcoded "main" here is exactly the kind of footgun that once
+    # merged the old, pre-multi-tenant main branch into the deployed
+    # claude/dario-os-platform-gcg6i2 branch and briefly took production's
+    # auth/client/investor-classification endpoints offline. This clone
+    # (~/FlowCore) should only ever be on the deployed branch; a separate
+    # clone (~/FlowCore-main) exists for anyone who needs to work on main.
+    CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+    _log "git pull origin $CURRENT_BRANCH..."
+    git pull origin "$CURRENT_BRANCH" 2>&1 | tee -a "$LOGDIR/restart.log"
 fi
 
 _log "Encerrando processos antigos (se houver)..."
