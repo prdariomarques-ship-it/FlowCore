@@ -1968,6 +1968,36 @@ def register_dashboard_routes(app, version: str) -> None:
                 "stub": False, **_market_unavailable("intelligence", exc),
             }
 
+    @app.get("/api/intelligence/history")
+    async def intelligence_history(request: Request, limit: int = 20):
+        """Past OVERRIDE decisions for this office, read back from
+        IntelligenceEngine's own append-only audit trail
+        (~/.flowcore/intelligence_audit_<office_id>.jsonl) — so "was there
+        ever an override before?" doesn't only look at the current
+        snapshot. Most recent first."""
+        user = await get_current_user(request)
+        from agents.intelligence_engine import _DATA_DIR
+
+        log_path = _DATA_DIR / f"intelligence_audit_{user['office_id']}.jsonl"
+        records: list[dict] = []
+        try:
+            if log_path.exists():
+                with log_path.open("r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            record = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        if record.get("classification") == "OVERRIDE":
+                            records.append(record)
+            records.reverse()
+            return {"total": len(records), "events": records[:limit], "available": True, "stub": False}
+        except OSError as exc:
+            return {"total": 0, "events": [], "stub": False, **_market_unavailable("intelligence_history", exc)}
+
     @app.get("/api/priorities")
     async def priorities(request: Request):
         """PriorityEngine's ranked events (Wealth Copilot MVP 2, phase 3)

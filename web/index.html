@@ -593,8 +593,9 @@ details.mi>summary::marker{display:none}
             <div id="dw-recalibrate-list"><div class="sk"></div><div class="sk"></div></div>
           </div>
           <div class="card">
-            <div class="ch"><span class="ct">Override</span></div>
+            <div class="ch"><span class="ct">Override</span><span class="dw-link" id="dw-override-history-toggle" onclick="toggleDwOverrideHistory()">Histórico →</span></div>
             <div id="dw-override-list"><div class="sk"></div><div class="sk"></div></div>
+            <div id="dw-override-history" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)"></div>
           </div>
           <div class="card">
             <div class="ch"><span class="ct">Prioridades do Dia</span><span class="dw-link" onclick="pg('portfolio',document.getElementById('sb-portfolio'),true)">Ver todas →</span></div>
@@ -2449,6 +2450,30 @@ function renderDwEventList(boxId, intel, status, emptyMsg){
   for(const e of events.slice(0,6)){
     const portfolios=(e.affected_portfolios||[]).join(', ');
     html+=`<div class="mini-list-item"><div><b>${escapeHtml(e.reason)}</b>${portfolios?`<span>${escapeHtml(portfolios)}</span>`:''}</div></div>`;
+  }
+  box.innerHTML=html;
+}
+
+let dwOverrideHistoryLoaded=false;
+function toggleDwOverrideHistory(){
+  const box=document.getElementById('dw-override-history');
+  const open=box.style.display==='none';
+  box.style.display=open?'block':'none';
+  document.getElementById('dw-override-history-toggle').textContent=open?'Ocultar histórico ←':'Histórico →';
+  if(open && !dwOverrideHistoryLoaded){
+    dwOverrideHistoryLoaded=true;
+    api('/api/intelligence/history').then(renderDwOverrideHistory).catch(()=>renderDwOverrideHistory(null));
+  }
+}
+function renderDwOverrideHistory(hist){
+  const box=document.getElementById('dw-override-history');
+  if(!hist){box.innerHTML='<div class="dw-empty">Indisponível.</div>';return;}
+  const events=hist.events||[];
+  if(!events.length){box.innerHTML='<div class="dw-empty">Nenhum override registrado até agora.</div>';return;}
+  let html='';
+  for(const e of events){
+    const when=e.timestamp?new Date(e.timestamp).toLocaleString('pt-BR'):'';
+    html+=`<div class="mini-list-item"><div><b>${escapeHtml(e.reason||'')}</b><span>${escapeHtml(when)}</span></div></div>`;
   }
   box.innerHTML=html;
 }
